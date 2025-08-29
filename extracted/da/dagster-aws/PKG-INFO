@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-aws
-Version: 0.27.7
+Version: 0.27.8
 Summary: Package for AWS-specific Dagster framework solid and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-aws
 Author: Dagster Labs
@@ -16,7 +16,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.14
 License-File: LICENSE
 Requires-Dist: boto3
-Requires-Dist: dagster==1.11.7
+Requires-Dist: dagster==1.11.8
 Requires-Dist: packaging
 Requires-Dist: requests
 Provides-Extra: redshift
@@ -32,6 +32,7 @@ Requires-Dist: requests-mock; extra == "test"
 Requires-Dist: xmltodict==0.12.0; extra == "test"
 Requires-Dist: flaky; extra == "test"
 Requires-Dist: pytest-cases; extra == "test"
+Requires-Dist: s3fs; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

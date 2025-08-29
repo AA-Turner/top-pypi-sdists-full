@@ -5,7 +5,7 @@
   keywords = ["pulumi", "pagerduty"]
   readme = "README.md"
   requires-python = ">=3.9"
-  version = "4.27.2"
+  version = "4.27.3"
   [project.license]
     text = "Apache-2.0"
   [project.urls]

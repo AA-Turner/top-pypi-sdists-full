@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-panzoom-plugin
-Version: 0.3.0
+Version: 0.4.1
 Summary: MkDocs Plugin to enable pan & zoom on images and mermaid diagrams
 Home-page: https://github.com/PLAYG0N/mkdocs-panzoom.git
 Author: PLAYG0N
@@ -20,7 +20,6 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mkdocs>=1.0.4
-Requires-Dist: beautifulsoup4>=4.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -101,6 +100,14 @@ This changes the location of the hint
 plugins:
    - panzoom:
       hint_location: "top" # default bottom
+```
+
+Hide hint completely
+
+```yaml
+plugins:
+   - panzoom:
+      hint_location: "disabled" # default bottom
 ```
 
 ### Use different key

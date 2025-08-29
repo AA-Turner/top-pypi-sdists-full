@@ -1,7 +1,7 @@
 r'''
 # `aws_appmesh_virtual_node`
 
-Refer to the Terraform Registry for docs: [`aws_appmesh_virtual_node`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node).
+Refer to the Terraform Registry for docs: [`aws_appmesh_virtual_node`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppmeshVirtualNode(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appmeshVirtualNode.AppmeshVirtualNode",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node aws_appmesh_virtual_node}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node aws_appmesh_virtual_node}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class AppmeshVirtualNode(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node aws_appmesh_virtual_node} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node aws_appmesh_virtual_node} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class AppmeshVirtualNode(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppmeshVirtualNode to import.
-        :param import_from_id: The id of the existing AppmeshVirtualNode that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppmeshVirtualNode that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppmeshVirtualNode to import is found.
         '''
         if __debug__:
@@ -146,11 +146,11 @@ class AppmeshVirtualNode(
         service_discovery: typing.Optional[typing.Union["AppmeshVirtualNodeSpecServiceDiscovery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
-        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
-        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
-        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
+        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
+        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
+        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
+        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
         '''
         value = AppmeshVirtualNodeSpec(
             backend=backend,
@@ -396,14 +396,14 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -522,14 +522,14 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_name AppmeshVirtualNode#mesh_name}.'''
         result = self._values.get("mesh_name")
         assert result is not None, "Required property 'mesh_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#name AppmeshVirtualNode#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -538,7 +538,7 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> "AppmeshVirtualNodeSpec":
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#spec AppmeshVirtualNode#spec}
         '''
         result = self._values.get("spec")
         assert result is not None, "Required property 'spec' is missing"
@@ -546,7 +546,7 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#id AppmeshVirtualNode#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -556,7 +556,7 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mesh_owner AppmeshVirtualNode#mesh_owner}.'''
         result = self._values.get("mesh_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -564,20 +564,20 @@ class AppmeshVirtualNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#region AppmeshVirtualNode#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags AppmeshVirtualNode#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tags_all AppmeshVirtualNode#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -615,11 +615,11 @@ class AppmeshVirtualNodeSpec:
         service_discovery: typing.Optional[typing.Union["AppmeshVirtualNodeSpecServiceDiscovery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
-        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
-        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
-        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
+        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
+        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
+        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
+        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
         '''
         if isinstance(backend_defaults, dict):
             backend_defaults = AppmeshVirtualNodeSpecBackendDefaults(**backend_defaults)
@@ -652,7 +652,7 @@ class AppmeshVirtualNodeSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecBackend"]]]:
         '''backend block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend AppmeshVirtualNode#backend}
         '''
         result = self._values.get("backend")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecBackend"]]], result)
@@ -663,7 +663,7 @@ class AppmeshVirtualNodeSpec:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaults"]:
         '''backend_defaults block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#backend_defaults AppmeshVirtualNode#backend_defaults}
         '''
         result = self._values.get("backend_defaults")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaults"], result)
@@ -674,7 +674,7 @@ class AppmeshVirtualNodeSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListener"]]]:
         '''listener block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#listener AppmeshVirtualNode#listener}
         '''
         result = self._values.get("listener")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListener"]]], result)
@@ -683,7 +683,7 @@ class AppmeshVirtualNodeSpec:
     def logging(self) -> typing.Optional["AppmeshVirtualNodeSpecLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#logging AppmeshVirtualNode#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecLogging"], result)
@@ -694,7 +694,7 @@ class AppmeshVirtualNodeSpec:
     ) -> typing.Optional["AppmeshVirtualNodeSpecServiceDiscovery"]:
         '''service_discovery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_discovery AppmeshVirtualNode#service_discovery}
         '''
         result = self._values.get("service_discovery")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecServiceDiscovery"], result)
@@ -723,7 +723,7 @@ class AppmeshVirtualNodeSpecBackend:
         virtual_service: typing.Union["AppmeshVirtualNodeSpecBackendVirtualService", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#virtual_service AppmeshVirtualNode#virtual_service}
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#virtual_service AppmeshVirtualNode#virtual_service}
         '''
         if isinstance(virtual_service, dict):
             virtual_service = AppmeshVirtualNodeSpecBackendVirtualService(**virtual_service)
@@ -738,7 +738,7 @@ class AppmeshVirtualNodeSpecBackend:
     def virtual_service(self) -> "AppmeshVirtualNodeSpecBackendVirtualService":
         '''virtual_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#virtual_service AppmeshVirtualNode#virtual_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#virtual_service AppmeshVirtualNode#virtual_service}
         '''
         result = self._values.get("virtual_service")
         assert result is not None, "Required property 'virtual_service' is missing"
@@ -768,7 +768,7 @@ class AppmeshVirtualNodeSpecBackendDefaults:
         client_policy: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         if isinstance(client_policy, dict):
             client_policy = AppmeshVirtualNodeSpecBackendDefaultsClientPolicy(**client_policy)
@@ -785,7 +785,7 @@ class AppmeshVirtualNodeSpecBackendDefaults:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicy"]:
         '''client_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         result = self._values.get("client_policy")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicy"], result)
@@ -814,7 +814,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicy:
         tls: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         if isinstance(tls, dict):
             tls = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls(**tls)
@@ -831,7 +831,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicy:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls"], result)
@@ -878,10 +878,10 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyOutputReference(
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls(
             validation=validation,
@@ -948,10 +948,10 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls:
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
         '''
         if isinstance(validation, dict):
             validation = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation(**validation)
@@ -979,7 +979,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls:
     ) -> "AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation":
         '''validation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
         '''
         result = self._values.get("validation")
         assert result is not None, "Required property 'validation' is missing"
@@ -991,7 +991,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate"]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate"], result)
@@ -1000,13 +1000,13 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls:
     def enforce(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.'''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.'''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1035,8 +1035,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile(**file)
@@ -1058,7 +1058,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile"], result)
@@ -1069,7 +1069,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds"], result)
@@ -1102,8 +1102,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile:
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16ab06afd757e139a05eb9f1fa7808b0e492059ed545a4c4173a5b5827f54c9f)
@@ -1116,14 +1116,14 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1240,8 +1240,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateOutputRefer
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateFile(
             certificate_chain=certificate_chain, private_key=private_key
@@ -1252,7 +1252,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateOutputRefer
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds(
             secret_name=secret_name
@@ -1322,7 +1322,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateOutputRefer
 class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e42b16c40287fced240b7b3299bd8ab8e2ae8884b374cb9c503a68f065a05e42)
@@ -1333,7 +1333,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1433,8 +1433,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsOutputReference(
         sds: typing.Optional[typing.Union[AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificateSds, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsCertificate(
             file=file, sds=sds
@@ -1450,8 +1450,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation(
             trust=trust, subject_alternative_names=subject_alternative_names
@@ -1572,8 +1572,8 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation:
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         if isinstance(trust, dict):
             trust = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust(**trust)
@@ -1595,7 +1595,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation:
     ) -> "AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust":
         '''trust block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
         '''
         result = self._values.get("trust")
         assert result is not None, "Required property 'trust' is missing"
@@ -1607,7 +1607,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidation:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames"], result)
@@ -1651,7 +1651,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationOutputRefere
         match: typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames(
             match=match
@@ -1668,9 +1668,9 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationOutputRefere
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust(
             acm=acm, file=file, sds=sds
@@ -1740,7 +1740,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlter
         match: typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         if isinstance(match, dict):
             match = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch(**match)
@@ -1757,7 +1757,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlter
     ) -> "AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -1783,7 +1783,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlter
 class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch:
     def __init__(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f362e886dee19a97fb832101e8727781c04af244c99807e61d87efbc010275bd)
@@ -1794,7 +1794,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlter
 
     @builtins.property
     def exact(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1889,7 +1889,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlter
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch(
             exact=exact
@@ -1943,9 +1943,9 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(acm, dict):
             acm = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm(**acm)
@@ -1972,7 +1972,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm"]:
         '''acm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm"], result)
@@ -1983,7 +1983,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustFile"], result)
@@ -1994,7 +1994,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds"], result)
@@ -2023,7 +2023,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm:
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dcc62a3a186e55295eba9328a4aef1df17836aab4c82dda73104370031f082a5)
@@ -2034,7 +2034,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm:
 
     @builtins.property
     def certificate_authority_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.'''
         result = self._values.get("certificate_authority_arns")
         assert result is not None, "Required property 'certificate_authority_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2116,7 +2116,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcmOutp
 class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustFile:
     def __init__(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06e91fca473e771f3d67ba6796347a9e3b9c528e3caac6c5877b6c4f31f5e5b2)
@@ -2127,7 +2127,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
@@ -2226,7 +2226,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustOutputR
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustAcm(
             certificate_authority_arns=certificate_authority_arns
@@ -2237,7 +2237,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustOutputR
     @jsii.member(jsii_name="putFile")
     def put_file(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustFile(
             certificate_chain=certificate_chain
@@ -2248,7 +2248,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustOutputR
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds(
             secret_name=secret_name
@@ -2336,7 +2336,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustOutputR
 class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__286153c7250e49943a3eecd3866daf98f8329b25b40170033f10685f95527faf)
@@ -2347,7 +2347,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTlsValidationTrustSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2446,7 +2446,7 @@ class AppmeshVirtualNodeSpecBackendDefaultsOutputReference(
         tls: typing.Optional[typing.Union[AppmeshVirtualNodeSpecBackendDefaultsClientPolicyTls, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaultsClientPolicy(tls=tls)
 
@@ -2610,8 +2610,8 @@ class AppmeshVirtualNodeSpecBackendOutputReference(
         client_policy: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualService(
             virtual_service_name=virtual_service_name, client_policy=client_policy
@@ -2667,8 +2667,8 @@ class AppmeshVirtualNodeSpecBackendVirtualService:
         client_policy: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         if isinstance(client_policy, dict):
             client_policy = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy(**client_policy)
@@ -2684,7 +2684,7 @@ class AppmeshVirtualNodeSpecBackendVirtualService:
 
     @builtins.property
     def virtual_service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#virtual_service_name AppmeshVirtualNode#virtual_service_name}.'''
         result = self._values.get("virtual_service_name")
         assert result is not None, "Required property 'virtual_service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2695,7 +2695,7 @@ class AppmeshVirtualNodeSpecBackendVirtualService:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy"]:
         '''client_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         result = self._values.get("client_policy")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy"], result)
@@ -2724,7 +2724,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy:
         tls: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         if isinstance(tls, dict):
             tls = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls(**tls)
@@ -2741,7 +2741,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls"], result)
@@ -2788,10 +2788,10 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyOutputReference(
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls(
             validation=validation,
@@ -2858,10 +2858,10 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls:
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.
         '''
         if isinstance(validation, dict):
             validation = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation(**validation)
@@ -2889,7 +2889,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls:
     ) -> "AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation":
         '''validation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
         '''
         result = self._values.get("validation")
         assert result is not None, "Required property 'validation' is missing"
@@ -2901,7 +2901,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate"]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate"], result)
@@ -2910,13 +2910,13 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls:
     def enforce(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#enforce AppmeshVirtualNode#enforce}.'''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ports AppmeshVirtualNode#ports}.'''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -2945,8 +2945,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile(**file)
@@ -2968,7 +2968,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile"], result)
@@ -2979,7 +2979,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds"], result)
@@ -3012,8 +3012,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile:
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__477a8ef98256e981fccf5f55495c4c9b2548e36066261e60291fd93b54bce123)
@@ -3026,14 +3026,14 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
@@ -3150,8 +3150,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateOutpu
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateFile(
             certificate_chain=certificate_chain, private_key=private_key
@@ -3162,7 +3162,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateOutpu
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds(
             secret_name=secret_name
@@ -3232,7 +3232,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateOutpu
 class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ecd29984cd18e66a7923d6526b07d0b56d6039d17ee04c607d4901f6df386ea)
@@ -3243,7 +3243,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3343,8 +3343,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsOutputReference(
         sds: typing.Optional[typing.Union[AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificateSds, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsCertificate(
             file=file, sds=sds
@@ -3360,8 +3360,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation(
             trust=trust, subject_alternative_names=subject_alternative_names
@@ -3482,8 +3482,8 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation:
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         if isinstance(trust, dict):
             trust = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust(**trust)
@@ -3505,7 +3505,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation:
     ) -> "AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust":
         '''trust block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
         '''
         result = self._values.get("trust")
         assert result is not None, "Required property 'trust' is missing"
@@ -3517,7 +3517,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidation:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNames"], result)
@@ -3561,7 +3561,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationOutput
         match: typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNames(
             match=match
@@ -3578,9 +3578,9 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationOutput
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust(
             acm=acm, file=file, sds=sds
@@ -3650,7 +3650,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjec
         match: typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         if isinstance(match, dict):
             match = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch(**match)
@@ -3667,7 +3667,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjec
     ) -> "AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -3693,7 +3693,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjec
 class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch:
     def __init__(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58c4f99fddc2b0b0bc7edeeee95c83ea0ebd6a60791ea4488e22b34d6450de5d)
@@ -3704,7 +3704,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjec
 
     @builtins.property
     def exact(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3799,7 +3799,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjec
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationSubjectAlternativeNamesMatch(
             exact=exact
@@ -3853,9 +3853,9 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(acm, dict):
             acm = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustAcm(**acm)
@@ -3882,7 +3882,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustAcm"]:
         '''acm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustAcm"], result)
@@ -3893,7 +3893,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustFile"], result)
@@ -3904,7 +3904,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds"], result)
@@ -3933,7 +3933,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustA
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3c31e2732167a30e0d5ea8c3ba6360f83dc3929c49d1237b2201da4eb2aa98f)
@@ -3944,7 +3944,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustA
 
     @builtins.property
     def certificate_authority_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.'''
         result = self._values.get("certificate_authority_arns")
         assert result is not None, "Required property 'certificate_authority_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4026,7 +4026,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustA
 class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustFile:
     def __init__(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccc2a9c17d3a7e6bf4c588b62b7e60e5b1d53413ce9a2c72ed0e5f07885cb5b8)
@@ -4037,7 +4037,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustF
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
@@ -4136,7 +4136,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustO
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_authority_arns AppmeshVirtualNode#certificate_authority_arns}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustAcm(
             certificate_authority_arns=certificate_authority_arns
@@ -4147,7 +4147,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustO
     @jsii.member(jsii_name="putFile")
     def put_file(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustFile(
             certificate_chain=certificate_chain
@@ -4158,7 +4158,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustO
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds(
             secret_name=secret_name
@@ -4246,7 +4246,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustO
 class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98142d225346c84754f07d34caf5a98a9154f6bc0312c6830376abad6524a462)
@@ -4257,7 +4257,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTlsValidationTrustS
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4356,7 +4356,7 @@ class AppmeshVirtualNodeSpecBackendVirtualServiceOutputReference(
         tls: typing.Optional[typing.Union[AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicyTls, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         value = AppmeshVirtualNodeSpecBackendVirtualServiceClientPolicy(tls=tls)
 
@@ -4439,12 +4439,12 @@ class AppmeshVirtualNodeSpecListener:
         tls: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port_mapping: port_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port_mapping AppmeshVirtualNode#port_mapping}
-        :param connection_pool: connection_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#connection_pool AppmeshVirtualNode#connection_pool}
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#health_check AppmeshVirtualNode#health_check}
-        :param outlier_detection: outlier_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#outlier_detection AppmeshVirtualNode#outlier_detection}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#timeout AppmeshVirtualNode#timeout}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        :param port_mapping: port_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port_mapping AppmeshVirtualNode#port_mapping}
+        :param connection_pool: connection_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#connection_pool AppmeshVirtualNode#connection_pool}
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#health_check AppmeshVirtualNode#health_check}
+        :param outlier_detection: outlier_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#outlier_detection AppmeshVirtualNode#outlier_detection}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#timeout AppmeshVirtualNode#timeout}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         if isinstance(port_mapping, dict):
             port_mapping = AppmeshVirtualNodeSpecListenerPortMapping(**port_mapping)
@@ -4484,7 +4484,7 @@ class AppmeshVirtualNodeSpecListener:
     def port_mapping(self) -> "AppmeshVirtualNodeSpecListenerPortMapping":
         '''port_mapping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port_mapping AppmeshVirtualNode#port_mapping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port_mapping AppmeshVirtualNode#port_mapping}
         '''
         result = self._values.get("port_mapping")
         assert result is not None, "Required property 'port_mapping' is missing"
@@ -4496,7 +4496,7 @@ class AppmeshVirtualNodeSpecListener:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerConnectionPool"]:
         '''connection_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#connection_pool AppmeshVirtualNode#connection_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#connection_pool AppmeshVirtualNode#connection_pool}
         '''
         result = self._values.get("connection_pool")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerConnectionPool"], result)
@@ -4507,7 +4507,7 @@ class AppmeshVirtualNodeSpecListener:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerHealthCheck"]:
         '''health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#health_check AppmeshVirtualNode#health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#health_check AppmeshVirtualNode#health_check}
         '''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerHealthCheck"], result)
@@ -4518,7 +4518,7 @@ class AppmeshVirtualNodeSpecListener:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerOutlierDetection"]:
         '''outlier_detection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#outlier_detection AppmeshVirtualNode#outlier_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#outlier_detection AppmeshVirtualNode#outlier_detection}
         '''
         result = self._values.get("outlier_detection")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerOutlierDetection"], result)
@@ -4527,7 +4527,7 @@ class AppmeshVirtualNodeSpecListener:
     def timeout(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#timeout AppmeshVirtualNode#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#timeout AppmeshVirtualNode#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeout"], result)
@@ -4536,7 +4536,7 @@ class AppmeshVirtualNodeSpecListener:
     def tls(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tls AppmeshVirtualNode#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTls"], result)
@@ -4568,10 +4568,10 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
         tcp: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppmeshVirtualNodeSpecListenerConnectionPoolTcp", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
-        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         if isinstance(grpc, dict):
             grpc = AppmeshVirtualNodeSpecListenerConnectionPoolGrpc(**grpc)
@@ -4597,7 +4597,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerConnectionPoolGrpc"]:
         '''grpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
         '''
         result = self._values.get("grpc")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerConnectionPoolGrpc"], result)
@@ -4608,7 +4608,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolHttp"]]]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolHttp"]]], result)
@@ -4619,7 +4619,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolHttp2"]]]:
         '''http2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
         '''
         result = self._values.get("http2")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolHttp2"]]], result)
@@ -4630,7 +4630,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolTcp"]]]:
         '''tcp block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         result = self._values.get("tcp")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecListenerConnectionPoolTcp"]]], result)
@@ -4655,7 +4655,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPool:
 class AppmeshVirtualNodeSpecListenerConnectionPoolGrpc:
     def __init__(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c449a29545a7159d734ee79eb3f980056983eb986e3c26bd954c46c930eeafa)
@@ -4666,7 +4666,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolGrpc:
 
     @builtins.property
     def max_requests(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.'''
         result = self._values.get("max_requests")
         assert result is not None, "Required property 'max_requests' is missing"
         return typing.cast(jsii.Number, result)
@@ -4754,8 +4754,8 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolHttp:
         max_pending_requests: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.
-        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_pending_requests AppmeshVirtualNode#max_pending_requests}.
+        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.
+        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_pending_requests AppmeshVirtualNode#max_pending_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3875e78309deea536964547cbaaddfaa63ff82382434ede401af94fba5bd892)
@@ -4769,14 +4769,14 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolHttp:
 
     @builtins.property
     def max_connections(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.'''
         result = self._values.get("max_connections")
         assert result is not None, "Required property 'max_connections' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_pending_requests(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_pending_requests AppmeshVirtualNode#max_pending_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_pending_requests AppmeshVirtualNode#max_pending_requests}.'''
         result = self._values.get("max_pending_requests")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4800,7 +4800,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolHttp:
 class AppmeshVirtualNodeSpecListenerConnectionPoolHttp2:
     def __init__(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab40580a4ec00390919f04c91d9321944ad74c4ba295daa95d6304401f366c0e)
@@ -4811,7 +4811,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolHttp2:
 
     @builtins.property
     def max_requests(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.'''
         result = self._values.get("max_requests")
         assert result is not None, "Required property 'max_requests' is missing"
         return typing.cast(jsii.Number, result)
@@ -5180,7 +5180,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolOutputReference(
     @jsii.member(jsii_name="putGrpc")
     def put_grpc(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_requests AppmeshVirtualNode#max_requests}.
         '''
         value = AppmeshVirtualNodeSpecListenerConnectionPoolGrpc(
             max_requests=max_requests
@@ -5317,7 +5317,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolOutputReference(
 class AppmeshVirtualNodeSpecListenerConnectionPoolTcp:
     def __init__(self, *, max_connections: jsii.Number) -> None:
         '''
-        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.
+        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__939d13a541bf39f5a456218e020d090707c45e8222455609955c790f2fa84361)
@@ -5328,7 +5328,7 @@ class AppmeshVirtualNodeSpecListenerConnectionPoolTcp:
 
     @builtins.property
     def max_connections(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_connections AppmeshVirtualNode#max_connections}.'''
         result = self._values.get("max_connections")
         assert result is not None, "Required property 'max_connections' is missing"
         return typing.cast(jsii.Number, result)
@@ -5525,13 +5525,13 @@ class AppmeshVirtualNodeSpecListenerHealthCheck:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.
-        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
-        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.
+        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
+        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6631245bbf12e01f04c0106cd3574c78fdf12ec7b7f5cef645020f0d0c982611)
@@ -5556,48 +5556,48 @@ class AppmeshVirtualNodeSpecListenerHealthCheck:
 
     @builtins.property
     def healthy_threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.'''
         result = self._values.get("healthy_threshold")
         assert result is not None, "Required property 'healthy_threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def interval_millis(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.'''
         result = self._values.get("interval_millis")
         assert result is not None, "Required property 'interval_millis' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_millis(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.'''
         result = self._values.get("timeout_millis")
         assert result is not None, "Required property 'timeout_millis' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def unhealthy_threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.'''
         result = self._values.get("unhealthy_threshold")
         assert result is not None, "Required property 'unhealthy_threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5891,10 +5891,10 @@ class AppmeshVirtualNodeSpecListenerOutlierDetection:
         max_server_errors: jsii.Number,
     ) -> None:
         '''
-        :param base_ejection_duration: base_ejection_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
-        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
-        :param max_ejection_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.
-        :param max_server_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.
+        :param base_ejection_duration: base_ejection_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
+        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
+        :param max_ejection_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.
+        :param max_server_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.
         '''
         if isinstance(base_ejection_duration, dict):
             base_ejection_duration = AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDuration(**base_ejection_duration)
@@ -5919,7 +5919,7 @@ class AppmeshVirtualNodeSpecListenerOutlierDetection:
     ) -> "AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDuration":
         '''base_ejection_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
         '''
         result = self._values.get("base_ejection_duration")
         assert result is not None, "Required property 'base_ejection_duration' is missing"
@@ -5929,7 +5929,7 @@ class AppmeshVirtualNodeSpecListenerOutlierDetection:
     def interval(self) -> "AppmeshVirtualNodeSpecListenerOutlierDetectionInterval":
         '''interval block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
         '''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
@@ -5937,14 +5937,14 @@ class AppmeshVirtualNodeSpecListenerOutlierDetection:
 
     @builtins.property
     def max_ejection_percent(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.'''
         result = self._values.get("max_ejection_percent")
         assert result is not None, "Required property 'max_ejection_percent' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_server_errors(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.'''
         result = self._values.get("max_server_errors")
         assert result is not None, "Required property 'max_server_errors' is missing"
         return typing.cast(jsii.Number, result)
@@ -5969,8 +5969,8 @@ class AppmeshVirtualNodeSpecListenerOutlierDetection:
 class AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDuration:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__714d0ce5da27959bcfe7e690b6e97c3272be88d5eef8c28979a937882c952d23)
@@ -5983,14 +5983,14 @@ class AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDuration:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -6087,8 +6087,8 @@ class AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDurationOutputRe
 class AppmeshVirtualNodeSpecListenerOutlierDetectionInterval:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bebcdfac8207e2f0c1b90af90ddbeeb271509408970ba8b1b0a1dfe8635b2b65)
@@ -6101,14 +6101,14 @@ class AppmeshVirtualNodeSpecListenerOutlierDetectionInterval:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -6225,8 +6225,8 @@ class AppmeshVirtualNodeSpecListenerOutlierDetectionOutputReference(
         value: jsii.Number,
     ) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerOutlierDetectionBaseEjectionDuration(
             unit=unit, value=value
@@ -6237,8 +6237,8 @@ class AppmeshVirtualNodeSpecListenerOutlierDetectionOutputReference(
     @jsii.member(jsii_name="putInterval")
     def put_interval(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerOutlierDetectionInterval(
             unit=unit, value=value
@@ -6362,10 +6362,10 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
         tcp: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AppmeshVirtualNodeSpecListenerConnectionPoolTcp, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
-        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         value = AppmeshVirtualNodeSpecListenerConnectionPool(
             grpc=grpc, http=http, http2=http2, tcp=tcp
@@ -6386,13 +6386,13 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.
-        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
-        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#healthy_threshold AppmeshVirtualNode#healthy_threshold}.
+        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval_millis AppmeshVirtualNode#interval_millis}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
+        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#timeout_millis AppmeshVirtualNode#timeout_millis}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unhealthy_threshold AppmeshVirtualNode#unhealthy_threshold}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
         '''
         value = AppmeshVirtualNodeSpecListenerHealthCheck(
             healthy_threshold=healthy_threshold,
@@ -6416,10 +6416,10 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
         max_server_errors: jsii.Number,
     ) -> None:
         '''
-        :param base_ejection_duration: base_ejection_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
-        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
-        :param max_ejection_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.
-        :param max_server_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.
+        :param base_ejection_duration: base_ejection_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#base_ejection_duration AppmeshVirtualNode#base_ejection_duration}
+        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#interval AppmeshVirtualNode#interval}
+        :param max_ejection_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_ejection_percent AppmeshVirtualNode#max_ejection_percent}.
+        :param max_server_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#max_server_errors AppmeshVirtualNode#max_server_errors}.
         '''
         value = AppmeshVirtualNodeSpecListenerOutlierDetection(
             base_ejection_duration=base_ejection_duration,
@@ -6433,8 +6433,8 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
     @jsii.member(jsii_name="putPortMapping")
     def put_port_mapping(self, *, port: jsii.Number, protocol: builtins.str) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
         '''
         value = AppmeshVirtualNodeSpecListenerPortMapping(port=port, protocol=protocol)
 
@@ -6450,10 +6450,10 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
         tcp: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutTcp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
-        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         value = AppmeshVirtualNodeSpecListenerTimeout(
             grpc=grpc, http=http, http2=http2, tcp=tcp
@@ -6470,9 +6470,9 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
         validation: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
         '''
         value = AppmeshVirtualNodeSpecListenerTls(
             certificate=certificate, mode=mode, validation=validation
@@ -6600,8 +6600,8 @@ class AppmeshVirtualNodeSpecListenerOutputReference(
 class AppmeshVirtualNodeSpecListenerPortMapping:
     def __init__(self, *, port: jsii.Number, protocol: builtins.str) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a69005d98f0e5220a29cf410f63a24e347b6ea8aa925f0a5ad6e77b71397f329)
@@ -6614,14 +6614,14 @@ class AppmeshVirtualNodeSpecListenerPortMapping:
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#port AppmeshVirtualNode#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#protocol AppmeshVirtualNode#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
@@ -6725,10 +6725,10 @@ class AppmeshVirtualNodeSpecListenerTimeout:
         tcp: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutTcp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
-        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        :param tcp: tcp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         if isinstance(grpc, dict):
             grpc = AppmeshVirtualNodeSpecListenerTimeoutGrpc(**grpc)
@@ -6758,7 +6758,7 @@ class AppmeshVirtualNodeSpecListenerTimeout:
     def grpc(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpc"]:
         '''grpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#grpc AppmeshVirtualNode#grpc}
         '''
         result = self._values.get("grpc")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpc"], result)
@@ -6767,7 +6767,7 @@ class AppmeshVirtualNodeSpecListenerTimeout:
     def http(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp"]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http AppmeshVirtualNode#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp"], result)
@@ -6776,7 +6776,7 @@ class AppmeshVirtualNodeSpecListenerTimeout:
     def http2(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2"]:
         '''http2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#http2 AppmeshVirtualNode#http2}
         '''
         result = self._values.get("http2")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2"], result)
@@ -6785,7 +6785,7 @@ class AppmeshVirtualNodeSpecListenerTimeout:
     def tcp(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutTcp"]:
         '''tcp block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#tcp AppmeshVirtualNode#tcp}
         '''
         result = self._values.get("tcp")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutTcp"], result)
@@ -6815,8 +6815,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpc:
         per_request: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         if isinstance(idle, dict):
             idle = AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle(**idle)
@@ -6836,7 +6836,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpc:
     def idle(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle"]:
         '''idle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         result = self._values.get("idle")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle"], result)
@@ -6847,7 +6847,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpc:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest"]:
         '''per_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         result = self._values.get("per_request")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest"], result)
@@ -6872,8 +6872,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpc:
 class AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91be7dce2efdf0f386c5f370052ca2f3bf146011f55aeae380b151382b35f089)
@@ -6886,14 +6886,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7005,8 +7005,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpcOutputReference(
     @jsii.member(jsii_name="putIdle")
     def put_idle(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutGrpcIdle(unit=unit, value=value)
 
@@ -7015,8 +7015,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpcOutputReference(
     @jsii.member(jsii_name="putPerRequest")
     def put_per_request(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest(
             unit=unit, value=value
@@ -7084,8 +7084,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpcOutputReference(
 class AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__129652115aef3f817cccc4357465ca2ac9104ad424516234624577ffd3bc3ab2)
@@ -7098,14 +7098,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7207,8 +7207,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp:
         per_request: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         if isinstance(idle, dict):
             idle = AppmeshVirtualNodeSpecListenerTimeoutHttpIdle(**idle)
@@ -7228,7 +7228,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp:
     def idle(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttpIdle"]:
         '''idle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         result = self._values.get("idle")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttpIdle"], result)
@@ -7239,7 +7239,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest"]:
         '''per_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         result = self._values.get("per_request")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest"], result)
@@ -7269,8 +7269,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2:
         per_request: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         if isinstance(idle, dict):
             idle = AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle(**idle)
@@ -7290,7 +7290,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2:
     def idle(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle"]:
         '''idle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         result = self._values.get("idle")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle"], result)
@@ -7301,7 +7301,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest"]:
         '''per_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         result = self._values.get("per_request")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest"], result)
@@ -7326,8 +7326,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2:
 class AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d954787d9c0609b80ffd1b81c544b6f442244f694d1b682fd79112ae9dc48402)
@@ -7340,14 +7340,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7459,8 +7459,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2OutputReference(
     @jsii.member(jsii_name="putIdle")
     def put_idle(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutHttp2Idle(unit=unit, value=value)
 
@@ -7469,8 +7469,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2OutputReference(
     @jsii.member(jsii_name="putPerRequest")
     def put_per_request(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest(
             unit=unit, value=value
@@ -7538,8 +7538,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2OutputReference(
 class AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61a6cecc41df2e9dd22b758ac09bf7f8c778348b49755c927ef274156f61b61b)
@@ -7552,14 +7552,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7656,8 +7656,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequestOutputReference(
 class AppmeshVirtualNodeSpecListenerTimeoutHttpIdle:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca8a73d8d42e3e0cce0bac6b585bac336acab91a39e799d1b96dfc5c013e38f0)
@@ -7670,14 +7670,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttpIdle:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7789,8 +7789,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttpOutputReference(
     @jsii.member(jsii_name="putIdle")
     def put_idle(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutHttpIdle(unit=unit, value=value)
 
@@ -7799,8 +7799,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttpOutputReference(
     @jsii.member(jsii_name="putPerRequest")
     def put_per_request(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest(
             unit=unit, value=value
@@ -7868,8 +7868,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttpOutputReference(
 class AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a180beea6ad6e19819910ca1e9c1324b5d111e4326928de87ff2773299898d08)
@@ -7882,14 +7882,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -8006,8 +8006,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutOutputReference(
         per_request: typing.Optional[typing.Union[AppmeshVirtualNodeSpecListenerTimeoutGrpcPerRequest, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         value = AppmeshVirtualNodeSpecListenerTimeoutGrpc(
             idle=idle, per_request=per_request
@@ -8023,8 +8023,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutOutputReference(
         per_request: typing.Optional[typing.Union[AppmeshVirtualNodeSpecListenerTimeoutHttpPerRequest, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         value = AppmeshVirtualNodeSpecListenerTimeoutHttp(
             idle=idle, per_request=per_request
@@ -8040,8 +8040,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutOutputReference(
         per_request: typing.Optional[typing.Union[AppmeshVirtualNodeSpecListenerTimeoutHttp2PerRequest, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
-        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param per_request: per_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#per_request AppmeshVirtualNode#per_request}
         '''
         value = AppmeshVirtualNodeSpecListenerTimeoutHttp2(
             idle=idle, per_request=per_request
@@ -8056,7 +8056,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutOutputReference(
         idle: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutTcpIdle", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         value = AppmeshVirtualNodeSpecListenerTimeoutTcp(idle=idle)
 
@@ -8148,7 +8148,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutTcp:
         idle: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTimeoutTcpIdle", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        :param idle: idle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         if isinstance(idle, dict):
             idle = AppmeshVirtualNodeSpecListenerTimeoutTcpIdle(**idle)
@@ -8163,7 +8163,7 @@ class AppmeshVirtualNodeSpecListenerTimeoutTcp:
     def idle(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutTcpIdle"]:
         '''idle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#idle AppmeshVirtualNode#idle}
         '''
         result = self._values.get("idle")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTimeoutTcpIdle"], result)
@@ -8188,8 +8188,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutTcp:
 class AppmeshVirtualNodeSpecListenerTimeoutTcpIdle:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e9743254890a65200dce62f460d08af2d2a4ebebc2d7c32194a11adb5365ec6)
@@ -8202,14 +8202,14 @@ class AppmeshVirtualNodeSpecListenerTimeoutTcpIdle:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -8321,8 +8321,8 @@ class AppmeshVirtualNodeSpecListenerTimeoutTcpOutputReference(
     @jsii.member(jsii_name="putIdle")
     def put_idle(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#unit AppmeshVirtualNode#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         value_ = AppmeshVirtualNodeSpecListenerTimeoutTcpIdle(unit=unit, value=value)
 
@@ -8380,9 +8380,9 @@ class AppmeshVirtualNodeSpecListenerTls:
         validation: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
         '''
         if isinstance(certificate, dict):
             certificate = AppmeshVirtualNodeSpecListenerTlsCertificate(**certificate)
@@ -8404,7 +8404,7 @@ class AppmeshVirtualNodeSpecListenerTls:
     def certificate(self) -> "AppmeshVirtualNodeSpecListenerTlsCertificate":
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate AppmeshVirtualNode#certificate}
         '''
         result = self._values.get("certificate")
         assert result is not None, "Required property 'certificate' is missing"
@@ -8412,7 +8412,7 @@ class AppmeshVirtualNodeSpecListenerTls:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#mode AppmeshVirtualNode#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
@@ -8423,7 +8423,7 @@ class AppmeshVirtualNodeSpecListenerTls:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidation"]:
         '''validation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#validation AppmeshVirtualNode#validation}
         '''
         result = self._values.get("validation")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidation"], result)
@@ -8454,9 +8454,9 @@ class AppmeshVirtualNodeSpecListenerTlsCertificate:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsCertificateSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(acm, dict):
             acm = AppmeshVirtualNodeSpecListenerTlsCertificateAcm(**acm)
@@ -8481,7 +8481,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificate:
     def acm(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateAcm"]:
         '''acm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateAcm"], result)
@@ -8492,7 +8492,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateFile"], result)
@@ -8501,7 +8501,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificate:
     def sds(self) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsCertificateSds"], result)
@@ -8526,7 +8526,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificate:
 class AppmeshVirtualNodeSpecListenerTlsCertificateAcm:
     def __init__(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2461816e4a2df5d8181c62f29941e564ef22e8305bdc9dbce91f18879121497)
@@ -8537,7 +8537,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateAcm:
 
     @builtins.property
     def certificate_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.'''
         result = self._values.get("certificate_arn")
         assert result is not None, "Required property 'certificate_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -8625,8 +8625,8 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateFile:
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bea7ee5442173dd9b2b832013905bfb740126b80318b9292bd8886afc2404231)
@@ -8639,14 +8639,14 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
@@ -8758,7 +8758,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateOutputReference(
     @jsii.member(jsii_name="putAcm")
     def put_acm(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_arn AppmeshVirtualNode#certificate_arn}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsCertificateAcm(
             certificate_arn=certificate_arn
@@ -8774,8 +8774,8 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateOutputReference(
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#private_key AppmeshVirtualNode#private_key}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsCertificateFile(
             certificate_chain=certificate_chain, private_key=private_key
@@ -8786,7 +8786,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateOutputReference(
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsCertificateSds(
             secret_name=secret_name
@@ -8868,7 +8868,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateOutputReference(
 class AppmeshVirtualNodeSpecListenerTlsCertificateSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c777aca19c44506ac71204b454cf19e2cf8e5704b51c54a8c68f24fbc71f8dc0)
@@ -8879,7 +8879,7 @@ class AppmeshVirtualNodeSpecListenerTlsCertificateSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -8980,9 +8980,9 @@ class AppmeshVirtualNodeSpecListenerTlsOutputReference(
         sds: typing.Optional[typing.Union[AppmeshVirtualNodeSpecListenerTlsCertificateSds, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#acm AppmeshVirtualNode#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecListenerTlsCertificate(
             acm=acm, file=file, sds=sds
@@ -8998,8 +8998,8 @@ class AppmeshVirtualNodeSpecListenerTlsOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidation(
             trust=trust, subject_alternative_names=subject_alternative_names
@@ -9088,8 +9088,8 @@ class AppmeshVirtualNodeSpecListenerTlsValidation:
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         if isinstance(trust, dict):
             trust = AppmeshVirtualNodeSpecListenerTlsValidationTrust(**trust)
@@ -9109,7 +9109,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidation:
     def trust(self) -> "AppmeshVirtualNodeSpecListenerTlsValidationTrust":
         '''trust block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#trust AppmeshVirtualNode#trust}
         '''
         result = self._values.get("trust")
         assert result is not None, "Required property 'trust' is missing"
@@ -9121,7 +9121,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidation:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#subject_alternative_names AppmeshVirtualNode#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames"], result)
@@ -9165,7 +9165,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationOutputReference(
         match: typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames(
             match=match
@@ -9181,8 +9181,8 @@ class AppmeshVirtualNodeSpecListenerTlsValidationOutputReference(
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidationTrust(file=file, sds=sds)
 
@@ -9250,7 +9250,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames:
         match: typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         if isinstance(match, dict):
             match = AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch(**match)
@@ -9267,7 +9267,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames:
     ) -> "AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#match AppmeshVirtualNode#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -9293,7 +9293,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNames:
 class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch:
     def __init__(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fa35d107791799e3f57f8b020432c07e1776c4b64af57d04802c6cb9aaeb743)
@@ -9304,7 +9304,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch:
 
     @builtins.property
     def exact(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -9399,7 +9399,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesOutputRe
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#exact AppmeshVirtualNode#exact}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidationSubjectAlternativeNamesMatch(
             exact=exact
@@ -9452,8 +9452,8 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrust:
         sds: typing.Optional[typing.Union["AppmeshVirtualNodeSpecListenerTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualNodeSpecListenerTlsValidationTrustFile(**file)
@@ -9475,7 +9475,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationTrustFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationTrustFile"], result)
@@ -9486,7 +9486,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationTrustSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#sds AppmeshVirtualNode#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecListenerTlsValidationTrustSds"], result)
@@ -9511,7 +9511,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrust:
 class AppmeshVirtualNodeSpecListenerTlsValidationTrustFile:
     def __init__(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b11180a13800f76b2dd33fbff6f028d484322eb486d3c1bae05e04aff7322d81)
@@ -9522,7 +9522,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrustFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
@@ -9617,7 +9617,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrustOutputReference(
     @jsii.member(jsii_name="putFile")
     def put_file(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#certificate_chain AppmeshVirtualNode#certificate_chain}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidationTrustFile(
             certificate_chain=certificate_chain
@@ -9628,7 +9628,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrustOutputReference(
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         value = AppmeshVirtualNodeSpecListenerTlsValidationTrustSds(
             secret_name=secret_name
@@ -9698,7 +9698,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrustOutputReference(
 class AppmeshVirtualNodeSpecListenerTlsValidationTrustSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aba5048d4b3f028ef823e98871dbdf53d240b97ab95e5dbb2d27701d8f6fe190)
@@ -9709,7 +9709,7 @@ class AppmeshVirtualNodeSpecListenerTlsValidationTrustSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#secret_name AppmeshVirtualNode#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -9793,7 +9793,7 @@ class AppmeshVirtualNodeSpecLogging:
         access_log: typing.Optional[typing.Union["AppmeshVirtualNodeSpecLoggingAccessLog", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
+        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
         '''
         if isinstance(access_log, dict):
             access_log = AppmeshVirtualNodeSpecLoggingAccessLog(**access_log)
@@ -9808,7 +9808,7 @@ class AppmeshVirtualNodeSpecLogging:
     def access_log(self) -> typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLog"]:
         '''access_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
         '''
         result = self._values.get("access_log")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLog"], result)
@@ -9837,7 +9837,7 @@ class AppmeshVirtualNodeSpecLoggingAccessLog:
         file: typing.Optional[typing.Union["AppmeshVirtualNodeSpecLoggingAccessLogFile", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualNodeSpecLoggingAccessLogFile(**file)
@@ -9852,7 +9852,7 @@ class AppmeshVirtualNodeSpecLoggingAccessLog:
     def file(self) -> typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLogFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLogFile"], result)
@@ -9882,8 +9882,8 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFile:
         format: typing.Optional[typing.Union["AppmeshVirtualNodeSpecLoggingAccessLogFileFormat", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
-        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
+        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
         '''
         if isinstance(format, dict):
             format = AppmeshVirtualNodeSpecLoggingAccessLogFileFormat(**format)
@@ -9899,7 +9899,7 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFile:
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -9910,7 +9910,7 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFile:
     ) -> typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLogFileFormat"]:
         '''format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecLoggingAccessLogFileFormat"], result)
@@ -9940,8 +9940,8 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFileFormat:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed514b2eb33211beeb267f2119aaa3d229a21d1f865e709aee72dcac1abe0a95)
@@ -9959,14 +9959,14 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFileFormat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecLoggingAccessLogFileFormatJson"]]]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualNodeSpecLoggingAccessLogFileFormatJson"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9990,8 +9990,8 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFileFormat:
 class AppmeshVirtualNodeSpecLoggingAccessLogFileFormatJson:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#key AppmeshVirtualNode#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#key AppmeshVirtualNode#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10e1885465a9bd2b998dcdad1eb2720a721a2aae03e30bfb14d5bcdbe11791e4)
@@ -10004,14 +10004,14 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFileFormatJson:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#key AppmeshVirtualNode#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#key AppmeshVirtualNode#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#value AppmeshVirtualNode#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10315,8 +10315,8 @@ class AppmeshVirtualNodeSpecLoggingAccessLogFileOutputReference(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#json AppmeshVirtualNode#json}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#text AppmeshVirtualNode#text}.
         '''
         value = AppmeshVirtualNodeSpecLoggingAccessLogFileFormat(json=json, text=text)
 
@@ -10401,8 +10401,8 @@ class AppmeshVirtualNodeSpecLoggingAccessLogOutputReference(
         format: typing.Optional[typing.Union[AppmeshVirtualNodeSpecLoggingAccessLogFileFormat, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
-        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#path AppmeshVirtualNode#path}.
+        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#format AppmeshVirtualNode#format}
         '''
         value = AppmeshVirtualNodeSpecLoggingAccessLogFile(path=path, format=format)
 
@@ -10465,7 +10465,7 @@ class AppmeshVirtualNodeSpecLoggingOutputReference(
         file: typing.Optional[typing.Union[AppmeshVirtualNodeSpecLoggingAccessLogFile, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#file AppmeshVirtualNode#file}
         '''
         value = AppmeshVirtualNodeSpecLoggingAccessLog(file=file)
 
@@ -10543,7 +10543,7 @@ class AppmeshVirtualNodeSpecOutputReference(
         client_policy: typing.Optional[typing.Union[AppmeshVirtualNodeSpecBackendDefaultsClientPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#client_policy AppmeshVirtualNode#client_policy}
         '''
         value = AppmeshVirtualNodeSpecBackendDefaults(client_policy=client_policy)
 
@@ -10569,7 +10569,7 @@ class AppmeshVirtualNodeSpecOutputReference(
         access_log: typing.Optional[typing.Union[AppmeshVirtualNodeSpecLoggingAccessLog, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
+        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#access_log AppmeshVirtualNode#access_log}
         '''
         value = AppmeshVirtualNodeSpecLogging(access_log=access_log)
 
@@ -10583,8 +10583,8 @@ class AppmeshVirtualNodeSpecOutputReference(
         dns: typing.Optional[typing.Union["AppmeshVirtualNodeSpecServiceDiscoveryDns", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_cloud_map: aws_cloud_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
+        :param aws_cloud_map: aws_cloud_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
         '''
         value = AppmeshVirtualNodeSpecServiceDiscovery(
             aws_cloud_map=aws_cloud_map, dns=dns
@@ -10698,8 +10698,8 @@ class AppmeshVirtualNodeSpecServiceDiscovery:
         dns: typing.Optional[typing.Union["AppmeshVirtualNodeSpecServiceDiscoveryDns", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_cloud_map: aws_cloud_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
+        :param aws_cloud_map: aws_cloud_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
         '''
         if isinstance(aws_cloud_map, dict):
             aws_cloud_map = AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap(**aws_cloud_map)
@@ -10721,7 +10721,7 @@ class AppmeshVirtualNodeSpecServiceDiscovery:
     ) -> typing.Optional["AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap"]:
         '''aws_cloud_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#aws_cloud_map AppmeshVirtualNode#aws_cloud_map}
         '''
         result = self._values.get("aws_cloud_map")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap"], result)
@@ -10730,7 +10730,7 @@ class AppmeshVirtualNodeSpecServiceDiscovery:
     def dns(self) -> typing.Optional["AppmeshVirtualNodeSpecServiceDiscoveryDns"]:
         '''dns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#dns AppmeshVirtualNode#dns}
         '''
         result = self._values.get("dns")
         return typing.cast(typing.Optional["AppmeshVirtualNodeSpecServiceDiscoveryDns"], result)
@@ -10765,9 +10765,9 @@ class AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap:
         attributes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fba845bf5fcf9f8fe46fc2723c3520ba6dd8a976db0f2ef52566ca9a5d900199)
@@ -10783,21 +10783,21 @@ class AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap:
 
     @builtins.property
     def namespace_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.'''
         result = self._values.get("namespace_name")
         assert result is not None, "Required property 'namespace_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attributes(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.'''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -10926,9 +10926,9 @@ class AppmeshVirtualNodeSpecServiceDiscoveryDns:
         response_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.
-        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.
-        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.
+        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.
+        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b01571704a0d6aeb6bbfeb658d860e294b65f6f11307ed0e31ec984a682713a)
@@ -10945,20 +10945,20 @@ class AppmeshVirtualNodeSpecServiceDiscoveryDns:
 
     @builtins.property
     def hostname(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.'''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ip_preference(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.'''
         result = self._values.get("ip_preference")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.'''
         result = self._values.get("response_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11100,9 +11100,9 @@ class AppmeshVirtualNodeSpecServiceDiscoveryOutputReference(
         attributes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#namespace_name AppmeshVirtualNode#namespace_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#service_name AppmeshVirtualNode#service_name}.
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#attributes AppmeshVirtualNode#attributes}.
         '''
         value = AppmeshVirtualNodeSpecServiceDiscoveryAwsCloudMap(
             namespace_name=namespace_name,
@@ -11121,9 +11121,9 @@ class AppmeshVirtualNodeSpecServiceDiscoveryOutputReference(
         response_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.
-        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.
-        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#hostname AppmeshVirtualNode#hostname}.
+        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#ip_preference AppmeshVirtualNode#ip_preference}.
+        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appmesh_virtual_node#response_type AppmeshVirtualNode#response_type}.
         '''
         value = AppmeshVirtualNodeSpecServiceDiscoveryDns(
             hostname=hostname, ip_preference=ip_preference, response_type=response_type

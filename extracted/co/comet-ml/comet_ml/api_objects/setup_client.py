@@ -11,10 +11,11 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 
-from comet_ml.connection import connection_factory
-
 
 def setup(api_key, use_cache):
+    # we need to import here to avoid circular imports
+    from comet_ml.connection import connection_factory
+
     client = connection_factory.get_rest_api_client(
         "v2",
         api_key=api_key,

@@ -11,19 +11,6 @@ System_Runtime_Loader__EventContainer_Callable = typing.TypeVar("System_Runtime_
 System_Runtime_Loader__EventContainer_ReturnType = typing.TypeVar("System_Runtime_Loader__EventContainer_ReturnType")
 
 
-class AssemblyDependencyResolver(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self, component_assembly_path: str) -> None:
-        ...
-
-    def resolve_assembly_to_path(self, assembly_name: System.Reflection.AssemblyName) -> str:
-        ...
-
-    def resolve_unmanaged_dll_to_path(self, unmanaged_dll_name: str) -> str:
-        ...
-
-
 class AssemblyLoadContext(System.Object):
     """This class has no documentation."""
 
@@ -157,6 +144,19 @@ class AssemblyLoadContext(System.Object):
         ...
 
     def unload(self) -> None:
+        ...
+
+
+class AssemblyDependencyResolver(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self, component_assembly_path: str) -> None:
+        ...
+
+    def resolve_assembly_to_path(self, assembly_name: System.Reflection.AssemblyName) -> str:
+        ...
+
+    def resolve_unmanaged_dll_to_path(self, unmanaged_dll_name: str) -> str:
         ...
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-ibm
-Version: 0.3.16
+Version: 0.3.17
 Summary: An integration package connecting IBM watsonx.ai and LangChain
 Home-page: https://github.com/langchain-ai/langchain-ibm
 License: MIT
@@ -11,8 +11,10 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: ibm-watsonx-ai (>=1.3.33,<2.0.0)
+Provides-Extra: sql-toolkit
+Requires-Dist: ibm-watsonx-ai (>=1.3.36,<2.0.0)
 Requires-Dist: langchain-core (>=0.3.39,<0.4.0)
+Requires-Dist: pyarrow (>=3.0.0) ; extra == "sql-toolkit"
 Project-URL: Repository, https://github.com/langchain-ai/langchain-ibm
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-ibm/tree/main/libs/ibm
 Description-Content-Type: text/markdown

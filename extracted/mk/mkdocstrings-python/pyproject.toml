@@ -42,7 +42,7 @@ dependencies = [
     "griffe>=1.13",
     "typing-extensions>=4.0; python_version < '3.11'",
 ]
-version = "1.18.0"
+version = "1.18.2"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/python"

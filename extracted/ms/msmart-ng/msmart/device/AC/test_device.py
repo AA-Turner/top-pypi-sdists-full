@@ -253,9 +253,12 @@ class TestUpdateStateFromResponse(unittest.TestCase):
             total, current, real_time = power
 
             # Assert state is expected
-            self.assertEqual(device.total_energy_usage, total)
-            self.assertEqual(device.current_energy_usage, current)
-            self.assertEqual(device.real_time_power_usage, real_time)
+            self.assertEqual(device.get_total_energy_usage(
+                AC.EnergyDataFormat.BCD), total)
+            self.assertEqual(device.get_current_energy_usage(
+                AC.EnergyDataFormat.BCD), current)
+            self.assertEqual(device.get_real_time_power_usage(
+                AC.EnergyDataFormat.BCD), real_time)
 
     def test_binary_energy_usage_response(self) -> None:
         """Test parsing of EnergyUsageResponses into device state with binary format."""
@@ -277,18 +280,18 @@ class TestUpdateStateFromResponse(unittest.TestCase):
             # Create a dummy device and process the response
             device = AC(0, 0, 0)
 
-            # Switch to binary format
-            device.use_alternate_energy_format = True
-
             # Update state with response
             device._update_state(resp)
 
             total, current, real_time = power
 
             # Assert state is expected
-            self.assertEqual(device.total_energy_usage, total)
-            self.assertEqual(device.current_energy_usage, current)
-            self.assertEqual(device.real_time_power_usage, real_time)
+            self.assertEqual(device.get_total_energy_usage(
+                AC.EnergyDataFormat.BINARY), total)
+            self.assertEqual(device.get_current_energy_usage(
+                AC.EnergyDataFormat.BINARY), current)
+            self.assertEqual(device.get_real_time_power_usage(
+                AC.EnergyDataFormat.BINARY), real_time)
 
     def test_humidity_response(self) -> None:
         """Test parsing of HumidityResponses into device state."""
@@ -578,10 +581,10 @@ class TestSetState(unittest.TestCase):
         device._supported_properties.add(PropertyId.CASCADE)
 
         # Enable a cascade mode
-        device.cascade_mode = AC.CascadeMode.LOWER
+        device.cascade_mode = AC.CascadeMode.DOWN
 
         # Assert state is expected
-        self.assertEqual(device.cascade_mode, AC.CascadeMode.LOWER)
+        self.assertEqual(device.cascade_mode, AC.CascadeMode.DOWN)
 
         # Assert correct property is being updated
         self.assertIn(PropertyId.CASCADE, device._updated_properties)
@@ -664,7 +667,7 @@ class TestSendCommandGetResponse(unittest.IsolatedAsyncioTestCase):
             device._online = True
             self.assertEqual(device.online, True)
 
-            # Force additional features so refresh() sends multuple requests are sent
+            # Force additional features so refresh() sends multiple requests are sent
             device._request_energy_usage = True
             device._supports_humidity = True
 
@@ -676,6 +679,65 @@ class TestSendCommandGetResponse(unittest.IsolatedAsyncioTestCase):
 
             # Assert device is still online
             self.assertEqual(device.online, True)
+
+    async def test_get_capabilities_bad_response(self):
+        """Test that get_capabilities() with any unexpected response outputs an error."""
+        # "Notify" response with the same ID as capabilities response
+        # https://github.com/mill1000/midea-msmart/issues/122#issue-2281252018
+        TEST_RESPONSE = bytes.fromhex(
+            "aa1aac00000000000205b50310060101090001010a000101dcbcb4")
+
+        # Create a dummy device
+        device = AC(0, 0, 0)
+
+        # Patch _send_command to return test response
+        with patch("msmart.base_device.Device._send_command", return_value=[TEST_RESPONSE]) as patched_method:
+            # Get device capabilities
+            with self.assertLogs("msmart", logging.DEBUG) as log:
+                await device.get_capabilities()
+
+                self.assertRegex("\n".join(log.output),
+                                 "Failed to query capabilities from device.*")
+
+                self.assertRegex("\n".join(log.output),
+                                 "Ignored response of type.*from device.*")
+
+            # Assert patch method was awaited
+            patched_method.assert_awaited()
+
+
+class TestDeprecation(unittest.TestCase):
+    """Test deprecation of device properties."""
+
+    def test_deprecated_energy_properties(self) -> None:
+        """Test accessing deprecated energy properties emits a warning."""
+
+        # Create dummy device
+        device = AC(0, 0, 0)
+
+        with self.assertLogs("msmart", logging.DEBUG) as log:
+            total_energy = device.total_energy_usage
+            current_energy = device.current_energy_usage
+            power = device.real_time_power_usage
+
+            self.assertRegex("\n".join(log.output),
+                             "'total_energy_usage' is deprecated")
+            self.assertRegex("\n".join(log.output),
+                             "'current_energy_usage' is deprecated")
+            self.assertRegex("\n".join(log.output),
+                             "'real_time_power_usage' is deprecated")
+
+    def test_deprecated_use_alternate_energy_format(self) -> None:
+        """Test setting alternate energy format property emits a warning."""
+
+        # Create dummy device
+        device = AC(0, 0, 0)
+
+        with self.assertLogs("msmart", logging.DEBUG) as log:
+            device.use_alternate_energy_format = True
+
+            self.assertRegex("\n".join(log.output),
+                             "'use_alternate_energy_format' is deprecated.")
 
 
 if __name__ == "__main__":

@@ -47,6 +47,32 @@ class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantCo
         ...
 
 
+class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
+    """
+    Provides an implementation of ISubscriptionEnumeratorFactory that reads
+    an entire SubscriptionDataSource into a single BaseDataCollection
+    to be emitted on the tradable date at midnight
+    """
+
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
+        
+        :param object_store: The object store to use
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+
 class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """Provides an implementation of ISubscriptionEnumeratorFactory to handle live custom data."""
 
@@ -130,32 +156,6 @@ class CorporateEventEnumeratorFactory(System.Object):
         :param end_time: End date for the data request. This will be used for DataNormalizationMode.ScaledRaw data normalization mode to adjust prices to the given end date
         :param enable_price_scaling: Applies price factor
         :returns: The new auxiliary data enumerator.
-        """
-        ...
-
-
-class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """
-    Provides an implementation of ISubscriptionEnumeratorFactory that reads
-    an entire SubscriptionDataSource into a single BaseDataCollection
-    to be emitted on the tradable date at midnight
-    """
-
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
-        
-        :param object_store: The object store to use
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
         """
         ...
 

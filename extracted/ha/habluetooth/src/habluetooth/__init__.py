@@ -1,4 +1,4 @@
-__version__ = "5.1.0"
+__version__ = "5.2.0"
 
 from .advertisement_tracker import (
     TRACKER_BUFFERING_WOBBLE_SECONDS,
@@ -20,6 +20,7 @@ from .models import (
     HaBluetoothConnector,
     HaBluetoothSlotAllocations,
     HaScannerDetails,
+    HaScannerModeChange,
     HaScannerRegistration,
     HaScannerRegistrationEvent,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "HaBluetoothSlotAllocations",
     "HaScanner",
     "HaScannerDetails",
+    "HaScannerModeChange",
     "HaScannerRegistration",
     "HaScannerRegistrationEvent",
     "ScannerStartError",

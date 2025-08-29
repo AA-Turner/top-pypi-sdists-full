@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ariadne-codegen
-Version: 0.14.0
+Version: 0.15.2
 Summary: Generate fully typed GraphQL client from schema, queries and mutations!
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne-codegen
@@ -8,35 +8,7 @@ Project-URL: Bug Tracker, https://github.com/mirumee/ariadne-codegen/issues
 Project-URL: Community, https://github.com/mirumee/ariadne/discussions
 Project-URL: Twitter, https://twitter.com/AriadneGraphQL
 Author-email: Mirumee Software <hello@mirumee.com>
-License: BSD 3-Clause License
-        
-        Copyright (c) 2023, Mirumee Labs
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-        1. Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-        
-        2. Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-        
-        3. Neither the name of the copyright holder nor the names of its
-           contributors may be used to endorse or promote products derived from
-           this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -47,7 +19,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
 Requires-Dist: autoflake
 Requires-Dist: black
 Requires-Dist: click~=8.1
@@ -57,20 +31,24 @@ Requires-Dist: isort
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: toml~=0.10
 Provides-Extra: dev
-Requires-Dist: ariadne; extra == 'dev'
-Requires-Dist: freezegun; extra == 'dev'
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: pylint; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-asyncio; extra == 'dev'
-Requires-Dist: pytest-httpx; extra == 'dev'
-Requires-Dist: pytest-mock; extra == 'dev'
-Requires-Dist: requests-toolbelt; extra == 'dev'
-Requires-Dist: types-toml; extra == 'dev'
+Requires-Dist: ipdb; extra == 'dev'
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-api; extra == 'opentelemetry'
 Provides-Extra: subscriptions
-Requires-Dist: websockets~=11.0; extra == 'subscriptions'
+Requires-Dist: websockets>=14.2; extra == 'subscriptions'
+Provides-Extra: test
+Requires-Dist: ariadne; extra == 'test'
+Requires-Dist: freezegun; extra == 'test'
+Requires-Dist: opentelemetry-api; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-httpx; extra == 'test'
+Requires-Dist: pytest-mock; extra == 'test'
+Requires-Dist: requests-toolbelt; extra == 'test'
+Requires-Dist: types-toml; extra == 'test'
+Requires-Dist: websockets>=14.2; extra == 'test'
+Provides-Extra: types
+Requires-Dist: mypy>=1.0.0; extra == 'types'
 Description-Content-Type: text/markdown
 
 [![Ariadne](https://ariadnegraphql.org/img/logo-horizontal-sm.png)](https://ariadnegraphql.org)
@@ -525,6 +503,14 @@ Defaults to `"schema"`. Used only if target is a Python file.
 A string with a name for type map variable, must be valid python identifier.
 
 Defaults to `"type_map"`. Used only if target is a Python file.
+
+
+---
+
+## Versioning policy ##
+`ariadne-codegen` follows a custom versioning scheme where the minor version increases for breaking changes, while the patch version increments for bug fixes, enhancements, and other non-breaking updates.
+
+Since `ariadne-codegen` has not yet reached a stable API, this approach is in place until version 1.0.0. Once the API stabilizes, the project will adopt [Semantic Versioning](https://semver.org/)..
 
 
 ## Contributing

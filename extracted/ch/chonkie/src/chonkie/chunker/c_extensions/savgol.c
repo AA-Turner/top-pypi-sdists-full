@@ -5,8 +5,7 @@
     "distutils": {
         "depends": [],
         "extra_compile_args": [
-            "-O3",
-            "-ffast-math"
+            "-O3"
         ],
         "language": "c",
         "name": "chonkie.chunker.c_extensions.savgol",

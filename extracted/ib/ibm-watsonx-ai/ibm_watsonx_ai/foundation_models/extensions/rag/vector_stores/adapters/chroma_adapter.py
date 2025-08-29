@@ -20,7 +20,13 @@ class ChromaVectorStore(LangChainVectorStoreAdapter[Chroma]):
     def __init__(self, vector_store: Chroma | None = None, **kwargs: Any) -> None:
         if vector_store is None:
             vector_store = Chroma(**kwargs)
-        self._datasource_type = "chroma"
+
+        # import is not at top-level of file due to circular import
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (  # noqa: E501, PLC0415
+            VectorStoreDataSourceType,
+        )
+
+        self._datasource_type = VectorStoreDataSourceType.CHROMA
         super().__init__(vector_store=vector_store)
 
     def get_client(self) -> Chroma:

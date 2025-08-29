@@ -1,14 +1,12 @@
 import functools
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure  # type: ignore
 from pydantic import SecretStr
-
-if TYPE_CHECKING:
-    from langchain_ibm.toolkit import WatsonxTool
 
 logger = logging.getLogger(__name__)
 
@@ -67,81 +65,6 @@ def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
         )
 
 
-def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
-    """Convert `WatsonxTool` to watsonx tool structure.
-
-    Args:
-        tool: `WatsonxTool` from `WatsonxToolkit`
-
-
-    Example:
-
-    .. code-block:: python
-
-        from langchain_ibm import WatsonxToolkit
-
-        watsonx_toolkit = WatsonxToolkit(
-            url="https://us-south.ml.cloud.ibm.com",
-            apikey="*****",
-        )
-        weather_tool = watsonx_toolkit.get_tool("Weather")
-        convert_to_watsonx_tool(weather_tool)
-
-        # Return
-        # {
-        #     "type": "function",
-        #     "function": {
-        #         "name": "Weather",
-        #         "description": "Find the weather for a city.",
-        #         "parameters": {
-        #             "type": "object",
-        #             "properties": {
-        #                 "location": {
-        #                     "title": "location",
-        #                     "description": "Name of the location",
-        #                     "type": "string",
-        #                 },
-        #                 "country": {
-        #                     "title": "country",
-        #                     "description": "Name of the state or country",
-        #                     "type": "string",
-        #                 },
-        #             },
-        #             "required": ["location"],
-        #         },
-        #     },
-        # }
-
-    """
-
-    def parse_parameters(input_schema: dict | None) -> dict:
-        if input_schema:
-            parameters = deepcopy(input_schema)
-        else:
-            parameters = {
-                "type": "object",
-                "properties": {
-                    "input": {
-                        "description": "Input to be used when running tool.",
-                        "type": "string",
-                    },
-                },
-                "required": ["input"],
-            }
-
-        return parameters
-
-    watsonx_tool = {
-        "type": "function",
-        "function": {
-            "name": tool.name,
-            "description": tool.description,
-            "parameters": parse_parameters(tool.tool_input_schema),
-        },
-    }
-    return watsonx_tool
-
-
 def gateway_error_handler(func: Callable) -> Callable:
     """Decorator to catch ApiRequestFailure on Model Gateway calls
     and log a uniform warning."""
@@ -185,3 +108,56 @@ def async_gateway_error_handler(func: Callable) -> Callable:
             raise
 
     return wrapper
+
+
+def resolve_watsonx_credentials(
+    url: SecretStr,
+    apikey: SecretStr | None = None,
+    token: SecretStr | None = None,
+    password: SecretStr | None = None,
+    username: SecretStr | None = None,
+    instance_id: SecretStr | None = None,
+    version: SecretStr | None = None,
+    verify: bool | str | None = None,
+) -> Credentials:
+    check_for_attribute(url, "url", "WATSONX_URL")
+
+    if url.get_secret_value() in APIClient.PLATFORM_URLS_MAP:
+        if not token and not apikey:
+            raise ValueError(
+                "Did not find 'apikey' or 'token',"
+                " please add an environment variable"
+                " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                "which contains it,"
+                " or pass 'apikey' or 'token'"
+                " as a named parameter."
+            )
+    else:
+        if not token and not password and not apikey:
+            raise ValueError(
+                "Did not find 'token', 'password' or 'apikey',"
+                " please add an environment variable"
+                " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
+                "which contains it,"
+                " or pass 'token', 'password' or 'apikey'"
+                " as a named parameter."
+            )
+        elif token:
+            check_for_attribute(token, "token", "WATSONX_TOKEN")
+        elif password:
+            check_for_attribute(password, "password", "WATSONX_PASSWORD")
+            check_for_attribute(username, "username", "WATSONX_USERNAME")
+        elif apikey:
+            check_for_attribute(apikey, "apikey", "WATSONX_APIKEY")
+            check_for_attribute(username, "username", "WATSONX_USERNAME")
+
+    return Credentials(
+        url=url.get_secret_value() if url else None,
+        api_key=apikey.get_secret_value() if apikey else None,
+        token=token.get_secret_value() if token else None,
+        password=password.get_secret_value() if password else None,
+        username=username.get_secret_value() if username else None,
+        instance_id=instance_id.get_secret_value() if instance_id else None,
+        version=version.get_secret_value() if version else None,
+        verify=verify,
+    )

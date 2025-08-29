@@ -605,6 +605,7 @@ from agilicus_api.model.one_time_use_action_challenge_answer_detail import OneTi
 from agilicus_api.model.one_time_use_action_challenge_response import OneTimeUseActionChallengeResponse
 from agilicus_api.model.one_time_use_action_challenge_spec import OneTimeUseActionChallengeSpec
 from agilicus_api.model.operational_status import OperationalStatus
+from agilicus_api.model.org_fixup import OrgFixup
 from agilicus_api.model.org_info import OrgInfo
 from agilicus_api.model.org_scope_patch_document import OrgScopePatchDocument
 from agilicus_api.model.org_upstream_user_identity import OrgUpstreamUserIdentity

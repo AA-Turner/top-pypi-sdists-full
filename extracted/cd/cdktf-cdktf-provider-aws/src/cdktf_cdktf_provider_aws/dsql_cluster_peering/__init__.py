@@ -1,7 +1,7 @@
 r'''
 # `aws_dsql_cluster_peering`
 
-Refer to the Terraform Registry for docs: [`aws_dsql_cluster_peering`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering).
+Refer to the Terraform Registry for docs: [`aws_dsql_cluster_peering`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DsqlClusterPeering(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dsqlClusterPeering.DsqlClusterPeering",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering aws_dsql_cluster_peering}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering aws_dsql_cluster_peering}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DsqlClusterPeering(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering aws_dsql_cluster_peering} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering aws_dsql_cluster_peering} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param clusters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.
-        :param witness_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
+        :param clusters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.
+        :param witness_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DsqlClusterPeering(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DsqlClusterPeering to import.
-        :param import_from_id: The id of the existing DsqlClusterPeering that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DsqlClusterPeering that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DsqlClusterPeering to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class DsqlClusterPeering(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
         '''
         value = DsqlClusterPeeringTimeouts(create=create)
 
@@ -280,11 +280,11 @@ class DsqlClusterPeeringConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param clusters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.
-        :param witness_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
+        :param clusters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.
+        :param witness_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -394,21 +394,21 @@ class DsqlClusterPeeringConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def clusters(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#clusters DsqlClusterPeering#clusters}.'''
         result = self._values.get("clusters")
         assert result is not None, "Required property 'clusters' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#identifier DsqlClusterPeering#identifier}.'''
         result = self._values.get("identifier")
         assert result is not None, "Required property 'identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def witness_region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#witness_region DsqlClusterPeering#witness_region}.'''
         result = self._values.get("witness_region")
         assert result is not None, "Required property 'witness_region' is missing"
         return typing.cast(builtins.str, result)
@@ -417,7 +417,7 @@ class DsqlClusterPeeringConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#region DsqlClusterPeering#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -426,7 +426,7 @@ class DsqlClusterPeeringConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DsqlClusterPeeringTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#timeouts DsqlClusterPeering#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DsqlClusterPeeringTimeouts"], result)
@@ -451,7 +451,7 @@ class DsqlClusterPeeringConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DsqlClusterPeeringTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77cf9ab56b099044f047912eded110f14ca75a9bedab9d66a55b2bdc2228b8c4)
@@ -464,7 +464,7 @@ class DsqlClusterPeeringTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dsql_cluster_peering#create DsqlClusterPeering#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

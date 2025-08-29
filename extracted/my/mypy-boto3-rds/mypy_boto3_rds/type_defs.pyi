@@ -1812,6 +1812,7 @@ class OrderableDBInstanceOptionTypeDef(TypedDict):
     MinStorageThroughputPerIops: NotRequired[float]
     MaxStorageThroughputPerIops: NotRequired[float]
     SupportsDedicatedLogVolume: NotRequired[bool]
+    SupportsHttpEndpoint: NotRequired[bool]
 
 class BacktrackDBClusterMessageTypeDef(TypedDict):
     DBClusterIdentifier: str

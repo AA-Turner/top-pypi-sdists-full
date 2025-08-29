@@ -1,7 +1,7 @@
 r'''
 # `azurerm_synapse_spark_pool`
 
-Refer to the Terraform Registry for docs: [`azurerm_synapse_spark_pool`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool).
+Refer to the Terraform Registry for docs: [`azurerm_synapse_spark_pool`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SynapseSparkPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.synapseSparkPool.SynapseSparkPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool azurerm_synapse_spark_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool azurerm_synapse_spark_pool}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class SynapseSparkPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool azurerm_synapse_spark_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool azurerm_synapse_spark_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.
-        :param node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.
-        :param node_size_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.
-        :param spark_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.
-        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.
-        :param auto_pause: auto_pause block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
-        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
-        :param cache_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.
-        :param compute_isolation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.
-        :param dynamic_executor_allocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param library_requirement: library_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
-        :param max_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.
-        :param min_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.
-        :param session_level_packages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.
-        :param spark_config: spark_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
-        :param spark_events_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.
-        :param spark_log_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.
+        :param node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.
+        :param node_size_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.
+        :param spark_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.
+        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.
+        :param auto_pause: auto_pause block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
+        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
+        :param cache_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.
+        :param compute_isolation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.
+        :param dynamic_executor_allocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param library_requirement: library_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
+        :param max_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.
+        :param min_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.
+        :param session_level_packages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.
+        :param spark_config: spark_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
+        :param spark_events_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.
+        :param spark_log_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class SynapseSparkPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SynapseSparkPool to import.
-        :param import_from_id: The id of the existing SynapseSparkPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SynapseSparkPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SynapseSparkPool to import is found.
         '''
         if __debug__:
@@ -177,7 +177,7 @@ class SynapseSparkPool(
     @jsii.member(jsii_name="putAutoPause")
     def put_auto_pause(self, *, delay_in_minutes: jsii.Number) -> None:
         '''
-        :param delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.
+        :param delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.
         '''
         value = SynapseSparkPoolAutoPause(delay_in_minutes=delay_in_minutes)
 
@@ -191,8 +191,8 @@ class SynapseSparkPool(
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.
         '''
         value = SynapseSparkPoolAutoScale(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -208,8 +208,8 @@ class SynapseSparkPool(
         filename: builtins.str,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
         '''
         value = SynapseSparkPoolLibraryRequirement(content=content, filename=filename)
 
@@ -223,8 +223,8 @@ class SynapseSparkPool(
         filename: builtins.str,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
         '''
         value = SynapseSparkPoolSparkConfig(content=content, filename=filename)
 
@@ -240,10 +240,10 @@ class SynapseSparkPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.
         '''
         value = SynapseSparkPoolTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -686,7 +686,7 @@ class SynapseSparkPool(
 class SynapseSparkPoolAutoPause:
     def __init__(self, *, delay_in_minutes: jsii.Number) -> None:
         '''
-        :param delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.
+        :param delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e861775b439feac0f0523ee128785368dff16fc96f2bf50129a195baa13e30d)
@@ -697,7 +697,7 @@ class SynapseSparkPoolAutoPause:
 
     @builtins.property
     def delay_in_minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delay_in_minutes SynapseSparkPool#delay_in_minutes}.'''
         result = self._values.get("delay_in_minutes")
         assert result is not None, "Required property 'delay_in_minutes' is missing"
         return typing.cast(jsii.Number, result)
@@ -777,8 +777,8 @@ class SynapseSparkPoolAutoScale:
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f83672a354790410b42514323acdeca4f1b25e3e4beeb1046c325db9bfd58f95)
@@ -791,14 +791,14 @@ class SynapseSparkPoolAutoScale:
 
     @builtins.property
     def max_node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_node_count SynapseSparkPool#max_node_count}.'''
         result = self._values.get("max_node_count")
         assert result is not None, "Required property 'max_node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def min_node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_node_count SynapseSparkPool#min_node_count}.'''
         result = self._values.get("min_node_count")
         assert result is not None, "Required property 'min_node_count' is missing"
         return typing.cast(jsii.Number, result)
@@ -957,27 +957,27 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.
-        :param node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.
-        :param node_size_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.
-        :param spark_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.
-        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.
-        :param auto_pause: auto_pause block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
-        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
-        :param cache_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.
-        :param compute_isolation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.
-        :param dynamic_executor_allocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param library_requirement: library_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
-        :param max_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.
-        :param min_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.
-        :param session_level_packages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.
-        :param spark_config: spark_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
-        :param spark_events_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.
-        :param spark_log_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.
+        :param node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.
+        :param node_size_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.
+        :param spark_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.
+        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.
+        :param auto_pause: auto_pause block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
+        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
+        :param cache_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.
+        :param compute_isolation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.
+        :param dynamic_executor_allocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param library_requirement: library_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
+        :param max_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.
+        :param min_executors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.
+        :param session_level_packages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.
+        :param spark_config: spark_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
+        :param spark_events_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.
+        :param spark_log_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1141,35 +1141,35 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#name SynapseSparkPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_size(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size SynapseSparkPool#node_size}.'''
         result = self._values.get("node_size")
         assert result is not None, "Required property 'node_size' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_size_family(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_size_family SynapseSparkPool#node_size_family}.'''
         result = self._values.get("node_size_family")
         assert result is not None, "Required property 'node_size_family' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def spark_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_version SynapseSparkPool#spark_version}.'''
         result = self._values.get("spark_version")
         assert result is not None, "Required property 'spark_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def synapse_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#synapse_workspace_id SynapseSparkPool#synapse_workspace_id}.'''
         result = self._values.get("synapse_workspace_id")
         assert result is not None, "Required property 'synapse_workspace_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1178,7 +1178,7 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_pause(self) -> typing.Optional[SynapseSparkPoolAutoPause]:
         '''auto_pause block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_pause SynapseSparkPool#auto_pause}
         '''
         result = self._values.get("auto_pause")
         return typing.cast(typing.Optional[SynapseSparkPoolAutoPause], result)
@@ -1187,14 +1187,14 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_scale(self) -> typing.Optional[SynapseSparkPoolAutoScale]:
         '''auto_scale block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#auto_scale SynapseSparkPool#auto_scale}
         '''
         result = self._values.get("auto_scale")
         return typing.cast(typing.Optional[SynapseSparkPoolAutoScale], result)
 
     @builtins.property
     def cache_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#cache_size SynapseSparkPool#cache_size}.'''
         result = self._values.get("cache_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1202,7 +1202,7 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compute_isolation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#compute_isolation_enabled SynapseSparkPool#compute_isolation_enabled}.'''
         result = self._values.get("compute_isolation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1210,13 +1210,13 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dynamic_executor_allocation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#dynamic_executor_allocation_enabled SynapseSparkPool#dynamic_executor_allocation_enabled}.'''
         result = self._values.get("dynamic_executor_allocation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#id SynapseSparkPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1230,26 +1230,26 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SynapseSparkPoolLibraryRequirement"]:
         '''library_requirement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#library_requirement SynapseSparkPool#library_requirement}
         '''
         result = self._values.get("library_requirement")
         return typing.cast(typing.Optional["SynapseSparkPoolLibraryRequirement"], result)
 
     @builtins.property
     def max_executors(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#max_executors SynapseSparkPool#max_executors}.'''
         result = self._values.get("max_executors")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_executors(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#min_executors SynapseSparkPool#min_executors}.'''
         result = self._values.get("min_executors")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def node_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#node_count SynapseSparkPool#node_count}.'''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1257,7 +1257,7 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def session_level_packages_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#session_level_packages_enabled SynapseSparkPool#session_level_packages_enabled}.'''
         result = self._values.get("session_level_packages_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1265,26 +1265,26 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_config(self) -> typing.Optional["SynapseSparkPoolSparkConfig"]:
         '''spark_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_config SynapseSparkPool#spark_config}
         '''
         result = self._values.get("spark_config")
         return typing.cast(typing.Optional["SynapseSparkPoolSparkConfig"], result)
 
     @builtins.property
     def spark_events_folder(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_events_folder SynapseSparkPool#spark_events_folder}.'''
         result = self._values.get("spark_events_folder")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def spark_log_folder(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#spark_log_folder SynapseSparkPool#spark_log_folder}.'''
         result = self._values.get("spark_log_folder")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#tags SynapseSparkPool#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1292,7 +1292,7 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SynapseSparkPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#timeouts SynapseSparkPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SynapseSparkPoolTimeouts"], result)
@@ -1317,8 +1317,8 @@ class SynapseSparkPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SynapseSparkPoolLibraryRequirement:
     def __init__(self, *, content: builtins.str, filename: builtins.str) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b470988f3ff7327793274387af17e56026de04fd9660ca50ad74c9d168627fcc)
@@ -1331,14 +1331,14 @@ class SynapseSparkPoolLibraryRequirement:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def filename(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.'''
         result = self._values.get("filename")
         assert result is not None, "Required property 'filename' is missing"
         return typing.cast(builtins.str, result)
@@ -1433,8 +1433,8 @@ class SynapseSparkPoolLibraryRequirementOutputReference(
 class SynapseSparkPoolSparkConfig:
     def __init__(self, *, content: builtins.str, filename: builtins.str) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__038de899133a0d8f4737a12bb0a43527b48582b83dd0b468e1a0804253424a67)
@@ -1447,14 +1447,14 @@ class SynapseSparkPoolSparkConfig:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#content SynapseSparkPool#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def filename(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#filename SynapseSparkPool#filename}.'''
         result = self._values.get("filename")
         assert result is not None, "Required property 'filename' is missing"
         return typing.cast(builtins.str, result)
@@ -1561,10 +1561,10 @@ class SynapseSparkPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9df84e393c4659a96e5d0b474595c69b8cd3c8ae6934aac4b076f79b424b32a4)
@@ -1584,25 +1584,25 @@ class SynapseSparkPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#create SynapseSparkPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#delete SynapseSparkPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#read SynapseSparkPool#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/synapse_spark_pool#update SynapseSparkPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

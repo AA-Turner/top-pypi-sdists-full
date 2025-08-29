@@ -247,7 +247,6 @@ class Dense(Module):
   kernel_init: Initializer = default_kernel_init
   bias_init: Initializer = initializers.zeros_init()
   promote_dtype: PromoteDtypeFn = promote_dtype
-  # Deprecated. Will be removed.
   dot_general: DotGeneralT | None = None
   dot_general_cls: Any = None
 
@@ -572,8 +571,7 @@ class _Conv(Module):
     num_batch_dimensions = inputs.ndim - (len(kernel_size) + 1)
     if num_batch_dimensions != 1:
       input_batch_shape = inputs.shape[:num_batch_dimensions]
-      total_batch_size = int(np.prod(input_batch_shape))
-      flat_input_shape = (total_batch_size,) + inputs.shape[
+      flat_input_shape = (-1,) + inputs.shape[
         num_batch_dimensions:
       ]
       inputs = jnp.reshape(inputs, flat_input_shape)
@@ -987,8 +985,7 @@ class ConvTranspose(Module):
     num_batch_dimensions = inputs.ndim - (len(kernel_size) + 1)
     if num_batch_dimensions != 1:
       input_batch_shape = inputs.shape[:num_batch_dimensions]
-      total_batch_size = int(np.prod(input_batch_shape))
-      flat_input_shape = (total_batch_size,) + inputs.shape[
+      flat_input_shape = (-1,) + inputs.shape[
         num_batch_dimensions:
       ]
       inputs = jnp.reshape(inputs, flat_input_shape)

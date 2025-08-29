@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.41.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.42.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -570,6 +570,7 @@ __all__ = [
     "data_azurerm_managed_api",
     "data_azurerm_managed_application_definition",
     "data_azurerm_managed_disk",
+    "data_azurerm_managed_disks",
     "data_azurerm_management_group",
     "data_azurerm_management_group_template_deployment",
     "data_azurerm_maps_account",
@@ -2076,6 +2077,7 @@ from . import data_azurerm_maintenance_configuration
 from . import data_azurerm_managed_api
 from . import data_azurerm_managed_application_definition
 from . import data_azurerm_managed_disk
+from . import data_azurerm_managed_disks
 from . import data_azurerm_management_group
 from . import data_azurerm_management_group_template_deployment
 from . import data_azurerm_maps_account

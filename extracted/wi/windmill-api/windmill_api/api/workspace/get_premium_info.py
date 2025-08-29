@@ -6,19 +6,27 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_premium_info_response_200 import GetPremiumInfoResponse200
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
+    *,
+    skip_subscription_fetch: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["skip_subscription_fetch"] = skip_subscription_fetch
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/w/{workspace}/workspaces/premium_info".format(
             workspace=workspace,
         ),
+        "params": params,
     }
 
 
@@ -50,11 +58,13 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    skip_subscription_fetch: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetPremiumInfoResponse200]:
     """get premium info
 
     Args:
         workspace (str):
+        skip_subscription_fetch (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -66,6 +76,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        skip_subscription_fetch=skip_subscription_fetch,
     )
 
     response = client.get_httpx_client().request(
@@ -79,11 +90,13 @@ def sync(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    skip_subscription_fetch: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetPremiumInfoResponse200]:
     """get premium info
 
     Args:
         workspace (str):
+        skip_subscription_fetch (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,6 +109,7 @@ def sync(
     return sync_detailed(
         workspace=workspace,
         client=client,
+        skip_subscription_fetch=skip_subscription_fetch,
     ).parsed
 
 
@@ -103,11 +117,13 @@ async def asyncio_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    skip_subscription_fetch: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetPremiumInfoResponse200]:
     """get premium info
 
     Args:
         workspace (str):
+        skip_subscription_fetch (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -119,6 +135,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        skip_subscription_fetch=skip_subscription_fetch,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -130,11 +147,13 @@ async def asyncio(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    skip_subscription_fetch: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetPremiumInfoResponse200]:
     """get premium info
 
     Args:
         workspace (str):
+        skip_subscription_fetch (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -148,5 +167,6 @@ async def asyncio(
         await asyncio_detailed(
             workspace=workspace,
             client=client,
+            skip_subscription_fetch=skip_subscription_fetch,
         )
     ).parsed

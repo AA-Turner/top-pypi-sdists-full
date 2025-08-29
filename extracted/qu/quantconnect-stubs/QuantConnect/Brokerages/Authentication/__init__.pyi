@@ -57,42 +57,6 @@ class TokenCredentials(System.Object):
         ...
 
 
-class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
-    """Represents the base request for obtaining an access token, including brokerage and account information."""
-
-    @property
-    def brokerage(self) -> str:
-        """
-        Gets the name of the brokerage associated with the access token request.
-        The value is normalized to lowercase.
-        """
-        ...
-
-    @property
-    def account_id(self) -> str:
-        """Gets the account identifier (e.g., account number) associated with the brokerage."""
-        ...
-
-    def __init__(self, brokerage: str, account_id: str) -> None:
-        """
-        Initializes a new instance of the AccessTokenMetaDataRequest class.
-        
-        This method is protected.
-        
-        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
-        :param account_id: The account number or identifier associated with the brokerage.
-        """
-        ...
-
-    def to_json(self) -> str:
-        """
-        Serializes the request into a compact JSON string with camelCase property naming.
-        
-        :returns: A JSON string representing the current request.
-        """
-        ...
-
-
 class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
     """
     Provides base functionality for token-based HTTP request handling,
@@ -148,6 +112,32 @@ class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
         ...
 
 
+class OAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest, QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse], QuantConnect.Brokerages.Authentication.TokenHandler):
+    """
+    Handles OAuth token retrieval and caching by interacting with the Lean platform.
+    Implements retry and expiration logic for secure HTTP communication.
+    """
+
+    def __init__(self, api_client: QuantConnect.Api.ApiConnection, model_request: QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest) -> None:
+        """
+        Initializes a new instance of the OAuthTokenHandler{TRequest, TResponse} class.
+        
+        :param api_client: The API client used to communicate with the Lean platform.
+        :param model_request: The request model used to generate the access token.
+        """
+        ...
+
+    def get_access_token(self, cancellation_token: System.Threading.CancellationToken) -> QuantConnect.Brokerages.Authentication.TokenCredentials:
+        """
+        Retrieves a valid access token from the Lean platform.
+        Caches and reuses tokens until expiration to minimize unnecessary requests.
+        
+        :param cancellation_token: A token used to observe cancellation requests.
+        :returns: A tuple containing the token type and access token string.
+        """
+        ...
+
+
 class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.ABCMeta):
     """Represents a response containing metadata about an access token issued by Lean."""
 
@@ -183,28 +173,38 @@ class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.A
         ...
 
 
-class OAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest, QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse], QuantConnect.Brokerages.Authentication.TokenHandler):
-    """
-    Handles OAuth token retrieval and caching by interacting with the Lean platform.
-    Implements retry and expiration logic for secure HTTP communication.
-    """
+class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
+    """Represents the base request for obtaining an access token, including brokerage and account information."""
 
-    def __init__(self, api_client: QuantConnect.Api.ApiConnection, model_request: QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest) -> None:
+    @property
+    def brokerage(self) -> str:
         """
-        Initializes a new instance of the OAuthTokenHandler{TRequest, TResponse} class.
-        
-        :param api_client: The API client used to communicate with the Lean platform.
-        :param model_request: The request model used to generate the access token.
+        Gets the name of the brokerage associated with the access token request.
+        The value is normalized to lowercase.
         """
         ...
 
-    def get_access_token(self, cancellation_token: System.Threading.CancellationToken) -> QuantConnect.Brokerages.Authentication.TokenCredentials:
+    @property
+    def account_id(self) -> str:
+        """Gets the account identifier (e.g., account number) associated with the brokerage."""
+        ...
+
+    def __init__(self, brokerage: str, account_id: str) -> None:
         """
-        Retrieves a valid access token from the Lean platform.
-        Caches and reuses tokens until expiration to minimize unnecessary requests.
+        Initializes a new instance of the AccessTokenMetaDataRequest class.
         
-        :param cancellation_token: A token used to observe cancellation requests.
-        :returns: A tuple containing the token type and access token string.
+        This method is protected.
+        
+        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
+        :param account_id: The account number or identifier associated with the brokerage.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """
+        Serializes the request into a compact JSON string with camelCase property naming.
+        
+        :returns: A JSON string representing the current request.
         """
         ...
 

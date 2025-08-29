@@ -662,8 +662,8 @@ def long_form_one_format(
 
 
 def long_form_multiple_formats(
-    jupytext_formats, metadata=None, auto_ext_requires_language_info=True
-):
+    jupytext_formats: str, metadata=None, auto_ext_requires_language_info=True
+) -> list[dict[str, str]]:
     """Convert a concise encoding of jupytext.formats to a list of formats, encoded as dictionaries"""
     if not jupytext_formats:
         return []
@@ -688,7 +688,7 @@ def long_form_multiple_formats(
     return jupytext_formats
 
 
-def short_form_one_format(jupytext_format):
+def short_form_one_format(jupytext_format: dict[str, str]) -> str:
     """Represent one jupytext format as a string"""
     if not isinstance(jupytext_format, dict):
         return jupytext_format
@@ -712,7 +712,7 @@ def short_form_one_format(jupytext_format):
     return fmt
 
 
-def short_form_multiple_formats(jupytext_formats):
+def short_form_multiple_formats(jupytext_formats: list[dict[str, str]]) -> str:
     """Convert jupytext formats, represented as a list of dictionaries, to a comma separated list"""
     if not isinstance(jupytext_formats, list):
         return jupytext_formats
@@ -742,7 +742,7 @@ _VALID_FORMAT_OPTIONS = _BINARY_FORMAT_OPTIONS + [
 _VALID_FORMAT_NAMES = {fmt.format_name for fmt in JUPYTEXT_FORMATS}
 
 
-def validate_one_format(jupytext_format):
+def validate_one_format(jupytext_format: dict[str, str]) -> dict[str, str]:
     """Validate extension and options for the given format"""
     if not isinstance(jupytext_format, dict):
         raise JupytextFormatError("Jupytext format should be a dictionary")
@@ -849,3 +849,20 @@ def formats_with_support_for_cell_metadata():
             continue
         if fmt.format_name not in ["sphinx", "nomarker", "spin", "quarto"]:
             yield f"{fmt.extension[1:]}:{fmt.format_name}"
+
+
+def get_formats_from_notebook_metadata(notebook):
+    """
+    Get the pairing information from the notebook metadata.
+
+    Parameters
+    ----------
+    notebook : nbformat.NotebookNode
+        The notebook object whose metadata will be inspected.
+
+    Returns
+    -------
+    formats : None or str
+        The value of the 'formats' field in the 'jupytext' metadata, which can be None or a string.
+    """
+    return notebook.metadata.get("jupytext", {}).get("formats")

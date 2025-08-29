@@ -214,6 +214,10 @@ class TextChatParameters(BaseSchema):
     logit_bias: dict | None = None
     seed: int | None = None
     stop: list[str] | None = None
+    guided_choice: list[str] | None = None
+    guided_regex: str | None = None
+    guided_grammar: str | None = None
+    guided_json: dict | None = None
 
     @classmethod
     def get_sample_params(cls) -> dict[str, Any]:
@@ -233,6 +237,13 @@ class TextChatParameters(BaseSchema):
             "logit_bias": {"1003": -100, "1004": -100},
             "seed": 41,
             "stop": ["this", "the"],
+            "guided_choice": ["red", "blue"],
+            "guided_regex": "\\w+@\\w+\\.xai",
+            "guided_grammar": 'root ::= rating " stars"\nrating ::= [1-5]',
+            "guided_json": {
+                "type": "object",
+                "properties": {"sentiment": {"type": "string"}},
+            },
         }
 
 

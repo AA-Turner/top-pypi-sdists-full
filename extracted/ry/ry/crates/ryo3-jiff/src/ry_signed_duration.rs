@@ -1,15 +1,20 @@
+use crate::JiffRoundMode;
 use crate::JiffSignedDuration;
+use crate::JiffUnit;
 use crate::errors::map_py_value_err;
 use crate::pydatetime_conversions::signed_duration_from_pyobject;
+use crate::round::RySignedDurationRound;
 use crate::ry_span::RySpan;
+use jiff::SignedDurationRound;
 use jiff::{SignedDuration, Span};
 use pyo3::prelude::*;
 
 use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyOverflowError, PyTypeError};
-use pyo3::types::{PyDelta, PyTuple, PyType};
+use pyo3::types::{PyDelta, PyTuple};
 use ryo3_std::PyDuration;
+use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Mul;
 use std::str::FromStr;
@@ -89,16 +94,16 @@ impl RySignedDuration {
         self.0.subsec_nanos()
     }
 
-    #[classmethod]
-    fn from_str(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
         SignedDuration::from_str(s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
 
-    #[classmethod]
-    fn parse(cls: &Bound<'_, PyType>, input: &str) -> PyResult<Self> {
-        Self::from_str(cls, input)
+    #[staticmethod]
+    fn parse(input: &str) -> PyResult<Self> {
+        Self::from_str(input)
     }
 
     #[getter]
@@ -115,8 +120,8 @@ impl RySignedDuration {
         self.0.is_zero()
     }
 
-    #[classmethod]
-    fn from_pytimedelta(_cls: &Bound<'_, PyType>, delta: SignedDuration) -> Self {
+    #[staticmethod]
+    fn from_pytimedelta(delta: SignedDuration) -> Self {
         Self(delta)
     }
 
@@ -137,20 +142,26 @@ impl RySignedDuration {
     fn __abs__(&self) -> Self {
         Self(self.0.abs())
     }
+
     fn abs(&self) -> Self {
         self.__abs__()
     }
+
     fn unsigned_abs(&self) -> PyDuration {
         PyDuration::from(self.0.unsigned_abs())
     }
 
-    #[pyo3(signature = (human=false))]
-    fn string(&self, human: bool) -> String {
-        if human {
+    #[pyo3(signature = (*, friendly=false))]
+    fn string(&self, friendly: bool) -> String {
+        if friendly {
             format!("{:#}", self.0)
         } else {
             self.0.to_string()
         }
+    }
+
+    fn friendly(&self) -> String {
+        format!("{:#}", self.0)
     }
 
     fn __float__(&self) -> f64 {
@@ -166,11 +177,7 @@ impl RySignedDuration {
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "SignedDuration(secs={}, nanos={})",
-            self.0.as_secs(),
-            self.0.subsec_nanos()
-        )
+        format!("{self}")
     }
 
     fn __hash__(&self) -> u64 {
@@ -263,33 +270,33 @@ impl RySignedDuration {
     // =========
     // FROM NUMS
     // =========
-    #[classmethod]
-    fn from_hours(_cls: &Bound<'_, PyType>, hours: i64) -> Self {
+    #[staticmethod]
+    fn from_hours(hours: i64) -> Self {
         Self(SignedDuration::from_hours(hours))
     }
 
-    #[classmethod]
-    fn from_micros(_cls: &Bound<'_, PyType>, micros: i64) -> Self {
+    #[staticmethod]
+    fn from_micros(micros: i64) -> Self {
         Self(SignedDuration::from_micros(micros))
     }
 
-    #[classmethod]
-    fn from_millis(_cls: &Bound<'_, PyType>, millis: i64) -> Self {
+    #[staticmethod]
+    fn from_millis(millis: i64) -> Self {
         Self(SignedDuration::from_millis(millis))
     }
 
-    #[classmethod]
-    fn from_mins(_cls: &Bound<'_, PyType>, mins: i64) -> Self {
+    #[staticmethod]
+    fn from_mins(mins: i64) -> Self {
         Self(SignedDuration::from_mins(mins))
     }
 
-    #[classmethod]
-    fn from_nanos(_cls: &Bound<'_, PyType>, nanos: i64) -> Self {
+    #[staticmethod]
+    fn from_nanos(nanos: i64) -> Self {
         Self(SignedDuration::from_nanos(nanos))
     }
 
-    #[classmethod]
-    fn from_secs(_cls: &Bound<'_, PyType>, secs: &Bound<'_, PyAny>) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_secs(secs: &Bound<'_, PyAny>) -> PyResult<Self> {
         if let Ok(secs) = secs.extract::<i64>() {
             Ok(Self(SignedDuration::from_secs(secs)))
         } else if let Ok(secs) = secs.extract::<f64>() {
@@ -301,13 +308,13 @@ impl RySignedDuration {
         }
     }
 
-    #[classmethod]
-    fn from_secs_f32(_cls: &Bound<'_, PyType>, secs: f32) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_secs_f32(secs: f32) -> PyResult<Self> {
         Self::py_try_from_secs_f32(secs)
     }
 
-    #[classmethod]
-    fn from_secs_f64(_cls: &Bound<'_, PyType>, secs: f64) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_secs_f64(secs: f64) -> PyResult<Self> {
         Self::py_try_from_secs_f64(secs)
     }
 
@@ -417,6 +424,41 @@ impl RySignedDuration {
     fn subsec_nanos(&self) -> i32 {
         self.0.subsec_nanos()
     }
+
+    // ========================================================================
+    // ROUND
+    // ========================================================================
+    #[pyo3(
+       signature = (smallest=None, *, mode = None, increment = None),
+    )]
+    fn round(
+        &self,
+        smallest: Option<JiffUnit>,
+        mode: Option<JiffRoundMode>,
+        increment: Option<i64>,
+    ) -> PyResult<Self> {
+        let mut dt_round = SignedDurationRound::new();
+        if let Some(smallest) = smallest {
+            dt_round = dt_round.smallest(smallest.0);
+        }
+        if let Some(mode) = mode {
+            dt_round = dt_round.mode(mode.0);
+        }
+        if let Some(increment) = increment {
+            dt_round = dt_round.increment(increment);
+        }
+        self.0
+            .round(dt_round)
+            .map(Self::from)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+    }
+
+    fn _round(&self, dt_round: &RySignedDurationRound) -> PyResult<Self> {
+        self.0
+            .round(dt_round.jiff_round)
+            .map(Self::from)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+    }
 }
 
 impl From<SignedDuration> for RySignedDuration {
@@ -435,4 +477,15 @@ impl From<JiffSignedDuration> for RySignedDuration {
 enum RySignedDurationComparable<'py> {
     RySignedDuration(RySignedDuration),
     PyDelta(Bound<'py, PyDelta>),
+}
+
+impl Display for RySignedDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SignedDuration(secs={}, nanos={})",
+            self.0.as_secs(),
+            self.0.subsec_nanos()
+        )
+    }
 }

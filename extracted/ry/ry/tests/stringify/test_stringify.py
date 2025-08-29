@@ -249,6 +249,8 @@ def test_stringify_json_data(data: t.Any) -> None:
 
 
 RYTYPES_JSON_SER = {
+    # std-time
+    "duration": ry.Duration(secs=1),
     # uuid ~ ryo3-uuid
     "uuid": ry.uuid.UUID("88475448-f091-42ef-b574-2452952931c1"),
     # ulid ~ ryo3-ulid
@@ -256,13 +258,11 @@ RYTYPES_JSON_SER = {
     # url ~ ryo3-url
     "url": ry.URL("https://example.com"),
     # http
-    "headers": ry.Headers(
-        {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "X-Content-Type-Options": "nosniff",
-        }
-    ),
+    "headers": ry.Headers({
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Content-Type-Options": "nosniff",
+    }),
     "http-status": ry.HttpStatus(200),
     # jiff ~ ryo3-jiff
     "date": ry.date(2020, 8, 26),
@@ -276,6 +276,7 @@ RYTYPES_JSON_SER = {
     "zoned": ry.datetime(2020, 8, 26, 6, 27, 0, 0).in_tz("America/New_York"),
 }
 EXPECTED = {
+    "duration": "PT1S",
     "uuid": "88475448-f091-42ef-b574-2452952931c1",
     "ulid": "01H7Z5F8Y3V9G4J6K8D5E6F7G8",
     "url": "https://example.com/",
@@ -302,7 +303,7 @@ def test_stringify_ry_types() -> None:
     res = ry.stringify(RYTYPES_JSON_SER, fmt=True)
     parsed = ry.parse_json(res)
     assert isinstance(parsed, dict), "Parsed result should be a dictionary"
-    parsed_dict: dict[str, t.Any] = t.cast(dict[str, t.Any], parsed)
+    parsed_dict: dict[str, t.Any] = t.cast("dict[str, t.Any]", parsed)
 
     def _format_different() -> str:
         different_vals = {

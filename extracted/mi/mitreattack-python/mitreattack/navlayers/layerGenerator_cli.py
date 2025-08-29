@@ -4,8 +4,8 @@ import argparse
 import os
 
 from mitreattack.navlayers.generators.overview_generator import OverviewLayerGenerator
-from mitreattack.navlayers.generators.usage_generator import UsageLayerGenerator
 from mitreattack.navlayers.generators.sum_generator import BatchGenerator
+from mitreattack.navlayers.generators.usage_generator import UsageLayerGenerator
 
 
 def main(argv=None):
@@ -41,8 +41,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--resource",
-        help="Path to the local resource if --source=local, or url of an ATT&CK Workbench"
-        " instance if --source=remote",
+        help="Path to the local resource if --source=local, or url of an ATT&CK Workbench instance if --source=remote",
         default=None,
     )
     args = parser.parse_args(args=argv)

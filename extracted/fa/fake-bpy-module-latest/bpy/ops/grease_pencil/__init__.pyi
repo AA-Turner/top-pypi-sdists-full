@@ -572,7 +572,7 @@ def join_selection(
     undo: bool | None = None,
     /,
     *,
-    type: typing.Literal["JOINCOPY", "JOIN"] | None = "JOIN",
+    type: typing.Literal["JOINSTROKES", "SPLITCOPY", "SPLIT"] | None = "JOINSTROKES",
 ) -> None:
     """New stroke from selected points/strokes
 
@@ -580,12 +580,15 @@ def join_selection(
         :type undo: bool | None
         :param type: Type, Defines how the operator will behave on the selection in the active layer
 
-    JOINCOPY
-    Join and Copy -- Copy the selection in the new stroke.
+    JOINSTROKES
+    Join Strokes -- Join the selected strokes into one stroke.
 
-    JOIN
-    Join -- Move the selection to the new stroke.
-        :type type: typing.Literal['JOINCOPY','JOIN'] | None
+    SPLITCOPY
+    Split and Copy -- Copy the selected points to a new stroke.
+
+    SPLIT
+    Split -- Split the selected point to a new stroke.
+        :type type: typing.Literal['JOINSTROKES','SPLITCOPY','SPLIT'] | None
     """
 
 def layer_active(
@@ -1573,14 +1576,30 @@ def set_handle_type(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.CurvesHandleTypeItems | None = "AUTO",
+    type: typing.Literal["AUTO", "VECTOR", "ALIGN", "FREE_ALIGN", "TOGGLE_FREE_ALIGN"]
+    | None = "AUTO",
 ) -> None:
     """Set the handle type for bezier curves
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param type: Type
-    :type type: bpy.stub_internal.rna_enums.CurvesHandleTypeItems | None
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param type: Type
+
+    AUTO
+    Auto -- The location is automatically calculated to be smooth.
+
+    VECTOR
+    Vector -- The location is calculated to point to the next/previous control point.
+
+    ALIGN
+    Align -- The location is constrained to point in the opposite direction as the other handle.
+
+    FREE_ALIGN
+    Free -- The handle can be moved anywhere, and does not influence the points other handle.
+
+    TOGGLE_FREE_ALIGN
+    Toggle Free/Align -- Replace Free handles with Align, and all Align with Free handles.
+        :type type: typing.Literal['AUTO','VECTOR','ALIGN','FREE_ALIGN','TOGGLE_FREE_ALIGN'] | None
     """
 
 def set_material(

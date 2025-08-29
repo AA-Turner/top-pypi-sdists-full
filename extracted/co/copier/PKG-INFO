@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copier
-Version: 9.10.0
+Version: 9.10.1
 Summary: A library for rendering project templates.
 Project-URL: homepage, https://github.com/copier-org/copier
 Project-URL: repository, https://github.com/copier-org/copier
@@ -28,6 +28,7 @@ Requires-Dist: packaging>=23.0
 Requires-Dist: pathspec>=0.9.0
 Requires-Dist: platformdirs>=4.3.6
 Requires-Dist: plumbum>=1.6.9
+Requires-Dist: prompt-toolkit<3.0.52
 Requires-Dist: pydantic>=2.4.2
 Requires-Dist: pygments>=2.7.1
 Requires-Dist: pyyaml>=5.3.1

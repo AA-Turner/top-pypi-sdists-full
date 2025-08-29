@@ -29,16 +29,17 @@ class MultipleChoiceContentTypeFilter(WBCoreFilterMixin, django_filters.Filter):
     def filter(self, qs, value):
         if value in EMPTY_VALUES:
             return qs
-
         conditions = [
             (
                 Q(**{self.content_type_label: ContentType.objects.get_for_model(val)})
                 & Q(**{self.object_id_label: val.id})
             )
-            for val in value
+            for val in filter(None, value)
         ]
-        qs = qs.filter(reduce(operator.or_, conditions))
-
+        if conditions:
+            qs = qs.filter(reduce(operator.or_, conditions))
+        else:
+            qs = qs.none()
         if self.distinct:
             qs = qs.distinct()
         return qs

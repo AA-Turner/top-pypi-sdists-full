@@ -1699,9 +1699,7 @@ WHERE
             },
         )
 
-        self.validate_identity(
-            "CONTAINS_SUBSTR(a, b, json_scope => 'JSON_KEYS_AND_VALUES')"
-        ).assert_is(exp.Anonymous)
+        self.validate_identity("CONTAINS_SUBSTR(a, b, json_scope => 'JSON_KEYS_AND_VALUES')")
 
         self.validate_all(
             """CONTAINS_SUBSTR(a, b)""",
@@ -1795,6 +1793,16 @@ WHERE
         self.validate_identity("FLOAT64(PARSE_JSON('9.8'))")
         self.validate_identity("FLOAT64(PARSE_JSON('9.8'), wide_number_mode => 'round')")
         self.validate_identity("FLOAT64(PARSE_JSON('9.8'), wide_number_mode => 'exact')")
+        self.validate_identity("NORMALIZE_AND_CASEFOLD('foo')")
+        self.validate_identity("NORMALIZE_AND_CASEFOLD('foo', NFKC)")
+        self.validate_identity(
+            "OCTET_LENGTH('foo')",
+            "BYTE_LENGTH('foo')",
+        )
+        self.validate_identity(
+            "OCTET_LENGTH(b'foo')",
+            "BYTE_LENGTH(b'foo')",
+        )
 
     def test_errors(self):
         with self.assertRaises(ParseError):

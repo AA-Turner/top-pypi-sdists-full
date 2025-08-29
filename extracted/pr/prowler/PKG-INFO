@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: prowler
-Version: 5.10.2
+Version: 5.11.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 License: Apache-2.0
 Author: Toni de la Fuente
@@ -15,6 +15,7 @@ Requires-Dist: alive-progress (==3.3.0)
 Requires-Dist: awsipranges (==0.3.3)
 Requires-Dist: azure-identity (==1.21.0)
 Requires-Dist: azure-keyvault-keys (==4.10.0)
+Requires-Dist: azure-mgmt-apimanagement (==5.0.0)
 Requires-Dist: azure-mgmt-applicationinsights (==4.1.0)
 Requires-Dist: azure-mgmt-authorization (==4.0.0)
 Requires-Dist: azure-mgmt-compute (==34.0.0)
@@ -23,6 +24,7 @@ Requires-Dist: azure-mgmt-containerservice (==34.1.0)
 Requires-Dist: azure-mgmt-cosmosdb (==9.7.0)
 Requires-Dist: azure-mgmt-databricks (==2.0.0)
 Requires-Dist: azure-mgmt-keyvault (==10.3.1)
+Requires-Dist: azure-mgmt-loganalytics (==12.0.0)
 Requires-Dist: azure-mgmt-monitor (==6.0.2)
 Requires-Dist: azure-mgmt-network (==28.1.0)
 Requires-Dist: azure-mgmt-rdbms (==10.1.0)
@@ -35,6 +37,7 @@ Requires-Dist: azure-mgmt-sql (==3.0.1)
 Requires-Dist: azure-mgmt-storage (==22.1.1)
 Requires-Dist: azure-mgmt-subscription (==3.1.1)
 Requires-Dist: azure-mgmt-web (==8.0.0)
+Requires-Dist: azure-monitor-query (==2.0.0)
 Requires-Dist: azure-storage-blob (==12.24.1)
 Requires-Dist: boto3 (==1.39.15)
 Requires-Dist: botocore (==1.39.15)
@@ -46,6 +49,7 @@ Requires-Dist: detect-secrets (==1.5.0)
 Requires-Dist: dulwich (==0.23.0)
 Requires-Dist: google-api-python-client (==2.163.0)
 Requires-Dist: google-auth-httplib2 (>=0.1,<0.3)
+Requires-Dist: h2 (==4.3.0)
 Requires-Dist: jsonschema (==4.23.0)
 Requires-Dist: kubernetes (==32.0.1)
 Requires-Dist: microsoft-kiota-abstractions (==1.9.2)
@@ -157,12 +161,12 @@ prowler dashboard
 
 | Provider | Checks | Services | [Compliance Frameworks](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/compliance/) | [Categories](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/misc/#categories) |
 |---|---|---|---|---|
-| AWS | 567 | 82 | 36 | 10 |
+| AWS | 571 | 82 | 36 | 10 |
 | GCP | 79 | 13 | 10 | 3 |
-| Azure | 142 | 18 | 11 | 3 |
+| Azure | 162 | 19 | 11 | 4 |
 | Kubernetes | 83 | 7 | 5 | 7 |
-| GitHub | 16 | 2 | 1 | 0 |
-| M365 | 69 | 7 | 3 | 2 |
+| GitHub | 17 | 2 | 1 | 0 |
+| M365 | 70 | 7 | 3 | 2 |
 | NHN (Unofficial) | 6 | 2 | 1 | 0 |
 
 > [!Note]

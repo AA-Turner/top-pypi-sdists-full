@@ -23,6 +23,7 @@ from collections.abc import (
 from contextlib import AbstractContextManager
 from dataclasses import (
     asdict,
+    dataclass,
     is_dataclass,
 )
 from datetime import datetime
@@ -69,6 +70,7 @@ from neptune_scale.sync.metadata_splitter import (
     datetime_to_proto,
     histograms_to_update_run_snapshots,
     make_step,
+    sanitize_attribute_path,
     string_series_to_update_run_snapshots,
 )
 from neptune_scale.sync.operations_repository import (
@@ -86,7 +88,10 @@ from neptune_scale.types import (
     File,
     Histogram,
 )
-from neptune_scale.util import envs
+from neptune_scale.util import (
+    envs,
+    source_tracking,
+)
 from neptune_scale.util.envs import (
     API_TOKEN_ENV_NAME,
     MODE_ENV_NAME,
@@ -102,6 +107,51 @@ from neptune_scale.util.timer import Timer
 __all__ = ["Run"]
 
 logger = get_logger()
+
+
+@dataclass
+class SourceTrackingConfig:
+    """
+    Specifies what kind of source code information to log.
+
+    Args:
+        namespace: Path of the namespace where the logged information is stored. Default is "source_code".
+        repository: Path to the Git repository. If not provided, Neptune detects it by searching the working
+            directory and its parent directories.
+        upload_run_command: Whether to log the script execution command. Defaults to True.
+        upload_entry_point: Whether to log the entry point file. Defaults to False.
+        upload_diff_head: Whether to log the diff between your current working directory and the last commit.
+            Defaults to False.
+        upload_diff_upstream: Whether to log the diff between your current branch and the upstream branch.
+            Defaults to False.
+
+    Example:
+
+        ```
+        from neptune_scale.api.run import SourceTrackingConfig
+
+        config = SourceTrackingConfig(
+            namespace="source_code_info",
+            repository="/path/to/repository",
+            upload_run_command=False,
+            upload_entry_point=True,
+            upload_diff_head=True,
+            upload_diff_upstream=True,
+        )
+
+        run = Run(
+            source_tracking_config=config,
+            ...,
+        )
+        ```
+    """
+
+    namespace: str = "source_code"
+    repository: Optional[Path] = None
+    upload_run_command: bool = True
+    upload_entry_point: bool = False
+    upload_diff_head: bool = False
+    upload_diff_upstream: bool = False
 
 
 class Run(AbstractContextManager):
@@ -130,6 +180,7 @@ class Run(AbstractContextManager):
         on_warning_callback: Optional[Callable[[BaseException, Optional[float]], None]] = None,
         enable_console_log_capture: bool = True,
         runtime_namespace: Optional[str] = None,
+        source_tracking_config: Optional[SourceTrackingConfig] = SourceTrackingConfig(),
         **kwargs: Any,
     ) -> None:
         """
@@ -162,7 +213,8 @@ class Run(AbstractContextManager):
             on_warning_callback: Callback function triggered when a warning occurs.
             enable_console_log_capture: Whether to capture stdout/stderr and log them to Neptune.
             runtime_namespace: Attribute path prefix for the captured logs. If not provided, defaults to "runtime".
-
+            source_tracking_config: Change or disable the logging of source code and Git information. To specify what
+                information to log, pass a `SourceTrackingConfig` object. To disable logging, set to `None`.
         """
 
         if run_id is None:
@@ -248,15 +300,15 @@ class Run(AbstractContextManager):
             )
             self._storage_directory_path.mkdir(parents=True, exist_ok=True)
 
-            operations_repository_path = self._storage_directory_path / "run_operations.sqlite3"
+            self._operations_repository_path = self._storage_directory_path / "run_operations.sqlite3"
             self._operations_repo: Optional[OperationsRepository] = OperationsRepository(
-                db_path=operations_repository_path,
+                db_path=self._operations_repository_path,
             )
             self._operations_repo.init_db()
 
             existing_metadata = self._operations_repo.get_metadata()
             if existing_metadata is not None:
-                raise NeptuneDatabaseConflict(path=operations_repository_path.name)
+                raise NeptuneDatabaseConflict(path=self._operations_repository_path.name)
             self._operations_repo.save_metadata(self._project, self._run_id)
 
             self._console_log_capture: Optional[ConsoleLogCaptureThread] = (
@@ -299,7 +351,7 @@ class Run(AbstractContextManager):
                 kwargs={
                     "project": self._project,
                     "family": self._run_id,
-                    "operations_repository_path": operations_repository_path,
+                    "operations_repository_path": self._operations_repository_path,
                     "api_token": self._api_token,
                 },
             )
@@ -348,6 +400,7 @@ class Run(AbstractContextManager):
                 fork_run_id=fork_run_id,
                 fork_step=fork_step,
             )
+            self._write_source_tracking_attributes(source_tracking_config)
 
             if mode == "async":
                 self._print_run_info()
@@ -412,10 +465,15 @@ class Run(AbstractContextManager):
 
         if self._storage_directory_path is not None:
             try:
-                logger.debug(f"Removing directory {self._storage_directory_path}")
+                logger.debug(f"Removing operations repository directory {self._storage_directory_path}")
                 self._storage_directory_path.rmdir()
             except Exception as e:
-                logger.info(f"Kept directory {self._storage_directory_path}: {e}")
+                logger.debug(f"Failed to remove operations repository directory: {e}")
+                logger.warning(
+                    f"The directory containing logged metadata was not deleted. "
+                    f"This means that some data may have failed to sync. "
+                    f"To finish syncing the data, run: `neptune sync {self._operations_repository_path}`"
+                )
 
     def terminate(self) -> None:
         """
@@ -500,6 +558,52 @@ class Run(AbstractContextManager):
         )
 
         self._operations_repo.save_create_run(create_run)
+
+    def _write_source_tracking_attributes(self, source_tracking_config: Optional[SourceTrackingConfig]) -> None:
+        if source_tracking_config is None:
+            return
+
+        namespace = source_tracking_config.namespace
+        repository_info = source_tracking.read_repository_info(
+            source_tracking_config.repository,
+            entry_point=source_tracking_config.upload_entry_point,
+            head_diff=source_tracking_config.upload_diff_head,
+            upstream_diff=source_tracking_config.upload_diff_upstream,
+            run_command=source_tracking_config.upload_run_command,
+        )
+        if repository_info is not None:
+            data = {
+                f"{namespace}/commit/commit_id": repository_info.commit_id,
+                f"{namespace}/commit/message": repository_info.commit_message,
+                f"{namespace}/commit/author_name": repository_info.commit_author_name,
+                f"{namespace}/commit/author_email": repository_info.commit_author_email,
+                f"{namespace}/commit/commit_date": repository_info.commit_date,
+                f"{namespace}/branch": repository_info.branch,
+                **{
+                    sanitize_attribute_path(f"{namespace}/remote/{name}"): url
+                    for name, url in repository_info.remotes.items()
+                },
+                f"{namespace}/dirty": repository_info.dirty,
+            }
+
+            if repository_info.run_command:
+                data[f"{namespace}/run_command"] = repository_info.run_command
+
+            self.log_configs(data=data)
+
+            source_files: dict[str, Union[str, bytes, Path, File]] = {}
+            if repository_info.entry_point_path is not None:
+                source_files[f"{namespace}/entry_point"] = repository_info.entry_point_path
+            if repository_info.head_diff_content is not None:
+                source_files[f"{namespace}/diff/head"] = File(
+                    source=repository_info.head_diff_content, mime_type="application/patch"
+                )
+            if repository_info.upstream_diff_content is not None:
+                source_files[f"{namespace}/diff/{repository_info.upstream_diff_commit_id}"] = File(
+                    source=repository_info.upstream_diff_content, mime_type="application/patch"
+                )
+            if source_files:
+                self.assign_files(files=source_files)
 
     def log_metrics(
         self,

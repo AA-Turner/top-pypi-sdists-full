@@ -57,7 +57,9 @@ def __get_latest_version_for_library(library_repo):
         response_data = response.json()
         latest_release_tag_name = response_data["tag_name"].strip("v")
         return PackageVersion(latest_release_tag_name.strip("v"), response_data["html_url"])
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as error:
+        print(f"Unable to get latest release for {library_repo}")
+        print(error)
         return None
 
 
@@ -73,6 +75,13 @@ def __get_latest_pyinstaller_version():
 
 def get_warnings():
     warnings = []
+
+    # Check we aren't running in C:\Windows\System32 (default when running cmd/PowerShell as an admin)
+    if Path.cwd() == Path("C:/Windows/system32"):
+        message = "Your current directory is C:\\Windows\\system32 which means the default output directory is in the System32 directory."
+        message += "\nThis is generally discouraged as System32 contains system files."
+        message += '\nPlease open auto-py-to-exe from another directory or manually configure the output directory in the "Settings" tab.'
+        warnings.append(message)
 
     # Check auto-py-to-exe version is it latest
     try:

@@ -6,23 +6,6 @@ import System
 import System.Security.Principal
 
 
-class TokenImpersonationLevel(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    ANONYMOUS = 1
-
-    IDENTIFICATION = 2
-
-    IMPERSONATION = 3
-
-    DELEGATION = 4
-
-    def __int__(self) -> int:
-        ...
-
-
 class IIdentity(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -39,6 +22,23 @@ class IIdentity(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def is_authenticated(self) -> bool:
+        ...
+
+
+class TokenImpersonationLevel(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    ANONYMOUS = 1
+
+    IDENTIFICATION = 2
+
+    IMPERSONATION = 3
+
+    DELEGATION = 4
+
+    def __int__(self) -> int:
         ...
 
 

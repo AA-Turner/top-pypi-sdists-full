@@ -98,6 +98,9 @@ __all__ = (
     "CompleteMultipartReadSetUploadRequestTypeDef",
     "CompleteMultipartReadSetUploadResponseTypeDef",
     "CompleteReadSetUploadPartListItemTypeDef",
+    "ContainerRegistryMapOutputTypeDef",
+    "ContainerRegistryMapTypeDef",
+    "ContainerRegistryMapUnionTypeDef",
     "CreateAnnotationStoreRequestTypeDef",
     "CreateAnnotationStoreResponseTypeDef",
     "CreateAnnotationStoreVersionRequestTypeDef",
@@ -212,6 +215,8 @@ __all__ = (
     "GetWorkflowVersionRequestTypeDef",
     "GetWorkflowVersionRequestWaitTypeDef",
     "GetWorkflowVersionResponseTypeDef",
+    "ImageDetailsTypeDef",
+    "ImageMappingTypeDef",
     "ImportReadSetFilterTypeDef",
     "ImportReadSetJobItemTypeDef",
     "ImportReadSetSourceItemTypeDef",
@@ -309,6 +314,7 @@ __all__ = (
     "ReferenceListItemTypeDef",
     "ReferenceStoreDetailTypeDef",
     "ReferenceStoreFilterTypeDef",
+    "RegistryMappingTypeDef",
     "ResponseMetadataTypeDef",
     "RunCacheListItemTypeDef",
     "RunGroupListItemTypeDef",
@@ -493,6 +499,16 @@ class CompleteReadSetUploadPartListItemTypeDef(TypedDict):
     partNumber: int
     partSource: ReadSetPartSourceType
     checksum: str
+
+class ImageMappingTypeDef(TypedDict):
+    sourceImage: NotRequired[str]
+    destinationImage: NotRequired[str]
+
+class RegistryMappingTypeDef(TypedDict):
+    upstreamRegistryUrl: NotRequired[str]
+    ecrRepositoryPrefix: NotRequired[str]
+    upstreamRepositoryPrefix: NotRequired[str]
+    ecrAccountId: NotRequired[str]
 
 class CreateMultipartReadSetUploadRequestTypeDef(TypedDict):
     sequenceStoreId: str
@@ -795,6 +811,11 @@ GetRunTaskRequestTypeDef = TypedDict(
         "taskId": str,
     },
 )
+
+class ImageDetailsTypeDef(TypedDict):
+    image: NotRequired[str]
+    imageDigest: NotRequired[str]
+    sourceImage: NotRequired[str]
 
 class GetS3AccessPolicyRequestTypeDef(TypedDict):
     s3AccessPointArn: str
@@ -1117,6 +1138,7 @@ class StartReferenceImportJobSourceItemTypeDef(TypedDict):
 
 class StartRunRequestTypeDef(TypedDict):
     roleArn: str
+    outputUri: str
     requestId: str
     workflowId: NotRequired[str]
     workflowType: NotRequired[WorkflowTypeType]
@@ -1128,7 +1150,6 @@ class StartRunRequestTypeDef(TypedDict):
     priority: NotRequired[int]
     parameters: NotRequired[Mapping[str, Any]]
     storageCapacity: NotRequired[int]
-    outputUri: NotRequired[str]
     logLevel: NotRequired[RunLogLevelType]
     tags: NotRequired[Mapping[str, str]]
     retentionMode: NotRequired[RunRetentionModeType]
@@ -1344,24 +1365,6 @@ GetRunGroupResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-class GetRunTaskResponseTypeDef(TypedDict):
-    taskId: str
-    status: TaskStatusType
-    name: str
-    cpus: int
-    cacheHit: bool
-    cacheS3Uri: str
-    memory: int
-    creationTime: datetime
-    startTime: datetime
-    stopTime: datetime
-    statusMessage: str
-    logStream: str
-    gpus: int
-    instanceType: str
-    failureReason: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetS3AccessPolicyResponseTypeDef(TypedDict):
     s3AccessPointArn: str
@@ -1706,6 +1709,14 @@ class CompleteMultipartReadSetUploadRequestTypeDef(TypedDict):
     uploadId: str
     parts: Sequence[CompleteReadSetUploadPartListItemTypeDef]
 
+class ContainerRegistryMapOutputTypeDef(TypedDict):
+    registryMappings: NotRequired[List[RegistryMappingTypeDef]]
+    imageMappings: NotRequired[List[ImageMappingTypeDef]]
+
+class ContainerRegistryMapTypeDef(TypedDict):
+    registryMappings: NotRequired[Sequence[RegistryMappingTypeDef]]
+    imageMappings: NotRequired[Sequence[ImageMappingTypeDef]]
+
 class CreateSequenceStoreRequestTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -2042,6 +2053,25 @@ GetRunResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class GetRunTaskResponseTypeDef(TypedDict):
+    taskId: str
+    status: TaskStatusType
+    name: str
+    cpus: int
+    cacheHit: bool
+    cacheS3Uri: str
+    memory: int
+    creationTime: datetime
+    startTime: datetime
+    stopTime: datetime
+    statusMessage: str
+    logStream: str
+    gpus: int
+    instanceType: str
+    failureReason: str
+    imageDetails: ImageDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetShareResponseTypeDef(TypedDict):
     share: ShareDetailsTypeDef
@@ -2502,6 +2532,9 @@ class ListVariantStoresResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+ContainerRegistryMapUnionTypeDef = Union[
+    ContainerRegistryMapTypeDef, ContainerRegistryMapOutputTypeDef
+]
 GetWorkflowResponseTypeDef = TypedDict(
     "GetWorkflowResponseTypeDef",
     {
@@ -2524,6 +2557,7 @@ GetWorkflowResponseTypeDef = TypedDict(
         "accelerators": Literal["GPU"],
         "storageType": StorageTypeType,
         "uuid": str,
+        "containerRegistryMap": ContainerRegistryMapOutputTypeDef,
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
@@ -2553,53 +2587,13 @@ GetWorkflowVersionResponseTypeDef = TypedDict(
         "tags": Dict[str, str],
         "uuid": str,
         "workflowBucketOwnerId": str,
+        "containerRegistryMap": ContainerRegistryMapOutputTypeDef,
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-class CreateWorkflowRequestTypeDef(TypedDict):
-    requestId: str
-    name: NotRequired[str]
-    description: NotRequired[str]
-    engine: NotRequired[WorkflowEngineType]
-    definitionZip: NotRequired[BlobTypeDef]
-    definitionUri: NotRequired[str]
-    main: NotRequired[str]
-    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
-    storageCapacity: NotRequired[int]
-    tags: NotRequired[Mapping[str, str]]
-    accelerators: NotRequired[Literal["GPU"]]
-    storageType: NotRequired[StorageTypeType]
-    readmeMarkdown: NotRequired[str]
-    parameterTemplatePath: NotRequired[str]
-    readmePath: NotRequired[str]
-    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
-    workflowBucketOwnerId: NotRequired[str]
-    readmeUri: NotRequired[str]
-
-class CreateWorkflowVersionRequestTypeDef(TypedDict):
-    workflowId: str
-    versionName: str
-    requestId: str
-    definitionZip: NotRequired[BlobTypeDef]
-    definitionUri: NotRequired[str]
-    accelerators: NotRequired[Literal["GPU"]]
-    description: NotRequired[str]
-    engine: NotRequired[WorkflowEngineType]
-    main: NotRequired[str]
-    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
-    storageType: NotRequired[StorageTypeType]
-    storageCapacity: NotRequired[int]
-    tags: NotRequired[Mapping[str, str]]
-    workflowBucketOwnerId: NotRequired[str]
-    readmeMarkdown: NotRequired[str]
-    parameterTemplatePath: NotRequired[str]
-    readmePath: NotRequired[str]
-    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
-    readmeUri: NotRequired[str]
 
 class ReadSetFilesTypeDef(TypedDict):
     source1: NotRequired[FileInformationTypeDef]
@@ -2724,6 +2718,52 @@ GetAnnotationStoreVersionResponseTypeDef = TypedDict(
     },
 )
 VersionOptionsUnionTypeDef = Union[VersionOptionsTypeDef, VersionOptionsOutputTypeDef]
+
+class CreateWorkflowRequestTypeDef(TypedDict):
+    requestId: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    engine: NotRequired[WorkflowEngineType]
+    definitionZip: NotRequired[BlobTypeDef]
+    definitionUri: NotRequired[str]
+    main: NotRequired[str]
+    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
+    storageCapacity: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+    accelerators: NotRequired[Literal["GPU"]]
+    storageType: NotRequired[StorageTypeType]
+    containerRegistryMap: NotRequired[ContainerRegistryMapUnionTypeDef]
+    containerRegistryMapUri: NotRequired[str]
+    readmeMarkdown: NotRequired[str]
+    parameterTemplatePath: NotRequired[str]
+    readmePath: NotRequired[str]
+    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
+    workflowBucketOwnerId: NotRequired[str]
+    readmeUri: NotRequired[str]
+
+class CreateWorkflowVersionRequestTypeDef(TypedDict):
+    workflowId: str
+    versionName: str
+    requestId: str
+    definitionZip: NotRequired[BlobTypeDef]
+    definitionUri: NotRequired[str]
+    accelerators: NotRequired[Literal["GPU"]]
+    description: NotRequired[str]
+    engine: NotRequired[WorkflowEngineType]
+    main: NotRequired[str]
+    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
+    storageType: NotRequired[StorageTypeType]
+    storageCapacity: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+    workflowBucketOwnerId: NotRequired[str]
+    containerRegistryMap: NotRequired[ContainerRegistryMapUnionTypeDef]
+    containerRegistryMapUri: NotRequired[str]
+    readmeMarkdown: NotRequired[str]
+    parameterTemplatePath: NotRequired[str]
+    readmePath: NotRequired[str]
+    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
+    readmeUri: NotRequired[str]
+
 GetReadSetMetadataResponseTypeDef = TypedDict(
     "GetReadSetMetadataResponseTypeDef",
     {

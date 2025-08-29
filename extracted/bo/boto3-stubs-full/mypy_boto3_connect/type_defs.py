@@ -148,6 +148,7 @@ __all__ = (
     "AgentHierarchyGroupsTypeDef",
     "AgentInfoTypeDef",
     "AgentQualityMetricsTypeDef",
+    "AgentStatusIdentifierTypeDef",
     "AgentStatusReferenceTypeDef",
     "AgentStatusSearchCriteriaPaginatorTypeDef",
     "AgentStatusSearchCriteriaTypeDef",
@@ -1151,6 +1152,11 @@ class StateTransitionTypeDef(TypedDict):
 class AudioQualityMetricsInfoTypeDef(TypedDict):
     QualityScore: NotRequired[float]
     PotentialQualityIssues: NotRequired[List[str]]
+
+
+class AgentStatusIdentifierTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Id: NotRequired[str]
 
 
 class AgentStatusReferenceTypeDef(TypedDict):
@@ -2460,6 +2466,7 @@ class FiltersTypeDef(TypedDict):
     Channels: NotRequired[Sequence[ChannelType]]
     RoutingProfiles: NotRequired[Sequence[str]]
     RoutingStepExpressions: NotRequired[Sequence[str]]
+    AgentStatuses: NotRequired[Sequence[str]]
 
 
 class GetAttachedFileRequestTypeDef(TypedDict):
@@ -4817,6 +4824,7 @@ class DimensionsTypeDef(TypedDict):
     Channel: NotRequired[ChannelType]
     RoutingProfile: NotRequired[RoutingProfileReferenceTypeDef]
     RoutingStepExpression: NotRequired[str]
+    AgentStatus: NotRequired[AgentStatusIdentifierTypeDef]
 
 
 class DisassociateRoutingProfileQueuesRequestTypeDef(TypedDict):

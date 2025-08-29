@@ -97,6 +97,10 @@ class AirConditioner(Device):
 
         DEFAULT = OFF
 
+    class EnergyDataFormat(MideaIntEnum):
+        BCD = 0
+        BINARY = 1
+
     # Create a dict to map attributes to property values
     _PROPERTY_MAP = {
         PropertyId.BREEZE_AWAY: lambda s: s._breeze_mode == AirConditioner.BreezeMode.BREEZE_AWAY,
@@ -158,10 +162,19 @@ class AirConditioner(Device):
         self._outdoor_temperature = None
 
         self._request_energy_usage = False
-        self._total_energy_usage = None
-        self._current_energy_usage = None
-        self._real_time_power_usage = None
-        self._use_binary_energy = False
+        self._total_energy_usage = {
+            AirConditioner.EnergyDataFormat.BCD: None,
+            AirConditioner.EnergyDataFormat.BINARY: None,
+        }
+        self._current_energy_usage = {
+            AirConditioner.EnergyDataFormat.BCD: None,
+            AirConditioner.EnergyDataFormat.BINARY: None,
+        }
+        self._real_time_power_usage = {
+            AirConditioner.EnergyDataFormat.BCD: None,
+            AirConditioner.EnergyDataFormat.BINARY: None,
+        }
+        self._use_binary_energy = False  # Deprecated
 
         # Default to assuming device can't handle any properties
         self._supported_properties = set()
@@ -288,9 +301,14 @@ class AirConditioner(Device):
             _LOGGER.debug("Energy response payload from device %s: %s",
                           self.id, res)
 
-            self._total_energy_usage = res.total_energy_binary if self._use_binary_energy else res.total_energy
-            self._current_energy_usage = res.current_energy_binary if self._use_binary_energy else res.current_energy
-            self._real_time_power_usage = res.real_time_power_binary if self._use_binary_energy else res.real_time_power
+            self._total_energy_usage = {AirConditioner.EnergyDataFormat.BCD: res.total_energy,
+                                        AirConditioner.EnergyDataFormat.BINARY: res.total_energy_binary}
+
+            self._current_energy_usage = {AirConditioner.EnergyDataFormat.BCD: res.current_energy,
+                                          AirConditioner.EnergyDataFormat.BINARY: res.current_energy_binary}
+
+            self._real_time_power_usage = {AirConditioner.EnergyDataFormat.BCD: res.real_time_power,
+                                           AirConditioner.EnergyDataFormat.BINARY: res.real_time_power_binary}
 
         elif isinstance(res, HumidityResponse):
             _LOGGER.debug(
@@ -448,14 +466,14 @@ class AirConditioner(Device):
 
         return valid_responses
 
-    async def _send_command_get_response_with_id(self, command, response_id: ResponseId) -> Optional[Response]:
-        """Send a command and return the first response with a matching ID."""
+    async def _send_command_get_response_with_class(self, command, response_class: type[Response]) -> Optional[Response]:
+        """Send a command and return the first response of the requested class."""
         for response in await self._send_command_get_responses(command):
-            if response.id == response_id:
+            if isinstance(response, response_class):
                 return response
 
-            _LOGGER.debug("Ignored response with ID %d from device %s: %s",
-                          response.id, self.id, response)
+            _LOGGER.debug("Ignored response of type %s from device %s: %s",
+                          type(response), self.id, response)
 
         return None
 
@@ -464,13 +482,13 @@ class AirConditioner(Device):
 
         # Send capabilities request and get a response
         cmd = GetCapabilitiesCommand()
-        response = await self._send_command_get_response_with_id(cmd, ResponseId.CAPABILITIES)
-        response = cast(CapabilitiesResponse, response)
-
+        response = await self._send_command_get_response_with_class(cmd, CapabilitiesResponse)
         if response is None:
             _LOGGER.error(
                 "Failed to query capabilities from device %s.", self.id)
             return
+
+        response = cast(CapabilitiesResponse, response)
 
         _LOGGER.debug("Capabilities response payload from device %s: %s",
                       self.id, response)
@@ -479,11 +497,11 @@ class AirConditioner(Device):
         # Send 2nd capabilities request if needed
         if response.additional_capabilities:
             cmd = GetCapabilitiesCommand(True)
-            additional_response = await self._send_command_get_response_with_id(cmd, ResponseId.CAPABILITIES)
-            additional_response = cast(
-                CapabilitiesResponse, additional_response)
-
+            additional_response = await self._send_command_get_response_with_class(cmd, CapabilitiesResponse)
             if additional_response:
+                additional_response = cast(
+                    CapabilitiesResponse, additional_response)
+
                 _LOGGER.debug(
                     "Additional capabilities response payload from device %s: %s", self.id, additional_response)
 
@@ -492,7 +510,6 @@ class AirConditioner(Device):
 
                 _LOGGER.debug("Merged raw capabilities: %s",
                               response.raw_capabilities)
-
             else:
                 _LOGGER.warning(
                     "Failed to query additional capabilities from device %s.", self.id)
@@ -939,14 +956,6 @@ class AirConditioner(Device):
         return self._filter_alert
 
     @property
-    def use_alternate_energy_format(self) -> bool:
-        return self._use_binary_energy
-
-    @use_alternate_energy_format.setter
-    def use_alternate_energy_format(self, enable: bool) -> None:
-        self._use_binary_energy = enable
-
-    @property
     def enable_energy_usage_requests(self) -> bool:
         return self._request_energy_usage
 
@@ -954,17 +963,14 @@ class AirConditioner(Device):
     def enable_energy_usage_requests(self, enable: bool) -> None:
         self._request_energy_usage = enable
 
-    @property
-    def total_energy_usage(self) -> Optional[float]:
-        return self._total_energy_usage
+    def get_total_energy_usage(self, format: EnergyDataFormat = EnergyDataFormat.BCD) -> Optional[float]:
+        return self._total_energy_usage[format]
 
-    @property
-    def current_energy_usage(self) -> Optional[float]:
-        return self._current_energy_usage
+    def get_current_energy_usage(self, format: EnergyDataFormat = EnergyDataFormat.BCD) -> Optional[float]:
+        return self._current_energy_usage[format]
 
-    @property
-    def real_time_power_usage(self) -> Optional[float]:
-        return self._real_time_power_usage
+    def get_real_time_power_usage(self, format: EnergyDataFormat = EnergyDataFormat.BCD) -> Optional[float]:
+        return self._real_time_power_usage[format]
 
     @property
     def supports_humidity(self) -> bool:
@@ -1106,3 +1112,31 @@ class AirConditioner(Device):
     @deprecated("turbo")
     def turbo_mode(self, enabled: bool) -> None:
         self.turbo = enabled
+
+    @property
+    @deprecated("", msg="Use format argument of get_*_energy_usage methods.")
+    def use_alternate_energy_format(self) -> bool:
+        return self._use_binary_energy
+
+    @use_alternate_energy_format.setter
+    @deprecated("", msg="Use format argument of get_*_energy_usage methods.")
+    def use_alternate_energy_format(self, enable: bool) -> None:
+        self._use_binary_energy = enable
+
+    @property
+    @deprecated("get_total_energy_usage()")
+    def total_energy_usage(self) -> Optional[float]:
+        format = AirConditioner.EnergyDataFormat.BINARY if self._use_binary_energy else AirConditioner.EnergyDataFormat.BCD
+        return self._total_energy_usage[format]
+
+    @property
+    @deprecated("get_current_energy_usage()")
+    def current_energy_usage(self) -> Optional[float]:
+        format = AirConditioner.EnergyDataFormat.BINARY if self._use_binary_energy else AirConditioner.EnergyDataFormat.BCD
+        return self._current_energy_usage[format]
+
+    @property
+    @deprecated("get_real_time_power_usage()")
+    def real_time_power_usage(self) -> Optional[float]:
+        format = AirConditioner.EnergyDataFormat.BINARY if self._use_binary_energy else AirConditioner.EnergyDataFormat.BCD
+        return self._real_time_power_usage[format]

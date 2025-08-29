@@ -40,6 +40,7 @@ from union.internal.app.app_definition_pb2 import (
     Replicas,
     SecurityContext,
     Spec,
+    TimeoutConfig,
 )
 from union.internal.app.app_definition_pb2 import Concurrency as ConcurrencyIDL
 from union.internal.app.app_definition_pb2 import Link as LinkIDL
@@ -70,6 +71,7 @@ SUPPORTED_FS_PROTOCOLS = ["s3://", "gs://", "union://", "ufs://", "unionmeta://"
 INVALID_APP_PORTS = [8012, 8022, 8112, 9090, 9091]
 _PACKAGE_NAME_RE = re.compile(r"^[\w-]+")
 _UNION_RUNTIME_NAME = "union-runtime"
+_MAX_REQUEST_TIMEOUT = timedelta(hours=1)
 
 
 def _is_union_runtime(package: str) -> bool:
@@ -368,6 +370,7 @@ class App:
     :param links: Links to external URLs or relative paths.
     :param shared_memory: If True, then shared memory will be attached to the container where the size is equal
             to the allocated memory. If str, then the shared memory is set to that size.
+    :param request_timeout: Optional timeout for requests to the application. Must not exceed 1 hour.
     """
 
     @dataclass
@@ -402,6 +405,7 @@ class App:
     custom_domain: Optional[str] = None
     links: List[Link] = field(default_factory=list)
     shared_memory: Optional[Union[L[True], str]] = None
+    request_timeout: Optional[Union[int, timedelta]] = None
 
     _include_resolved: Optional[List[ResolvedInclude]] = field(default=None, init=False)
     _port: Optional[Port] = field(default=None, init=False)
@@ -419,6 +423,15 @@ class App:
             if not 6 <= self.scaledown_after.total_seconds() <= 3600:
                 raise ValueError("scaledown_after must be between 6 seconds and 1 hour")
         ScalingMetric._validate(self.scaling_metric)
+        self._validate_request_timeout()
+
+    def _validate_request_timeout(self):
+        if self.request_timeout is None:
+            return
+        if isinstance(self.request_timeout, int):
+            self.request_timeout = timedelta(seconds=self.request_timeout)
+        if self.request_timeout > _MAX_REQUEST_TIMEOUT:
+            raise ValueError("request_timeout must not exceed 1 hour")
 
     def _validate_ports(self):
         if isinstance(self.port, int):
@@ -729,6 +742,14 @@ class App:
 
         from union.internal.app.app_definition_pb2 import Profile
 
+        timeout_config = None
+        if self.request_timeout:
+            from google.protobuf.duration_pb2 import Duration
+
+            timeout_dur = Duration()
+            timeout_dur.FromTimedelta(self.request_timeout)
+            timeout_config = TimeoutConfig(request_timeout=timeout_dur)
+
         return AppIDL(
             metadata=Meta(
                 id=Identifier(
@@ -756,6 +777,7 @@ class App:
                 links=[LinkIDL(path=link.path, title=link.title, is_relative=link.is_relative) for link in self.links]
                 if self.links
                 else None,
+                timeouts=timeout_config,
                 **spec_kwargs,
             ),
         )

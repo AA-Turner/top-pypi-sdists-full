@@ -1,20 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dsnparse
-Version: 0.2.1
+Version: 0.3.0
 Summary: parse dsn urls
-Home-page: http://github.com/Jaymon/dsnparse
-Author: Jay Marcyes
-Author-email: jay@marcyes.com
-License: MIT
+Author-email: Jay Marcyes <jay@marcyes.com>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/Jaymon/dsnparse
+Project-URL: Homepage, http://github.com/Jaymon/dsnparse
 Keywords: dsn url parser database configuration
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Plugins
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
 # dsnparse
 

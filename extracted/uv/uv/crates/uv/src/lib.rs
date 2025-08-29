@@ -514,8 +514,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 &globals.network_settings,
                 args.settings.config_setting,
                 args.settings.config_settings_package,
-                args.settings.no_build_isolation,
-                args.settings.no_build_isolation_package,
+                args.settings.build_isolation.clone(),
                 &args.settings.extra_build_dependencies,
                 &args.settings.extra_build_variables,
                 args.settings.build_options,
@@ -593,8 +592,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 globals.installer_metadata,
                 &args.settings.config_setting,
                 &args.settings.config_settings_package,
-                args.settings.no_build_isolation,
-                args.settings.no_build_isolation_package,
+                args.settings.build_isolation.clone(),
                 &args.settings.extra_build_dependencies,
                 &args.settings.extra_build_variables,
                 args.settings.build_options,
@@ -737,8 +735,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 globals.installer_metadata,
                 &args.settings.config_setting,
                 &args.settings.config_settings_package,
-                args.settings.no_build_isolation,
-                args.settings.no_build_isolation_package,
+                args.settings.build_isolation.clone(),
                 &args.settings.extra_build_dependencies,
                 &args.settings.extra_build_variables,
                 args.settings.build_options,
@@ -919,6 +916,8 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
             commands::pip_check(
                 args.settings.python.as_deref(),
                 args.settings.system,
+                args.settings.python_version.as_ref(),
+                args.settings.python_platform.as_ref(),
                 &cache,
                 printer,
                 globals.preview,
@@ -1627,6 +1626,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 username,
                 password,
                 check_url,
+                index_locations,
                 &cache,
                 printer,
             )
@@ -1981,6 +1981,7 @@ async fn run_project(
                 args.no_sync,
                 args.no_install_project,
                 args.no_install_workspace,
+                args.no_install_local,
                 requirements,
                 constraints,
                 args.marker,
@@ -2196,6 +2197,7 @@ async fn run_project(
             let cache = cache.init()?;
 
             Box::pin(commands::format(
+                project_dir,
                 args.check,
                 args.diff,
                 args.extra_args,

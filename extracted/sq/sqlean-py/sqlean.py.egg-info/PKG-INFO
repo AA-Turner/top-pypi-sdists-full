@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlean.py
-Version: 3.50.4
+Version: 3.50.4.2
 Summary: sqlite3 with extensions
 Home-page: https://github.com/nalgeon/sqlean.py
 Author: Anton Zhiyanov
@@ -9,7 +9,6 @@ License: zlib/libpng
 Platform: ALL
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: zlib/libpng License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C

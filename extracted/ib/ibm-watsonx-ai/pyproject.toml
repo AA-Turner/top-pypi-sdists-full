@@ -70,6 +70,7 @@ dependencies = [
     "langchain-community>=0.3,<0.4",
     "langchain-elasticsearch==0.3.0",
     "langchain-ibm>=0.3,<0.4",
+    "langgraph==0.2.40",
     "langchain-chroma==0.1.4; python_version<='3.12'", # chroma-hnswlib cannot be installed on MacOS and Win with py313
     "pymilvus<2.5.7", # issue: 49386  pymilvus 2.5.7 is not compatible with lanchain-milvus 0.1.8
     "langchain-milvus==0.1.8",

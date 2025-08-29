@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_group`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_group`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group).
+Refer to the Terraform Registry for docs: [`azurerm_container_group`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerGroup.ContainerGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group azurerm_container_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group azurerm_container_group}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class ContainerGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group azurerm_container_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group azurerm_container_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#container ContainerGroup#container}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#location ContainerGroup#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#os_type ContainerGroup#os_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.
-        :param diagnostics: diagnostics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
-        :param dns_name_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.
-        :param dns_name_label_reuse_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.
-        :param exposed_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#id ContainerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity ContainerGroup#identity}
-        :param image_registry_credential: image_registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#init_container ContainerGroup#init_container}
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.
-        :param key_vault_user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.
-        :param network_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#priority ContainerGroup#priority}.
-        :param restart_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#sku ContainerGroup#sku}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#tags ContainerGroup#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#zones ContainerGroup#zones}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#container ContainerGroup#container}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#location ContainerGroup#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#os_type ContainerGroup#os_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.
+        :param diagnostics: diagnostics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
+        :param dns_name_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.
+        :param dns_name_label_reuse_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.
+        :param exposed_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#id ContainerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity ContainerGroup#identity}
+        :param image_registry_credential: image_registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#init_container ContainerGroup#init_container}
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.
+        :param key_vault_user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.
+        :param network_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#priority ContainerGroup#priority}.
+        :param restart_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#sku ContainerGroup#sku}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#tags ContainerGroup#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#zones ContainerGroup#zones}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class ContainerGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerGroup to import.
-        :param import_from_id: The id of the existing ContainerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerGroup to import is found.
         '''
         if __debug__:
@@ -206,7 +206,7 @@ class ContainerGroup(
         log_analytics: typing.Union["ContainerGroupDiagnosticsLogAnalytics", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
+        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
         '''
         value = ContainerGroupDiagnostics(log_analytics=log_analytics)
 
@@ -221,9 +221,9 @@ class ContainerGroup(
         search_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param nameservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.
-        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#options ContainerGroup#options}.
-        :param search_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.
+        :param nameservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.
+        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#options ContainerGroup#options}.
+        :param search_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.
         '''
         value = ContainerGroupDnsConfig(
             nameservers=nameservers, options=options, search_domains=search_domains
@@ -252,8 +252,8 @@ class ContainerGroup(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#type ContainerGroup#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#type ContainerGroup#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.
         '''
         value = ContainerGroupIdentity(type=type, identity_ids=identity_ids)
 
@@ -295,10 +295,10 @@ class ContainerGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#create ContainerGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#delete ContainerGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read ContainerGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#update ContainerGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#create ContainerGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#delete ContainerGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read ContainerGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#update ContainerGroup#update}.
         '''
         value = ContainerGroupTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -874,31 +874,31 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#container ContainerGroup#container}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#location ContainerGroup#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#os_type ContainerGroup#os_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.
-        :param diagnostics: diagnostics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
-        :param dns_name_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.
-        :param dns_name_label_reuse_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.
-        :param exposed_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#id ContainerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity ContainerGroup#identity}
-        :param image_registry_credential: image_registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#init_container ContainerGroup#init_container}
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.
-        :param key_vault_user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.
-        :param network_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#priority ContainerGroup#priority}.
-        :param restart_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#sku ContainerGroup#sku}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#tags ContainerGroup#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#zones ContainerGroup#zones}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#container ContainerGroup#container}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#location ContainerGroup#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#os_type ContainerGroup#os_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.
+        :param diagnostics: diagnostics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
+        :param dns_name_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.
+        :param dns_name_label_reuse_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.
+        :param exposed_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#id ContainerGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity ContainerGroup#identity}
+        :param image_registry_credential: image_registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#init_container ContainerGroup#init_container}
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.
+        :param key_vault_user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.
+        :param network_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#priority ContainerGroup#priority}.
+        :param restart_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#sku ContainerGroup#sku}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#tags ContainerGroup#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#zones ContainerGroup#zones}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1076,7 +1076,7 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainer"]]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#container ContainerGroup#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#container ContainerGroup#container}
         '''
         result = self._values.get("container")
         assert result is not None, "Required property 'container' is missing"
@@ -1084,28 +1084,28 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#location ContainerGroup#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#location ContainerGroup#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def os_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#os_type ContainerGroup#os_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#os_type ContainerGroup#os_type}.'''
         result = self._values.get("os_type")
         assert result is not None, "Required property 'os_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#resource_group_name ContainerGroup#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1114,7 +1114,7 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def diagnostics(self) -> typing.Optional["ContainerGroupDiagnostics"]:
         '''diagnostics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#diagnostics ContainerGroup#diagnostics}
         '''
         result = self._values.get("diagnostics")
         return typing.cast(typing.Optional["ContainerGroupDiagnostics"], result)
@@ -1123,20 +1123,20 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns_config(self) -> typing.Optional["ContainerGroupDnsConfig"]:
         '''dns_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_config ContainerGroup#dns_config}
         '''
         result = self._values.get("dns_config")
         return typing.cast(typing.Optional["ContainerGroupDnsConfig"], result)
 
     @builtins.property
     def dns_name_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label ContainerGroup#dns_name_label}.'''
         result = self._values.get("dns_name_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dns_name_label_reuse_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#dns_name_label_reuse_policy ContainerGroup#dns_name_label_reuse_policy}.'''
         result = self._values.get("dns_name_label_reuse_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1144,13 +1144,13 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def exposed_port(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupExposedPort"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exposed_port ContainerGroup#exposed_port}.'''
         result = self._values.get("exposed_port")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupExposedPort"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#id ContainerGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#id ContainerGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1162,7 +1162,7 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ContainerGroupIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity ContainerGroup#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity ContainerGroup#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ContainerGroupIdentity"], result)
@@ -1173,7 +1173,7 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupImageRegistryCredential"]]]:
         '''image_registry_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image_registry_credential ContainerGroup#image_registry_credential}
         '''
         result = self._values.get("image_registry_credential")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupImageRegistryCredential"]]], result)
@@ -1184,62 +1184,62 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainer"]]]:
         '''init_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#init_container ContainerGroup#init_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#init_container ContainerGroup#init_container}
         '''
         result = self._values.get("init_container")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainer"]]], result)
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#ip_address_type ContainerGroup#ip_address_type}.'''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_vault_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_key_id ContainerGroup#key_vault_key_id}.'''
         result = self._values.get("key_vault_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_vault_user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#key_vault_user_assigned_identity_id ContainerGroup#key_vault_user_assigned_identity_id}.'''
         result = self._values.get("key_vault_user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_profile_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#network_profile_id ContainerGroup#network_profile_id}.'''
         result = self._values.get("network_profile_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#priority ContainerGroup#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#priority ContainerGroup#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restart_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#restart_policy ContainerGroup#restart_policy}.'''
         result = self._values.get("restart_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sku(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#sku ContainerGroup#sku}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#sku ContainerGroup#sku}.'''
         result = self._values.get("sku")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#subnet_ids ContainerGroup#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#tags ContainerGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#tags ContainerGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1247,14 +1247,14 @@ class ContainerGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeouts ContainerGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerGroupTimeouts"], result)
 
     @builtins.property
     def zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#zones ContainerGroup#zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#zones ContainerGroup#zones}.'''
         result = self._values.get("zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1310,20 +1310,20 @@ class ContainerGroupContainer:
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerGroupContainerVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#cpu ContainerGroup#cpu}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image ContainerGroup#image}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#memory ContainerGroup#memory}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#commands ContainerGroup#commands}.
-        :param cpu_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#cpu_limit ContainerGroup#cpu_limit}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.
-        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#liveness_probe ContainerGroup#liveness_probe}
-        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#memory_limit ContainerGroup#memory_limit}.
-        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#ports ContainerGroup#ports}
-        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#readiness_probe ContainerGroup#readiness_probe}
-        :param secure_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.
-        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#security ContainerGroup#security}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#volume ContainerGroup#volume}
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#cpu ContainerGroup#cpu}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image ContainerGroup#image}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#memory ContainerGroup#memory}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#commands ContainerGroup#commands}.
+        :param cpu_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#cpu_limit ContainerGroup#cpu_limit}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.
+        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#liveness_probe ContainerGroup#liveness_probe}
+        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#memory_limit ContainerGroup#memory_limit}.
+        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#ports ContainerGroup#ports}
+        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#readiness_probe ContainerGroup#readiness_probe}
+        :param secure_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.
+        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#security ContainerGroup#security}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#volume ContainerGroup#volume}
         '''
         if isinstance(liveness_probe, dict):
             liveness_probe = ContainerGroupContainerLivenessProbe(**liveness_probe)
@@ -1374,41 +1374,41 @@ class ContainerGroupContainer:
 
     @builtins.property
     def cpu(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#cpu ContainerGroup#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#cpu ContainerGroup#cpu}.'''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image ContainerGroup#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image ContainerGroup#image}.'''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def memory(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#memory ContainerGroup#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#memory ContainerGroup#memory}.'''
         result = self._values.get("memory")
         assert result is not None, "Required property 'memory' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#commands ContainerGroup#commands}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#commands ContainerGroup#commands}.'''
         result = self._values.get("commands")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def cpu_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#cpu_limit ContainerGroup#cpu_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#cpu_limit ContainerGroup#cpu_limit}.'''
         result = self._values.get("cpu_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1416,7 +1416,7 @@ class ContainerGroupContainer:
     def environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.'''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1424,14 +1424,14 @@ class ContainerGroupContainer:
     def liveness_probe(self) -> typing.Optional["ContainerGroupContainerLivenessProbe"]:
         '''liveness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#liveness_probe ContainerGroup#liveness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#liveness_probe ContainerGroup#liveness_probe}
         '''
         result = self._values.get("liveness_probe")
         return typing.cast(typing.Optional["ContainerGroupContainerLivenessProbe"], result)
 
     @builtins.property
     def memory_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#memory_limit ContainerGroup#memory_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#memory_limit ContainerGroup#memory_limit}.'''
         result = self._values.get("memory_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1441,7 +1441,7 @@ class ContainerGroupContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerPorts"]]]:
         '''ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#ports ContainerGroup#ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#ports ContainerGroup#ports}
         '''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerPorts"]]], result)
@@ -1452,7 +1452,7 @@ class ContainerGroupContainer:
     ) -> typing.Optional["ContainerGroupContainerReadinessProbe"]:
         '''readiness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#readiness_probe ContainerGroup#readiness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#readiness_probe ContainerGroup#readiness_probe}
         '''
         result = self._values.get("readiness_probe")
         return typing.cast(typing.Optional["ContainerGroupContainerReadinessProbe"], result)
@@ -1461,7 +1461,7 @@ class ContainerGroupContainer:
     def secure_environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.'''
         result = self._values.get("secure_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1471,7 +1471,7 @@ class ContainerGroupContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerSecurity"]]]:
         '''security block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#security ContainerGroup#security}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#security ContainerGroup#security}
         '''
         result = self._values.get("security")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerSecurity"]]], result)
@@ -1482,7 +1482,7 @@ class ContainerGroupContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerVolume"]]]:
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#volume ContainerGroup#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#volume ContainerGroup#volume}
         '''
         result = self._values.get("volume")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerVolume"]]], result)
@@ -1615,13 +1615,13 @@ class ContainerGroupContainerLivenessProbe:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
-        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
-        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
-        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
+        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
+        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
+        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df12cd4410592f2f2c1960f41c9fa0a7f90e1ceb9b15455aa3d389f150e83748)
@@ -1650,13 +1650,13 @@ class ContainerGroupContainerLivenessProbe:
 
     @builtins.property
     def exec(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.'''
         result = self._values.get("exec")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.'''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1666,32 +1666,32 @@ class ContainerGroupContainerLivenessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerLivenessProbeHttpGet"]]]:
         '''http_get block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
         '''
         result = self._values.get("http_get")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerLivenessProbeHttpGet"]]], result)
 
     @builtins.property
     def initial_delay_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.'''
         result = self._values.get("initial_delay_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def period_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.'''
         result = self._values.get("period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def success_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.'''
         result = self._values.get("success_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.'''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1727,10 +1727,10 @@ class ContainerGroupContainerLivenessProbeHttpGet:
         scheme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#path ContainerGroup#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.
-        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#scheme ContainerGroup#scheme}.
+        :param http_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#path ContainerGroup#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.
+        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#scheme ContainerGroup#scheme}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7f28adc0da9d05253456d2a4d8d01010bb3d15909aa18b2a28522c0104c00ee)
@@ -1752,25 +1752,25 @@ class ContainerGroupContainerLivenessProbeHttpGet:
     def http_headers(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.'''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#path ContainerGroup#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#path ContainerGroup#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def scheme(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#scheme ContainerGroup#scheme}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#scheme ContainerGroup#scheme}.'''
         result = self._values.get("scheme")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2239,13 +2239,13 @@ class ContainerGroupContainerOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
-        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
-        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
-        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
+        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
+        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
+        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
         '''
         value = ContainerGroupContainerLivenessProbe(
             exec=exec,
@@ -2285,13 +2285,13 @@ class ContainerGroupContainerOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
-        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
-        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
-        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
+        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
+        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
+        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
         '''
         value = ContainerGroupContainerReadinessProbe(
             exec=exec,
@@ -2627,8 +2627,8 @@ class ContainerGroupContainerPorts:
         protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#protocol ContainerGroup#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#protocol ContainerGroup#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea565122bb04c0384570c111dcc74de6db42c501720aa0c9384fa74939de3207)
@@ -2642,13 +2642,13 @@ class ContainerGroupContainerPorts:
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#protocol ContainerGroup#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#protocol ContainerGroup#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2866,13 +2866,13 @@ class ContainerGroupContainerReadinessProbe:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
-        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
-        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
-        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
+        :param exec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        :param initial_delay_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.
+        :param period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.
+        :param success_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59b90a65d07cc13f4558aebe92163caf794da2d6d17940b44e321eddd604061a)
@@ -2901,13 +2901,13 @@ class ContainerGroupContainerReadinessProbe:
 
     @builtins.property
     def exec(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#exec ContainerGroup#exec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#exec ContainerGroup#exec}.'''
         result = self._values.get("exec")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#failure_threshold ContainerGroup#failure_threshold}.'''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2917,32 +2917,32 @@ class ContainerGroupContainerReadinessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerReadinessProbeHttpGet"]]]:
         '''http_get block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_get ContainerGroup#http_get}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_get ContainerGroup#http_get}
         '''
         result = self._values.get("http_get")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupContainerReadinessProbeHttpGet"]]], result)
 
     @builtins.property
     def initial_delay_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#initial_delay_seconds ContainerGroup#initial_delay_seconds}.'''
         result = self._values.get("initial_delay_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def period_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#period_seconds ContainerGroup#period_seconds}.'''
         result = self._values.get("period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def success_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#success_threshold ContainerGroup#success_threshold}.'''
         result = self._values.get("success_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#timeout_seconds ContainerGroup#timeout_seconds}.'''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2978,10 +2978,10 @@ class ContainerGroupContainerReadinessProbeHttpGet:
         scheme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#path ContainerGroup#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.
-        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#scheme ContainerGroup#scheme}.
+        :param http_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#path ContainerGroup#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.
+        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#scheme ContainerGroup#scheme}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3c117bdf29543dd1b3d471b38c7a5fa74f26155ddc8d9dc8fe8855d2c60893c)
@@ -3003,25 +3003,25 @@ class ContainerGroupContainerReadinessProbeHttpGet:
     def http_headers(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#http_headers ContainerGroup#http_headers}.'''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#path ContainerGroup#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#path ContainerGroup#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def scheme(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#scheme ContainerGroup#scheme}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#scheme ContainerGroup#scheme}.'''
         result = self._values.get("scheme")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3463,7 +3463,7 @@ class ContainerGroupContainerSecurity:
         privilege_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param privilege_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.
+        :param privilege_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c0b1d9227e570fe26afdeaf37ad6b1f88f0b13ea8b2e8c51506e26e782b6142)
@@ -3476,7 +3476,7 @@ class ContainerGroupContainerSecurity:
     def privilege_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.'''
         result = self._values.get("privilege_enabled")
         assert result is not None, "Required property 'privilege_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3684,15 +3684,15 @@ class ContainerGroupContainerVolume:
         storage_account_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param empty_dir: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.
-        :param git_repo: git_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
-        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read_only ContainerGroup#read_only}.
-        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secret ContainerGroup#secret}.
-        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#share_name ContainerGroup#share_name}.
-        :param storage_account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param empty_dir: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.
+        :param git_repo: git_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
+        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read_only ContainerGroup#read_only}.
+        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secret ContainerGroup#secret}.
+        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#share_name ContainerGroup#share_name}.
+        :param storage_account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.
         '''
         if isinstance(git_repo, dict):
             git_repo = ContainerGroupContainerVolumeGitRepo(**git_repo)
@@ -3728,14 +3728,14 @@ class ContainerGroupContainerVolume:
 
     @builtins.property
     def mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.'''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3744,7 +3744,7 @@ class ContainerGroupContainerVolume:
     def empty_dir(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.'''
         result = self._values.get("empty_dir")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3752,7 +3752,7 @@ class ContainerGroupContainerVolume:
     def git_repo(self) -> typing.Optional["ContainerGroupContainerVolumeGitRepo"]:
         '''git_repo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
         '''
         result = self._values.get("git_repo")
         return typing.cast(typing.Optional["ContainerGroupContainerVolumeGitRepo"], result)
@@ -3761,31 +3761,31 @@ class ContainerGroupContainerVolume:
     def read_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read_only ContainerGroup#read_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read_only ContainerGroup#read_only}.'''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def secret(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secret ContainerGroup#secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secret ContainerGroup#secret}.'''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def share_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#share_name ContainerGroup#share_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#share_name ContainerGroup#share_name}.'''
         result = self._values.get("share_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.'''
         result = self._values.get("storage_account_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3815,9 +3815,9 @@ class ContainerGroupContainerVolumeGitRepo:
         revision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.
-        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.
+        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f112d1a07bd1173cdb7fc2360007a7a4be229e17088c6458e173d58089988d42)
@@ -3834,20 +3834,20 @@ class ContainerGroupContainerVolumeGitRepo:
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.'''
         result = self._values.get("directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def revision(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.'''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4083,9 +4083,9 @@ class ContainerGroupContainerVolumeOutputReference(
         revision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.
-        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.
+        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.
         '''
         value = ContainerGroupContainerVolumeGitRepo(
             url=url, directory=directory, revision=revision
@@ -4309,7 +4309,7 @@ class ContainerGroupDiagnostics:
         log_analytics: typing.Union["ContainerGroupDiagnosticsLogAnalytics", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
+        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
         '''
         if isinstance(log_analytics, dict):
             log_analytics = ContainerGroupDiagnosticsLogAnalytics(**log_analytics)
@@ -4324,7 +4324,7 @@ class ContainerGroupDiagnostics:
     def log_analytics(self) -> "ContainerGroupDiagnosticsLogAnalytics":
         '''log_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_analytics ContainerGroup#log_analytics}
         '''
         result = self._values.get("log_analytics")
         assert result is not None, "Required property 'log_analytics' is missing"
@@ -4362,10 +4362,10 @@ class ContainerGroupDiagnosticsLogAnalytics:
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.
-        :param workspace_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.
-        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_type ContainerGroup#log_type}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#metadata ContainerGroup#metadata}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.
+        :param workspace_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.
+        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_type ContainerGroup#log_type}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#metadata ContainerGroup#metadata}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5545cf6080e61379d38c04bcbc9d063dbda624ac9cc8bcface22f09eb96e86a)
@@ -4384,27 +4384,27 @@ class ContainerGroupDiagnosticsLogAnalytics:
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.'''
         result = self._values.get("workspace_key")
         assert result is not None, "Required property 'workspace_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_type ContainerGroup#log_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_type ContainerGroup#log_type}.'''
         result = self._values.get("log_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#metadata ContainerGroup#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#metadata ContainerGroup#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -4564,10 +4564,10 @@ class ContainerGroupDiagnosticsOutputReference(
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.
-        :param workspace_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.
-        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#log_type ContainerGroup#log_type}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#metadata ContainerGroup#metadata}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_id ContainerGroup#workspace_id}.
+        :param workspace_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#workspace_key ContainerGroup#workspace_key}.
+        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#log_type ContainerGroup#log_type}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#metadata ContainerGroup#metadata}.
         '''
         value = ContainerGroupDiagnosticsLogAnalytics(
             workspace_id=workspace_id,
@@ -4621,9 +4621,9 @@ class ContainerGroupDnsConfig:
         search_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param nameservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.
-        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#options ContainerGroup#options}.
-        :param search_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.
+        :param nameservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.
+        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#options ContainerGroup#options}.
+        :param search_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef1c9101a6b7be5071cc341c65ffb4b9e4c691276260d0caec0db9e3ceba6736)
@@ -4640,20 +4640,20 @@ class ContainerGroupDnsConfig:
 
     @builtins.property
     def nameservers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#nameservers ContainerGroup#nameservers}.'''
         result = self._values.get("nameservers")
         assert result is not None, "Required property 'nameservers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#options ContainerGroup#options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#options ContainerGroup#options}.'''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def search_domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#search_domains ContainerGroup#search_domains}.'''
         result = self._values.get("search_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4774,8 +4774,8 @@ class ContainerGroupExposedPort:
         protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#protocol ContainerGroup#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#protocol ContainerGroup#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae48ef117858a4da8b5c4ef778b0483bfb50c0afb623bf1728d24dd7947c923e)
@@ -4789,13 +4789,13 @@ class ContainerGroupExposedPort:
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#port ContainerGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#port ContainerGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#protocol ContainerGroup#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#protocol ContainerGroup#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5000,8 +5000,8 @@ class ContainerGroupIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#type ContainerGroup#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#type ContainerGroup#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f01420e72986e86727c38f93b9e1c025ea5b02ff46a29b0779fc4b1b0e4d1ef)
@@ -5015,14 +5015,14 @@ class ContainerGroupIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#type ContainerGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#type ContainerGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#identity_ids ContainerGroup#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5139,10 +5139,10 @@ class ContainerGroupImageRegistryCredential:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#server ContainerGroup#server}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#password ContainerGroup#password}.
-        :param user_assigned_identity_id: The User Assigned Identity to use for Container Registry access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#user_assigned_identity_id ContainerGroup#user_assigned_identity_id}
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#username ContainerGroup#username}.
+        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#server ContainerGroup#server}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#password ContainerGroup#password}.
+        :param user_assigned_identity_id: The User Assigned Identity to use for Container Registry access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#user_assigned_identity_id ContainerGroup#user_assigned_identity_id}
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#username ContainerGroup#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93a6e68e696fbba87ad40be0a68cbe688e28088ac54412319fc94d1df3ce3999)
@@ -5162,14 +5162,14 @@ class ContainerGroupImageRegistryCredential:
 
     @builtins.property
     def server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#server ContainerGroup#server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#server ContainerGroup#server}.'''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#password ContainerGroup#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#password ContainerGroup#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5177,14 +5177,14 @@ class ContainerGroupImageRegistryCredential:
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
         '''The User Assigned Identity to use for Container Registry access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#user_assigned_identity_id ContainerGroup#user_assigned_identity_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#user_assigned_identity_id ContainerGroup#user_assigned_identity_id}
         '''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#username ContainerGroup#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#username ContainerGroup#username}.'''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5443,13 +5443,13 @@ class ContainerGroupInitContainer:
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerGroupInitContainerVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image ContainerGroup#image}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#commands ContainerGroup#commands}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.
-        :param secure_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.
-        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#security ContainerGroup#security}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#volume ContainerGroup#volume}
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image ContainerGroup#image}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#commands ContainerGroup#commands}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.
+        :param secure_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.
+        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#security ContainerGroup#security}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#volume ContainerGroup#volume}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb74b31daa164d48ede76f9c450a7ca760c81c6516dd564a62e9ea3500d0dd1e)
@@ -5477,21 +5477,21 @@ class ContainerGroupInitContainer:
 
     @builtins.property
     def image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#image ContainerGroup#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#image ContainerGroup#image}.'''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#commands ContainerGroup#commands}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#commands ContainerGroup#commands}.'''
         result = self._values.get("commands")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5499,7 +5499,7 @@ class ContainerGroupInitContainer:
     def environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#environment_variables ContainerGroup#environment_variables}.'''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -5507,7 +5507,7 @@ class ContainerGroupInitContainer:
     def secure_environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secure_environment_variables ContainerGroup#secure_environment_variables}.'''
         result = self._values.get("secure_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -5517,7 +5517,7 @@ class ContainerGroupInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainerSecurity"]]]:
         '''security block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#security ContainerGroup#security}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#security ContainerGroup#security}
         '''
         result = self._values.get("security")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainerSecurity"]]], result)
@@ -5528,7 +5528,7 @@ class ContainerGroupInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainerVolume"]]]:
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#volume ContainerGroup#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#volume ContainerGroup#volume}
         '''
         result = self._values.get("volume")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerGroupInitContainerVolume"]]], result)
@@ -5858,7 +5858,7 @@ class ContainerGroupInitContainerSecurity:
         privilege_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param privilege_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.
+        :param privilege_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8bbbd2b9cbd6e22b7229877d81bc4fe98956aa74150c4792b22c507b92c1f31b)
@@ -5871,7 +5871,7 @@ class ContainerGroupInitContainerSecurity:
     def privilege_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#privilege_enabled ContainerGroup#privilege_enabled}.'''
         result = self._values.get("privilege_enabled")
         assert result is not None, "Required property 'privilege_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -6079,15 +6079,15 @@ class ContainerGroupInitContainerVolume:
         storage_account_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.
-        :param empty_dir: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.
-        :param git_repo: git_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
-        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read_only ContainerGroup#read_only}.
-        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secret ContainerGroup#secret}.
-        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#share_name ContainerGroup#share_name}.
-        :param storage_account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.
+        :param empty_dir: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.
+        :param git_repo: git_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
+        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read_only ContainerGroup#read_only}.
+        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secret ContainerGroup#secret}.
+        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#share_name ContainerGroup#share_name}.
+        :param storage_account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.
         '''
         if isinstance(git_repo, dict):
             git_repo = ContainerGroupInitContainerVolumeGitRepo(**git_repo)
@@ -6123,14 +6123,14 @@ class ContainerGroupInitContainerVolume:
 
     @builtins.property
     def mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#mount_path ContainerGroup#mount_path}.'''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#name ContainerGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#name ContainerGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -6139,7 +6139,7 @@ class ContainerGroupInitContainerVolume:
     def empty_dir(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#empty_dir ContainerGroup#empty_dir}.'''
         result = self._values.get("empty_dir")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6147,7 +6147,7 @@ class ContainerGroupInitContainerVolume:
     def git_repo(self) -> typing.Optional["ContainerGroupInitContainerVolumeGitRepo"]:
         '''git_repo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#git_repo ContainerGroup#git_repo}
         '''
         result = self._values.get("git_repo")
         return typing.cast(typing.Optional["ContainerGroupInitContainerVolumeGitRepo"], result)
@@ -6156,31 +6156,31 @@ class ContainerGroupInitContainerVolume:
     def read_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read_only ContainerGroup#read_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read_only ContainerGroup#read_only}.'''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def secret(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#secret ContainerGroup#secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#secret ContainerGroup#secret}.'''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def share_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#share_name ContainerGroup#share_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#share_name ContainerGroup#share_name}.'''
         result = self._values.get("share_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_key ContainerGroup#storage_account_key}.'''
         result = self._values.get("storage_account_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#storage_account_name ContainerGroup#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6210,9 +6210,9 @@ class ContainerGroupInitContainerVolumeGitRepo:
         revision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.
-        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.
+        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f599ec85f338bdd3f926699379512c09fb591386e71c67043512ae8b0ed44771)
@@ -6229,20 +6229,20 @@ class ContainerGroupInitContainerVolumeGitRepo:
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.'''
         result = self._values.get("directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def revision(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.'''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6483,9 +6483,9 @@ class ContainerGroupInitContainerVolumeOutputReference(
         revision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#url ContainerGroup#url}.
-        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#directory ContainerGroup#directory}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#revision ContainerGroup#revision}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#url ContainerGroup#url}.
+        :param directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#directory ContainerGroup#directory}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#revision ContainerGroup#revision}.
         '''
         value = ContainerGroupInitContainerVolumeGitRepo(
             url=url, directory=directory, revision=revision
@@ -6719,10 +6719,10 @@ class ContainerGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#create ContainerGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#delete ContainerGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read ContainerGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#update ContainerGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#create ContainerGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#delete ContainerGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read ContainerGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#update ContainerGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__789155b2de1807b2becbc0d50cf1c3aaad1f4b1e7831a3515f04ba1ebd188def)
@@ -6742,25 +6742,25 @@ class ContainerGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#create ContainerGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#create ContainerGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#delete ContainerGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#delete ContainerGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#read ContainerGroup#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#read ContainerGroup#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_group#update ContainerGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_group#update ContainerGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

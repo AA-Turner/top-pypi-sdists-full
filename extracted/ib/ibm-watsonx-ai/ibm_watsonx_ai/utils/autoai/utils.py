@@ -2725,6 +2725,7 @@ def validate_additional_params_for_optimizer(params):
         "time_ordered_data",
         "params_preset_name",
         "feature_importances_normalization",
+        "hpo_d_give_priority_to_runtime",
     ]
 
     for k in params:

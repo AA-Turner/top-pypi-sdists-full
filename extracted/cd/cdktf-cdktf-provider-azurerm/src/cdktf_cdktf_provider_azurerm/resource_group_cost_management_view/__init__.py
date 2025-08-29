@@ -1,7 +1,7 @@
 r'''
 # `azurerm_resource_group_cost_management_view`
 
-Refer to the Terraform Registry for docs: [`azurerm_resource_group_cost_management_view`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view).
+Refer to the Terraform Registry for docs: [`azurerm_resource_group_cost_management_view`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ResourceGroupCostManagementView(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.resourceGroupCostManagementView.ResourceGroupCostManagementView",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view azurerm_resource_group_cost_management_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view azurerm_resource_group_cost_management_view}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ResourceGroupCostManagementView(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view azurerm_resource_group_cost_management_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view azurerm_resource_group_cost_management_view} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.
-        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
-        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.
-        :param resource_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.
-        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
-        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
+        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.
+        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.
+        :param resource_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.
+        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
+        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ResourceGroupCostManagementView(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ResourceGroupCostManagementView to import.
-        :param import_from_id: The id of the existing ResourceGroupCostManagementView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ResourceGroupCostManagementView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ResourceGroupCostManagementView to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class ResourceGroupCostManagementView(
         sorting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ResourceGroupCostManagementViewDatasetSorting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
-        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.
-        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
-        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
+        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
+        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.
+        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
+        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
         '''
         value = ResourceGroupCostManagementViewDataset(
             aggregation=aggregation,
@@ -207,10 +207,10 @@ class ResourceGroupCostManagementView(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.
         '''
         value = ResourceGroupCostManagementViewTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -494,18 +494,18 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.
-        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
-        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.
-        :param resource_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.
-        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
-        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
+        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.
+        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.
+        :param resource_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.
+        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
+        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -633,14 +633,14 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def accumulated(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#accumulated ResourceGroupCostManagementView#accumulated}.'''
         result = self._values.get("accumulated")
         assert result is not None, "Required property 'accumulated' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def chart_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#chart_type ResourceGroupCostManagementView#chart_type}.'''
         result = self._values.get("chart_type")
         assert result is not None, "Required property 'chart_type' is missing"
         return typing.cast(builtins.str, result)
@@ -649,7 +649,7 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def dataset(self) -> "ResourceGroupCostManagementViewDataset":
         '''dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#dataset ResourceGroupCostManagementView#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -657,42 +657,42 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#display_name ResourceGroupCostManagementView#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def report_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#report_type ResourceGroupCostManagementView#report_type}.'''
         result = self._values.get("report_type")
         assert result is not None, "Required property 'report_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#resource_group_id ResourceGroupCostManagementView#resource_group_id}.'''
         result = self._values.get("resource_group_id")
         assert result is not None, "Required property 'resource_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeframe(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeframe ResourceGroupCostManagementView#timeframe}.'''
         result = self._values.get("timeframe")
         assert result is not None, "Required property 'timeframe' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#id ResourceGroupCostManagementView#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -706,7 +706,7 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewKpi"]]]:
         '''kpi block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#kpi ResourceGroupCostManagementView#kpi}
         '''
         result = self._values.get("kpi")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewKpi"]]], result)
@@ -717,7 +717,7 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewPivot"]]]:
         '''pivot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#pivot ResourceGroupCostManagementView#pivot}
         '''
         result = self._values.get("pivot")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewPivot"]]], result)
@@ -726,7 +726,7 @@ class ResourceGroupCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["ResourceGroupCostManagementViewTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#timeouts ResourceGroupCostManagementView#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ResourceGroupCostManagementViewTimeouts"], result)
@@ -763,10 +763,10 @@ class ResourceGroupCostManagementViewDataset:
         sorting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ResourceGroupCostManagementViewDatasetSorting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
-        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.
-        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
-        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
+        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
+        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.
+        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
+        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dcf0e7e737e9de260d2c21f9fac1fc75e1398bedf3eb585e41082bba4eb088c)
@@ -789,7 +789,7 @@ class ResourceGroupCostManagementViewDataset:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewDatasetAggregation"]]:
         '''aggregation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#aggregation ResourceGroupCostManagementView#aggregation}
         '''
         result = self._values.get("aggregation")
         assert result is not None, "Required property 'aggregation' is missing"
@@ -797,7 +797,7 @@ class ResourceGroupCostManagementViewDataset:
 
     @builtins.property
     def granularity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#granularity ResourceGroupCostManagementView#granularity}.'''
         result = self._values.get("granularity")
         assert result is not None, "Required property 'granularity' is missing"
         return typing.cast(builtins.str, result)
@@ -808,7 +808,7 @@ class ResourceGroupCostManagementViewDataset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewDatasetGrouping"]]]:
         '''grouping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#grouping ResourceGroupCostManagementView#grouping}
         '''
         result = self._values.get("grouping")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewDatasetGrouping"]]], result)
@@ -819,7 +819,7 @@ class ResourceGroupCostManagementViewDataset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewDatasetSorting"]]]:
         '''sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#sorting ResourceGroupCostManagementView#sorting}
         '''
         result = self._values.get("sorting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ResourceGroupCostManagementViewDatasetSorting"]]], result)
@@ -844,8 +844,8 @@ class ResourceGroupCostManagementViewDataset:
 class ResourceGroupCostManagementViewDatasetAggregation:
     def __init__(self, *, column_name: builtins.str, name: builtins.str) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#column_name ResourceGroupCostManagementView#column_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#column_name ResourceGroupCostManagementView#column_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__861da3138f2743623536e2eb50a91cd15012271913686920656d2711873e4248)
@@ -858,14 +858,14 @@ class ResourceGroupCostManagementViewDatasetAggregation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#column_name ResourceGroupCostManagementView#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#column_name ResourceGroupCostManagementView#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1061,8 +1061,8 @@ class ResourceGroupCostManagementViewDatasetAggregationOutputReference(
 class ResourceGroupCostManagementViewDatasetGrouping:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14bba77760367a7b10d92002f36ee030d409998dd24c1872abfb13dd03ae4bef)
@@ -1075,14 +1075,14 @@ class ResourceGroupCostManagementViewDatasetGrouping:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1414,8 +1414,8 @@ class ResourceGroupCostManagementViewDatasetOutputReference(
 class ResourceGroupCostManagementViewDatasetSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#direction ResourceGroupCostManagementView#direction}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#direction ResourceGroupCostManagementView#direction}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__591a5edd24fdc1c35a74f0535dd971a00a0e4d4f18ba9b886c3e302a702cec39)
@@ -1428,14 +1428,14 @@ class ResourceGroupCostManagementViewDatasetSorting:
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#direction ResourceGroupCostManagementView#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#direction ResourceGroupCostManagementView#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1631,7 +1631,7 @@ class ResourceGroupCostManagementViewDatasetSortingOutputReference(
 class ResourceGroupCostManagementViewKpi:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d5e5bd2039aab9c98025ee99523ad7639e7b01f77341b32f09e4f10b00a8b21)
@@ -1642,7 +1642,7 @@ class ResourceGroupCostManagementViewKpi:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1821,8 +1821,8 @@ class ResourceGroupCostManagementViewKpiOutputReference(
 class ResourceGroupCostManagementViewPivot:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24885e7ea3ec00d963a4cb30c0a7ba84e44a8590aa40efea1ae4048b601c12c8)
@@ -1835,14 +1835,14 @@ class ResourceGroupCostManagementViewPivot:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#name ResourceGroupCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#type ResourceGroupCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2050,10 +2050,10 @@ class ResourceGroupCostManagementViewTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39a8175e483a8894e6812a68aaa652b7cc64ae486dd06b6676f0c27aedbec6b5)
@@ -2073,25 +2073,25 @@ class ResourceGroupCostManagementViewTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#create ResourceGroupCostManagementView#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#delete ResourceGroupCostManagementView#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#read ResourceGroupCostManagementView#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/resource_group_cost_management_view#update ResourceGroupCostManagementView#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

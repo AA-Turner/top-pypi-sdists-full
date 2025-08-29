@@ -2,6 +2,7 @@
 #  (C) Copyright IBM Corp. 2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+from __future__ import annotations
 
 import json
 import logging
@@ -82,7 +83,8 @@ class FlightSQLClient(BaseFlightConnection):
         )
 
         if space_id is None and project_id is None:
-            raise ValueError("Either space_id or project_id is required.")
+            error_message = "Either space_id or project_id is required."
+            raise ValueError(error_message)
 
         self._api_client = api_client
 
@@ -111,9 +113,11 @@ class FlightSQLClient(BaseFlightConnection):
     @property
     def flight_client(self) -> flight.FlightClient:
         if self._flight_client is None:
-            raise ValueError(
-                "Flight client is not initialized. Instance of FlightSQLClient should be used as a context manager."
+            error_message = (
+                "Flight client is not initialized. "
+                "Instance of FlightSQLClient should be used as a context manager."
             )
+            raise ValueError(error_message)
         return self._flight_client
 
     def __enter__(self):
@@ -140,7 +144,6 @@ class FlightSQLClient(BaseFlightConnection):
         self, select_statement: str | None = None, **kwargs: Any
     ) -> str:
         """Get source command for flight service."""
-
         command = self._base_command.copy()
 
         if self.flight_parameters is not None:
@@ -175,10 +178,10 @@ class FlightSQLClient(BaseFlightConnection):
         self,
         select_statement: str | None = None,
         **kwargs: Any,
-    ) -> Iterable["flight.FlightEndpoint"]:
-        """Listing all available Flight Service endpoints (one endpoint corresponds to one batch)"""
+    ) -> Iterable[flight.FlightEndpoint]:
+        """Listing all available Flight Service endpoints (one endpoint corresponds to one batch)."""
         source_command_kwargs = {}
-        if interaction_properties := kwargs.get("interaction_properties", None):
+        if interaction_properties := kwargs.get("interaction_properties"):
             source_command_kwargs["interaction_properties"] = interaction_properties
 
         source_command = self._get_source_command(
@@ -191,20 +194,20 @@ class FlightSQLClient(BaseFlightConnection):
         return info.endpoints
 
     @_flight_retry()
-    def execute(self, query: str, **kwargs: Any) -> pd.DataFrame:
+    def _execute(self, select_statement: str | None, **kwargs: Any) -> pd.DataFrame:
         """Execute a query on the data source.
 
         :param query: query to execute
         :type query: str
 
         :return: query result
-        :rtype: str
+        :rtype: pandas.DataFrame
         """
-
         if unsupported_kwargs := (set(kwargs.keys()) - {"interaction_properties"}):
-            raise TypeError(
+            error_message = (
                 f"Not supported keyword argument(s): {list(unsupported_kwargs)}"
             )
+            raise TypeError(error_message)
 
         def read_thread(
             flight_client: flight.FlightClient, endpoint: flight.FlightEndpoint
@@ -212,7 +215,7 @@ class FlightSQLClient(BaseFlightConnection):
             reader = flight_client.do_get(endpoint.ticket)
             return reader.read_pandas()
 
-        endpoints = self._get_endpoints(select_statement=query, **kwargs)
+        endpoints = self._get_endpoints(select_statement=select_statement, **kwargs)
 
         # Limit max concurrent threads to 10
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -224,17 +227,27 @@ class FlightSQLClient(BaseFlightConnection):
 
         return pd.concat(df_list)
 
+    def execute(self, query: str, **kwargs: Any) -> pd.DataFrame:
+        """Execute a query on the data source.
+
+        :param query: query to execute
+        :type query: str
+
+        :return: query result
+        :rtype: pandas.DataFrame
+        """
+        return self._execute(select_statement=query, **kwargs)
+
     @_flight_retry()
-    def get_tables(self, schema: str) -> list[dict]:
-        """Get list of tables in the schema.
+    def get_tables(self, schema: str) -> dict:
+        """Get available tables in the schema.
 
         :param schema: Schema name
         :type schema: str
 
-        :return: List of tables in the schema
-        :rtype: list[dict]
+        :return: get available tables in schema
+        :rtype: dict
         """
-        tables = []
         additional_params = {
             "path": f"/{schema}",
             "discovery_filters": {
@@ -251,7 +264,7 @@ class FlightSQLClient(BaseFlightConnection):
         action_res = self.flight_client.do_action(action)
         # Retrieve first chunk to read a schema
         first_chunk = dict(json.loads(next(action_res).body.to_pybytes()))
-        tables = reduce(
+        return reduce(
             lambda left_chunk, right_chunk: FlightSQLClient._reduce_discovery_chunks(
                 left_chunk,
                 json.loads(right_chunk.body.to_pybytes()),
@@ -261,12 +274,9 @@ class FlightSQLClient(BaseFlightConnection):
             first_chunk,
         )
 
-        return tables
-
     @_flight_retry()
     def get_table_info(self, schema: str, table_name: str, **kwargs: Any) -> dict:
         """Get info about table from given schema."""
-
         extended_metadata = kwargs.get("extended_metadata", False)
         interaction_properties = kwargs.get("interaction_properties", False)
 
@@ -293,14 +303,12 @@ class FlightSQLClient(BaseFlightConnection):
         return table_info
 
     @_flight_retry()
-    def get_schemas(self) -> list[dict]:
-        """Get list of schemas.
+    def get_schemas(self) -> dict:
+        """Get available schemas.
 
-        :return: List of schemas
-        :rtype: list[dict]
+        :return: available schemas
+        :rtype: dict
         """
-
-        schemas = []
         additional_params = {"path": "/", "detail": "true", "context": "source"}
 
         command = self._get_source_command(**additional_params)
@@ -310,7 +318,7 @@ class FlightSQLClient(BaseFlightConnection):
 
         # Retrieve first chunk to read a schema
         first_chunk = dict(json.loads(next(action_res).body.to_pybytes()))
-        schemas = reduce(
+        return reduce(
             lambda left_chunk, right_chunk: FlightSQLClient._reduce_discovery_chunks(
                 left_chunk,
                 json.loads(right_chunk.body.to_pybytes()),
@@ -319,8 +327,6 @@ class FlightSQLClient(BaseFlightConnection):
             action_res,
             first_chunk,
         )
-
-        return schemas
 
     @staticmethod
     def _reduce_discovery_chunks(
@@ -331,3 +337,28 @@ class FlightSQLClient(BaseFlightConnection):
                 left_chunk[field] += right_chunk[field]
 
         return left_chunk
+
+    def get_n_first_rows(
+        self, schema: str, table_name: str, n: int = 3
+    ) -> pd.DataFrame:
+        """Get the first n rows of a table.
+
+        :param schema: name of the schema
+        :type schema: str
+
+        :param table_name: name of the table
+        :type table_name: str
+
+        :param n: number of rows to return, defaults to 3
+        :type n: int, optional
+
+        :return: first n rows of the table
+        :rtype: pd.DataFrame
+        """
+        extra_interaction_properties = {
+            "schema_name": schema,
+            "row_limit": n,
+            "table_name": table_name,
+        }
+
+        return self._execute(None, interaction_properties=extra_interaction_properties)

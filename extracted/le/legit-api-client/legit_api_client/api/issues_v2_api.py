@@ -654,7 +654,7 @@ class IssuesV2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> CustomerFacingIssuesPageDto:
+    ) -> List[CustomerFacingIssueDto]:
         """Get extended data on issues
 
         Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
@@ -692,7 +692,7 @@ class IssuesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomerFacingIssuesPageDto",
+            '200': "List[CustomerFacingIssueDto]",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -721,7 +721,7 @@ class IssuesV2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[CustomerFacingIssuesPageDto]:
+    ) -> ApiResponse[List[CustomerFacingIssueDto]]:
         """Get extended data on issues
 
         Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
@@ -759,7 +759,7 @@ class IssuesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomerFacingIssuesPageDto",
+            '200': "List[CustomerFacingIssueDto]",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -826,7 +826,7 @@ class IssuesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomerFacingIssuesPageDto",
+            '200': "List[CustomerFacingIssueDto]",
         }
         response_data = self.api_client.call_api(
             *_param,

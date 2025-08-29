@@ -304,6 +304,7 @@ class UCImageSpecBuilder(ImageSpecBuilder):
         "apt_packages",
         "pip_index",
         "pip_extra_index_url",
+        "pip_extra_args",
         "commands",
         "conda_packages",
         "conda_channels",
@@ -431,6 +432,7 @@ class UCImageSpecBuilder(ImageSpecBuilder):
             pip_extra_index_urls.extend(image_spec.pip_extra_index_url)
 
         spec["pip_extra_index_urls"] = pip_extra_index_urls
+        spec["pip_extra_args"] = image_spec.pip_extra_args
 
         context_path = tmp_path / "build.uc-image-builder"
         context_path.mkdir(exist_ok=True)

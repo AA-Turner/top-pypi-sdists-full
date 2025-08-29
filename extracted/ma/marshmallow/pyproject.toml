@@ -1,6 +1,6 @@
 [project]
 name = "marshmallow"
-version = "4.0.0"
+version = "4.0.1"
 description = "A lightweight library for converting complex datatypes to and from native Python datatypes."
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -37,11 +37,11 @@ Tidelift = "https://tidelift.com/subscription/pkg/pypi-marshmallow?utm_source=py
 [project.optional-dependencies]
 docs = [
   "autodocsumm==0.2.14",
-  "furo==2024.8.6",
+  "furo==2025.7.19",
   "sphinx-copybutton==0.5.2",
   "sphinx-issues==5.0.1",
   "sphinx==8.2.3",
-  "sphinxext-opengraph==0.10.0",
+  "sphinxext-opengraph==0.12.0",
 ]
 tests = ["pytest", "simplejson"]
 dev = ["marshmallow[tests]", "tox", "pre-commit>=3.5,<5.0"]

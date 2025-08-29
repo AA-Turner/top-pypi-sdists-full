@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zipstream-ng
-Version: 1.8.0
+Version: 1.9.0
 Summary: A modern and easy to use streamable zip file generator
 Home-page: https://github.com/pR0Ps/zipstream-ng
-License: LGPLv3
+License: LGPL-3.0-only
 Project-URL: Source, https://github.com/pR0Ps/zipstream-ng
 Project-URL: Changelog, https://github.com/pR0Ps/zipstream-ng/blob/master/CHANGELOG.md
 Classifier: Programming Language :: Python :: 3
@@ -15,19 +15,30 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: System :: Archiving :: Compression
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Requires-Python: >=3.5.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 zipstream-ng
 ============
-[![Status](https://github.com/pR0Ps/zipstream-ng/workflows/tests/badge.svg)](https://github.com/pR0Ps/zipstream-ng/actions/workflows/tests.yml)
+[![Status](https://github.com/pR0Ps/zipstream-ng/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/pR0Ps/zipstream-ng/actions/workflows/tests.yml?query=branch%3Amaster)
 [![Version](https://img.shields.io/pypi/v/zipstream-ng.svg)](https://pypi.org/project/zipstream-ng/)
 ![Python](https://img.shields.io/pypi/pyversions/zipstream-ng.svg)
 
@@ -41,6 +52,7 @@ calculate the final size of the zip file before streaming it.
  - Can calculate the total size of the resulting zip file before generation even begins.
  - Low memory usage: Since the zip is generated as it's requested, very little has to be kept in
    memory (peak usage of less than 20MB is typical, even for TBs of files).
+ - Performant: On-par or faster than using the standard library to create non-streamed zip files.
  - Flexible API: Typical use cases are simple, complicated ones are possible.
  - Supports zipping data from files, bytes, strings, and any other iterable objects.
  - Keeps track of the date of the most recently modified file added to the zip file.

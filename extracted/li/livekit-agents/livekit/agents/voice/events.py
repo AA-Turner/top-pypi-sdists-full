@@ -4,7 +4,7 @@ import time
 from enum import Enum, unique
 from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 from ..llm import (
@@ -16,7 +16,6 @@ from ..llm import (
     RealtimeModel,
     RealtimeModelError,
 )
-from ..log import logger
 from ..metrics import AgentMetrics
 from ..stt import STT, STTError
 from ..tts import TTS, TTSError
@@ -123,20 +122,13 @@ class UserInputTranscribedEvent(BaseModel):
 
 class AgentFalseInterruptionEvent(BaseModel):
     type: Literal["agent_false_interruption"] = "agent_false_interruption"
-    resumed: bool
-    """Whether the false interruption was resumed automatically."""
-    created_at: float = Field(default_factory=time.time)
-
-    # deprecated
-    message: ChatMessage | None = None
+    message: ChatMessage | None
+    """The `assistant` message that got interrupted"""
     extra_instructions: str | None = None
-
-    def __getattribute__(self, name: str) -> Any:
-        if name in ["message", "extra_instructions"]:
-            logger.warning(
-                f"AgentFalseInterruptionEvent.{name} is deprecated, automatic resume is now supported"
-            )
-        return super().__getattribute__(name)
+    """Optional instructions originally passed to `AgentSession.generate_reply` via the `instructions` argument.
+    Populated only if the user interrupted a speech response generated using `session.generate_reply`.
+    Useful for understanding what the agent was attempting to convey before the interruption."""
+    created_at: float = Field(default_factory=time.time)
 
 
 class MetricsCollectedEvent(BaseModel):
@@ -160,25 +152,9 @@ class FunctionToolsExecutedEvent(BaseModel):
     function_calls: list[FunctionCall]
     function_call_outputs: list[FunctionCallOutput | None]
     created_at: float = Field(default_factory=time.time)
-    _reply_required: bool = PrivateAttr(default=False)
-    _handoff_required: bool = PrivateAttr(default=False)
 
     def zipped(self) -> list[tuple[FunctionCall, FunctionCallOutput | None]]:
         return list(zip(self.function_calls, self.function_call_outputs))
-
-    def cancel_tool_reply(self) -> None:
-        self._reply_required = False
-
-    def cancel_agent_handoff(self) -> None:
-        self._handoff_required = False
-
-    @property
-    def has_tool_reply(self) -> bool:
-        return self._reply_required
-
-    @property
-    def has_agent_handoff(self) -> bool:
-        return self._handoff_required
 
     @model_validator(mode="after")
     def verify_lists_length(self) -> Self:

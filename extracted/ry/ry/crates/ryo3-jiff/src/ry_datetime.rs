@@ -15,7 +15,7 @@ use jiff::Zoned;
 use jiff::civil::{Date, DateTime, DateTimeRound, Time, Weekday};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple, PyType};
+use pyo3::types::{PyDict, PyTuple};
 use pyo3::{IntoPyObjectExt, intern};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -93,21 +93,21 @@ impl RyDateTime {
         Self(DateTime::ZERO)
     }
 
-    #[classmethod]
-    fn now(_cls: &Bound<'_, PyType>) -> Self {
+    #[staticmethod]
+    fn now() -> Self {
         Self::from(DateTime::from(Zoned::now()))
     }
 
-    #[classmethod]
-    fn from_str(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
         DateTime::from_str(s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
 
-    #[classmethod]
-    fn parse(cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
-        Self::from_str(cls, s)
+    #[staticmethod]
+    fn parse(s: &str) -> PyResult<Self> {
+        Self::from_str(s)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
@@ -172,24 +172,15 @@ impl RyDateTime {
     }
 
     fn __str__(&self) -> String {
-        self.to_string()
+        self.0.to_string()
     }
 
     fn string(&self) -> String {
-        self.to_string()
+        self.__str__()
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "DateTime(year={}, month={}, day={}, hour={}, minute={}, second={}, subsec_nanosecond={})",
-            self.year(),
-            self.month(),
-            self.day(),
-            self.hour(),
-            self.minute(),
-            self.second(),
-            self.subsec_nanosecond()
-        )
+        format!("{self}")
     }
 
     fn __hash__(&self) -> u64 {
@@ -303,8 +294,8 @@ impl RyDateTime {
         self.0.time()
     }
 
-    #[classmethod]
-    fn from_pydatetime(_cls: &Bound<'_, PyType>, d: DateTime) -> Self {
+    #[staticmethod]
+    fn from_pydatetime(d: DateTime) -> Self {
         Self::from(d)
     }
 
@@ -460,10 +451,7 @@ impl RyDateTime {
     }
 
     fn _round(&self, dt_round: &RyDateTimeRound) -> PyResult<Self> {
-        self.0
-            .round(dt_round.round)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        dt_round.round(self)
     }
 
     fn day_of_year(&self) -> i16 {
@@ -506,26 +494,31 @@ impl RyDateTime {
         Self::from(self.0.first_of_year())
     }
 
-    #[classmethod]
-    fn from_parts(_cls: &Bound<'_, PyType>, date: &RyDate, time: &RyTime) -> Self {
+    #[staticmethod]
+    fn from_parts(date: &RyDate, time: &RyTime) -> Self {
         Self::from(DateTime::from_parts(date.0, time.0))
     }
+
     fn in_leap_year(&self) -> bool {
         self.0.in_leap_year()
     }
+
     fn last_of_year(&self) -> Self {
         Self::from(self.0.last_of_year())
     }
+
     fn start_of_day(&self) -> Self {
         Self::from(self.0.start_of_day())
     }
-    fn strftime(&self, format: &str) -> String {
-        self.0.strftime(format).to_string()
+
+    fn strftime(&self, fmt: &str) -> String {
+        self.0.strftime(fmt).to_string()
     }
 
-    #[classmethod]
-    fn strptime(_cls: &Bound<'_, PyType>, s: &str, format: &str) -> PyResult<Self> {
-        DateTime::strptime(s, format)
+    #[staticmethod]
+    #[pyo3(signature = (s, /, fmt))]
+    fn strptime(s: &str, fmt: &str) -> PyResult<Self> {
+        DateTime::strptime(fmt, s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
@@ -617,6 +610,16 @@ impl RyDateTime {
 
 impl Display for RyDateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        write!(
+            f,
+            "DateTime(year={}, month={}, day={}, hour={}, minute={}, second={}, subsec_nanosecond={})",
+            self.year(),
+            self.month(),
+            self.day(),
+            self.hour(),
+            self.minute(),
+            self.second(),
+            self.subsec_nanosecond()
+        )
     }
 }

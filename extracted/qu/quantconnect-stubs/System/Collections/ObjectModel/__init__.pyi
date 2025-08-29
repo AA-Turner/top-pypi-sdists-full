@@ -13,12 +13,12 @@ import System.ComponentModel
 System_Collections_ObjectModel_ReadOnlyDictionary_TKey = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TKey")
 System_Collections_ObjectModel_ReadOnlyDictionary_TValue = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TValue")
 System_Collections_ObjectModel_Collection_T = typing.TypeVar("System_Collections_ObjectModel_Collection_T")
-System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
 System_Collections_ObjectModel_ReadOnlySet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlySet_T")
-System_Collections_ObjectModel_ObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ObservableCollection_T")
-System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
+System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
 System_Collections_ObjectModel_KeyedCollection_TItem = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TItem")
 System_Collections_ObjectModel_KeyedCollection_TKey = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TKey")
+System_Collections_ObjectModel_ObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ObservableCollection_T")
+System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
 System_Collections_ObjectModel__EventContainer_Callable = typing.TypeVar("System_Collections_ObjectModel__EventContainer_Callable")
 System_Collections_ObjectModel__EventContainer_ReturnType = typing.TypeVar("System_Collections_ObjectModel__EventContainer_ReturnType")
 
@@ -179,43 +179,6 @@ class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], Sy
         ...
 
 
-class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
-    """Provides static methods for read-only collections."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
-    """Gets an empty ReadOnlyCollection{T}."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        """This property is protected."""
-        ...
-
-    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
-        ...
-
-    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        ...
-
-    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        ...
-
-    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
-        ...
-
-
 class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], System.Object, System.Collections.Generic.IReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.ICollection, typing.Iterable[System_Collections_ObjectModel_ReadOnlySet_T]):
     """Represents a read-only, generic set of values."""
 
@@ -268,6 +231,107 @@ class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], 
         ...
 
     def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+
+class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
+    """Provides static methods for read-only collections."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
+    """Gets an empty ReadOnlyCollection{T}."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        """This property is protected."""
+        ...
+
+    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
+        ...
+
+    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        ...
+
+    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        ...
+
+    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
+        ...
+
+
+class KeyedCollection(typing.Generic[System_Collections_ObjectModel_KeyedCollection_TKey, System_Collections_ObjectModel_KeyedCollection_TItem], System.Collections.ObjectModel.Collection[System_Collections_ObjectModel_KeyedCollection_TItem], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey]:
+        ...
+
+    @property
+    def dictionary(self) -> System.Collections.Generic.IDictionary[System_Collections_ObjectModel_KeyedCollection_TKey, System_Collections_ObjectModel_KeyedCollection_TItem]:
+        """This property is protected."""
+        ...
+
+    def __getitem__(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> System_Collections_ObjectModel_KeyedCollection_TItem:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey]) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey], dictionary_creation_threshold: int) -> None:
+        """This method is protected."""
+        ...
+
+    def change_item_key(self, item: System_Collections_ObjectModel_KeyedCollection_TItem, new_key: System_Collections_ObjectModel_KeyedCollection_TKey) -> None:
+        """This method is protected."""
+        ...
+
+    def clear_items(self) -> None:
+        """This method is protected."""
+        ...
+
+    def contains(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> bool:
+        ...
+
+    def get_key_for_item(self, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> System_Collections_ObjectModel_KeyedCollection_TKey:
+        """This method is protected."""
+        ...
+
+    def insert_item(self, index: int, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> None:
+        """This method is protected."""
+        ...
+
+    def remove(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> bool:
+        ...
+
+    def remove_item(self, index: int) -> None:
+        """This method is protected."""
+        ...
+
+    def set_item(self, index: int, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> None:
+        """This method is protected."""
+        ...
+
+    def try_get_value(self, key: System_Collections_ObjectModel_KeyedCollection_TKey, item: typing.Optional[System_Collections_ObjectModel_KeyedCollection_TItem]) -> typing.Tuple[bool, System_Collections_ObjectModel_KeyedCollection_TItem]:
         ...
 
 
@@ -464,70 +528,6 @@ class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel
         
         This method is protected.
         """
-        ...
-
-
-class KeyedCollection(typing.Generic[System_Collections_ObjectModel_KeyedCollection_TKey, System_Collections_ObjectModel_KeyedCollection_TItem], System.Collections.ObjectModel.Collection[System_Collections_ObjectModel_KeyedCollection_TItem], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey]:
-        ...
-
-    @property
-    def dictionary(self) -> System.Collections.Generic.IDictionary[System_Collections_ObjectModel_KeyedCollection_TKey, System_Collections_ObjectModel_KeyedCollection_TItem]:
-        """This property is protected."""
-        ...
-
-    def __getitem__(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> System_Collections_ObjectModel_KeyedCollection_TItem:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey]) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_ObjectModel_KeyedCollection_TKey], dictionary_creation_threshold: int) -> None:
-        """This method is protected."""
-        ...
-
-    def change_item_key(self, item: System_Collections_ObjectModel_KeyedCollection_TItem, new_key: System_Collections_ObjectModel_KeyedCollection_TKey) -> None:
-        """This method is protected."""
-        ...
-
-    def clear_items(self) -> None:
-        """This method is protected."""
-        ...
-
-    def contains(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> bool:
-        ...
-
-    def get_key_for_item(self, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> System_Collections_ObjectModel_KeyedCollection_TKey:
-        """This method is protected."""
-        ...
-
-    def insert_item(self, index: int, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> None:
-        """This method is protected."""
-        ...
-
-    def remove(self, key: System_Collections_ObjectModel_KeyedCollection_TKey) -> bool:
-        ...
-
-    def remove_item(self, index: int) -> None:
-        """This method is protected."""
-        ...
-
-    def set_item(self, index: int, item: System_Collections_ObjectModel_KeyedCollection_TItem) -> None:
-        """This method is protected."""
-        ...
-
-    def try_get_value(self, key: System_Collections_ObjectModel_KeyedCollection_TKey, item: typing.Optional[System_Collections_ObjectModel_KeyedCollection_TItem]) -> typing.Tuple[bool, System_Collections_ObjectModel_KeyedCollection_TItem]:
         ...
 
 

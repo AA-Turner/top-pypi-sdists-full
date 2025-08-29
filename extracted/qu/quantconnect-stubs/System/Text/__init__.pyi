@@ -11,18 +11,390 @@ import System.Runtime.Serialization
 import System.Text
 
 
-class NormalizationForm(Enum):
+class Ascii(System.Object):
     """This class has no documentation."""
 
-    FORM_C = 1
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
+        """
+        Determines whether the provided buffers contain equal ASCII characters.
+        
+        :param left: The buffer to compare with .
+        :param right: The buffer to compare with .
+        :returns: true if the corresponding elements in  and  were equal and ASCII. false otherwise.
+        """
+        ...
 
-    FORM_D = 2
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
+        ...
 
-    FORM_KC = 5
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
+        ...
 
-    FORM_KD = 6
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
+        ...
 
-    def __int__(self) -> int:
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
+        """
+        Determines whether the provided buffers contain equal ASCII characters, ignoring case considerations.
+        
+        :param left: The buffer to compare with .
+        :param right: The buffer to compare with .
+        :returns: true if the corresponding elements in  and  were equal ignoring case considerations and ASCII. false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        from UTF-16 to ASCII during the copy.
+        
+        :param source: The source buffer from which UTF-16 text is read.
+        :param destination: The destination buffer to which ASCII text is written.
+        :param bytes_written: The number of bytes actually written to . It's the same as the number of chars actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
+        """
+        Determines whether the provided value contains only ASCII bytes.
+        
+        :param value: The value to inspect.
+        :returns: True if  contains only ASCII bytes or is empty; False otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
+        """
+        Determines whether the provided value contains only ASCII chars.
+        
+        :param value: The value to inspect.
+        :returns: True if  contains only ASCII chars or is empty; False otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: int) -> bool:
+        """
+        Determines whether the provided value is ASCII byte.
+        
+        :param value: The value to inspect.
+        :returns: True if  is ASCII, False otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: str) -> bool:
+        """
+        Determines whether the provided value is ASCII char.
+        
+        :param value: The value to inspect.
+        :returns: True if  is ASCII, False otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to lowercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which lowercase text is written.
+        :param bytes_written: The number of bytes actually written to . It's the same as the number of bytes actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to lowercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which lowercase text is written.
+        :param chars_written: The number of characters actually written to . It's the same as the number of characters actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to lowercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which lowercase text is written.
+        :param chars_written: The number of characters actually written to . It's the same as the number of bytes actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to lowercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which lowercase text is written.
+        :param bytes_written: The number of bytes actually written to . It's the same as the number of characters actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Performs in-place uppercase conversion.
+        
+        :param value: The ASCII text buffer.
+        :param bytes_written: The number of processed bytes.
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Performs in-place uppercase conversion.
+        
+        :param value: The ASCII text buffer.
+        :param chars_written: The number of processed characters.
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to uppercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which uppercase text is written.
+        :param bytes_written: The number of bytes actually written to . It's the same as the number of bytes actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to uppercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which uppercase text is written.
+        :param chars_written: The number of characters actually written to . It's the same as the number of characters actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to uppercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which uppercase text is written.
+        :param chars_written: The number of characters actually written to . It's the same as the number of bytes actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        ASCII letters to uppercase during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which uppercase text is written.
+        :param bytes_written: The number of bytes actually written to . It's the same as the number of characters actually read from .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Performs in-place lowercase conversion.
+        
+        :param value: The ASCII text buffer.
+        :param bytes_written: The number of processed bytes.
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Performs in-place lowercase conversion.
+        
+        :param value: The ASCII text buffer.
+        :param chars_written: The number of processed characters.
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        """
+        Copies text from a source buffer to a destination buffer, converting
+        from ASCII to UTF-16 during the copy.
+        
+        :param source: The source buffer from which ASCII text is read.
+        :param destination: The destination buffer to which UTF-16 text is written.
+        :param chars_written: The number of chars actually written to . It's the same as the number of bytes actually read from
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
+        """
+        Trims all leading and trailing ASCII whitespaces from the buffer.
+        
+        :param value: The ASCII buffer.
+        :returns: The Range of the untrimmed data.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
+        """
+        Trims all trailing ASCII whitespaces from the buffer.
+        
+        :param value: The ASCII buffer.
+        :returns: The Range of the untrimmed data.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
+        """
+        Trims all leading ASCII whitespaces from the buffer.
+        
+        :param value: The ASCII buffer.
+        :returns: The Range of the untrimmed data.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+
+class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+
+class DecoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def remaining(self) -> int:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class DecoderFallback(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    REPLACEMENT_FALLBACK: System.Text.DecoderFallback
+
+    EXCEPTION_FALLBACK: System.Text.DecoderFallback
+
+    @property
+    @abc.abstractmethod
+    def max_char_count(self) -> int:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
         ...
 
 
@@ -68,121 +440,18 @@ class EncoderFallback(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class DecoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
+class NormalizationForm(Enum):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def remaining(self) -> int:
-        ...
+    FORM_C = 1
 
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
-        ...
+    FORM_D = 2
 
-    def get_next_char(self) -> str:
-        ...
+    FORM_KC = 5
 
-    def move_previous(self) -> bool:
-        ...
+    FORM_KD = 6
 
-    def reset(self) -> None:
-        ...
-
-
-class DecoderFallback(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    REPLACEMENT_FALLBACK: System.Text.DecoderFallback
-
-    EXCEPTION_FALLBACK: System.Text.DecoderFallback
-
-    @property
-    @abc.abstractmethod
-    def max_char_count(self) -> int:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
-        ...
-
-
-class EncodingInfo(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def code_page(self) -> int:
-        """Get the encoding codepage number"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Get the encoding name"""
-        ...
-
-    @property
-    def display_name(self) -> str:
-        """Get the encoding display name"""
-        ...
-
-    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
-        """
-        Construct an EncodingInfo object.
-        
-        :param provider: The EncodingProvider object which created this EncodingInfo object
-        :param code_page: The encoding codepage
-        :param name: The encoding name
-        :param display_name: The encoding display name
-        """
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        """
-        Compare this EncodingInfo object to other object.
-        
-        :param value: The other object to compare with this object
-        :returns: True if the value object is EncodingInfo object and has a codepage equals to this EncodingInfo object codepage. Otherwise, it returns False.
-        """
-        ...
-
-    def get_encoding(self) -> System.Text.Encoding:
-        """
-        Get the Encoding object match the information in the EncodingInfo object
-        
-        :returns: The Encoding object.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Get a hashcode representing the current EncodingInfo object.
-        
-        :returns: The integer value representing the hash code of the EncodingInfo object.
-        """
-        ...
-
-
-class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def get_encoding(self, name: str) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, codepage: int) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
-        ...
-
-    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
+    def __int__(self) -> int:
         ...
 
 
@@ -636,777 +905,6 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
 
-class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class ASCIIEncoding(System.Text.Encoding):
-    """This class has no documentation."""
-
-    @property
-    def is_single_byte(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: str) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
-        ...
-
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_string(self, bytes: typing.List[int], byte_index: int, byte_count: int) -> str:
-        ...
-
-    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class EncoderExceptionFallback(System.Text.EncoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def fallback(self, char_unknown: str, index: int) -> bool:
-        ...
-
-    @overload
-    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-
-class EncoderFallbackException(System.ArgumentException):
-    """This class has no documentation."""
-
-    @property
-    def char_unknown(self) -> str:
-        ...
-
-    @property
-    def char_unknown_high(self) -> str:
-        ...
-
-    @property
-    def char_unknown_low(self) -> str:
-        ...
-
-    @property
-    def index(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def is_unknown_surrogate(self) -> bool:
-        ...
-
-
-class Ascii(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        """
-        Determines whether the provided buffers contain equal ASCII characters.
-        
-        :param left: The buffer to compare with .
-        :param right: The buffer to compare with .
-        :returns: true if the corresponding elements in  and  were equal and ASCII. false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        """
-        Determines whether the provided buffers contain equal ASCII characters, ignoring case considerations.
-        
-        :param left: The buffer to compare with .
-        :param right: The buffer to compare with .
-        :returns: true if the corresponding elements in  and  were equal ignoring case considerations and ASCII. false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        from UTF-16 to ASCII during the copy.
-        
-        :param source: The source buffer from which UTF-16 text is read.
-        :param destination: The destination buffer to which ASCII text is written.
-        :param bytes_written: The number of bytes actually written to . It's the same as the number of chars actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
-        """
-        Determines whether the provided value contains only ASCII bytes.
-        
-        :param value: The value to inspect.
-        :returns: True if  contains only ASCII bytes or is empty; False otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
-        """
-        Determines whether the provided value contains only ASCII chars.
-        
-        :param value: The value to inspect.
-        :returns: True if  contains only ASCII chars or is empty; False otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: int) -> bool:
-        """
-        Determines whether the provided value is ASCII byte.
-        
-        :param value: The value to inspect.
-        :returns: True if  is ASCII, False otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: str) -> bool:
-        """
-        Determines whether the provided value is ASCII char.
-        
-        :param value: The value to inspect.
-        :returns: True if  is ASCII, False otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to lowercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which lowercase text is written.
-        :param bytes_written: The number of bytes actually written to . It's the same as the number of bytes actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to lowercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which lowercase text is written.
-        :param chars_written: The number of characters actually written to . It's the same as the number of characters actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to lowercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which lowercase text is written.
-        :param chars_written: The number of characters actually written to . It's the same as the number of bytes actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to lowercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which lowercase text is written.
-        :param bytes_written: The number of bytes actually written to . It's the same as the number of characters actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Performs in-place uppercase conversion.
-        
-        :param value: The ASCII text buffer.
-        :param bytes_written: The number of processed bytes.
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Performs in-place uppercase conversion.
-        
-        :param value: The ASCII text buffer.
-        :param chars_written: The number of processed characters.
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to uppercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which uppercase text is written.
-        :param bytes_written: The number of bytes actually written to . It's the same as the number of bytes actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to uppercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which uppercase text is written.
-        :param chars_written: The number of characters actually written to . It's the same as the number of characters actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to uppercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which uppercase text is written.
-        :param chars_written: The number of characters actually written to . It's the same as the number of bytes actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        ASCII letters to uppercase during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which uppercase text is written.
-        :param bytes_written: The number of bytes actually written to . It's the same as the number of characters actually read from .
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Performs in-place lowercase conversion.
-        
-        :param value: The ASCII text buffer.
-        :param bytes_written: The number of processed bytes.
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Performs in-place lowercase conversion.
-        
-        :param value: The ASCII text buffer.
-        :param chars_written: The number of processed characters.
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        """
-        Copies text from a source buffer to a destination buffer, converting
-        from ASCII to UTF-16 during the copy.
-        
-        :param source: The source buffer from which ASCII text is read.
-        :param destination: The destination buffer to which UTF-16 text is written.
-        :param chars_written: The number of chars actually written to . It's the same as the number of bytes actually read from
-        :returns: An OperationStatus describing the result of the operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
-        """
-        Trims all leading and trailing ASCII whitespaces from the buffer.
-        
-        :param value: The ASCII buffer.
-        :returns: The Range of the untrimmed data.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
-        """
-        Trims all trailing ASCII whitespaces from the buffer.
-        
-        :param value: The ASCII buffer.
-        :returns: The Range of the untrimmed data.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
-        """
-        Trims all leading ASCII whitespaces from the buffer.
-        
-        :param value: The ASCII buffer.
-        :returns: The Range of the untrimmed data.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-
-class SpanLineEnumerator(System.Collections.Generic.IEnumerator[System.ReadOnlySpan[str]]):
-    """Enumerates the lines of a ReadOnlySpan{Char}."""
-
-    @property
-    def current(self) -> System.ReadOnlySpan[str]:
-        """Gets the line at the current position of the enumerator."""
-        ...
-
-    def get_enumerator(self) -> System.Text.SpanLineEnumerator:
-        """Returns this instance as an enumerator."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next line of the span.
-        
-        :returns: True if the enumerator successfully advanced to the next line; false if the enumerator has advanced past the end of the span.
-        """
-        ...
-
-
-class UTF8Encoding(System.Text.Encoding):
-    """This class has no documentation."""
-
-    @property
-    def preamble(self) -> System.ReadOnlySpan[int]:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, encoder_should_emit_utf_8_identifier: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, encoder_should_emit_utf_8_identifier: bool, throw_on_invalid_bytes: bool) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: str) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
-        ...
-
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_preamble(self) -> typing.List[int]:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
-        ...
-
-    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class EncoderReplacementFallback(System.Text.EncoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def default_string(self) -> str:
-        ...
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, replacement: str) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EncoderReplacementFallbackBuffer(System.Text.EncoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self, fallback: System.Text.EncoderReplacementFallback) -> None:
-        ...
-
-    @overload
-    def fallback(self, char_unknown: str, index: int) -> bool:
-        ...
-
-    @overload
-    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-
-class DecoderReplacementFallback(System.Text.DecoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def default_string(self) -> str:
-        ...
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, replacement: str) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
-        ...
-
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-
 class UnicodeEncoding(System.Text.Encoding):
     """This class has no documentation."""
 
@@ -1493,17 +991,161 @@ class UnicodeEncoding(System.Text.Encoding):
         ...
 
 
-class UTF7Encoding(System.Text.Encoding):
+class EncoderReplacementFallback(System.Text.EncoderFallback):
     """This class has no documentation."""
 
-    @overload
-    def __init__(self) -> None:
-        """Obsoletions.SystemTextEncodingUTF7Message"""
+    @property
+    def default_string(self) -> str:
+        ...
+
+    @property
+    def max_char_count(self) -> int:
         ...
 
     @overload
-    def __init__(self, allow_optionals: bool) -> None:
-        """Obsoletions.SystemTextEncodingUTF7Message"""
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, replacement: str) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncoderReplacementFallbackBuffer(System.Text.EncoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self, fallback: System.Text.EncoderReplacementFallback) -> None:
+        ...
+
+    @overload
+    def fallback(self, char_unknown: str, index: int) -> bool:
+        ...
+
+    @overload
+    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class EncodingInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def code_page(self) -> int:
+        """Get the encoding codepage number"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the encoding name"""
+        ...
+
+    @property
+    def display_name(self) -> str:
+        """Get the encoding display name"""
+        ...
+
+    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
+        """
+        Construct an EncodingInfo object.
+        
+        :param provider: The EncodingProvider object which created this EncodingInfo object
+        :param code_page: The encoding codepage
+        :param name: The encoding name
+        :param display_name: The encoding display name
+        """
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        """
+        Compare this EncodingInfo object to other object.
+        
+        :param value: The other object to compare with this object
+        :returns: True if the value object is EncodingInfo object and has a codepage equals to this EncodingInfo object codepage. Otherwise, it returns False.
+        """
+        ...
+
+    def get_encoding(self) -> System.Text.Encoding:
+        """
+        Get the Encoding object match the information in the EncodingInfo object
+        
+        :returns: The Encoding object.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Get a hashcode representing the current EncodingInfo object.
+        
+        :returns: The integer value representing the hash code of the EncodingInfo object.
+        """
+        ...
+
+
+class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def get_encoding(self, name: str) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
+        ...
+
+
+class UTF32Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @property
+    def preamble(self) -> System.ReadOnlySpan[int]:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_characters: bool) -> None:
         ...
 
     def equals(self, value: typing.Any) -> bool:
@@ -1564,18 +1206,24 @@ class UTF7Encoding(System.Text.Encoding):
     def get_max_char_count(self, byte_count: int) -> int:
         ...
 
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
     def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
         ...
 
 
-class DecoderExceptionFallback(System.Text.DecoderFallback):
+class EncoderExceptionFallback(System.Text.EncoderFallback):
     """This class has no documentation."""
 
     @property
     def max_char_count(self) -> int:
         ...
 
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+    def __init__(self) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
         ...
 
     def equals(self, value: typing.Any) -> bool:
@@ -1585,14 +1233,22 @@ class DecoderExceptionFallback(System.Text.DecoderFallback):
         ...
 
 
-class DecoderExceptionFallbackBuffer(System.Text.DecoderFallbackBuffer):
+class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
     """This class has no documentation."""
 
     @property
     def remaining(self) -> int:
         ...
 
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def fallback(self, char_unknown: str, index: int) -> bool:
+        ...
+
+    @overload
+    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
         ...
 
     def get_next_char(self) -> str:
@@ -1602,11 +1258,19 @@ class DecoderExceptionFallbackBuffer(System.Text.DecoderFallbackBuffer):
         ...
 
 
-class DecoderFallbackException(System.ArgumentException):
+class EncoderFallbackException(System.ArgumentException):
     """This class has no documentation."""
 
     @property
-    def bytes_unknown(self) -> typing.List[int]:
+    def char_unknown(self) -> str:
+        ...
+
+    @property
+    def char_unknown_high(self) -> str:
+        ...
+
+    @property
+    def char_unknown_low(self) -> str:
         ...
 
     @property
@@ -1625,8 +1289,7 @@ class DecoderFallbackException(System.ArgumentException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str, bytes_unknown: typing.List[int], index: int) -> None:
+    def is_unknown_surrogate(self) -> bool:
         ...
 
 
@@ -2214,7 +1877,121 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
 
-class UTF32Encoding(System.Text.Encoding):
+class DecoderReplacementFallback(System.Text.DecoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def default_string(self) -> str:
+        ...
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, replacement: str) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class DecoderExceptionFallback(System.Text.DecoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecoderExceptionFallbackBuffer(System.Text.DecoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+
+class DecoderFallbackException(System.ArgumentException):
+    """This class has no documentation."""
+
+    @property
+    def bytes_unknown(self) -> typing.List[int]:
+        ...
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, bytes_unknown: typing.List[int], index: int) -> None:
+        ...
+
+
+class UTF8Encoding(System.Text.Encoding):
     """This class has no documentation."""
 
     @property
@@ -2226,11 +2003,216 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+    def __init__(self, encoder_should_emit_utf_8_identifier: bool) -> None:
         ...
 
     @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_characters: bool) -> None:
+    def __init__(self, encoder_should_emit_utf_8_identifier: bool, throw_on_invalid_bytes: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: str) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+        ...
+
+    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+
+class ASCIIEncoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @property
+    def is_single_byte(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: str) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_string(self, bytes: typing.List[int], byte_index: int, byte_count: int) -> str:
+        ...
+
+    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class UTF7Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        """Obsoletions.SystemTextEncodingUTF7Message"""
+        ...
+
+    @overload
+    def __init__(self, allow_optionals: bool) -> None:
+        """Obsoletions.SystemTextEncodingUTF7Message"""
         ...
 
     def equals(self, value: typing.Any) -> bool:
@@ -2291,10 +2273,28 @@ class UTF32Encoding(System.Text.Encoding):
     def get_max_char_count(self, byte_count: int) -> int:
         ...
 
-    def get_preamble(self) -> typing.List[int]:
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
         ...
 
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+
+class SpanLineEnumerator(System.Collections.Generic.IEnumerator[System.ReadOnlySpan[str]]):
+    """Enumerates the lines of a ReadOnlySpan{Char}."""
+
+    @property
+    def current(self) -> System.ReadOnlySpan[str]:
+        """Gets the line at the current position of the enumerator."""
+        ...
+
+    def get_enumerator(self) -> System.Text.SpanLineEnumerator:
+        """Returns this instance as an enumerator."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next line of the span.
+        
+        :returns: True if the enumerator successfully advanced to the next line; false if the enumerator has advanced past the end of the span.
+        """
         ...
 
 

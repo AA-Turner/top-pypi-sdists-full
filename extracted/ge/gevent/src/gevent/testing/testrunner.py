@@ -56,7 +56,7 @@ DEFAULT_RUN_OPTIONS = {
 
 if RUNNING_ON_CI:
     # Too many and we get spurious timeouts
-    DEFAULT_NWORKERS = 4 if not OSX else 2
+    DEFAULT_NWORKERS = min(4 if not OSX else 2, DEFAULT_NWORKERS)
 
 
 def _package_relative_filename(filename, package):
@@ -748,6 +748,8 @@ def _setup_environ(debug=False):
             defaults.append('default::ResourceWarning')
 
         os.environ['PYTHONWARNINGS'] = ','.join(defaults + [
+            # action:message:category:module:line
+
             # On Python 3[.6], the system site.py module has
             # "open(fullname, 'rU')" which produces the warning that
             # 'U' is deprecated, so ignore warnings from site.py
@@ -770,6 +772,9 @@ def _setup_environ(debug=False):
             # without the r'' syntax, leading to DeprecationWarning: invalid
             # escape sequence. This is fixed in 2.0 (Python 3 only).
             'ignore:::dns.zone:',
+            # Coverage has started issuing warnings when it can't import
+            # CTracer in subinterpreters. This breaks those tests.
+            'ignore:::coverage.core:',
         ])
 
     if not_set('PYTHONFAULTHANDLER'):

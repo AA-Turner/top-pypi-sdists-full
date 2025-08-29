@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feature_engine
-Version: 1.9.0
+Version: 1.9.3
 Summary: Feature engineering and selection package with Scikit-learn's fit transform functionality
 Author-email: Soledad Galli <solegalli@protonmail.com>
 License: BSD 3 clause

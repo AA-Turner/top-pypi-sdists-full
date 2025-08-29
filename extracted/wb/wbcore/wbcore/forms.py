@@ -3,7 +3,7 @@ from urllib.parse import unquote
 
 from django import forms
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.forms import modelformset_factory
 from django.forms.models import BaseModelFormSet
 from psycopg.types.range import DateRange, TimestamptzRange
@@ -68,7 +68,7 @@ class ContentTypeMultiValueField(forms.fields.MultiValueField):
         try:
             content_type = ContentType.objects.get_for_id(content_type_id)
             return content_type.get_object_for_this_type(id=object_id)
-        except (ContentType.DoesNotExist, content_type.model_class().DoesNotExist):
+        except ObjectDoesNotExist:
             return None
 
 

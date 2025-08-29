@@ -20,6 +20,29 @@ class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandl
         ...
 
 
+class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle."""
+        ...
+
+    @overload
+    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
+        """
+        Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle around a wait handle.
+        
+        :param existing_handle: Handle to wrap
+        :param owns_handle: Whether to control the handle lifetime
+        """
+        ...
+
+    def release_handle(self) -> bool:
+        """This method is protected."""
+        ...
+
+
 class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
     """This class has no documentation."""
 
@@ -50,7 +73,7 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         ...
 
 
-class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
@@ -62,30 +85,7 @@ class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHan
         ...
 
 
-class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle."""
-        ...
-
-    @overload
-    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
-        """
-        Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle around a wait handle.
-        
-        :param existing_handle: Handle to wrap
-        :param owns_handle: Whether to control the handle lifetime
-        """
-        ...
-
-    def release_handle(self) -> bool:
-        """This method is protected."""
-        ...
-
-
-class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property

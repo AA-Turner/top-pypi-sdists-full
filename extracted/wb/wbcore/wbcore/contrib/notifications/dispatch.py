@@ -43,18 +43,18 @@ def send_notification(
     if isinstance(users, User):
         users = [users]
     for user in users:
-        notification_user_settings = NotificationTypeSetting.objects.filter(
-            notification_type__code=code,
-            user=user,
-        )
-        if user.is_active and notification_user_settings.exists():
+        notification_type = NotificationType.objects.get(code=code)
+        if (
+            user.is_active
+            and NotificationTypeSetting.objects.filter(notification_type=notification_type, user=user).exists()
+        ):
             if not endpoint:
                 endpoint = reverse(reverse_name, reverse_args, reverse_kwargs) if reverse_name else None
             notification = Notification.objects.create(
                 title=title,
                 body=body,
                 user=user,
-                notification_type=NotificationType.objects.get(code=code),
+                notification_type=notification_type,
                 endpoint=endpoint,
                 sent=timezone.now(),
             )

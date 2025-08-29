@@ -7,21 +7,21 @@ import psutil
 import platform
 import logging
 
-from .. import testgres
+import testgres
 
-from ..testgres import StartNodeException
-from ..testgres import ExecUtilException
-from ..testgres import NodeApp
-from ..testgres import scoped_config
-from ..testgres import get_new_node
-from ..testgres import get_bin_path
-from ..testgres import get_pg_config
-from ..testgres import get_pg_version
+from testgres import StartNodeException
+from testgres import ExecUtilException
+from testgres import NodeApp
+from testgres import scoped_config
+from testgres import get_new_node
+from testgres import get_bin_path
+from testgres import get_pg_config
+from testgres import get_pg_version
 
 # NOTE: those are ugly imports
-from ..testgres.utils import bound_ports
-from ..testgres.utils import PgVer
-from ..testgres.node import ProcessProxy
+from testgres.utils import bound_ports
+from testgres.utils import PgVer
+from testgres.node import ProcessProxy
 
 
 def pg_version_ge(version):
@@ -158,15 +158,15 @@ class TestTestgresLocal:
     def test_upgrade_node(self):
         old_bin_dir = os.path.dirname(get_bin_path("pg_config"))
         new_bin_dir = os.path.dirname(get_bin_path("pg_config"))
-        node_old = get_new_node(prefix='node_old', bin_dir=old_bin_dir)
-        node_old.init()
-        node_old.start()
-        node_old.stop()
-        node_new = get_new_node(prefix='node_new', bin_dir=new_bin_dir)
-        node_new.init(cached=False)
-        res = node_new.upgrade_from(old_node=node_old)
-        node_new.start()
-        assert (b'Upgrade Complete' in res)
+        with get_new_node(prefix='node_old', bin_dir=old_bin_dir) as node_old:
+            node_old.init()
+            node_old.start()
+            node_old.stop()
+            with get_new_node(prefix='node_new', bin_dir=new_bin_dir) as node_new:
+                node_new.init(cached=False)
+                res = node_new.upgrade_from(old_node=node_old)
+                node_new.start()
+                assert (b'Upgrade Complete' in res)
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
@@ -341,10 +341,10 @@ class TestTestgresLocal:
             bin_dir = node.bin_dir
 
         app = NodeApp()
-        correct_bin_dir = app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir)
-        correct_bin_dir.slow_start()
-        correct_bin_dir.safe_psql("SELECT 1;")
-        correct_bin_dir.stop()
+        with app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir) as correct_bin_dir:
+            correct_bin_dir.slow_start()
+            correct_bin_dir.safe_psql("SELECT 1;")
+            correct_bin_dir.stop()
 
         while True:
             try:

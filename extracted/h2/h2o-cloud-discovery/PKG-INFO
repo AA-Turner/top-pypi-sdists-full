@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h2o-cloud-discovery
-Version: 3.1.0
+Version: 3.2.0
 Summary: H2O Cloud Discovery Python CLient
 Project-URL: Documentation, https://github.com/h2oai/cloud-discovery-py#readme
 Project-URL: Issues, https://github.com/h2oai/cloud-discovery-py/issues
@@ -16,6 +16,7 @@ Classifier: Topic :: Security
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Requires-Dist: httpx>=0.23
+Requires-Dist: httpx>=0.25.1; python_version >= '3.14'
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Description-Content-Type: text/markdown
 

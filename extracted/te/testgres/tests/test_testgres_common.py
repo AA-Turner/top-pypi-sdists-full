@@ -1,31 +1,36 @@
+from __future__ import annotations
+
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
 
-from ..testgres.node import PgVer
-from ..testgres.node import PostgresNode
-from ..testgres.utils import get_pg_version2
-from ..testgres.utils import file_tail
-from ..testgres.utils import get_bin_path2
-from ..testgres import ProcessType
-from ..testgres import NodeStatus
-from ..testgres import IsolationLevel
+from testgres.node import PgVer
+from testgres.node import PostgresNode
+from testgres.node import PostgresNodeLogReader
+from testgres.node import PostgresNodeUtils
+from testgres.utils import get_pg_version2
+from testgres.utils import file_tail
+from testgres.utils import get_bin_path2
+from testgres import ProcessType
+from testgres import NodeStatus
+from testgres import IsolationLevel
+from testgres import NodeApp
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
-from ..testgres import TestgresException as testgres_TestgresException
+from testgres import TestgresException as testgres_TestgresException
 
-from ..testgres import InitNodeException
-from ..testgres import StartNodeException
-from ..testgres import QueryException
-from ..testgres import ExecUtilException
-from ..testgres import TimeoutException
-from ..testgres import InvalidOperationException
-from ..testgres import BackupException
-from ..testgres import ProgrammingError
-from ..testgres import scoped_config
-from ..testgres import First, Any
+from testgres import InitNodeException
+from testgres import StartNodeException
+from testgres import QueryException
+from testgres import ExecUtilException
+from testgres import TimeoutException
+from testgres import InvalidOperationException
+from testgres import BackupException
+from testgres import ProgrammingError
+from testgres import scoped_config
+from testgres import First, Any
 
 from contextlib import contextmanager
 
@@ -620,13 +625,12 @@ class TestTestgresCommon:
                         assert (master._logger.is_alive())
             finally:
                 # It is a hack code to logging cleanup
-                logging._acquireLock()
-                assert logging.Logger.manager is not None
-                assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
-                logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
-                assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
-                assert not (handler in logging._handlers.values())
-                logging._releaseLock()
+                with logging._lock:
+                    assert logging.Logger.manager is not None
+                    assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
+                    logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
+                    assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
+                    assert not (handler in logging._handlers.values())
         # GO HOME!
         return
 
@@ -677,6 +681,89 @@ class TestTestgresCommon:
                 # [2025-04-03] This call does not raise exception! I do not know why.
                 r = node.safe_psql('select 1')  # raises!
                 logging.error("node.safe_psql returns [{}]".format(r))
+
+    def test_psql__another_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node1:
+            with __class__.helper__get_node(node_svc).init() as node2:
+                node1.start()
+                node2.start()
+                assert node1.port != node2.port
+                assert node1.host == node2.host
+
+                node1.stop()
+
+                logging.info("test table in node2 is creating ...")
+                node2.safe_psql(
+                    dbname="postgres",
+                    query="create table test (id integer);"
+                )
+
+                logging.info("try to find test table through node1.psql ...")
+                res = node1.psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host=node2.host,
+                    port=node2.port,
+                )
+                assert (__class__.helper__rm_carriage_returns(res) == (0, b'1\n', b''))
+
+    def test_psql__another_bad_host(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node:
+            logging.info("try to execute node1.psql ...")
+            res = node.psql(
+                dbname="postgres",
+                query="select count(*) from pg_class where relname='test'",
+                host="DUMMY_HOST_NAME",
+                port=node.port,
+            )
+
+            res2 = __class__.helper__rm_carriage_returns(res)
+
+            assert res2[0] != 0
+            assert b"DUMMY_HOST_NAME" in res[2]
+
+    def test_safe_psql__another_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node1:
+            with __class__.helper__get_node(node_svc).init() as node2:
+                node1.start()
+                node2.start()
+                assert node1.port != node2.port
+                assert node1.host == node2.host
+
+                node1.stop()
+
+                logging.info("test table in node2 is creating ...")
+                node2.safe_psql(
+                    dbname="postgres",
+                    query="create table test (id integer);"
+                )
+
+                logging.info("try to find test table through node1.psql ...")
+                res = node1.safe_psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host=node2.host,
+                    port=node2.port,
+                )
+                assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
+
+    def test_safe_psql__another_bad_host(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node:
+            logging.info("try to execute node1.psql ...")
+
+            with pytest.raises(expected_exception=Exception) as x:
+                node.safe_psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host="DUMMY_HOST_NAME",
+                    port=node.port,
+                )
+
+            assert "DUMMY_HOST_NAME" in str(x.value)
 
     def test_safe_psql__expect_error(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -800,15 +887,55 @@ class TestTestgresCommon:
 
     def test_pg_ctl_wait_option(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
+
+        C_MAX_ATTEMPT = 5
+
+        nAttempt = 0
+
+        while True:
+            if nAttempt == C_MAX_ATTEMPT:
+                raise Exception("PostgresSQL did not start.")
+
+            nAttempt += 1
+            logging.info("------------------------ NODE #{}".format(
+                nAttempt
+            ))
+
+            with __class__.helper__get_node(node_svc, port=12345) as node:
+                if self.impl__test_pg_ctl_wait_option(node_svc, node):
+                    break
+            continue
+
+        logging.info("OK. Test is passed. Number of attempts is {}".format(
+            nAttempt
+        ))
+        return
+
+    def impl__test_pg_ctl_wait_option(
+        self,
+        node_svc: PostgresNodeService,
+        node: PostgresNode
+    ) -> None:
+        assert isinstance(node_svc, PostgresNodeService)
+        assert isinstance(node, PostgresNode)
+        assert node.status() == NodeStatus.Uninitialized
+
         C_MAX_ATTEMPTS = 50
 
-        node = __class__.helper__get_node(node_svc)
-        assert node.status() == NodeStatus.Uninitialized
         node.init()
         assert node.status() == NodeStatus.Stopped
+
+        node_log_reader = PostgresNodeLogReader(node, from_beginnig=True)
+
         node.start(wait=False)
         nAttempt = 0
         while True:
+            if PostgresNodeUtils.delect_port_conflict(node_log_reader):
+                logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
+                    node.port
+                ))
+                return False
+
             if nAttempt == C_MAX_ATTEMPTS:
                 #
                 # [2025-03-11]
@@ -867,7 +994,7 @@ class TestTestgresCommon:
             raise Exception("Unexpected node status: {0}.".format(s1))
 
         logging.info("OK. Node is stopped.")
-        node.cleanup()
+        return True
 
     def test_replicate(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1378,6 +1505,333 @@ class TestTestgresCommon:
                 ):
                     node2.start()
 
+    def test_node__os_ops(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.os_ops is not None
+        assert isinstance(node_svc.os_ops, OsOperations)
+
+        with PostgresNode(name="node", os_ops=node_svc.os_ops, port_manager=node_svc.port_manager) as node:
+            # retest
+            assert node_svc.os_ops is not None
+            assert isinstance(node_svc.os_ops, OsOperations)
+
+            assert node.os_ops is node_svc.os_ops
+            # one more time
+            assert node.os_ops is node_svc.os_ops
+
+    def test_node__port_manager(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with PostgresNode(name="node", os_ops=node_svc.os_ops, port_manager=node_svc.port_manager) as node:
+            # retest
+            assert node_svc.port_manager is not None
+            assert isinstance(node_svc.port_manager, PortManager)
+
+            assert node.port_manager is node_svc.port_manager
+            # one more time
+            assert node.port_manager is node_svc.port_manager
+
+    def test_node__port_manager_and_explicit_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        port = node_svc.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        try:
+            with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops) as node:
+                # retest
+                assert isinstance(node_svc.os_ops, OsOperations)
+                assert node_svc.port_manager is not None
+                assert isinstance(node_svc.port_manager, PortManager)
+
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+
+                # one more time
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+        finally:
+            node_svc.port_manager.release_port(port)
+
+    def test_node__no_port_manager(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        port = node_svc.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        try:
+            with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops, port_manager=None) as node:
+                # retest
+                assert isinstance(node_svc.os_ops, OsOperations)
+                assert node_svc.port_manager is not None
+                assert isinstance(node_svc.port_manager, PortManager)
+
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+
+                # one more time
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+        finally:
+            node_svc.port_manager.release_port(port)
+
+    class tag_rmdirs_protector:
+        _os_ops: OsOperations
+        _cwd: str
+        _old_rmdirs: any
+        _cwd: str
+
+        def __init__(self, os_ops: OsOperations):
+            self._os_ops = os_ops
+            self._cwd = os.path.abspath(os_ops.cwd())
+            self._old_rmdirs = os_ops.rmdirs
+
+        def __enter__(self):
+            assert self._os_ops.rmdirs == self._old_rmdirs
+            self._os_ops.rmdirs = self.proxy__rmdirs
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            assert self._os_ops.rmdirs == self.proxy__rmdirs
+            self._os_ops.rmdirs = self._old_rmdirs
+            return False
+
+        def proxy__rmdirs(self, path, ignore_errors=True):
+            raise Exception("Call of rmdirs is not expected!")
+
+    def test_node_app__make_empty__base_dir_is_None(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        os_ops = node_svc.os_ops.create_clone()
+        assert os_ops is not node_svc.os_ops
+
+        # -----------
+        with __class__.tag_rmdirs_protector(os_ops):
+            node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
+
+            with pytest.raises(expected_exception=BaseException) as x:
+                node_app.make_empty(base_dir=None)
+
+            if type(x.value) == AssertionError:  # noqa: E721
+                pass
+            else:
+                assert type(x.value) == ValueError  # noqa: E721
+                assert str(x.value) == "Argument 'base_dir' is not defined."
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty__base_dir_is_Empty(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        os_ops = node_svc.os_ops.create_clone()
+        assert os_ops is not node_svc.os_ops
+
+        # -----------
+        with __class__.tag_rmdirs_protector(os_ops):
+            node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
+
+            with pytest.raises(expected_exception=ValueError) as x:
+                node_app.make_empty(base_dir="")
+
+            assert str(x.value) == "Argument 'base_dir' is empty."
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is node_svc.port_manager
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert len(node_app.nodes_to_cleanup) == 0
+
+        node: PostgresNode = None
+        try:
+            node = node_app.make_simple("node")
+            assert node is not None
+            assert isinstance(node, PostgresNode)
+            assert node.os_ops is node_svc.os_ops
+            assert node.port_manager is node_svc.port_manager
+
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert len(node_app.nodes_to_cleanup) == 1
+            assert node_app.nodes_to_cleanup[0] is node
+
+            node.slow_start()
+        finally:
+            if node is not None:
+                node.stop()
+                node.release_resources()
+
+        node.cleanup(release_resources=True)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_simple__checksum(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+
+        logging.info("temp directory is [{}]".format(tmp_dir))
+        node_app = NodeApp(test_path=tmp_dir, os_ops=node_svc.os_ops)
+
+        C_NODE = "node"
+
+        # -----------
+        def LOCAL__test(checksum: bool, initdb_params: typing.Optional[list]):
+            initdb_params0 = initdb_params
+            initdb_params0_copy = initdb_params0.copy() if initdb_params0 is not None else None
+
+            with node_app.make_simple(C_NODE, checksum=checksum, initdb_params=initdb_params):
+                assert initdb_params is initdb_params0
+                if initdb_params0 is not None:
+                    assert initdb_params0 == initdb_params0_copy
+
+            assert initdb_params is initdb_params0
+            if initdb_params0 is not None:
+                assert initdb_params0 == initdb_params0_copy
+
+        # -----------
+        LOCAL__test(checksum=False, initdb_params=None)
+        LOCAL__test(checksum=True, initdb_params=None)
+
+        # -----------
+        params = []
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        params = ["--no-sync"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        params = ["--data-checksums"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty_with_explicit_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is node_svc.port_manager
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert len(node_app.nodes_to_cleanup) == 0
+
+        port = node_app.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        node: PostgresNode = None
+        try:
+            node = node_app.make_simple("node", port=port)
+            assert node is not None
+            assert isinstance(node, PostgresNode)
+            assert node.os_ops is node_svc.os_ops
+            assert node.port_manager is None  # <---------
+            assert node.port == port
+            assert node._should_free_port == False  # noqa: E712
+
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert len(node_app.nodes_to_cleanup) == 1
+            assert node_app.nodes_to_cleanup[0] is node
+
+            node.slow_start()
+        finally:
+            if node is not None:
+                node.stop()
+                node.free_port()
+
+        assert node._port is None
+        assert not node._should_free_port
+
+        node.cleanup(release_resources=True)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,
@@ -1395,7 +1849,6 @@ class TestTestgresCommon:
         return PostgresNode(
             name,
             port=port,
-            conn_params=None,
             os_ops=node_svc.os_ops,
             port_manager=port_manager if port is None else None
         )

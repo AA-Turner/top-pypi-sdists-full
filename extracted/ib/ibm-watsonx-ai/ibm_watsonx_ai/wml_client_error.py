@@ -52,6 +52,7 @@ __all__ = [
     "MultipleResourceIdByNameFound",
     "MissingToolRequiredProperties",
     "VectorStoreSerializationError",
+    "GovCloudEnvironmentConsentError",
 ]
 
 
@@ -458,4 +459,8 @@ class VectorStoreSerializationError(
 
 
 class HybridSemanticChunkerException(WMLClientError):
+    pass
+
+
+class GovCloudEnvironmentConsentError(WMLClientError):
     pass

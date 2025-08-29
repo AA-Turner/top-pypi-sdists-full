@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.23 15:00:00                  #
+# Updated Date: 2025.08.28 09:00:00                  #
 # ================================================== #
 
 import os
@@ -17,9 +17,6 @@ from urllib.parse import urlparse
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QFileDialog, QApplication
 
-from pygpt_net.core.types import (
-    MODE_VISION,
-)
 from pygpt_net.core.events import AppEvent, KernelEvent
 from pygpt_net.item.attachment import AttachmentItem
 from pygpt_net.item.ctx import CtxItem
@@ -73,7 +70,7 @@ class Attachment:
         if not self.has(mode):
             self.window.controller.chat.vision.unavailable()
         else:
-            if mode == MODE_VISION or self.window.controller.plugins.is_type_enabled('vision'):
+            if self.window.controller.chat.vision.allowed():
                 self.window.controller.chat.vision.available()
 
         # update tokens counter (vision plugin, etc.)
@@ -480,7 +477,7 @@ class Attachment:
         """
         try:
             # get file info from assistant API
-            data = self.window.core.gpt.store.get_file(file_id)
+            data = self.window.core.api.openai.store.get_file(file_id)
             if data is None:
                 return
 
@@ -506,7 +503,7 @@ class Attachment:
                 path = self.get_download_path(filename)
 
             # download file
-            self.window.core.gpt.store.download(
+            self.window.core.api.openai.store.download(
                 file_id=file_id,
                 path=path,
             )

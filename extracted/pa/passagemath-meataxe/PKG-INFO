@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-meataxe
-Version: 10.6.10
+Version: 10.6.11
 Summary: passagemath: Matrices over small finite fields with meataxe
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,8 +28,8 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-conf~=10.6.10.0; sys_platform != "win32"
-Requires-Dist: passagemath-modules~=10.6.10.0
+Requires-Dist: passagemath-conf~=10.6.11.0; sys_platform != "win32"
+Requires-Dist: passagemath-modules~=10.6.11.0
 Provides-Extra: test
 Requires-Dist: passagemath-pari; extra == "test"
 Requires-Dist: passagemath-repl; extra == "test"

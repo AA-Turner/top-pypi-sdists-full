@@ -22,6 +22,49 @@ class DatabaseGeneratedOption(Enum):
         ...
 
 
+class InversePropertyAttribute(System.Attribute):
+    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
+
+    @property
+    def property(self) -> str:
+        """The navigation property representing the other end of the same relationship."""
+        ...
+
+    def __init__(self, property: str) -> None:
+        """
+        Initializes a new instance of the InversePropertyAttribute class.
+        
+        :param property: The navigation property representing the other end of the same relationship.
+        """
+        ...
+
+
+class TableAttribute(System.Attribute):
+    """Specifies the database table that a class is mapped to."""
+
+    @property
+    def name(self) -> str:
+        """The name of the table the class is mapped to."""
+        ...
+
+    @property
+    def schema(self) -> str:
+        """The schema of the table the class is mapped to."""
+        ...
+
+    @schema.setter
+    def schema(self, value: str) -> None:
+        ...
+
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the TableAttribute class.
+        
+        :param name: The name of the table the class is mapped to.
+        """
+        ...
+
+
 class DatabaseGeneratedAttribute(System.Attribute):
     """Specifies how the database generates values for a property."""
 
@@ -80,6 +123,10 @@ class ColumnAttribute(System.Attribute):
         ...
 
 
+class NotMappedAttribute(System.Attribute):
+    """Denotes that a property or class should be excluded from database mapping."""
+
+
 class ComplexTypeAttribute(System.Attribute):
     """
     Denotes that the class is a complex type.
@@ -87,53 +134,6 @@ class ComplexTypeAttribute(System.Attribute):
         entities.
         Complex types do not have keys and cannot be managed by the Entity Framework apart from the parent object.
     """
-
-
-class NotMappedAttribute(System.Attribute):
-    """Denotes that a property or class should be excluded from database mapping."""
-
-
-class TableAttribute(System.Attribute):
-    """Specifies the database table that a class is mapped to."""
-
-    @property
-    def name(self) -> str:
-        """The name of the table the class is mapped to."""
-        ...
-
-    @property
-    def schema(self) -> str:
-        """The schema of the table the class is mapped to."""
-        ...
-
-    @schema.setter
-    def schema(self, value: str) -> None:
-        ...
-
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the TableAttribute class.
-        
-        :param name: The name of the table the class is mapped to.
-        """
-        ...
-
-
-class InversePropertyAttribute(System.Attribute):
-    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
-
-    @property
-    def property(self) -> str:
-        """The navigation property representing the other end of the same relationship."""
-        ...
-
-    def __init__(self, property: str) -> None:
-        """
-        Initializes a new instance of the InversePropertyAttribute class.
-        
-        :param property: The navigation property representing the other end of the same relationship.
-        """
-        ...
 
 
 class ForeignKeyAttribute(System.Attribute):

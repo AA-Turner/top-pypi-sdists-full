@@ -17,6 +17,25 @@ QuantConnect_Optimizer__EventContainer_Callable = typing.TypeVar("QuantConnect_O
 QuantConnect_Optimizer__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Optimizer__EventContainer_ReturnType")
 
 
+class OptimizationStatus(Enum):
+    """The different optimization status"""
+
+    NEW = 0
+    """Just created and not running optimization (0)"""
+
+    ABORTED = 1
+    """We failed or we were aborted (1)"""
+
+    RUNNING = 2
+    """We are running (2)"""
+
+    COMPLETED = 3
+    """Optimization job has completed (3)"""
+
+    def __int__(self) -> int:
+        ...
+
+
 class OptimizationNodePacket(QuantConnect.Packets.Packet):
     """Provide a packet type containing information on the optimization compute job."""
 
@@ -175,25 +194,6 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         
         This method is protected.
         """
-        ...
-
-
-class OptimizationStatus(Enum):
-    """The different optimization status"""
-
-    NEW = 0
-    """Just created and not running optimization (0)"""
-
-    ABORTED = 1
-    """We failed or we were aborted (1)"""
-
-    RUNNING = 2
-    """We are running (2)"""
-
-    COMPLETED = 3
-    """Optimization job has completed (3)"""
-
-    def __int__(self) -> int:
         ...
 
 

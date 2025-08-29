@@ -260,7 +260,11 @@ def get_auth_method(
     """
     creds = api_client.credentials
 
-    if creds.token and not (creds._is_env_token and (creds.api_key or creds.password)):
+    if (
+        creds.token
+        and not (creds._is_env_token and (creds.api_key or creds.password))
+        and not api_client.credentials.trusted_profile_id
+    ):
         # situation one of these:
         # - there is token passed by user (and may be password or apikey)
         # - there is token from env and no additional password or api_key in the credentials
@@ -286,7 +290,10 @@ def get_auth_method(
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,
         )
-    elif "aws" in api_client.credentials.url or "ibmforusgov" in api_client.credentials.url:  # Cloud AWS or GovCloud
+    elif (
+        "aws" in api_client.credentials.url
+        or "ibmforusgov" in api_client.credentials.url
+    ):  # Cloud AWS or GovCloud
         from ibm_watsonx_ai.utils.auth.aws_auth import AWSTokenAuth
 
         return AWSTokenAuth(
@@ -299,8 +306,10 @@ def get_auth_method(
 
         return TrustedProfileAuth(
             api_client,
+            token=creds.token,
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,
+            on_token_set=on_token_set,
         )
     else:  # Cloud
         from ibm_watsonx_ai.utils.auth.iam_auth import IAMTokenAuth

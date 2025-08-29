@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: polars-hash
-Version: 0.5.4
+Version: 0.5.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Dist: polars>=1.5.0
+Requires-Dist: polars>=1.32.0
 Summary: Stable non-cryptographic and cryptographic hashing functions for Polars
 Author-email: Ion Koutsours <15728914+ion-elgreco@users.noreply.github.com>
 Requires-Python: >=3.8

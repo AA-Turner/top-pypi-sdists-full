@@ -73,7 +73,7 @@ REPEATED = Repeated()
 @jax.tree_util.register_dataclass
 @dataclasses.dataclass(frozen=True, slots=True, repr=False)
 class ArrayRefOutput(reprlib.Representable):
-  value: jax.Array | NoUpdate | Repeated
+  value: jax.Array
 
   def __nnx_repr__(self):
     yield reprlib.Object(type=type(self))
@@ -261,7 +261,7 @@ def is_node(x: tp.Any) -> bool:
 
 
 def is_graph_node(x: tp.Any) -> bool:
-  return type(x) in GRAPH_REGISTRY or variablelib.is_array_ref(x)
+  return type(x) in GRAPH_REGISTRY or variablelib.is_array_ref(x) or isinstance(x, variablelib.Variable)
 
 
 def is_node_type(x: type[tp.Any]) -> bool:
@@ -1072,7 +1072,7 @@ def unflatten(  # type: ignore[invalid-annotation]
   *,
   index_ref: IndexMap | None = None,
   outer_index_outer_ref: IndexMap | None = None,
-  copy_variables: bool = True,
+  copy_variables: bool = False,
 ) -> Node:
   """Unflattens a graphdef into a node with the given state.
 
@@ -1473,7 +1473,6 @@ def _graph_update_dynamic(node: tp.Any, state: tp.Mapping[KeyT, tp.Any]):
       )
 
 
-
 # --------------------------------------------------------
 # UpdateContext
 # --------------------------------------------------------
@@ -1836,6 +1835,7 @@ class MergeContext:
       _state,
       index_ref=self.index_ref,
       outer_index_outer_ref=outer_index_outer_ref,
+      copy_variables=True,
     )
     return node
 
@@ -2308,6 +2308,7 @@ def merge(  # type: ignore[invalid-annotation]
   state: tp.Any,
   /,
   *states: tp.Any,
+  copy: bool = False,
 ) -> A:
   """The inverse of :func:`flax.nnx.split`.
 
@@ -2349,6 +2350,7 @@ def merge(  # type: ignore[invalid-annotation]
     graphdef: A :class:`flax.nnx.GraphDef` object.
     state: A :class:`flax.nnx.State` object.
     *states: Additional :class:`flax.nnx.State` objects.
+    copy: Whether to create new copies of the Variables in the states, defaults to ``False``.
   Returns:
     The merged :class:`flax.nnx.Module`.
   """
@@ -2358,7 +2360,7 @@ def merge(  # type: ignore[invalid-annotation]
     _state = state
   else:
     _state = _merge_to_flat_state((state, *states))
-  node = unflatten(graphdef, _state)
+  node = unflatten(graphdef, _state, copy_variables=copy)
   return node
 
 
@@ -2593,27 +2595,7 @@ def clone(node: Node) -> Node:
     A deep copy of the :class:`Module` object.
   """
   graphdef, state = split(node)
-  return merge(graphdef, state)
-
-
-def find_duplicates(
-  tree, duplicate_fn: tp.Callable[[tuple[Key, ...], tp.Any], bool] | None = None
-) -> tuple[str, str] | None:
-  mutable_arrays: dict[int, str] = {}
-  paths_leaves = jax.tree.leaves_with_path(
-    tree, is_leaf=lambda x: isinstance(x, Variable)
-  )
-  for path, x in paths_leaves:
-    nnx_path = jax_to_nnx_path(path)
-    if duplicate_fn is None or duplicate_fn(nnx_path, x):
-      m_array_id = id(x)
-      if m_array_id in mutable_arrays:
-        current_path_str = jax.tree_util.keystr(path)
-        previous_path_str = mutable_arrays[m_array_id]
-        return current_path_str, previous_path_str
-      mutable_arrays[m_array_id] = jax.tree_util.keystr(path)
-
-  return None
+  return merge(graphdef, state, copy=True)
 
 
 def _mutable_like(path, x):
@@ -2648,7 +2630,11 @@ def to_arrays(
     ...   nnx.to_arrays(node)
     ... except ValueError as e:
     ...   print(e)
-    Found duplicate at path '[1]' and '[0]'.
+    Found duplicate at paths:
+      ---
+      0
+      1
+      ---
 
   ``only`` is a `Filter <https://flax.readthedocs.io/en/latest/guides/filters_guide.html>`__
   that can be used to specify which array refs to freeze::
@@ -2665,16 +2651,15 @@ def to_arrays(
   Returns:
     A structure with the frozen arrays.
   """
-  duplicate_fn = filterlib.to_predicate(only)
-  if (
-    not allow_duplicates
-    and (duplicate := find_duplicates(node, duplicate_fn=duplicate_fn))
-    is not None
-  ):
-    current_path_str, previous_path_str = duplicate
-    raise ValueError(
-      f"Found duplicate at path '{current_path_str}' and '{previous_path_str}'."
-    )
+  if not allow_duplicates and (all_duplicates := find_duplicates(node, only=only)):
+    duplicates_strs = '\n  ---'
+    for node_duplicates in all_duplicates:
+      for path in node_duplicates:
+        path_str = '/'.join(map(str, path))
+        duplicates_strs += f'\n  {path_str}'
+      duplicates_strs += '\n  ---'
+    raise ValueError(f'Found duplicate at paths:{duplicates_strs}')
+
   graphdef, mutable_state, rest = split(node, only, ...)  # type: ignore[misc]
   frozen_state = jax.tree.map(lambda x: x[...], mutable_state)
   node = merge(graphdef, frozen_state, rest)
@@ -2707,7 +2692,11 @@ def to_refs(node: A, /, only: filterlib.Filter = _array_like) -> A:
     ...   nnx.to_refs(node)
     ... except ValueError as e:
     ...   print(e)
-    Found duplicate at path '[1]' and '[0]'.
+    Found duplicate at paths:
+      ---
+      0
+      1
+      ---
 
   ``only`` is a `Filter <https://flax.readthedocs.io/en/latest/guides/filters_guide.html>`__
   that can be used to specify which arrays to convert to array refs.
@@ -2724,14 +2713,15 @@ def to_refs(node: A, /, only: filterlib.Filter = _array_like) -> A:
   Returns:
     A structure with the array refs.
   """
-  duplicate_fn = filterlib.to_predicate(only)
-  if (
-    duplicate := find_duplicates(node, duplicate_fn=duplicate_fn)
-  ) is not None:
-    current_path_str, previous_path_str = duplicate
-    raise ValueError(
-      f"Found duplicate at path '{current_path_str}' and '{previous_path_str}'."
-    )
+  if all_duplicates := find_duplicates(node, only=only):
+    duplicates_strs = '\n  ---'
+    for node_duplicates in all_duplicates:
+      for path in node_duplicates:
+        path_str = '/'.join(map(str, path))
+        duplicates_strs += f'\n  {path_str}'
+      duplicates_strs += '\n  ---'
+    raise ValueError(f'Found duplicate at paths:{duplicates_strs}')
+
   graphdef, frozen_state, rest = split(node, only, ...)  # type: ignore[misc]
   mutable_state = jax.tree.map(variablelib.array_ref, frozen_state)
   node = merge(graphdef, mutable_state, rest)
@@ -2922,16 +2912,94 @@ def _iter_graph(
       return
     visited.add(id(node))
     node_impl = get_node_impl(node)
-    if node_impl is None and not (
-      isinstance(node, Variable) or variablelib.is_array_ref(node)
-    ):
-      raise RuntimeError(f'Unsupported type: {type(node)}, this is a bug.')
-    assert node_impl is not None
-    node_dict = node_impl.node_dict(node)
-    for key, value in node_dict.items():
-      yield from _iter_graph(value, visited, (*path_parts, key))
+    if node_impl is not None:
+      node_dict = node_impl.node_dict(node)
+      for key, value in node_dict.items():
+        yield from _iter_graph(value, visited, (*path_parts, key))
 
   yield path_parts, node
+
+
+def find_duplicates(node: tp.Any, /, *, only: filterlib.Filter = ...) -> list[list[PathParts]]:
+  """Finds duplicate nodes or node leaves in the given node.
+
+  This function traverses the graph node and collects paths to nodes and leaves
+  that have the same identity. It returns a list of lists, where each inner list
+  contains paths to nodes or leaves that are duplicates.
+
+  Example::
+
+    >>> from flax import nnx
+    >>> import jax.numpy as jnp
+    ...
+    >>> class SharedVariables(nnx.Module):
+    ...   def __init__(self):
+    ...     self.a = nnx.Param(jnp.array(1.0))
+    ...     self.b = nnx.Param(jnp.array(2.0))
+    ...     self.c = self.b  # shared Variable
+    ...
+    >>> model = SharedVariables()
+    >>> duplicates = nnx.find_duplicates(model)
+    >>> len(duplicates)
+    1
+    >>> for path in duplicates[0]:
+    ...   print(path)
+    ('b',)
+    ('c',)
+
+  ``find_duplicates`` will also find duplicates nodes such as Modules that are
+  referenced multiple times in the graph::
+
+    >>> class SharedModules(nnx.Module):
+    ...   def __init__(self, rngs: nnx.Rngs):
+    ...     self.a = nnx.Linear(1, 1, rngs=rngs)
+    ...     self.b = nnx.Linear(1, 1, rngs=rngs)
+    ...     self.c = self.a  # shared Module
+    ...
+    >>> model = SharedModules(nnx.Rngs(0))
+    >>> for duplicate_paths in nnx.find_duplicates(model):
+    ...   print(duplicate_paths)
+    [('a',), ('c',)]
+
+  Args:
+    node: A graph node object.
+    only: A Filter to specify which nodes or leaves to consider for duplicates.
+  Returns:
+    A list of lists, where each inner list contains the different paths for a
+    for a duplicate node or leaf.
+  """
+  node_paths: dict[int, list[PathParts]] = {}
+  duplicate_candidate = filterlib.to_predicate(only)
+  _node_paths(node, node_paths, (), duplicate_candidate)
+  _duplicates = [paths for paths in node_paths.values() if len(paths) > 1]
+  return _duplicates
+
+
+def _node_paths(
+  node: tp.Any,
+  node_paths: dict[int, list[PathParts]],
+  path: PathParts,
+  duplicate_candidate: filterlib.Predicate,
+  /,
+):
+  _is_graph_node = is_graph_node(node)
+  _is_pytree_node = is_pytree_node(node)
+  _is_node_leaf = is_node_leaf(node)
+
+  if _is_graph_node or _is_pytree_node or _is_node_leaf:
+    node_id = id(node)
+    if node_id in node_paths:
+      if (_is_graph_node or _is_node_leaf) and duplicate_candidate(path, node):
+        node_paths[node_id].append(path)
+      return
+    if _is_graph_node or _is_node_leaf:
+      node_paths[node_id] = [path]
+    node_impl = get_node_impl(node)
+    if node_impl is None:
+      return
+    node_dict = node_impl.node_dict(node)
+    for key, value in node_dict.items():
+      _node_paths(value, node_paths, (*path, key), duplicate_candidate)
 
 
 @jax.tree_util.register_static
@@ -2954,7 +3022,9 @@ from jax._src.tree_util import _registry as JAX_PYTREE_REGISTRY
 
 
 def is_pytree_node(x: tp.Any) -> bool:
-  if isinstance(x, Variable):
+  if type(x) in GRAPH_REGISTRY:
+    return False
+  elif isinstance(x, Variable):
     return False
   elif type(x) in JAX_PYTREE_REGISTRY:
     return True
@@ -3034,7 +3104,9 @@ register_pytree_node_type(
 )
 
 
-def _mutable_mapping_set_key(x: tp.MutableMapping[Key, tp.Any], key: Key, value: tp.Any):
+def _mutable_mapping_set_key(
+  x: tp.MutableMapping[Key, tp.Any], key: Key, value: tp.Any
+):
   x[key] = value
 
 
@@ -3064,4 +3136,3 @@ register_pytree_node_type(
   flatten=lambda x: ([], None),
   unflatten=lambda _, __: None,  # type: ignore
 )
-

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.9.0",
+    "version": "21.9.1",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -2021,6 +2021,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.synthetics_canary",
         "cdktf_cdktf_provider_aws.synthetics_group",
         "cdktf_cdktf_provider_aws.synthetics_group_association",
+        "cdktf_cdktf_provider_aws.timestreaminfluxdb_db_cluster",
         "cdktf_cdktf_provider_aws.timestreaminfluxdb_db_instance",
         "cdktf_cdktf_provider_aws.timestreamquery_scheduled_query",
         "cdktf_cdktf_provider_aws.timestreamwrite_database",
@@ -2147,11 +2148,23 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.workspaces_ip_group",
         "cdktf_cdktf_provider_aws.workspaces_workspace",
         "cdktf_cdktf_provider_aws.workspacesweb_browser_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_browser_settings_association",
         "cdktf_cdktf_provider_aws.workspacesweb_data_protection_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_data_protection_settings_association",
+        "cdktf_cdktf_provider_aws.workspacesweb_identity_provider",
         "cdktf_cdktf_provider_aws.workspacesweb_ip_access_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_ip_access_settings_association",
         "cdktf_cdktf_provider_aws.workspacesweb_network_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_network_settings_association",
+        "cdktf_cdktf_provider_aws.workspacesweb_portal",
+        "cdktf_cdktf_provider_aws.workspacesweb_session_logger",
+        "cdktf_cdktf_provider_aws.workspacesweb_session_logger_association",
+        "cdktf_cdktf_provider_aws.workspacesweb_trust_store",
+        "cdktf_cdktf_provider_aws.workspacesweb_trust_store_association",
         "cdktf_cdktf_provider_aws.workspacesweb_user_access_logging_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_user_access_logging_settings_association",
         "cdktf_cdktf_provider_aws.workspacesweb_user_settings",
+        "cdktf_cdktf_provider_aws.workspacesweb_user_settings_association",
         "cdktf_cdktf_provider_aws.xray_encryption_config",
         "cdktf_cdktf_provider_aws.xray_group",
         "cdktf_cdktf_provider_aws.xray_resource_policy",
@@ -2159,7 +2172,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.9.0.jsii.tgz"
+            "provider-aws@21.9.1.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

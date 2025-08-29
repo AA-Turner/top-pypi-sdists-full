@@ -22,6 +22,7 @@
 # out_layer2.export_file("C:\demo_layer2.json")
 
 import copy
+
 from mitreattack.navlayers.core import Layer
 
 
@@ -182,7 +183,7 @@ class LayerOps:
             if entry != "techniques":
                 standard = _raw[entry]
                 layer_entries = [getattr(x.layer, entry) for x in collide]
-                layer_entries = [y.get_dict() if hasattr(y, 'get_dict') else y for y in layer_entries]
+                layer_entries = [y.get_dict() if hasattr(y, "get_dict") else y for y in layer_entries]
                 if any(y != standard for y in layer_entries):
                     if entry == "domain":
                         print("FATAL ERROR! Layer mis-match on domain. Exiting.")
@@ -348,10 +349,10 @@ class LayerOps:
                     values[elm] = self._default_values[name]
         try:
             return lda(values)
-        except IndexError and KeyError:
+        except (IndexError, KeyError) as err:
             print(
                 'Unable to continue, lambda targeting "{}" could not operate'
                 " correctly on {}. Maybe the field is missing?".format(name, element)
             )
             print(f"[RAW] Extracted matching elements: {listing}")
-            raise BadLambda
+            raise BadLambda from err

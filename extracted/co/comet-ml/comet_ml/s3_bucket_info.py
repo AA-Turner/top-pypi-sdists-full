@@ -13,8 +13,8 @@
 import datetime
 from copy import deepcopy
 from logging import getLogger
+from typing import IO, Any, Callable, Dict, List, Optional, Tuple
 
-from comet_ml._typing import IO, Any, Dict, List, Optional
 from comet_ml.cloud_storage_utils import (
     META_CHECKSUM,
     META_FILE_SIZE,
@@ -65,8 +65,16 @@ class S3FileObject(object):
         "version_id",
     )
 
-    def __init__(self, key, bucket, size, modified, content_type, etag, version_id):
-        # type: (str, str, int, datetime.datetime, str, str, str) -> None
+    def __init__(
+        self,
+        key: str,
+        bucket: str,
+        size: int,
+        modified: datetime.datetime,
+        content_type: str,
+        etag: str,
+        version_id: str,
+    ) -> None:
         """Creates S3 object with given parameters"""
         self.key = key
         self.bucket = bucket
@@ -76,15 +84,14 @@ class S3FileObject(object):
         self.etag = etag
         self.version_id = version_id
 
-    def is_folder(self):
-        # type: () -> bool
+    def is_folder(self) -> bool:
         """Checks if this object represents S3 folder."""
         parts = self.content_type.split(
             ";"
         )  # usually: application/x-directory; charset=UTF-8
         return parts[0].strip() == CONTENT_TYPE_DIRECTORY
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "S3 object -> key: '%s', bucket: '%s', modified: %s, size: %d, ETag: %s, "
             "content type: %s, version ID: %s"
@@ -157,15 +164,14 @@ def preprocess_remote_s3_assets(
 
 
 def _preprocess_s3_asset_object(
-    s3_object,  # type: S3FileObject
-    object_prefix,  # type: str
-    logical_path,  # type: Optional[str]
-    overwrite,  # type: bool
-    upload_type,  # type: Optional[str]
-    metadata,  # type: Optional[Dict[Any, Any]]
-    step,  # type: int
-):
-    # type: (...) -> PreprocessedRemoteAsset
+    s3_object: S3FileObject,
+    object_prefix: str,
+    logical_path: Optional[str],
+    overwrite: bool,
+    upload_type: Optional[str],
+    metadata: Optional[Dict[Any, Any]],
+    step: int,
+) -> PreprocessedRemoteAsset:
     asset_id = generate_guid()
     logical_path = _create_cloud_storage_obj_logical_path(
         uri_path=s3_object.key, uri_path_folder=object_prefix, path_prefix=logical_path
@@ -185,8 +191,9 @@ def _preprocess_s3_asset_object(
     )
 
 
-def _fill_s3_asset_object_metadata(s3_object, orig_metadata):
-    # type: (S3FileObject, Dict[Any, Any]) -> Dict[Any, Any]
+def _fill_s3_asset_object_metadata(
+    s3_object: S3FileObject, orig_metadata: Dict[str, Any]
+) -> Dict[str, Any]:
     if orig_metadata is not None:
         metadata = deepcopy(orig_metadata)
     else:
@@ -203,14 +210,14 @@ def _fill_s3_asset_object_metadata(s3_object, orig_metadata):
     return metadata
 
 
-def _create_s3_path(bucket, key):
-    # type: (str, str) -> str
+def _create_s3_path(bucket: str, key: str) -> str:
     return "s3://%s/%s" % (bucket, key)
 
 
-def _list_bucket_objects(s3_client, bucket, prefix=None, max_keys=10000):
-    # type: (Any, str, Optional[str], int) -> (List[S3FileObject], bool)
-    """Lists objects in specific bucket limited by max_keys entities."""
+def _list_bucket_objects(
+    s3_client: Any, bucket: str, prefix: Optional[str] = None, max_keys: int = 10000
+) -> Tuple[List[S3FileObject], bool]:
+    """Lists objects in a specific bucket limited by max_keys entities."""
     if prefix is None:
         prefix = ""
     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=max_keys)
@@ -229,9 +236,10 @@ def _list_bucket_objects(s3_client, bucket, prefix=None, max_keys=10000):
     return s3_objects, is_truncated
 
 
-def _get_s3_object(s3_client, bucket, key, version_id=None):
-    # type: (Any, str, str, Optional[str]) -> S3FileObject
-    """Acquires information about specific object in the S3 bucket."""
+def _get_s3_object(
+    s3_client: Any, bucket: str, key: str, version_id: Optional[str] = None
+) -> S3FileObject:
+    """Acquires information about a specific object in the S3 bucket."""
     if version_id is not None:
         obj_info = s3_client.get_object(Bucket=bucket, Key=key, VersionId=version_id)
     else:
@@ -248,15 +256,19 @@ def _get_s3_object(s3_client, bucket, key, version_id=None):
     )
 
 
-def _extract_aws_value(obj_info, key):
+def _extract_aws_value(obj_info: Dict[str, Any], key: str) -> Any:
     value = obj_info.get(key, None)
     if value is None or value == AWS_NULL_VALUE:
         return None
     return value
 
 
-def download_s3_file(s3_uri, file_object, callback, version_id=None):
-    # type: (str, IO[bytes], Any, Optional[str]) -> None
+def download_s3_file(
+    s3_uri: str,
+    file_object: IO[bytes],
+    callback: Callable,
+    version_id: Optional[str] = None,
+) -> None:
     try:
         import boto3
     except ImportError as ex:
@@ -274,9 +286,14 @@ def download_s3_file(s3_uri, file_object, callback, version_id=None):
     )
 
 
-def download_s3_file_uri(s3_client, s3_uri, file_object, callback, version_id=None):
-    # type: (Any, str, IO[bytes], Any, Optional[str]) -> None
-    """Downloads S3 object from given URI into specified path"""
+def download_s3_file_uri(
+    s3_client: Any,
+    s3_uri: str,
+    file_object: IO[bytes],
+    callback: Callable,
+    version_id: Optional[str] = None,
+) -> None:
+    """Downloads S3 object from given URI into a specified path"""
     bucket_name, obj_key = _parse_cloud_storage_uri(storage_uri=s3_uri)
     s3_file_obj = _get_s3_object(
         s3_client=s3_client, bucket=bucket_name, key=obj_key, version_id=version_id
@@ -289,9 +306,13 @@ def download_s3_file_uri(s3_client, s3_uri, file_object, callback, version_id=No
     )
 
 
-def download_s3_file_object(s3_client, s3_file_obj, file_object, callback):
-    # type: (Any, S3FileObject, IO[bytes], Any) -> None
-    """Downloads S3 object defined by s3_file_obj into specified path"""
+def download_s3_file_object(
+    s3_client: Any,
+    s3_file_obj: S3FileObject,
+    file_object: IO[bytes],
+    callback: Callable,
+) -> None:
+    """Downloads S3 object defined by s3_file_obj into a specified path"""
     extra_args = dict()
     if s3_file_obj.version_id is not None:
         extra_args[AWS_OBJ_VERSION_ID] = s3_file_obj.version_id
@@ -305,7 +326,6 @@ def download_s3_file_object(s3_client, s3_file_obj, file_object, callback):
     )
 
 
-def _normalize_etag(etag):
-    # type: (str) -> str
-    """Due to some reason AWS returns ETag in double quotes. This will normalize it by removing extra quotes."""
+def _normalize_etag(etag: str) -> str:
+    """Due to some reason, AWS returns ETag in double quotes. This will normalize it by removing extra quotes."""
     return etag.replace('"', "")

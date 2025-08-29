@@ -33,9 +33,6 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-import comet_ml
-import comet_ml.api_objects.model
-
 import requests
 import requests.utils
 
@@ -3930,6 +3927,9 @@ class RestApiClient(BaseApiClient):
         status: str,
         stages: List[str],
     ) -> Optional[requests.Response]:
+        # we need to import here to avoid circular imports
+        import comet_ml.api_objects.model
+
         if not comet_ml.api_objects.model.Model.__internal_api_compatible_backend__(
             client=self
         ):

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_app_environment`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_app_environment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment).
+Refer to the Terraform Registry for docs: [`azurerm_container_app_environment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAppEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerAppEnvironment.ContainerAppEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment azurerm_container_app_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment azurerm_container_app_environment}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class ContainerAppEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment azurerm_container_app_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment azurerm_container_app_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.
-        :param name: The name of the Container Apps Managed Environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.
-        :param dapr_application_insights_connection_string: Application Insights connection string used by Dapr to export Service to Service communication telemetry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
-        :param infrastructure_resource_group_name: Name of the platform-managed resource group created for the Managed Environment to host infrastructure resources. **Note:** Only valid if a ``workload_profile`` is specified. If ``infrastructure_subnet_id`` is specified, this resource group will be created in the same subscription as ``infrastructure_subnet_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
-        :param infrastructure_subnet_id: The existing Subnet to use for the Container Apps Control Plane. **NOTE:** The Subnet must have a ``/21`` or larger address space. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
-        :param internal_load_balancer_enabled: Should the Container Environment operate in Internal Load Balancing Mode? Defaults to ``false``. **Note:** can only be set to ``true`` if ``infrastructure_subnet_id`` is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
-        :param log_analytics_workspace_id: The ID for the Log Analytics Workspace to link this Container Apps Managed Environment to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
-        :param logs_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.
-        :param mutual_tls_enabled: Should mutual transport layer security (mTLS) be enabled? Defaults to ``false``. **Note:** This feature is in public preview. Enabling mTLS for your applications may increase response latency and reduce maximum throughput in high-load scenarios. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
-        :param workload_profile: workload_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
-        :param zone_redundancy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.
+        :param name: The name of the Container Apps Managed Environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.
+        :param dapr_application_insights_connection_string: Application Insights connection string used by Dapr to export Service to Service communication telemetry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
+        :param infrastructure_resource_group_name: Name of the platform-managed resource group created for the Managed Environment to host infrastructure resources. **Note:** Only valid if a ``workload_profile`` is specified. If ``infrastructure_subnet_id`` is specified, this resource group will be created in the same subscription as ``infrastructure_subnet_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
+        :param infrastructure_subnet_id: The existing Subnet to use for the Container Apps Control Plane. **NOTE:** The Subnet must have a ``/21`` or larger address space. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
+        :param internal_load_balancer_enabled: Should the Container Environment operate in Internal Load Balancing Mode? Defaults to ``false``. **Note:** can only be set to ``true`` if ``infrastructure_subnet_id`` is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
+        :param log_analytics_workspace_id: The ID for the Log Analytics Workspace to link this Container Apps Managed Environment to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
+        :param logs_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.
+        :param mutual_tls_enabled: Should mutual transport layer security (mTLS) be enabled? Defaults to ``false``. **Note:** This feature is in public preview. Enabling mTLS for your applications may increase response latency and reduce maximum throughput in high-load scenarios. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
+        :param workload_profile: workload_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
+        :param zone_redundancy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class ContainerAppEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAppEnvironment to import.
-        :param import_from_id: The id of the existing ContainerAppEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAppEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAppEnvironment to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class ContainerAppEnvironment(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.
         '''
         value = ContainerAppEnvironmentIdentity(type=type, identity_ids=identity_ids)
 
@@ -184,10 +184,10 @@ class ContainerAppEnvironment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.
         '''
         value = ContainerAppEnvironmentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -647,22 +647,22 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.
-        :param name: The name of the Container Apps Managed Environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.
-        :param dapr_application_insights_connection_string: Application Insights connection string used by Dapr to export Service to Service communication telemetry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
-        :param infrastructure_resource_group_name: Name of the platform-managed resource group created for the Managed Environment to host infrastructure resources. **Note:** Only valid if a ``workload_profile`` is specified. If ``infrastructure_subnet_id`` is specified, this resource group will be created in the same subscription as ``infrastructure_subnet_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
-        :param infrastructure_subnet_id: The existing Subnet to use for the Container Apps Control Plane. **NOTE:** The Subnet must have a ``/21`` or larger address space. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
-        :param internal_load_balancer_enabled: Should the Container Environment operate in Internal Load Balancing Mode? Defaults to ``false``. **Note:** can only be set to ``true`` if ``infrastructure_subnet_id`` is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
-        :param log_analytics_workspace_id: The ID for the Log Analytics Workspace to link this Container Apps Managed Environment to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
-        :param logs_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.
-        :param mutual_tls_enabled: Should mutual transport layer security (mTLS) be enabled? Defaults to ``false``. **Note:** This feature is in public preview. Enabling mTLS for your applications may increase response latency and reduce maximum throughput in high-load scenarios. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
-        :param workload_profile: workload_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
-        :param zone_redundancy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.
+        :param name: The name of the Container Apps Managed Environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.
+        :param dapr_application_insights_connection_string: Application Insights connection string used by Dapr to export Service to Service communication telemetry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
+        :param infrastructure_resource_group_name: Name of the platform-managed resource group created for the Managed Environment to host infrastructure resources. **Note:** Only valid if a ``workload_profile`` is specified. If ``infrastructure_subnet_id`` is specified, this resource group will be created in the same subscription as ``infrastructure_subnet_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
+        :param infrastructure_subnet_id: The existing Subnet to use for the Container Apps Control Plane. **NOTE:** The Subnet must have a ``/21`` or larger address space. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
+        :param internal_load_balancer_enabled: Should the Container Environment operate in Internal Load Balancing Mode? Defaults to ``false``. **Note:** can only be set to ``true`` if ``infrastructure_subnet_id`` is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
+        :param log_analytics_workspace_id: The ID for the Log Analytics Workspace to link this Container Apps Managed Environment to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
+        :param logs_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.
+        :param mutual_tls_enabled: Should mutual transport layer security (mTLS) be enabled? Defaults to ``false``. **Note:** This feature is in public preview. Enabling mTLS for your applications may increase response latency and reduce maximum throughput in high-load scenarios. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
+        :param workload_profile: workload_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
+        :param zone_redundancy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -807,7 +807,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#location ContainerAppEnvironment#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -816,7 +816,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Container Apps Managed Environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -824,7 +824,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#resource_group_name ContainerAppEnvironment#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -835,14 +835,14 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[builtins.str]:
         '''Application Insights connection string used by Dapr to export Service to Service communication telemetry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#dapr_application_insights_connection_string ContainerAppEnvironment#dapr_application_insights_connection_string}
         '''
         result = self._values.get("dapr_application_insights_connection_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#id ContainerAppEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -854,7 +854,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ContainerAppEnvironmentIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity ContainerAppEnvironment#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ContainerAppEnvironmentIdentity"], result)
@@ -865,7 +865,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         **Note:** Only valid if a ``workload_profile`` is specified. If ``infrastructure_subnet_id`` is specified, this resource group will be created in the same subscription as ``infrastructure_subnet_id``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_resource_group_name ContainerAppEnvironment#infrastructure_resource_group_name}
         '''
         result = self._values.get("infrastructure_resource_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -876,7 +876,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         **NOTE:** The Subnet must have a ``/21`` or larger address space.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#infrastructure_subnet_id ContainerAppEnvironment#infrastructure_subnet_id}
         '''
         result = self._values.get("infrastructure_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -889,7 +889,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to ``false``. **Note:** can only be set to ``true`` if ``infrastructure_subnet_id`` is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#internal_load_balancer_enabled ContainerAppEnvironment#internal_load_balancer_enabled}
         '''
         result = self._values.get("internal_load_balancer_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -898,14 +898,14 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_analytics_workspace_id(self) -> typing.Optional[builtins.str]:
         '''The ID for the Log Analytics Workspace to link this Container Apps Managed Environment to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#log_analytics_workspace_id ContainerAppEnvironment#log_analytics_workspace_id}
         '''
         result = self._values.get("log_analytics_workspace_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logs_destination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#logs_destination ContainerAppEnvironment#logs_destination}.'''
         result = self._values.get("logs_destination")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -917,14 +917,14 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to ``false``. **Note:** This feature is in public preview. Enabling mTLS for your applications may increase response latency and reduce maximum throughput in high-load scenarios.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#mutual_tls_enabled ContainerAppEnvironment#mutual_tls_enabled}
         '''
         result = self._values.get("mutual_tls_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#tags ContainerAppEnvironment#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -932,7 +932,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAppEnvironmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#timeouts ContainerAppEnvironment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAppEnvironmentTimeouts"], result)
@@ -943,7 +943,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppEnvironmentWorkloadProfile"]]]:
         '''workload_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#workload_profile ContainerAppEnvironment#workload_profile}
         '''
         result = self._values.get("workload_profile")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppEnvironmentWorkloadProfile"]]], result)
@@ -952,7 +952,7 @@ class ContainerAppEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone_redundancy_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#zone_redundancy_enabled ContainerAppEnvironment#zone_redundancy_enabled}.'''
         result = self._values.get("zone_redundancy_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -981,8 +981,8 @@ class ContainerAppEnvironmentIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd5d8c5d29d6cac36558aae6fc372750241b2c1332ae76f2be764dd123cdd6dd)
@@ -996,14 +996,14 @@ class ContainerAppEnvironmentIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#type ContainerAppEnvironment#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#identity_ids ContainerAppEnvironment#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1123,10 +1123,10 @@ class ContainerAppEnvironmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77002480c8b8fc35e7b2ccb1995e4fd16cf516706af269da88d3bbaaef9a9584)
@@ -1146,25 +1146,25 @@ class ContainerAppEnvironmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#create ContainerAppEnvironment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#delete ContainerAppEnvironment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#read ContainerAppEnvironment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#update ContainerAppEnvironment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1322,10 +1322,10 @@ class ContainerAppEnvironmentWorkloadProfile:
         minimum_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}.
-        :param workload_profile_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#workload_profile_type ContainerAppEnvironment#workload_profile_type}.
-        :param maximum_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#maximum_count ContainerAppEnvironment#maximum_count}.
-        :param minimum_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#minimum_count ContainerAppEnvironment#minimum_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}.
+        :param workload_profile_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#workload_profile_type ContainerAppEnvironment#workload_profile_type}.
+        :param maximum_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#maximum_count ContainerAppEnvironment#maximum_count}.
+        :param minimum_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#minimum_count ContainerAppEnvironment#minimum_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b0463b13c8e676ff930196425588a055eafab3237fb455e5a6601e6233bff14)
@@ -1344,27 +1344,27 @@ class ContainerAppEnvironmentWorkloadProfile:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#name ContainerAppEnvironment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workload_profile_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#workload_profile_type ContainerAppEnvironment#workload_profile_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#workload_profile_type ContainerAppEnvironment#workload_profile_type}.'''
         result = self._values.get("workload_profile_type")
         assert result is not None, "Required property 'workload_profile_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def maximum_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#maximum_count ContainerAppEnvironment#maximum_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#maximum_count ContainerAppEnvironment#maximum_count}.'''
         result = self._values.get("maximum_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def minimum_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_environment#minimum_count ContainerAppEnvironment#minimum_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app_environment#minimum_count ContainerAppEnvironment#minimum_count}.'''
         result = self._values.get("minimum_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 

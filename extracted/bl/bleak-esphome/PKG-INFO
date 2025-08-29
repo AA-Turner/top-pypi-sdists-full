@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bleak-esphome
-Version: 3.1.0
+Version: 3.2.0
 Summary: Bleak backend of ESPHome
 License: MIT
 Author: J. Nick Koston
@@ -20,7 +20,7 @@ Requires-Dist: aioesphomeapi (>=30.1.0)
 Requires-Dist: bleak (>=1)
 Requires-Dist: bleak-retry-connector (>=3.8.0)
 Requires-Dist: bluetooth-data-tools (>=1.18.0)
-Requires-Dist: habluetooth (>=4)
+Requires-Dist: habluetooth (>=5.2.0)
 Requires-Dist: lru-dict (>=1.2.0)
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/bleak-esphome/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/bleak-esphome/blob/main/CHANGELOG.md

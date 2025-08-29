@@ -17,13 +17,6 @@ class OpcSecurityPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     OPC_SECURITY_POLICY_UNSPECIFIED: _ClassVar[OpcSecurityPolicy]
     NONE: _ClassVar[OpcSecurityPolicy]
 
-class OpcUaChannelNamingConvention(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    OPC_UA_CHANNEL_NAMING_CONVENTION_UNSPECIFIED: _ClassVar[OpcUaChannelNamingConvention]
-    OPC_UA_CHANNEL_NAMING_CONVENTION_NODE_ID: _ClassVar[OpcUaChannelNamingConvention]
-    OPC_UA_CHANNEL_NAMING_CONVENTION_BROWSE_NAME: _ClassVar[OpcUaChannelNamingConvention]
-    OPC_UA_CHANNEL_NAMING_CONVENTION_DISPLAY_NAME: _ClassVar[OpcUaChannelNamingConvention]
-
 class OpcUaReferenceExplorationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     OPC_UA_REFERENCE_EXPLORATION_TYPE_UNSPECIFIED: _ClassVar[OpcUaReferenceExplorationType]
@@ -44,10 +37,6 @@ class OpcUaFailedMonitorHandling(int, metaclass=_enum_type_wrapper.EnumTypeWrapp
     OPC_UA_FAILED_MONITOR_HANDLING_IGNORE: _ClassVar[OpcUaFailedMonitorHandling]
 OPC_SECURITY_POLICY_UNSPECIFIED: OpcSecurityPolicy
 NONE: OpcSecurityPolicy
-OPC_UA_CHANNEL_NAMING_CONVENTION_UNSPECIFIED: OpcUaChannelNamingConvention
-OPC_UA_CHANNEL_NAMING_CONVENTION_NODE_ID: OpcUaChannelNamingConvention
-OPC_UA_CHANNEL_NAMING_CONVENTION_BROWSE_NAME: OpcUaChannelNamingConvention
-OPC_UA_CHANNEL_NAMING_CONVENTION_DISPLAY_NAME: OpcUaChannelNamingConvention
 OPC_UA_REFERENCE_EXPLORATION_TYPE_UNSPECIFIED: OpcUaReferenceExplorationType
 OPC_UA_REFERENCE_EXPLORATION_TYPE_ORGANIZES: OpcUaReferenceExplorationType
 OPC_UA_REFERENCE_EXPLORATION_TYPE_HIERARCHICAL_REFERENCES: OpcUaReferenceExplorationType
@@ -80,6 +69,34 @@ class OpcNode(_message.Message):
     namespace: int
     identifier: OpcIdentifierValue
     def __init__(self, namespace: _Optional[int] = ..., identifier: _Optional[_Union[OpcIdentifierValue, _Mapping]] = ...) -> None: ...
+
+class OpcUaChannelNamingConvention(_message.Message):
+    __slots__ = ("node_id", "browse_name", "display_name", "full_path")
+    class OpcUaNodeId(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    class OpcUaBrowseName(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    class OpcUaDisplayName(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    class OpcUaFullPath(_message.Message):
+        __slots__ = ("root_nodes", "delimiter")
+        ROOT_NODES_FIELD_NUMBER: _ClassVar[int]
+        DELIMITER_FIELD_NUMBER: _ClassVar[int]
+        root_nodes: _containers.RepeatedCompositeFieldContainer[OpcNode]
+        delimiter: str
+        def __init__(self, root_nodes: _Optional[_Iterable[_Union[OpcNode, _Mapping]]] = ..., delimiter: _Optional[str] = ...) -> None: ...
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    BROWSE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    FULL_PATH_FIELD_NUMBER: _ClassVar[int]
+    node_id: OpcUaChannelNamingConvention.OpcUaNodeId
+    browse_name: OpcUaChannelNamingConvention.OpcUaBrowseName
+    display_name: OpcUaChannelNamingConvention.OpcUaDisplayName
+    full_path: OpcUaChannelNamingConvention.OpcUaFullPath
+    def __init__(self, node_id: _Optional[_Union[OpcUaChannelNamingConvention.OpcUaNodeId, _Mapping]] = ..., browse_name: _Optional[_Union[OpcUaChannelNamingConvention.OpcUaBrowseName, _Mapping]] = ..., display_name: _Optional[_Union[OpcUaChannelNamingConvention.OpcUaDisplayName, _Mapping]] = ..., full_path: _Optional[_Union[OpcUaChannelNamingConvention.OpcUaFullPath, _Mapping]] = ...) -> None: ...
 
 class OpcUaConnectionDetails(_message.Message):
     __slots__ = ("uri", "security_policy", "authentication_config")
@@ -152,4 +169,4 @@ class OpcUaScrapingConfig(_message.Message):
     unknown_data_type_handling: OpcUaUnknownDataTypeHandling
     failed_monitor_handling: OpcUaFailedMonitorHandling
     timestamp_handling: OpcUaTimestampHandling
-    def __init__(self, node_exploration_config: _Optional[_Union[OpcUaNodeExplorationConfig, _Mapping]] = ..., unit_node_name: _Optional[str] = ..., channel_naming_convention: _Optional[_Union[OpcUaChannelNamingConvention, str]] = ..., override_host: bool = ..., unknown_data_type_handling: _Optional[_Union[OpcUaUnknownDataTypeHandling, str]] = ..., failed_monitor_handling: _Optional[_Union[OpcUaFailedMonitorHandling, str]] = ..., timestamp_handling: _Optional[_Union[OpcUaTimestampHandling, _Mapping]] = ...) -> None: ...
+    def __init__(self, node_exploration_config: _Optional[_Union[OpcUaNodeExplorationConfig, _Mapping]] = ..., unit_node_name: _Optional[str] = ..., channel_naming_convention: _Optional[_Union[OpcUaChannelNamingConvention, _Mapping]] = ..., override_host: bool = ..., unknown_data_type_handling: _Optional[_Union[OpcUaUnknownDataTypeHandling, str]] = ..., failed_monitor_handling: _Optional[_Union[OpcUaFailedMonitorHandling, str]] = ..., timestamp_handling: _Optional[_Union[OpcUaTimestampHandling, _Mapping]] = ...) -> None: ...

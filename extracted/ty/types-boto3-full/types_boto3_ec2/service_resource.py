@@ -4262,7 +4262,7 @@ class Snapshot(ServiceResource):
         self, **kwargs: Unpack[CopySnapshotRequestSnapshotCopyTypeDef]
     ) -> CopySnapshotResultTypeDef:
         """
-        Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
+        Creates an exact copy of an Amazon EBS snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/snapshot/copy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#snapshotcopy-method)

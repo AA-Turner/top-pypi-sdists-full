@@ -328,7 +328,7 @@ DataOperationType = Literal["READ", "WRITE"]
 DataQualityEncryptionModeType = Literal["DISABLED", "SSE-KMS"]
 DataQualityModelStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 DataQualityRuleResultStatusType = Literal["ERROR", "FAIL", "PASS"]
-DatabaseAttributesType = Literal["NAME"]
+DatabaseAttributesType = Literal["NAME", "TARGET_DATABASE"]
 DdbExportTypeType = Literal["ddb", "s3"]
 DeleteBehaviorType = Literal["DELETE_FROM_DATABASE", "DEPRECATE_IN_DATABASE", "LOG"]
 DeltaTargetCompressionTypeType = Literal["snappy", "uncompressed"]
@@ -853,8 +853,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -987,16 +985,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_entity",

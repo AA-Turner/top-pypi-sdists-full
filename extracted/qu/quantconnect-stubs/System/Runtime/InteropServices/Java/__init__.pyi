@@ -7,23 +7,39 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.Java
 
 
-class JavaMarshal(System.Object):
+class MarkCrossReferencesArgs:
     """This class has no documentation."""
 
-    @staticmethod
-    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
+    @property
+    def component_count(self) -> System.UIntPtr:
         ...
 
-    @staticmethod
-    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
+    @component_count.setter
+    def component_count(self, value: System.UIntPtr) -> None:
         ...
 
-    @staticmethod
-    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
+    @property
+    def components(self) -> typing.Any:
         ...
 
-    @staticmethod
-    def initialize(mark_cross_references: typing.Any) -> None:
+    @components.setter
+    def components(self, value: typing.Any) -> None:
+        ...
+
+    @property
+    def cross_reference_count(self) -> System.UIntPtr:
+        ...
+
+    @cross_reference_count.setter
+    def cross_reference_count(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def cross_references(self) -> typing.Any:
+        ...
+
+    @cross_references.setter
+    def cross_references(self, value: typing.Any) -> None:
         ...
 
 
@@ -74,39 +90,23 @@ class ComponentCrossReference:
         ...
 
 
-class MarkCrossReferencesArgs:
+class JavaMarshal(System.Object):
     """This class has no documentation."""
 
-    @property
-    def component_count(self) -> System.UIntPtr:
+    @staticmethod
+    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
         ...
 
-    @component_count.setter
-    def component_count(self, value: System.UIntPtr) -> None:
+    @staticmethod
+    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
         ...
 
-    @property
-    def components(self) -> typing.Any:
+    @staticmethod
+    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
         ...
 
-    @components.setter
-    def components(self, value: typing.Any) -> None:
-        ...
-
-    @property
-    def cross_reference_count(self) -> System.UIntPtr:
-        ...
-
-    @cross_reference_count.setter
-    def cross_reference_count(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def cross_references(self) -> typing.Any:
-        ...
-
-    @cross_references.setter
-    def cross_references(self, value: typing.Any) -> None:
+    @staticmethod
+    def initialize(mark_cross_references: typing.Any) -> None:
         ...
 
 

@@ -80,6 +80,67 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         ...
 
 
+class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of the desired positions to CrunchDAO API.
+    Accepts signals in percentage i.e ticker:"SPY", date: "2020-10-04", signal:0.54
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
+        """
+        HashSet property of allowed SecurityTypes for CrunchDAO
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self, api_key: str, model: str, submission_name: str = ..., comment: str = ...) -> None:
+        """
+        CrunchDAOSignalExport constructor. It obtains the required information for CrunchDAO API requests.
+        See (https://colab.research.google.com/drive/1YW1xtHrIZ8ZHW69JvNANWowmxPcnkNu0?authuser=1#scrollTo=aPyWNxtuDc-X)
+        
+        :param api_key: API key provided by CrunchDAO
+        :param model: Model ID or Name
+        :param submission_name: Submission Name (Optional)
+        :param comment: Comment (Optional)
+        """
+        ...
+
+    def convert_to_csv_format(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Converts the list of holdings into a CSV format string
+        
+        This method is protected.
+        
+        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
+        :param positions: A CSV format string of the given holdings with the required features(ticker, date, signal)
+        :returns: True if a string message with the positions could be obtained, false otherwise.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Verifies every holding is a stock, creates a message with the desired positions
+        using the expected CrunchDAO API format, verifies there is an open round and then
+        sends the positions with the other required body features. If another signal was
+        submitted before, it deletes the last signal and sends the new one
+        
+        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
+        :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
+        """
+        ...
+
+
 class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
     """
     Exports signals of the desired positions to Numerai API.
@@ -318,67 +379,6 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         
         :param parameters: A list of holdings from the portfolio expected to be sent to Collective2 API and the algorithm being ran
         :returns: True if the positions were sent correctly and Collective2 sent no errors, false otherwise.
-        """
-        ...
-
-
-class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
-    """
-    Exports signals of the desired positions to CrunchDAO API.
-    Accepts signals in percentage i.e ticker:"SPY", date: "2020-10-04", signal:0.54
-    """
-
-    @property
-    def name(self) -> str:
-        """
-        The name of this signal export
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
-        """
-        HashSet property of allowed SecurityTypes for CrunchDAO
-        
-        This property is protected.
-        """
-        ...
-
-    def __init__(self, api_key: str, model: str, submission_name: str = ..., comment: str = ...) -> None:
-        """
-        CrunchDAOSignalExport constructor. It obtains the required information for CrunchDAO API requests.
-        See (https://colab.research.google.com/drive/1YW1xtHrIZ8ZHW69JvNANWowmxPcnkNu0?authuser=1#scrollTo=aPyWNxtuDc-X)
-        
-        :param api_key: API key provided by CrunchDAO
-        :param model: Model ID or Name
-        :param submission_name: Submission Name (Optional)
-        :param comment: Comment (Optional)
-        """
-        ...
-
-    def convert_to_csv_format(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Converts the list of holdings into a CSV format string
-        
-        This method is protected.
-        
-        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
-        :param positions: A CSV format string of the given holdings with the required features(ticker, date, signal)
-        :returns: True if a string message with the positions could be obtained, false otherwise.
-        """
-        ...
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Verifies every holding is a stock, creates a message with the desired positions
-        using the expected CrunchDAO API format, verifies there is an open round and then
-        sends the positions with the other required body features. If another signal was
-        submitted before, it deletes the last signal and sends the new one
-        
-        :param parameters: A list of holdings from the portfolio, expected to be sent to CrunchDAO API and the algorithm being ran
-        :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
         """
         ...
 

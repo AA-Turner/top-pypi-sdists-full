@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flax
-Version: 0.11.1
+Version: 0.11.2
 Summary: Flax: A neural network library for JAX designed for flexibility
 Author-email: Flax team <flax-dev@google.com>
 Project-URL: homepage, https://github.com/google/flax
@@ -27,8 +27,6 @@ Requires-Dist: rich>=11.1
 Requires-Dist: typing_extensions>=4.2
 Requires-Dist: PyYAML>=5.4.1
 Requires-Dist: treescope>=0.1.7
-Provides-Extra: all
-Requires-Dist: matplotlib; extra == "all"
 Provides-Extra: testing
 Requires-Dist: clu; extra == "testing"
 Requires-Dist: clu<=0.0.9; python_version < "3.10" and extra == "testing"
@@ -45,7 +43,7 @@ Requires-Dist: pytest-cov; extra == "testing"
 Requires-Dist: pytest-custom_exit_code; extra == "testing"
 Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: pytype; extra == "testing"
-Requires-Dist: sentencepiece; extra == "testing"
+Requires-Dist: sentencepiece==0.2.0; extra == "testing"
 Requires-Dist: tensorflow_text>=2.11.0; platform_system != "Darwin" and extra == "testing"
 Requires-Dist: tensorflow_datasets; extra == "testing"
 Requires-Dist: tensorflow>=2.12.0; extra == "testing"
@@ -237,7 +235,7 @@ To cite this repository:
   author = {Jonathan Heek and Anselm Levskaya and Avital Oliver and Marvin Ritter and Bertrand Rondepierre and Andreas Steiner and Marc van {Z}ee},
   title = {{F}lax: A neural network library and ecosystem for {JAX}},
   url = {http://github.com/google/flax},
-  version = {0.11.1},
+  version = {0.11.2},
   year = {2024},
 }
 ```

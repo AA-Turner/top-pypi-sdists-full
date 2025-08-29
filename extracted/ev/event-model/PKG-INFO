@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: event-model
-Version: 1.23
+Version: 1.23.1
 Summary: Data model used by the bluesky ecosystem.
 Author-email: Brookhaven National Lab <dallan@bnl.gov>
 License: BSD 3-Clause License

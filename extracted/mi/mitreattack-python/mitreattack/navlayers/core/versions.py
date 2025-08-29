@@ -1,6 +1,6 @@
 """Contains Versions class."""
 
-from mitreattack.navlayers.core.exceptions import typeChecker, categoryChecker, UNSETVALUE, BadInput
+from mitreattack.navlayers.core.exceptions import UNSETVALUE, BadInput, categoryChecker, typeChecker
 
 defaults = dict(layer="4.5", navigator="5.0.0")
 
@@ -60,7 +60,9 @@ class Versions:
         """Setter for layer."""
         typeChecker(type(self).__name__, layer, str, "layer")
         try:
-            categoryChecker(type(self).__name__, layer, ["3.0", "4.0", "4.1", "4.2", "4.3", "4.4", "4.5"], "layer version")
+            categoryChecker(
+                type(self).__name__, layer, ["3.0", "4.0", "4.1", "4.2", "4.3", "4.4", "4.5"], "layer version"
+            )
         except BadInput:
             print(
                 f"[WARNING] - unrecognized layer version {layer}. Defaulting to the 4.5 schema, this may result in "

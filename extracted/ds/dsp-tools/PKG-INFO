@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dsp-tools
-Version: 16.9.0.post1
+Version: 16.9.0.post3
 Summary: DSP-TOOLS is a Python package with a command line interface that helps you interact with a DaSCH service platform (DSP) server.
 Project-URL: Homepage, https://www.dasch.swiss/
 Project-URL: Documentation, https://docs.dasch.swiss/latest/DSP-TOOLS/
@@ -130,7 +130,7 @@ DSP-TOOLS provides the following functionalities:
 - [The module `excel2xml`](https://docs.dasch.swiss/latest/DSP-TOOLS/excel2xml-module) 
   provides helper methods that can be used in a Python script 
   to convert data from a tabular format into XML. (**DEPRECATED in favor of `xmllib`**)
-- [The `xmllib` library](https://docs.dasch.swiss/latest/DSP-TOOLS/xmllib-api-reference/xmlroot/) 
+- [The `xmllib` library](https://docs.dasch.swiss/latest/DSP-TOOLS/xmllib-docs/xmlroot/) 
   provides helper functions that can be used in a Python script 
   to convert data from a tabular format into XML.
 - [`dsp-tools id2iri`](https://docs.dasch.swiss/latest/DSP-TOOLS/cli-commands/#id2iri)

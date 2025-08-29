@@ -30,14 +30,13 @@ from pygpt_net.item.ctx import CtxItem
 from pygpt_net.item.model import ModelItem
 from pygpt_net.item.preset import PresetItem
 
-from pygpt_net.provider.gpt.agents.client import get_custom_model_provider, set_openai_env
-from pygpt_net.provider.gpt.agents.remote_tools import append_tools
-from pygpt_net.provider.gpt.agents.response import StreamHandler
+from pygpt_net.provider.api.openai.agents.client import get_custom_model_provider, set_openai_env
+from pygpt_net.provider.api.openai.agents.remote_tools import append_tools
+from pygpt_net.provider.api.openai.agents.response import StreamHandler
+from pygpt_net.provider.api.openai.agents.experts import get_experts
 from pygpt_net.utils import trans
 
 from ..base import BaseAgent
-from ...gpt.agents.experts import get_experts
-
 
 @dataclass
 class EvaluationFeedback:
@@ -327,7 +326,7 @@ class Agent(BaseAgent):
                     print("Final response:", result)
 
                 input_items = result.to_input_list()
-                final_output, last_response_id = window.core.gpt.responses.unpack_agent_response(result, ctx)
+                final_output, last_response_id = window.core.api.openai.responses.unpack_agent_response(result, ctx)
 
                 if bridge.stopped():
                     bridge.on_stop(ctx)

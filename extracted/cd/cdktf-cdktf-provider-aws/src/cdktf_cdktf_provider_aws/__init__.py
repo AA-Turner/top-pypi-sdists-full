@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.10.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.11.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.10.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.11.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -2124,6 +2124,7 @@ __all__ = [
     "synthetics_canary",
     "synthetics_group",
     "synthetics_group_association",
+    "timestreaminfluxdb_db_cluster",
     "timestreaminfluxdb_db_instance",
     "timestreamquery_scheduled_query",
     "timestreamwrite_database",
@@ -2250,11 +2251,23 @@ __all__ = [
     "workspaces_ip_group",
     "workspaces_workspace",
     "workspacesweb_browser_settings",
+    "workspacesweb_browser_settings_association",
     "workspacesweb_data_protection_settings",
+    "workspacesweb_data_protection_settings_association",
+    "workspacesweb_identity_provider",
     "workspacesweb_ip_access_settings",
+    "workspacesweb_ip_access_settings_association",
     "workspacesweb_network_settings",
+    "workspacesweb_network_settings_association",
+    "workspacesweb_portal",
+    "workspacesweb_session_logger",
+    "workspacesweb_session_logger_association",
+    "workspacesweb_trust_store",
+    "workspacesweb_trust_store_association",
     "workspacesweb_user_access_logging_settings",
+    "workspacesweb_user_access_logging_settings_association",
     "workspacesweb_user_settings",
+    "workspacesweb_user_settings_association",
     "xray_encryption_config",
     "xray_group",
     "xray_resource_policy",
@@ -4262,6 +4275,7 @@ from . import swf_domain
 from . import synthetics_canary
 from . import synthetics_group
 from . import synthetics_group_association
+from . import timestreaminfluxdb_db_cluster
 from . import timestreaminfluxdb_db_instance
 from . import timestreamquery_scheduled_query
 from . import timestreamwrite_database
@@ -4388,11 +4402,23 @@ from . import workspaces_directory
 from . import workspaces_ip_group
 from . import workspaces_workspace
 from . import workspacesweb_browser_settings
+from . import workspacesweb_browser_settings_association
 from . import workspacesweb_data_protection_settings
+from . import workspacesweb_data_protection_settings_association
+from . import workspacesweb_identity_provider
 from . import workspacesweb_ip_access_settings
+from . import workspacesweb_ip_access_settings_association
 from . import workspacesweb_network_settings
+from . import workspacesweb_network_settings_association
+from . import workspacesweb_portal
+from . import workspacesweb_session_logger
+from . import workspacesweb_session_logger_association
+from . import workspacesweb_trust_store
+from . import workspacesweb_trust_store_association
 from . import workspacesweb_user_access_logging_settings
+from . import workspacesweb_user_access_logging_settings_association
 from . import workspacesweb_user_settings
+from . import workspacesweb_user_settings_association
 from . import xray_encryption_config
 from . import xray_group
 from . import xray_resource_policy

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: infisicalsdk
-Version: 1.0.9
-Summary: Infisical API Client
+Version: 1.0.11
+Summary: Official Infisical SDK for Python (Latest)
 Home-page: https://github.com/Infisical/python-sdk-official
 Author: Infisical
 Author-email: support@infisical.com
-Keywords: Infisical,Infisical API,Infisical SDK
+Keywords: Infisical,Infisical API,Infisical SDK,SDK,Secrets Management
 Description-Content-Type: text/markdown
 Requires-Dist: python-dateutil
 Requires-Dist: aenum
@@ -21,5 +21,6 @@ Dynamic: keywords
 Dynamic: requires-dist
 Dynamic: summary
 
-    Infisical SDK client for Python. To view documentation, please visit https://github.com/Infisical/python-sdk-official
+    The official Infisical SDK for Python.
+    Documentation can be found at https://github.com/Infisical/python-sdk-official
     

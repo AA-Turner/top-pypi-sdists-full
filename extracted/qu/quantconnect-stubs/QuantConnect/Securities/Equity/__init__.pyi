@@ -10,11 +10,16 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Equity
 
 
-class EquityCache(QuantConnect.Securities.SecurityCache):
-    """Equity cache override."""
+class EquityHolding(QuantConnect.Securities.SecurityHolding):
+    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
 
-    def __init__(self) -> None:
-        """Start a new Cache for the set Index Code"""
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Constructor for equities holdings.
+        
+        :param security: The security being held
+        :param currency_converter: A currency converter instance
+        """
         ...
 
 
@@ -65,19 +70,6 @@ class Equity(QuantConnect.Securities.Security):
         ...
 
 
-class EquityHolding(QuantConnect.Securities.SecurityHolding):
-    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Constructor for equities holdings.
-        
-        :param security: The security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-
 class EquityExchange(QuantConnect.Securities.SecurityExchange):
     """Equity exchange information"""
 
@@ -119,6 +111,14 @@ class EquityDataFilter(QuantConnect.Securities.SecurityDataFilter):
         :param vehicle: Security asset
         :param data: Data class
         """
+        ...
+
+
+class EquityCache(QuantConnect.Securities.SecurityCache):
+    """Equity cache override."""
+
+    def __init__(self) -> None:
+        """Start a new Cache for the set Index Code"""
         ...
 
 

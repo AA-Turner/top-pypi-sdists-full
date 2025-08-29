@@ -119,6 +119,7 @@ class Repository(WMLResource):
         PROMPT_TUNE_1_0: str = "prompt_tune_1.0"
         CUSTOM_FOUNDATION_MODEL_1_0: str = "custom_foundation_model_1.0"
         CURATED_FOUNDATION_MODEL_1_0: str = "curated_foundation_model_1.0"
+        BASE_FOUNDATION_MODEL_1_0: str = "base_foundation_model_1.0"
 
     cloud_platform_spaces = False
     icp_platform_spaces = False

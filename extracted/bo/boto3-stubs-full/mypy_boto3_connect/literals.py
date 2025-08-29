@@ -354,7 +354,9 @@ FlowAssociationResourceTypeType = Literal[
     "WHATSAPP_MESSAGING_PHONE_NUMBER",
 ]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
-GroupingType = Literal["CHANNEL", "QUEUE", "ROUTING_PROFILE", "ROUTING_STEP_EXPRESSION"]
+GroupingType = Literal[
+    "AGENT_STATUS", "CHANNEL", "QUEUE", "ROUTING_PROFILE", "ROUTING_STEP_EXPRESSION"
+]
 HierarchyGroupMatchTypeType = Literal["EXACT", "WITH_CHILD_GROUPS"]
 HistoricalMetricNameType = Literal[
     "ABANDON_TIME",

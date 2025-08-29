@@ -1,7 +1,5 @@
 # coding: utf-8
 
-import os
-
 from six import raise_from
 
 from .config import testgres_config
@@ -22,12 +20,16 @@ from .operations.local_ops import LocalOperations
 from .operations.os_ops import OsOperations
 
 
-def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations(), bin_path=None, cached=True):
+def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = None, bin_path=None, cached=True):
     """
     Perform initdb or use cached node files.
     """
 
-    assert os_ops is not None
+    assert os_ops is None or isinstance(os_ops, OsOperations)
+
+    if os_ops is None:
+        os_ops = LocalOperations.get_single_instance()
+
     assert isinstance(os_ops, OsOperations)
 
     def make_utility_path(name):
@@ -35,7 +37,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
         assert type(name) == str  # noqa: E721
 
         if bin_path:
-            return os.path.join(bin_path, name)
+            return os_ops.build_path(bin_path, name)
 
         return get_bin_path2(os_ops, name)
 
@@ -68,7 +70,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
                 # XXX: write new unique system id to control file
                 # Some users might rely upon unique system ids, but
                 # our initdb caching mechanism breaks this contract.
-                pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
+                pg_control = os_ops.build_path(data_dir, XLOG_CONTROL_FILE)
                 system_id = generate_system_id()
                 cur_pg_control = os_ops.read(pg_control, binary=True)
                 new_pg_control = system_id + cur_pg_control[len(system_id):]

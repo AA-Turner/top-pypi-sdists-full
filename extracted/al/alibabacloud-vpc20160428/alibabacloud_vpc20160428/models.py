@@ -4819,17 +4819,20 @@ class AssociateVpcCidrBlockRequest(TeaModel):
         secondary_cidr_mask: int = None,
         vpc_id: str = None,
     ):
-        # The IPv6 CIDR block to be added.
+        # The IPv6 CIDR block that you want to add to the VPC.
         # 
-        # >  You must and can specify only one of **SecondaryCidrBlock** and **Ipv6CidrBlock**.
+        # >  You can specify only one of **SecondaryCidrBlock** and **Ipv6CidrBlock**.
         self.ipv_6cidr_block = ipv_6cidr_block
         # The version of the IP address. Valid values:
         # 
         # *   **IPV4**: the IPv4 address.
         # *   **IPV6**: the IPv6 address. If you set **IpVersion** to **IPV6** and do not specify **SecondaryCidrBlock**, you can add a secondary IPv6 CIDR block to the VPC.
         self.ip_version = ip_version
-        # The ID of the IP Address Manager (IPAM) pool that contains IPv4 addresses.
+        # The ID of the IPAM pool.
         self.ipam_pool_id = ipam_pool_id
+        # Add an IPv6 CIDR block from the IPAM pool to the VPC by entering a mask.
+        # 
+        # >  To add an IPv6 CIDR block to a VPC, specify at least one of the IPv6CidrBlock and Ipv6CidrMask parameters.
         self.ipv_6cidr_mask = ipv_6cidr_mask
         # The type of the IPv6 CIDR block. Valid values:
         # 
@@ -4860,10 +4863,9 @@ class AssociateVpcCidrBlockRequest(TeaModel):
         # 
         # >  You must and can specify only one of **SecondaryCidrBlock** and **Ipv6CidrBlock**.
         self.secondary_cidr_block = secondary_cidr_block
-        # Add secondary CIDR blocks to the VPC from the IPAM pool by entering a mask.
+        # Add an IPv4 CIDR block from the IPAM pool to the VPC by specifying a mask.
         # 
-        # > 
-        # > To add a secondary CIDR block to the VPC using the specified IPAM pool, you must specify at least one of the parameters, SecondaryCidrBlock or SecondaryCidrMask.
+        # >  If you use an IPAM pool, you must specify at least one of SecondaryCidrBlock and SecondaryCidrMask.
         self.secondary_cidr_mask = secondary_cidr_mask
         # The ID of the VPC to which you want to add a secondary CIDR block.
         # 
@@ -13146,7 +13148,9 @@ class CreateNatGatewayRequest(TeaModel):
         icmp_reply_enabled: bool = None,
         instance_charge_type: str = None,
         internet_charge_type: str = None,
+        ipv_4prefix: str = None,
         name: str = None,
+        nat_ip: str = None,
         nat_type: str = None,
         network_type: str = None,
         owner_account: str = None,
@@ -13199,12 +13203,14 @@ class CreateNatGatewayRequest(TeaModel):
         self.instance_charge_type = instance_charge_type
         # The metering method of the NAT gateway. Set the value to **PayByLcu**, which specifies the pay-by-CU metering method.
         self.internet_charge_type = internet_charge_type
+        self.ipv_4prefix = ipv_4prefix
         # The name of the NAT gateway.
         # 
         # The name must be 2 to 128 characters in length and can contain letters, digits, underscores (_), and hyphens (-). The name must start with a letter.
         # 
         # If this parameter is not set, the system assigns a default name to the NAT gateway.
         self.name = name
+        self.nat_ip = nat_ip
         # The type of NAT gateway. Set the value to **Enhanced**, which specifies enhanced NAT gateway.
         self.nat_type = nat_type
         # The network type of the NAT gateway. Valid values:
@@ -13280,8 +13286,12 @@ class CreateNatGatewayRequest(TeaModel):
             result['InstanceChargeType'] = self.instance_charge_type
         if self.internet_charge_type is not None:
             result['InternetChargeType'] = self.internet_charge_type
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
         if self.name is not None:
             result['Name'] = self.name
+        if self.nat_ip is not None:
+            result['NatIp'] = self.nat_ip
         if self.nat_type is not None:
             result['NatType'] = self.nat_type
         if self.network_type is not None:
@@ -13335,8 +13345,12 @@ class CreateNatGatewayRequest(TeaModel):
             self.instance_charge_type = m.get('InstanceChargeType')
         if m.get('InternetChargeType') is not None:
             self.internet_charge_type = m.get('InternetChargeType')
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
         if m.get('Name') is not None:
             self.name = m.get('Name')
+        if m.get('NatIp') is not None:
+            self.nat_ip = m.get('NatIp')
         if m.get('NatType') is not None:
             self.nat_type = m.get('NatType')
         if m.get('NetworkType') is not None:
@@ -13418,7 +13432,9 @@ class CreateNatGatewayShrinkRequest(TeaModel):
         icmp_reply_enabled: bool = None,
         instance_charge_type: str = None,
         internet_charge_type: str = None,
+        ipv_4prefix: str = None,
         name: str = None,
+        nat_ip: str = None,
         nat_type: str = None,
         network_type: str = None,
         owner_account: str = None,
@@ -13471,12 +13487,14 @@ class CreateNatGatewayShrinkRequest(TeaModel):
         self.instance_charge_type = instance_charge_type
         # The metering method of the NAT gateway. Set the value to **PayByLcu**, which specifies the pay-by-CU metering method.
         self.internet_charge_type = internet_charge_type
+        self.ipv_4prefix = ipv_4prefix
         # The name of the NAT gateway.
         # 
         # The name must be 2 to 128 characters in length and can contain letters, digits, underscores (_), and hyphens (-). The name must start with a letter.
         # 
         # If this parameter is not set, the system assigns a default name to the NAT gateway.
         self.name = name
+        self.nat_ip = nat_ip
         # The type of NAT gateway. Set the value to **Enhanced**, which specifies enhanced NAT gateway.
         self.nat_type = nat_type
         # The network type of the NAT gateway. Valid values:
@@ -13550,8 +13568,12 @@ class CreateNatGatewayShrinkRequest(TeaModel):
             result['InstanceChargeType'] = self.instance_charge_type
         if self.internet_charge_type is not None:
             result['InternetChargeType'] = self.internet_charge_type
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
         if self.name is not None:
             result['Name'] = self.name
+        if self.nat_ip is not None:
+            result['NatIp'] = self.nat_ip
         if self.nat_type is not None:
             result['NatType'] = self.nat_type
         if self.network_type is not None:
@@ -13604,8 +13626,12 @@ class CreateNatGatewayShrinkRequest(TeaModel):
             self.instance_charge_type = m.get('InstanceChargeType')
         if m.get('InternetChargeType') is not None:
             self.internet_charge_type = m.get('InternetChargeType')
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
         if m.get('Name') is not None:
             self.name = m.get('Name')
+        if m.get('NatIp') is not None:
+            self.nat_ip = m.get('NatIp')
         if m.get('NatType') is not None:
             self.nat_type = m.get('NatType')
         if m.get('NetworkType') is not None:
@@ -13831,6 +13857,8 @@ class CreateNatIpRequest(TeaModel):
         self,
         client_token: str = None,
         dry_run: bool = None,
+        ipv_4prefix: str = None,
+        ipv_4prefix_count: int = None,
         nat_gateway_id: str = None,
         nat_ip: str = None,
         nat_ip_cidr: str = None,
@@ -13853,6 +13881,8 @@ class CreateNatIpRequest(TeaModel):
         # *   **true**: performs only a dry run. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # *   **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, a 2xx HTTP status code is returned and the operation is performed.
         self.dry_run = dry_run
+        self.ipv_4prefix = ipv_4prefix
+        self.ipv_4prefix_count = ipv_4prefix_count
         # The ID of the Virtual Private Cloud (VPC) NAT gateway for which you want to create the NAT IP address.
         # 
         # This parameter is required.
@@ -13897,6 +13927,10 @@ class CreateNatIpRequest(TeaModel):
             result['ClientToken'] = self.client_token
         if self.dry_run is not None:
             result['DryRun'] = self.dry_run
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
+        if self.ipv_4prefix_count is not None:
+            result['Ipv4PrefixCount'] = self.ipv_4prefix_count
         if self.nat_gateway_id is not None:
             result['NatGatewayId'] = self.nat_gateway_id
         if self.nat_ip is not None:
@@ -13925,6 +13959,10 @@ class CreateNatIpRequest(TeaModel):
             self.client_token = m.get('ClientToken')
         if m.get('DryRun') is not None:
             self.dry_run = m.get('DryRun')
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
+        if m.get('Ipv4PrefixCount') is not None:
+            self.ipv_4prefix_count = m.get('Ipv4PrefixCount')
         if m.get('NatGatewayId') is not None:
             self.nat_gateway_id = m.get('NatGatewayId')
         if m.get('NatIp') is not None:
@@ -13951,10 +13989,12 @@ class CreateNatIpRequest(TeaModel):
 class CreateNatIpResponseBody(TeaModel):
     def __init__(
         self,
+        ipv_4prefix: str = None,
         nat_ip: str = None,
         nat_ip_id: str = None,
         request_id: str = None,
     ):
+        self.ipv_4prefix = ipv_4prefix
         # The NAT IP address.
         self.nat_ip = nat_ip
         # The ID of the NAT IP address.
@@ -13971,6 +14011,8 @@ class CreateNatIpResponseBody(TeaModel):
             return _map
 
         result = dict()
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
         if self.nat_ip is not None:
             result['NatIp'] = self.nat_ip
         if self.nat_ip_id is not None:
@@ -13981,6 +14023,8 @@ class CreateNatIpResponseBody(TeaModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
         if m.get('NatIp') is not None:
             self.nat_ip = m.get('NatIp')
         if m.get('NatIpId') is not None:
@@ -20858,7 +20902,9 @@ class CreateVpcRequest(TeaModel):
         self.ipv_4ipam_pool_id = ipv_4ipam_pool_id
         # The IPv6 CIDR block of the VPC. If you enable IPv6 for a VPC, the system allocates an IPv6 CIDR block. To specify an IPv6 CIDR block, you must call the [AllocateVpcIpv6Cidr](https://help.aliyun.com/document_detail/448916.html) operation to reserve the specified IPv6 CIDR block.
         self.ipv_6cidr_block = ipv_6cidr_block
+        # Add an IPv6 CIDR block from the IPAM pool to the VPC by entering a mask.
         self.ipv_6cidr_mask = ipv_6cidr_mask
+        # The ID of the IP Address Manager (IPAM) pool of the IPv6 type.
         self.ipv_6ipam_pool_id = ipv_6ipam_pool_id
         # The type of the IPv6 CIDR block of the VPC. Valid values:
         # 
@@ -27346,6 +27392,9 @@ class DeleteIpv4GatewayRequest(TeaModel):
         # *   **true**: performs only a dry run, without performing the actual request. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # *   **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, a 2xx HTTP status code is returned and the operation is performed.
         self.dry_run = dry_run
+        # Select the public network mode of the VPC after deleting the IPv4 gateway. The values are:
+        # - **private**: Default value, after deleting the IPv4 gateway, the VPC will become a pure private VPC without public network access capability. 
+        # - **public**: After deleting the IPv4 gateway, the VPC\\"s public network access is no longer centrally controlled by the IPv4 gateway, and instances with public IPs bound can access the public network by default.
         self.internet_mode = internet_mode
         # The ID of the IPv4 gateway that you want to delete.
         # 
@@ -28097,6 +28146,8 @@ class DeleteNatIpRequest(TeaModel):
         self,
         client_token: str = None,
         dry_run: bool = None,
+        ipv_4prefix: str = None,
+        nat_gateway_id: str = None,
         nat_ip_id: str = None,
         owner_account: str = None,
         owner_id: int = None,
@@ -28115,9 +28166,9 @@ class DeleteNatIpRequest(TeaModel):
         # *   **true**: performs only a dry run. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # *   **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, a 2xx HTTP status code is returned and the operation is performed.
         self.dry_run = dry_run
+        self.ipv_4prefix = ipv_4prefix
+        self.nat_gateway_id = nat_gateway_id
         # The ID of the NAT IP address that you want to delete.
-        # 
-        # This parameter is required.
         self.nat_ip_id = nat_ip_id
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -28143,6 +28194,10 @@ class DeleteNatIpRequest(TeaModel):
             result['ClientToken'] = self.client_token
         if self.dry_run is not None:
             result['DryRun'] = self.dry_run
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
+        if self.nat_gateway_id is not None:
+            result['NatGatewayId'] = self.nat_gateway_id
         if self.nat_ip_id is not None:
             result['NatIpId'] = self.nat_ip_id
         if self.owner_account is not None:
@@ -28163,6 +28218,10 @@ class DeleteNatIpRequest(TeaModel):
             self.client_token = m.get('ClientToken')
         if m.get('DryRun') is not None:
             self.dry_run = m.get('DryRun')
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
+        if m.get('NatGatewayId') is not None:
+            self.nat_gateway_id = m.get('NatGatewayId')
         if m.get('NatIpId') is not None:
             self.nat_ip_id = m.get('NatIpId')
         if m.get('OwnerAccount') is not None:
@@ -29092,6 +29151,10 @@ class DeleteRouteEntriesRequest(TeaModel):
         resource_owner_id: int = None,
         route_entries: List[DeleteRouteEntriesRequestRouteEntries] = None,
     ):
+        # Specifies whether to perform a dry run, without performing the actual request. Valid values:
+        # 
+        # *   **true**: performs only a dry run. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # *   **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, a 2xx HTTP status code is returned and the operation is performed.
         self.dry_run = dry_run
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -29364,6 +29427,11 @@ class DeleteRouteEntryRequest(TeaModel):
     ):
         # The destination CIDR block of the route. Only IPv4 CIDR blocks, IPv6 CIDR blocks, and prefix lists are supported.
         self.destination_cidr_block = destination_cidr_block
+        # Specifies whether to perform only a dry run, without performing the actual request. Valid values:
+        # 
+        # **true**: sends a request without deleting the route entry. The system checks the request for potential issues, including invalid AccessKey pairs, unauthorized RAM users, and missing parameter values. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # 
+        # **false** (default): performs a dry run and the actual request. If the request passes the check, a 2xx HTTP status code is returned and the route entry is deleted.
         self.dry_run = dry_run
         # The ID of the next hop.
         # 
@@ -36766,7 +36834,8 @@ class DescribeEipAddressesResponseBodyEipAddressesEipAddressOperationLocksLockRe
         # The reason why the EIP is locked. Valid values:
         # 
         # *   **financial**: The EIP is locked due to overdue payments.
-        # *   **security**: The EIP is locked for security reasons.
+        # *   **security**: The instance is locked for security purposes.
+        # *   **sharedPool**: The shared IP address pool is locked due to overdue payments.
         self.lock_reason = lock_reason
 
     def validate(self):
@@ -36984,10 +37053,11 @@ class DescribeEipAddressesResponseBodyEipAddressesEipAddress(TeaModel):
         # *   **CloudBox** Only cloud box users can select this type.
         # *   **Default** (default)
         self.biz_type = biz_type
-        # The service state of the EIP. Valid values:
+        # The service status of the EIP. Valid values:
         # 
         # *   **Normal**\
-        # *   **FinancialLocked**\
+        # *   **OperationLock**\
+        # *   **Unactivated**\
         self.business_status = business_status
         # The billing method of the EIP. Valid values:
         # 
@@ -40256,13 +40326,13 @@ class DescribeFlowLogsRequestTags(TeaModel):
         key: str = None,
         value: str = None,
     ):
-        # The key of tag N to add to the resource. You can specify at most 20 tag keys. The tag key cannot be an empty string.
+        # The key of the tag. Up to 20 tag keys are supported. If you need to pass this value, it cannot be an empty string.
         # 
-        # The tag key can be at most 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
+        # A tag key can have up to 128 characters and cannot start with `aliyun` or `acs:`. It also cannot contain `http://` or `https://`.
         self.key = key
-        # The value of tag N to add to the resource. You can specify at most 20 tag values. The tag value can be an empty string.
+        # The value of the tag. Up to 20 tag values are supported. If you need to pass this value, it can be an empty string.
         # 
-        # The tag value can be up to 128 characters in length and cannot start with `acs:` or `aliyun`. The tag value cannot contain `http://` or `https://`.
+        # A tag value can have up to 128 characters and cannot start with `aliyun` or `acs:`. It also cannot contain `http://` or `https://`.
         self.value = value
 
     def validate(self):
@@ -40314,57 +40384,54 @@ class DescribeFlowLogsRequest(TeaModel):
     ):
         # The description of the flow log.
         # 
-        # The description must be 1 to 256 characters in length, and cannot start with `http://` or `https://`.
+        # The description must be 1 to 256 characters long and cannot start with `http://` or `https://`.
         self.description = description
         # The ID of the flow log.
         self.flow_log_id = flow_log_id
         # The name of the flow log.
         # 
-        # The name must be 1 to 128 characters in length, and cannot start with `http://` or `https://`.
+        # The name must be 1 to 128 characters long and cannot start with `http://` or `https://`.
         self.flow_log_name = flow_log_name
-        # The Logstore that stores the captured traffic data.
+        # The Logstore that stores the captured traffic.
         self.log_store_name = log_store_name
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The number of the page to return. Default value: **1**.
+        # The page number, with a default value of **1**.
         self.page_number = page_number
-        # The number of entries to return on each page. Maximum value: **50**. Default value: **20**.
+        # The number of items per page in a paginated query, with a maximum value of **50** and a default value of **20**.
         self.page_size = page_size
-        # The project that manages the captured traffic data.
+        # The Project that manages the captured traffic.
         self.project_name = project_name
         # The region ID of the flow log.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the most recent region list.
+        # You can obtain the region ID by calling the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) interface.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the resource group to which the flow log belongs.
+        # The resource group ID of the flow log.
         self.resource_group_id = resource_group_id
-        # The ID of the resource from which traffic is captured.
+        # The resource ID of the traffic to capture.
         self.resource_id = resource_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The type of resource from which traffic is captured. Valid values:
-        # 
-        # *   **NetworkInterface**: elastic network interface (ENI)
-        # *   **VSwitch**: all ENIs in a vSwitch
-        # *   **VPC**: all ENIs in a virtual private cloud (VPC)
+        # The resource type of the traffic to capture. Values:
+        # - **NetworkInterface**: Elastic Network Interface (ENI).
+        # - **VSwitch**: All ENIs within a VSwitch.
+        # - **VPC**: All ENIs within a VPC.
         self.resource_type = resource_type
-        # The status of the flow log. Valid values:
-        # 
-        # *   **Active**\
-        # *   **Activating**\
-        # *   **Inactive**\
+        # The status of the flow log. Values:
+        # - **Active**: The flow log is in an active state.
+        # - **Activating**: The flow log is being created.
+        # - **Inactive**: The flow log is in an inactive state.
         self.status = status
         # The list of tags.
         self.tags = tags
-        # The type of traffic that is captured. Valid values:
-        # 
-        # *   **All**: all traffic
-        # *   **Allow**: traffic that is allowed by access control
-        # *   **Drop**: traffic that is denied by access control
+        # The type of traffic to collect. Values:
+        # - **All**: All traffic.
+        # - **Allow**: Traffic allowed by access control.
+        # - **Drop**: Traffic denied by access control.
         self.traffic_type = traffic_type
-        # The ID of the VPC to which the flow log belongs.
+        # The ID of the VPC for which you want to view the flow log.
         self.vpc_id = vpc_id
 
     def validate(self):
@@ -40473,9 +40540,9 @@ class DescribeFlowLogsResponseBodyFlowLogsFlowLogTagsTag(TeaModel):
         key: str = None,
         value: str = None,
     ):
-        # The key of tag N.
+        # Tag key.
         self.key = key
-        # The value of tag N.
+        # Tag value.
         self.value = value
 
     def validate(self):
@@ -40590,73 +40657,70 @@ class DescribeFlowLogsResponseBodyFlowLogsFlowLog(TeaModel):
     ):
         # The sampling interval of the flow log. Unit: minutes.
         self.aggregation_interval = aggregation_interval
-        # The business status of the flow log. Valid values:
+        # The business status. Values:
         # 
-        # *   **Normal**\
-        # *   **FinancialLocked**\
+        # - **Normal**: Normal status.
+        # - **FinancialLocked**: Locked due to unpaid bills.
         self.business_status = business_status
-        # The time when the flow log was created.
+        # The creation time of the flow log.
         self.creation_time = creation_time
         # The description of the flow log.
         self.description = description
-        # If the flow log failed to be delivered, you can troubleshoot based on the following error messages that may be returned:
-        # 
-        # *   **UnavaliableTarget**: The Logstore of SLS is unavailable and cannot receive logs. Check whether the Logstore is available.
-        # *   **ProjectNotExist**: The project of SLS does not exist. We recommend that you delete the project and create a new one.
-        # *   **UnknownError**: An internal error occurred. Try again later.
+        # When log delivery fails, you can troubleshoot based on the error messages. Possible error messages include:
+        # - **UnavaliableTarget**: The Logstore of the Log Service SLS is unavailable and cannot receive logs. It is recommended to check if the corresponding Logstore actually exists and is accessible. 
+        # - **ProjectNotExist**: The Project of the Log Service SLS does not exist. It is suggested to delete the original flow log and create a new one pointing to an existing Project. 
+        # - **UnknownError**: An internal error has occurred. Please try again later.
         self.flow_log_deliver_error_message = flow_log_deliver_error_message
-        # Indicates whether the flow log is delivered. Valid values:
-        # - **SUCCESS**\
-        # - **FAILED**\
+        # The delivery status of the flow log, with values:
+        # - **SUCCESS**: Delivery succeeded. 
+        # - **FAILED**: Delivery failed.
         self.flow_log_deliver_status = flow_log_deliver_status
         # The ID of the flow log.
         self.flow_log_id = flow_log_id
         # The name of the flow log.
         self.flow_log_name = flow_log_name
+        # The type of IP address for collecting flow log traffic.
         self.ip_version = ip_version
-        # The Logstore that stores the captured traffic data.
+        # The Logstore where the captured traffic is stored.
         self.log_store_name = log_store_name
-        # The project that manages the captured traffic data.
+        # The Project that manages the captured traffic.
         self.project_name = project_name
-        # The region ID of the flow log.
+        # The region ID to which the flow log belongs.
         self.region_id = region_id
         # The ID of the resource group to which the flow log belongs.
         self.resource_group_id = resource_group_id
-        # The ID of the resource from which traffic is captured.
+        # The resource ID of the traffic captured by the flow log.
         self.resource_id = resource_id
-        # The type of the resource from which traffic is captured. Valid values:
+        # The resource type of the traffic captured by the flow log:
         # 
-        # *   **NetworkInterface**: ENI
-        # *   **VSwitch**: all ENIs in a vSwitch
-        # *   **VPC**: all ENIs in a VPC
+        # - **NetworkInterface**: Elastic network interface.
+        # - **VSwitch**: All elastic network interfaces within a VSwitch.
+        # - **VPC**: All elastic network interfaces within a VPC.
         self.resource_type = resource_type
         # The hosting type of the cloud service.
-        # 
-        # *   This parameter can be empty, which indicates that the flow log is created by the user.
-        # *   If this parameter is not empty, the value is set to **sls**. The value sls indicates that the flow log is created in the Simple Log Service (SLS) console.
-        # 
-        # > A flow log that is created in the SLS console can be displayed in the VPC list. However, you cannot modify, start, stop, or delete the flow log in the VPC console. If you want to manage the flow log, you can log on to the [SLS console](https://sls.console.aliyun.com) and perform required operations.
+        # - It can be empty, indicating that the flow log was created by the user. 
+        # - When not empty, the only supported value is: **sls**, indicating that the flow log was created through the Log Service console.
+        # > Flow log instances created through the Log Service console can be displayed in the VPC list, but they cannot be modified, started, stopped, or deleted within the VPC. If you need to perform these operations on the flow log, you can log in to the [Log Service console](https://sls.console.aliyun.com) to modify, start, stop, or delete it.
         self.service_type = service_type
-        # The status of the flow log. Valid values:
+        # The status of the flow log. Values:
+        # - **Active**: The flow log is in an active state.
         # 
-        # *   **Active**\
-        # *   **Activating**\
-        # *   **Inactive**\
+        # - **Activating**: The flow log is being created.
+        # 
+        # - **Inactive**: The flow log is in an inactive state.
         self.status = status
-        # The list of tags.
+        # List of tags
         self.tags = tags
-        # The sampling scope of the traffic that is collected. Valid values:
+        # The path of the captured traffic. Values:
         # 
-        # *   **all** (default value): all traffic
-        # *   **internetGateway**: Internet traffic
-        # 
-        # > By default, the traffic path feature is unavailable. To use this feature, [submit a ticket](https://workorder-intl.console.aliyun.com/?spm=5176.11182188.console-base-top.dworkorder.18ae4882n3v6ZW#/ticket/createIndex).
+        # - **all**: Indicates full collection.
+        # - **internetGateway**: Indicates public network traffic collection.
         self.traffic_path = traffic_path
-        # The type of traffic that is captured by the flow log. Valid values:
+        # The type of traffic captured by the flow log. Values:
         # 
-        # *   **All**: all traffic
-        # *   **Allow**: traffic that is allowed by access control
-        # *   **Drop**: traffic that is denied by access control
+        # - **All**: All traffic.
+        # - **Allow**: Traffic allowed by access control.
+        # - **Drop**: Traffic denied by access control.
         self.traffic_type = traffic_type
 
     def validate(self):
@@ -40805,20 +40869,19 @@ class DescribeFlowLogsResponseBody(TeaModel):
         success: str = None,
         total_count: str = None,
     ):
-        # The information about the flow logs.
+        # List of flow logs.
         self.flow_logs = flow_logs
-        # The number of the returned page.
+        # The page number.
         self.page_number = page_number
-        # The number of entries per page.
+        # The number of items per page in a paginated query.
         self.page_size = page_size
         # The request ID.
         self.request_id = request_id
-        # Indicates whether the operation is successful. Valid values:
-        # 
-        # *   **true**\
-        # *   **false**\
+        # Indicates whether the call was successful. Values:
+        # - **true**: The call was successful.
+        # - **false**: The call failed.
         self.success = success
-        # The number of flow logs that are queried.
+        # The number of entries in the queried flow log list.
         self.total_count = total_count
 
     def validate(self):
@@ -46997,6 +47060,68 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists(TeaModel):
         return self
 
 
+class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixListIpPrefixList(TeaModel):
+    def __init__(
+        self,
+        ip_prefix: str = None,
+    ):
+        self.ip_prefix = ip_prefix
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.ip_prefix is not None:
+            result['IpPrefix'] = self.ip_prefix
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('IpPrefix') is not None:
+            self.ip_prefix = m.get('IpPrefix')
+        return self
+
+
+class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList(TeaModel):
+    def __init__(
+        self,
+        ip_prefix_list: List[DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixListIpPrefixList] = None,
+    ):
+        self.ip_prefix_list = ip_prefix_list
+
+    def validate(self):
+        if self.ip_prefix_list:
+            for k in self.ip_prefix_list:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['IpPrefixList'] = []
+        if self.ip_prefix_list is not None:
+            for k in self.ip_prefix_list:
+                result['IpPrefixList'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.ip_prefix_list = []
+        if m.get('IpPrefixList') is not None:
+            for k in m.get('IpPrefixList'):
+                temp_model = DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixListIpPrefixList()
+                self.ip_prefix_list.append(temp_model.from_map(k))
+        return self
+
+
 class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo(TeaModel):
     def __init__(
         self,
@@ -47193,6 +47318,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(TeaModel):
         instance_charge_type: str = None,
         internet_charge_type: str = None,
         ip_lists: DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists = None,
+        ip_prefix_list: DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList = None,
         name: str = None,
         nat_gateway_id: str = None,
         nat_gateway_private_info: DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo = None,
@@ -47262,6 +47388,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(TeaModel):
         self.internet_charge_type = internet_charge_type
         # The list of elastic IP addresses (EIPs) that are associated with the Internet NAT gateway.
         self.ip_lists = ip_lists
+        self.ip_prefix_list = ip_prefix_list
         # The name of the NAT gateway.
         self.name = name
         # The ID of the NAT gateway.
@@ -47324,6 +47451,8 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(TeaModel):
             self.full_nat_table_ids.validate()
         if self.ip_lists:
             self.ip_lists.validate()
+        if self.ip_prefix_list:
+            self.ip_prefix_list.validate()
         if self.nat_gateway_private_info:
             self.nat_gateway_private_info.validate()
         if self.snat_table_ids:
@@ -47369,6 +47498,8 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(TeaModel):
             result['InternetChargeType'] = self.internet_charge_type
         if self.ip_lists is not None:
             result['IpLists'] = self.ip_lists.to_map()
+        if self.ip_prefix_list is not None:
+            result['IpPrefixList'] = self.ip_prefix_list.to_map()
         if self.name is not None:
             result['Name'] = self.name
         if self.nat_gateway_id is not None:
@@ -47439,6 +47570,9 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(TeaModel):
         if m.get('IpLists') is not None:
             temp_model = DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists()
             self.ip_lists = temp_model.from_map(m['IpLists'])
+        if m.get('IpPrefixList') is not None:
+            temp_model = DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList()
+            self.ip_prefix_list = temp_model.from_map(m['IpPrefixList'])
         if m.get('Name') is not None:
             self.name = m.get('Name')
         if m.get('NatGatewayId') is not None:
@@ -56365,6 +56499,7 @@ class DescribeTagsRequest(TeaModel):
         # 
         # This parameter is required.
         self.region_id = region_id
+        # The resource IDs.
         self.resource_id = resource_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
@@ -56378,6 +56513,7 @@ class DescribeTagsRequest(TeaModel):
         # *   **NATGATEWAY**: NAT gateway
         # *   **COMMONBANDWIDTHPACKAGE**: EIP bandwidth plan
         self.resource_type = resource_type
+        # The tags.
         self.tag = tag
 
     def validate(self):
@@ -56723,7 +56859,7 @@ class DescribeVRoutersResponseBodyVRoutersVRouter(TeaModel):
         self.description = description
         # The region to which the vRouter belongs.
         self.region_id = region_id
-        # The ID of the route table in the vRouter.
+        # The IDs of the route tables.
         self.route_table_ids = route_table_ids
         # The ID of the vRouter.
         self.vrouter_id = vrouter_id
@@ -60885,6 +61021,304 @@ class DescribeVpcAttributeResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = DescribeVpcAttributeResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class DescribeVpcGrantRulesToEcrRequestTags(TeaModel):
+    def __init__(
+        self,
+        key: str = None,
+        value: str = None,
+    ):
+        self.key = key
+        self.value = value
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.key is not None:
+            result['Key'] = self.key
+        if self.value is not None:
+            result['Value'] = self.value
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('Key') is not None:
+            self.key = m.get('Key')
+        if m.get('Value') is not None:
+            self.value = m.get('Value')
+        return self
+
+
+class DescribeVpcGrantRulesToEcrRequest(TeaModel):
+    def __init__(
+        self,
+        ecr_instance_id: str = None,
+        ecr_owner_id: int = None,
+        instance_id: str = None,
+        instance_type: str = None,
+        max_results: int = None,
+        next_token: str = None,
+        owner_account: str = None,
+        owner_id: int = None,
+        region_id: str = None,
+        resource_group_id: str = None,
+        resource_owner_account: str = None,
+        resource_owner_id: int = None,
+        tags: List[DescribeVpcGrantRulesToEcrRequestTags] = None,
+    ):
+        self.ecr_instance_id = ecr_instance_id
+        self.ecr_owner_id = ecr_owner_id
+        self.instance_id = instance_id
+        self.instance_type = instance_type
+        self.max_results = max_results
+        self.next_token = next_token
+        self.owner_account = owner_account
+        self.owner_id = owner_id
+        # This parameter is required.
+        self.region_id = region_id
+        self.resource_group_id = resource_group_id
+        self.resource_owner_account = resource_owner_account
+        self.resource_owner_id = resource_owner_id
+        self.tags = tags
+
+    def validate(self):
+        if self.tags:
+            for k in self.tags:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.ecr_instance_id is not None:
+            result['EcrInstanceId'] = self.ecr_instance_id
+        if self.ecr_owner_id is not None:
+            result['EcrOwnerId'] = self.ecr_owner_id
+        if self.instance_id is not None:
+            result['InstanceId'] = self.instance_id
+        if self.instance_type is not None:
+            result['InstanceType'] = self.instance_type
+        if self.max_results is not None:
+            result['MaxResults'] = self.max_results
+        if self.next_token is not None:
+            result['NextToken'] = self.next_token
+        if self.owner_account is not None:
+            result['OwnerAccount'] = self.owner_account
+        if self.owner_id is not None:
+            result['OwnerId'] = self.owner_id
+        if self.region_id is not None:
+            result['RegionId'] = self.region_id
+        if self.resource_group_id is not None:
+            result['ResourceGroupId'] = self.resource_group_id
+        if self.resource_owner_account is not None:
+            result['ResourceOwnerAccount'] = self.resource_owner_account
+        if self.resource_owner_id is not None:
+            result['ResourceOwnerId'] = self.resource_owner_id
+        result['Tags'] = []
+        if self.tags is not None:
+            for k in self.tags:
+                result['Tags'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('EcrInstanceId') is not None:
+            self.ecr_instance_id = m.get('EcrInstanceId')
+        if m.get('EcrOwnerId') is not None:
+            self.ecr_owner_id = m.get('EcrOwnerId')
+        if m.get('InstanceId') is not None:
+            self.instance_id = m.get('InstanceId')
+        if m.get('InstanceType') is not None:
+            self.instance_type = m.get('InstanceType')
+        if m.get('MaxResults') is not None:
+            self.max_results = m.get('MaxResults')
+        if m.get('NextToken') is not None:
+            self.next_token = m.get('NextToken')
+        if m.get('OwnerAccount') is not None:
+            self.owner_account = m.get('OwnerAccount')
+        if m.get('OwnerId') is not None:
+            self.owner_id = m.get('OwnerId')
+        if m.get('RegionId') is not None:
+            self.region_id = m.get('RegionId')
+        if m.get('ResourceGroupId') is not None:
+            self.resource_group_id = m.get('ResourceGroupId')
+        if m.get('ResourceOwnerAccount') is not None:
+            self.resource_owner_account = m.get('ResourceOwnerAccount')
+        if m.get('ResourceOwnerId') is not None:
+            self.resource_owner_id = m.get('ResourceOwnerId')
+        self.tags = []
+        if m.get('Tags') is not None:
+            for k in m.get('Tags'):
+                temp_model = DescribeVpcGrantRulesToEcrRequestTags()
+                self.tags.append(temp_model.from_map(k))
+        return self
+
+
+class DescribeVpcGrantRulesToEcrResponseBodyGrantRuleModels(TeaModel):
+    def __init__(
+        self,
+        creation_time: str = None,
+        ecr_id: str = None,
+        ecr_owner_id: int = None,
+        instance_id: str = None,
+        instance_uid: int = None,
+        region_no: str = None,
+        type: str = None,
+    ):
+        self.creation_time = creation_time
+        self.ecr_id = ecr_id
+        self.ecr_owner_id = ecr_owner_id
+        self.instance_id = instance_id
+        self.instance_uid = instance_uid
+        self.region_no = region_no
+        self.type = type
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.creation_time is not None:
+            result['CreationTime'] = self.creation_time
+        if self.ecr_id is not None:
+            result['EcrId'] = self.ecr_id
+        if self.ecr_owner_id is not None:
+            result['EcrOwnerId'] = self.ecr_owner_id
+        if self.instance_id is not None:
+            result['InstanceId'] = self.instance_id
+        if self.instance_uid is not None:
+            result['InstanceUid'] = self.instance_uid
+        if self.region_no is not None:
+            result['RegionNo'] = self.region_no
+        if self.type is not None:
+            result['Type'] = self.type
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('CreationTime') is not None:
+            self.creation_time = m.get('CreationTime')
+        if m.get('EcrId') is not None:
+            self.ecr_id = m.get('EcrId')
+        if m.get('EcrOwnerId') is not None:
+            self.ecr_owner_id = m.get('EcrOwnerId')
+        if m.get('InstanceId') is not None:
+            self.instance_id = m.get('InstanceId')
+        if m.get('InstanceUid') is not None:
+            self.instance_uid = m.get('InstanceUid')
+        if m.get('RegionNo') is not None:
+            self.region_no = m.get('RegionNo')
+        if m.get('Type') is not None:
+            self.type = m.get('Type')
+        return self
+
+
+class DescribeVpcGrantRulesToEcrResponseBody(TeaModel):
+    def __init__(
+        self,
+        grant_rule_models: List[DescribeVpcGrantRulesToEcrResponseBodyGrantRuleModels] = None,
+        next_token: str = None,
+        request_id: str = None,
+        total_count: str = None,
+    ):
+        self.grant_rule_models = grant_rule_models
+        self.next_token = next_token
+        self.request_id = request_id
+        self.total_count = total_count
+
+    def validate(self):
+        if self.grant_rule_models:
+            for k in self.grant_rule_models:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['GrantRuleModels'] = []
+        if self.grant_rule_models is not None:
+            for k in self.grant_rule_models:
+                result['GrantRuleModels'].append(k.to_map() if k else None)
+        if self.next_token is not None:
+            result['NextToken'] = self.next_token
+        if self.request_id is not None:
+            result['RequestId'] = self.request_id
+        if self.total_count is not None:
+            result['TotalCount'] = self.total_count
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.grant_rule_models = []
+        if m.get('GrantRuleModels') is not None:
+            for k in m.get('GrantRuleModels'):
+                temp_model = DescribeVpcGrantRulesToEcrResponseBodyGrantRuleModels()
+                self.grant_rule_models.append(temp_model.from_map(k))
+        if m.get('NextToken') is not None:
+            self.next_token = m.get('NextToken')
+        if m.get('RequestId') is not None:
+            self.request_id = m.get('RequestId')
+        if m.get('TotalCount') is not None:
+            self.total_count = m.get('TotalCount')
+        return self
+
+
+class DescribeVpcGrantRulesToEcrResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: DescribeVpcGrantRulesToEcrResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = DescribeVpcGrantRulesToEcrResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -77692,6 +78126,7 @@ class ListNatIpsRequest(TeaModel):
 class ListNatIpsResponseBodyNatIps(TeaModel):
     def __init__(
         self,
+        ipv_4prefix: str = None,
         is_default: bool = None,
         nat_gateway_id: str = None,
         nat_ip: str = None,
@@ -77701,6 +78136,7 @@ class ListNatIpsResponseBodyNatIps(TeaModel):
         nat_ip_name: str = None,
         nat_ip_status: str = None,
     ):
+        self.ipv_4prefix = ipv_4prefix
         # Indicates whether the IP address is the default IP address of the NAT gateway. Valid values:
         # 
         # *   **true**: yes
@@ -77737,6 +78173,8 @@ class ListNatIpsResponseBodyNatIps(TeaModel):
             return _map
 
         result = dict()
+        if self.ipv_4prefix is not None:
+            result['Ipv4Prefix'] = self.ipv_4prefix
         if self.is_default is not None:
             result['IsDefault'] = self.is_default
         if self.nat_gateway_id is not None:
@@ -77757,6 +78195,8 @@ class ListNatIpsResponseBodyNatIps(TeaModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('Ipv4Prefix') is not None:
+            self.ipv_4prefix = m.get('Ipv4Prefix')
         if m.get('IsDefault') is not None:
             self.is_default = m.get('IsDefault')
         if m.get('NatGatewayId') is not None:

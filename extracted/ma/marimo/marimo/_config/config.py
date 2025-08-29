@@ -100,6 +100,7 @@ WidthType = Literal["normal", "compact", "medium", "full", "columns"]
 Theme = Literal["light", "dark", "system"]
 ExportType = Literal["html", "markdown", "ipynb"]
 SqlOutputType = Literal["polars", "lazy-polars", "pandas", "native", "auto"]
+StoreKey = Literal["file", "redis", "rest", "tiered"]
 
 
 @mddoc
@@ -299,6 +300,7 @@ class OpenAiConfig(TypedDict, total=False):
     - `ssl_verify` : Boolean argument for httpx passed to open ai client. httpx defaults to true, but some use cases to let users override to False in some testing scenarios
     - `ca_bundle_path`: custom ca bundle to be used for verifying SSL certificates. Used to create custom SSL context for httpx client
     - `client_pem` : custom path of a client .pem cert used for verifying identity of client server
+    - `extra_headers`: extra headers to be passed to the OpenAI client
     """
 
     api_key: str
@@ -306,6 +308,7 @@ class OpenAiConfig(TypedDict, total=False):
     ssl_verify: NotRequired[bool]
     ca_bundle_path: NotRequired[str]
     client_pem: NotRequired[str]
+    extra_headers: NotRequired[dict[str, str]]
 
     # @deprecated: use `ai.models.chat_model` instead
     model: NotRequired[str]
@@ -478,6 +481,43 @@ class SharingConfig(TypedDict):
     wasm: NotRequired[bool]
 
 
+@dataclass
+class StoreConfig(TypedDict, total=False):
+    """Configuration for cache stores."""
+
+    type: StoreKey
+    args: dict[str, Any]
+
+
+CacheConfig = Union[list[StoreConfig], StoreConfig]
+
+
+@dataclass
+class ExperimentalConfig(TypedDict, total=False):
+    """
+    Configuration for experimental features.
+
+    Features exposed on the frontend must match the frontend config.
+    """
+
+    markdown: bool  # Used in playground (community cloud)
+    inline_ai_tooltip: bool
+    wasm_layouts: bool  # Used in playground (community cloud)
+    rtc_v2: bool
+    performant_table_charts: bool
+    mcp_docs: bool
+    sql_linter: bool
+
+    # Internal features
+    cache: CacheConfig
+    execution_type: ExecutionType
+
+
+# Prefer to accept any dict since feature flags can change frequently
+# But maintain type safety for known flags
+ExperimentalConfigType = Union[dict[str, Any], ExperimentalConfig]
+
+
 @mddoc
 @dataclass
 class MarimoConfig(TypedDict):
@@ -494,7 +534,7 @@ class MarimoConfig(TypedDict):
     ai: NotRequired[AiConfig]
     language_servers: NotRequired[LanguageServersConfig]
     diagnostics: NotRequired[DiagnosticsConfig]
-    experimental: NotRequired[dict[str, Any]]
+    experimental: NotRequired[ExperimentalConfigType]
     snippets: NotRequired[SnippetsConfig]
     datasources: NotRequired[DatasourcesConfig]
     sharing: NotRequired[SharingConfig]
@@ -567,7 +607,7 @@ class PartialMarimoConfig(TypedDict, total=False):
     ai: NotRequired[AiConfig]
     language_servers: NotRequired[LanguageServersConfig]
     diagnostics: NotRequired[DiagnosticsConfig]
-    experimental: NotRequired[dict[str, Any]]
+    experimental: NotRequired[ExperimentalConfigType]
     snippets: SnippetsConfig
     datasources: NotRequired[DatasourcesConfig]
     sharing: NotRequired[SharingConfig]

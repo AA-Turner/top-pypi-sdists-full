@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.4
+Version: 0.52.5
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -289,8 +289,8 @@ Provides-Extra: huggingface
 Requires-Dist: huggingface-hub>=0.28.1; extra == 'huggingface'
 Provides-Extra: instructor
 Requires-Dist: google-genai>=1.5.0; extra == 'instructor'
+Requires-Dist: instructor<1.11.0,>=1.4.3; (python_version > '3.9') and extra == 'instructor'
 Requires-Dist: instructor<1.7.0,>=1.4.3; (python_version <= '3.9') and extra == 'instructor'
-Requires-Dist: instructor>=1.4.3; (python_version > '3.9') and extra == 'instructor'
 Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'instructor'
 Provides-Extra: langchain
 Requires-Dist: chromadb>=0.5.0; extra == 'langchain'
@@ -380,6 +380,7 @@ Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'test'
 Requires-Dist: pillow; extra == 'test'
 Requires-Dist: pytest-asyncio>=0.23.6; extra == 'test'
 Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
+Requires-Dist: pytest-memray~=1.8; extra == 'test'
 Requires-Dist: pytest-recording>=0.13.2; extra == 'test'
 Requires-Dist: pytest-rerunfailures>=12.0; extra == 'test'
 Requires-Dist: pytest-rerunfailures>=14.0; extra == 'test'

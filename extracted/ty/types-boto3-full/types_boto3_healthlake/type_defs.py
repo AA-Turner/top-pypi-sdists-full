@@ -26,6 +26,7 @@ from .literals import (
     DatastoreStatusType,
     ErrorCategoryType,
     JobStatusType,
+    ValidationLevelType,
 )
 
 if sys.version_info >= (3, 9):
@@ -48,10 +49,14 @@ __all__ = (
     "DeleteFHIRDatastoreRequestTypeDef",
     "DeleteFHIRDatastoreResponseTypeDef",
     "DescribeFHIRDatastoreRequestTypeDef",
+    "DescribeFHIRDatastoreRequestWaitExtraTypeDef",
+    "DescribeFHIRDatastoreRequestWaitTypeDef",
     "DescribeFHIRDatastoreResponseTypeDef",
     "DescribeFHIRExportJobRequestTypeDef",
+    "DescribeFHIRExportJobRequestWaitTypeDef",
     "DescribeFHIRExportJobResponseTypeDef",
     "DescribeFHIRImportJobRequestTypeDef",
+    "DescribeFHIRImportJobRequestWaitTypeDef",
     "DescribeFHIRImportJobResponseTypeDef",
     "ErrorCauseTypeDef",
     "ExportJobPropertiesTypeDef",
@@ -81,6 +86,7 @@ __all__ = (
     "TagTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 
@@ -122,6 +128,11 @@ class DeleteFHIRDatastoreRequestTypeDef(TypedDict):
 
 class DescribeFHIRDatastoreRequestTypeDef(TypedDict):
     DatastoreId: str
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
 
 
 class DescribeFHIRExportJobRequestTypeDef(TypedDict):
@@ -235,6 +246,28 @@ class ListFHIRImportJobsRequestTypeDef(TypedDict):
     SubmittedAfter: NotRequired[TimestampTypeDef]
 
 
+class DescribeFHIRDatastoreRequestWaitExtraTypeDef(TypedDict):
+    DatastoreId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeFHIRDatastoreRequestWaitTypeDef(TypedDict):
+    DatastoreId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeFHIRExportJobRequestWaitTypeDef(TypedDict):
+    DatastoreId: str
+    JobId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeFHIRImportJobRequestWaitTypeDef(TypedDict):
+    DatastoreId: str
+    JobId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class SseConfigurationTypeDef(TypedDict):
     KmsEncryptionConfig: KmsEncryptionConfigTypeDef
 
@@ -297,6 +330,7 @@ class ImportJobPropertiesTypeDef(TypedDict):
     JobProgressReport: NotRequired[JobProgressReportTypeDef]
     DataAccessRoleArn: NotRequired[str]
     Message: NotRequired[str]
+    ValidationLevel: NotRequired[ValidationLevelType]
 
 
 class StartFHIRExportJobRequestTypeDef(TypedDict):
@@ -314,6 +348,7 @@ class StartFHIRImportJobRequestTypeDef(TypedDict):
     DataAccessRoleArn: str
     JobName: NotRequired[str]
     ClientToken: NotRequired[str]
+    ValidationLevel: NotRequired[ValidationLevelType]
 
 
 class DescribeFHIRDatastoreResponseTypeDef(TypedDict):

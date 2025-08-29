@@ -13,8 +13,8 @@
 import datetime
 from copy import deepcopy
 from logging import getLogger
+from typing import IO, Any, Callable, Dict, List, Optional, Tuple
 
-from comet_ml._typing import IO, Any, Dict, List, Optional
 from comet_ml.cloud_storage_utils import (
     META_CHECKSUM,
     META_FILE_SIZE,
@@ -36,7 +36,7 @@ from comet_ml.validation.metadata_validator import validate_metadata
 LOGGER = getLogger(__name__)
 
 
-class GSFileObject(object):
+class GSFileObject:
     """Represents GCP GS file object"""
 
     __slots__ = (
@@ -52,16 +52,15 @@ class GSFileObject(object):
 
     def __init__(
         self,
-        key,
-        bucket,
-        size,
-        modified,
-        content_type,
-        etag,
-        version_id,
-        public_url=None,
-    ):
-        # type: (str, str, int, datetime.datetime, str, str, str, Optional[str]) -> None
+        key: str,
+        bucket: str,
+        size: int,
+        modified: datetime.datetime,
+        content_type: str,
+        etag: str,
+        version_id: str,
+        public_url: Optional[str] = None,
+    ) -> None:
         """Creates GCP GS object with given parameters"""
         self.key = key
         self.bucket = bucket
@@ -72,12 +71,11 @@ class GSFileObject(object):
         self.version_id = version_id
         self.public_url = public_url
 
-    def is_folder(self):
-        # type: () -> bool
+    def is_folder(self) -> bool:
         """Checks if this object represents GS folder."""
         return self.key.endswith("/")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "GS object -> key: '%s', bucket: '%s', modified: %s, size: %d, ETag: %s, "
             "content type: %s, version ID: %s, public url: %s"
@@ -150,14 +148,14 @@ def preprocess_remote_gs_assets(
 
 
 def _preprocess_gs_asset_object(
-    gs_object,  # type: GSFileObject
-    object_prefix,  # type: str
-    logical_path,  # type: Optional[str]
-    overwrite,  # type: bool
-    upload_type,  # type: Optional[str]
-    metadata,  # type: Optional[Dict[Any, Any]]
-    step,  # type: int
-):
+    gs_object: GSFileObject,
+    object_prefix: str,
+    logical_path: Optional[str],
+    overwrite: bool,
+    upload_type: Optional[str],
+    metadata: Optional[Dict[Any, Any]],
+    step: int,
+) -> PreprocessedRemoteAsset:
     asset_id = generate_guid()
     logical_path = _create_cloud_storage_obj_logical_path(
         uri_path=gs_object.key, uri_path_folder=object_prefix, path_prefix=logical_path
@@ -178,9 +176,12 @@ def _preprocess_gs_asset_object(
 
 
 def _list_blobs_with_prefix(
-    storage_client, bucket_name, prefix=None, delimiter=None, max_keys=10000
-):
-    # type: (Any, str, Optional[str], Optional[str], int) -> (List[GSFileObject], bool)
+    storage_client: Any,
+    bucket_name: str,
+    prefix: Optional[str] = None,
+    delimiter: Optional[str] = None,
+    max_keys: int = 10000,
+) -> Tuple[Optional[List[GSFileObject]], bool]:
     """Lists all the blobs in the bucket that begin with the prefix.
     This can be used to list all blobs in a "folder", e.g. "public/".
     The delimiter argument can be used to restrict the results to only the
@@ -227,8 +228,12 @@ def _list_blobs_with_prefix(
     return blob_objects, False
 
 
-def _get_gcp_object(storage_client, bucket_name, blob_name, version_id=None):
-    # type: (Any, str, str, Optional[str]) -> GSFileObject
+def _get_gcp_object(
+    storage_client: Any,
+    bucket_name: str,
+    blob_name: str,
+    version_id: Optional[str] = None,
+) -> GSFileObject:
     bucket = storage_client.bucket(bucket_name)
     # Retrieve a blob, and its metadata, from Google Cloud Storage.
     if version_id is not None:
@@ -251,19 +256,25 @@ def _get_gcp_object(storage_client, bucket_name, blob_name, version_id=None):
     )
 
 
-def download_gs_file(gs_uri, file_object, callback, version_id=None):
-    # type: (str, IO[bytes], Any, Optional[str]) -> None
+def download_gs_file(
+    gs_uri: str,
+    file_object: IO[bytes],
+    callback: Optional[Callable[[int], None]],
+    version_id: Optional[str] = None,
+) -> None:
     """Downloads the GS object into provided file_object with optional version_id. The callback will be notified
-    after download completed with the size of downloaded object."""
+    after download completed with the size of a downloaded object."""
     size = _download_gs_file(
         gs_uri=gs_uri, file_object=file_object, version_id=version_id
     )
     # notify callback after download finishes - there is no way to get intermediate download results from GCP library
-    callback(size)
+    if callback is not None:
+        callback(size)
 
 
-def _download_gs_file(gs_uri, file_object, version_id=None):
-    # type: (str, IO[bytes], Optional[str]) -> int
+def _download_gs_file(
+    gs_uri: str, file_object: IO[bytes], version_id: Optional[str] = None
+) -> int:
     """Downloads the GS object into provided file_object with optional version_id"""
     try:
         from google.cloud import storage
@@ -295,8 +306,9 @@ def _download_gs_file(gs_uri, file_object, version_id=None):
     return blob.size
 
 
-def _fill_gs_asset_object_metadata(gs_object, orig_metadata):
-    # type: (GSFileObject, Dict[Any, Any]) -> Dict[Any, Any]
+def _fill_gs_asset_object_metadata(
+    gs_object: GSFileObject, orig_metadata: Dict[str, Any]
+) -> Dict[str, Any]:
     if orig_metadata is not None:
         metadata = deepcopy(orig_metadata)
     else:
@@ -312,6 +324,5 @@ def _fill_gs_asset_object_metadata(gs_object, orig_metadata):
     return metadata
 
 
-def _create_gs_path(bucket, key):
-    # type: (str, str) -> str
+def _create_gs_path(bucket: str, key: str) -> str:
     return "gs://%s/%s" % (bucket, key)

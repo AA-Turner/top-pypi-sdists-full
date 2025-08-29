@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Set, Tuple, Type, Union
+from typing import Any, Dict, Literal, Mapping, Set, Tuple, Type, Union
 
 __all__ = ["decode", "DecodeError"]
 
@@ -111,27 +111,55 @@ def decode(
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
     idx = _decode_type(s, doc_dec, doc_enc, idx, spec)
-    idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "p", spec, fields)
+    field = "p"
+    idx = _decode_bitmap(
+        s,
+        doc_dec,
+        doc_enc,
+        idx,
+        field,
+        spec[field],
+        0,
+        False,
+        fields,
+    )
 
-    # No need to produce secondary bitmap if it's not required
     if 1 in fields:
-        idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, fields)
+        field = "1"
+        idx = _decode_bitmap(
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            field,
+            spec[field],
+            64,
+            False,
+            fields,
+        )
+        fields.remove(1)
 
-    # `field_key` can be used to throw an exception after the loop.
-    # So, create it here in case the `fields` set is empty
-    # and never enters the loop to create the variable.
-    # Set `field_key` to the last mandatory one: primary bitmap.
-    field_key = "p"
+    if 65 in fields:
+        # Secondary bitmap is extended to contain tertiary fields
+        idx = _decode_bitmap(
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            field,
+            spec[field],
+            128,
+            True,
+            fields,
+        )
+        fields.remove(65)
 
-    for field_key in [str(i) for i in sorted(fields)]:
-        # Secondary bitmap is already decoded
-        if field_key == "1":
-            continue
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
+    for field in [str(i) for i in sorted(fields)]:
+        idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
 
     if idx != len(s):
         raise DecodeError(
-            "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
+            "Extra data after last field", s, doc_dec, doc_enc, idx, field
         )
 
     return doc_dec, doc_enc
@@ -225,12 +253,13 @@ def _decode_type(
     else:
         expected_field_len = 4
 
+    encoded_field_data = s[idx : idx + expected_field_len]
     doc_dec["t"] = ""
-    doc_enc["t"] = {"len": b"", "data": bytes(s[idx : idx + expected_field_len])}
+    doc_enc["t"] = {"len": b"", "data": bytes(encoded_field_data)}
 
-    if len(s[idx : idx + expected_field_len]) != expected_field_len:
+    if len(encoded_field_data) != expected_field_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + expected_field_len])} bytes, expecting {expected_field_len}",
+            f"Field data is {len(encoded_field_data)} bytes, expecting {expected_field_len}",
             s,
             doc_dec,
             doc_enc,
@@ -239,11 +268,11 @@ def _decode_type(
         )
 
     if spec["t"]["data_enc"] == "b":
-        doc_dec["t"] = s[idx : idx + expected_field_len].hex().upper()
+        doc_dec["t"] = encoded_field_data.hex().upper()
     else:
-        _decode_text_data(
+        doc_dec["t"] = _decode_text_data(
             s,
-            s[idx : idx + expected_field_len],
+            encoded_field_data,
             idx,
             doc_dec,
             doc_enc,
@@ -260,7 +289,9 @@ def _decode_bitmap(
     doc_enc: EncodedDict,
     idx: int,
     field_key: str,
-    spec: SpecDict,
+    field_spec: _FieldSpecDict,
+    field_offset: Literal[0, 64, 128],
+    is_extended: bool,
     fields: Set[int],
 ) -> int:
     r"""Decode ISO8583 a bitmap.
@@ -275,11 +306,15 @@ def _decode_bitmap(
         Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
-    spec : dict
-        A Python dict defining ISO8583 specification.
-        See :mod:`iso8583.specs` module for examples.
     field_key : str
         Field ID to be decoded
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
+        See :mod:`iso8583.specs` module for examples.
+    field_offset : int
+        Offset by which to adjust fields from 1-64 range.
+    is_extended : bool
+        If true then processing an extension of an already processed bitmap
     fields: set
         Will be populated with enabled field numbers
 
@@ -295,19 +330,24 @@ def _decode_bitmap(
     """
 
     # Primary/Secondary bitmap is a set length in ISO8583
-    if spec[field_key]["data_enc"] == "b":
+    if field_spec["data_enc"] == "b":
         expected_field_len = 8
     else:
         expected_field_len = 16
 
-    offset = 0 if field_key == "p" else 64
+    encoded_field_data = s[idx : idx + expected_field_len]
 
-    doc_dec[field_key] = ""
-    doc_enc[field_key] = {"len": b"", "data": bytes(s[idx : idx + expected_field_len])}
+    if is_extended:
+        doc_enc[field_key]["data"] = doc_enc[field_key]["data"] + bytes(
+            encoded_field_data
+        )
+    else:
+        doc_dec[field_key] = ""
+        doc_enc[field_key] = {"len": b"", "data": bytes(encoded_field_data)}
 
-    if len(s[idx : idx + expected_field_len]) != expected_field_len:
+    if len(encoded_field_data) != expected_field_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + expected_field_len])} bytes, expecting {expected_field_len}",
+            f"Field data is {len(doc_enc[field_key]['data'])} bytes, expecting {expected_field_len * 2 if is_extended else expected_field_len}",
             s,
             doc_dec,
             doc_enc,
@@ -315,22 +355,32 @@ def _decode_bitmap(
             field_key,
         )
 
-    if spec[field_key]["data_enc"] == "b":
-        doc_dec[field_key] = s[idx : idx + expected_field_len].hex().upper()
-        bitmap = s[idx : idx + expected_field_len]
+    if field_spec["data_enc"] == "b":
+        decoded_field_data = encoded_field_data.hex().upper()
+        doc_dec[field_key] = (
+            doc_dec[field_key] + decoded_field_data
+            if is_extended
+            else decoded_field_data
+        )
+        bitmap = encoded_field_data
     else:
-        _decode_text_data(
+        decoded_field_data = _decode_text_data(
             s,
-            s[idx : idx + expected_field_len],
+            encoded_field_data,
             idx,
             doc_dec,
             doc_enc,
             field_key,
-            spec[field_key],
+            field_spec,
+        )
+        doc_dec[field_key] = (
+            doc_dec[field_key] + decoded_field_data
+            if is_extended
+            else decoded_field_data
         )
 
         try:
-            bitmap = bytes.fromhex(doc_dec[field_key])
+            bitmap = bytes.fromhex(decoded_field_data)
         except Exception:
             raise DecodeError(
                 "Failed to decode field, non-hex data",
@@ -343,7 +393,7 @@ def _decode_bitmap(
 
     fields.update(
         [
-            offset + byte_idx * 8 + bit
+            field_offset + byte_idx * 8 + bit
             for bit in range(1, 9)
             for byte_idx, byte in enumerate(bitmap)
             if byte >> (8 - bit) & 1
@@ -535,7 +585,7 @@ def _decode_field(
                 enc_field_len,
             )
     else:
-        _decode_text_data(
+        doc_dec[field_key] = _decode_text_data(
             s,
             doc_enc[field_key]["data"],
             idx,
@@ -613,7 +663,7 @@ def _decode_text_data(
     doc_enc: EncodedDict,
     field_key: str,
     field_spec: _FieldSpecDict,
-) -> None:
+) -> str:
     r"""Decode non-binary field and handle errors if any
 
     Parameters
@@ -636,13 +686,18 @@ def _decode_text_data(
     enc_field_len : int
         Number of nibbles expected in the field
 
+    Returns
+    -------
+    str
+        Decoded ISO8583 field data
+
     Raises
     ------
     DecodeError
         An error decoding ISO8583 bytearray.
     """
     try:
-        doc_dec[field_key] = data.decode(field_spec["data_enc"])
+        return data.decode(field_spec["data_enc"])
     except LookupError:
         raise DecodeError(
             "Failed to decode field, unknown encoding specified",

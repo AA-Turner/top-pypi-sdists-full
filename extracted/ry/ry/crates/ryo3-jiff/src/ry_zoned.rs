@@ -21,7 +21,7 @@ use jiff::{Zoned, ZonedDifference, ZonedRound};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::{PyTuple, PyType};
+use pyo3::types::PyTuple;
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::str::FromStr;
@@ -81,9 +81,9 @@ impl RyZoned {
         )
     }
 
-    #[classmethod]
+    #[staticmethod]
     #[pyo3(signature = (tz=None))]
-    fn now(_cls: &Bound<'_, PyType>, tz: Option<&str>) -> PyResult<Self> {
+    fn now(tz: Option<&str>) -> PyResult<Self> {
         if let Some(tz) = tz {
             Zoned::now()
                 .in_tz(tz)
@@ -94,44 +94,48 @@ impl RyZoned {
         }
     }
 
-    #[classmethod]
-    fn utcnow(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+    #[staticmethod]
+    fn utcnow() -> PyResult<Self> {
         Zoned::now()
             .in_tz("UTC")
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    #[classmethod]
+    #[staticmethod]
     #[pyo3(signature = (timestamp, time_zone))]
-    fn from_parts(
-        _cls: &Bound<'_, PyType>,
-        timestamp: &RyTimestamp,
-        time_zone: &RyTimeZone,
-    ) -> Self {
+    fn from_parts(timestamp: &RyTimestamp, time_zone: &RyTimeZone) -> Self {
         let ts = timestamp.0;
         Self::from(Zoned::new(ts, time_zone.into()))
     }
 
-    #[classmethod]
-    fn from_str(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
         Zoned::from_str(s).map(Self::from).map_err(map_py_value_err)
     }
 
-    #[classmethod]
-    fn parse(cls: &Bound<'_, PyType>, input: &str) -> PyResult<Self> {
-        Self::from_str(cls, input)
+    #[staticmethod]
+    fn parse(input: &str) -> PyResult<Self> {
+        Self::from_str(input)
     }
 
-    #[classmethod]
-    fn strptime(_cls: &Bound<'_, PyType>, format: &str, input: &str) -> PyResult<Self> {
-        Zoned::strptime(format, input)
+    // ========================================================================
+    // STRPTIME/STRFTIME
+    // ========================================================================
+    fn strftime(&self, fmt: &str) -> String {
+        self.0.strftime(fmt).to_string()
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (s, /, fmt))]
+    fn strptime(s: &str, fmt: &str) -> PyResult<Self> {
+        Zoned::strptime(fmt, s)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    #[classmethod]
-    fn parse_rfc2822(_cls: &Bound<'_, PyType>, input: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn parse_rfc2822(input: &str) -> PyResult<Self> {
         ::jiff::fmt::rfc2822::parse(input)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
@@ -142,10 +146,6 @@ impl RyZoned {
         jiff::fmt::rfc2822::parse(s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
-    }
-
-    fn strftime(&self, format: &str) -> String {
-        self.0.strftime(format).to_string()
     }
 
     fn format_rfc2822(&self) -> PyResult<String> {
@@ -249,8 +249,8 @@ impl RyZoned {
         self.0.time_zone()
     }
 
-    #[classmethod]
-    fn from_pydatetime(_cls: &Bound<'_, PyType>, d: JiffZoned) -> Self {
+    #[staticmethod]
+    fn from_pydatetime(d: JiffZoned) -> Self {
         Self::from(d.0)
     }
 
@@ -346,11 +346,8 @@ impl RyZoned {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
 
-    fn _round(&self, dt_round: &RyZonedDateTimeRound) -> PyResult<Self> {
-        self.0
-            .round(dt_round.round)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+    fn _round(&self, zdt_round: &RyZonedDateTimeRound) -> PyResult<Self> {
+        zdt_round.round(self)
     }
 
     fn tomorrow(&self) -> PyResult<Self> {

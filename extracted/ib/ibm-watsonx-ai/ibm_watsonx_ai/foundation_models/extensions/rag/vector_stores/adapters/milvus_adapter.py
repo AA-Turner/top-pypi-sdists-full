@@ -247,8 +247,10 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         self._collection_name = collection_name
         self._additional_kwargs = kwargs
 
-        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
+        # import is not at top-level of file due to circular import
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (  # noqa: E501, PLC0415
             VectorStoreConnector,
+            VectorStoreDataSourceType,
         )
 
         if vector_store is None:
@@ -257,9 +259,12 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
                     cast(str, self._connection_id)
                 )
             else:
-                self._datasource_type, connection_properties = "milvus", {}
+                self._datasource_type, connection_properties = (
+                    VectorStoreDataSourceType.MILVUS,
+                    {},
+                )
 
-            logger.info(f"Initializing vector store of type: {self._datasource_type}")
+            logger.info("Initializing vector store of type: %s", self._datasource_type)
 
             self._properties = {
                 **connection_properties,
@@ -518,7 +523,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
             "collection_name": self._collection_name,
             "builtin_function": builtin_function,
             **self._additional_kwargs,
-            "datasource_type": self._datasource_type,
+            "datasource_type": str(self._datasource_type),
         }
 
     @classmethod

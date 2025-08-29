@@ -73,8 +73,8 @@ from .base_data_connection import BaseDataConnection
 from .base_location import BaseLocation
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai.workspace import WorkSpace
     from ibm_watsonx_ai.client import APIClient
+    from ibm_watsonx_ai.workspace import WorkSpace
 
     from .flight_service import FlightConnection
 
@@ -1363,21 +1363,30 @@ class DataConnection(BaseDataConnection):
                             )
                         )
 
-                data = self._download_data_from_flight_service(
-                    data_location=self,
-                    binary=binary,
-                    read_to_file=read_to_file,
-                    flight_parameters=flight_parameters,
-                    headers=headers,
-                    enable_sampling=enable_sampling,
-                    sampling_type=sampling_type,
-                    number_of_batch_rows=number_of_batch_rows,
-                    return_data_as_iterator=return_data_as_iterator,
-                    _return_subsampling_stats=_return_subsampling_stats,
-                    total_size_limit=total_size_limit,
-                    total_nrows_limit=total_nrows_limit,
-                    total_percentage_limit=total_percentage_limit,
-                )
+                try:
+                    data = self._download_data_from_flight_service(
+                        data_location=self,
+                        binary=binary,
+                        read_to_file=read_to_file,
+                        flight_parameters=flight_parameters,
+                        headers=headers,
+                        enable_sampling=enable_sampling,
+                        sampling_type=sampling_type,
+                        number_of_batch_rows=number_of_batch_rows,
+                        return_data_as_iterator=return_data_as_iterator,
+                        _return_subsampling_stats=_return_subsampling_stats,
+                        total_size_limit=total_size_limit,
+                        total_nrows_limit=total_nrows_limit,
+                        total_percentage_limit=total_percentage_limit,
+                    )
+                except Exception as e:
+                    if self._has_folder_location() and "file does not exist" in str(e):
+                        raise WMLClientError(
+                            f"The provided path '{self.location.path}' appears to be a directory. "
+                            f"To avoid confusion, please use the `download_folder()` method. {e}"
+                        )
+                    else:
+                        raise e
 
             else:  # backward compatibility
                 if isinstance(self.location, DatabaseLocation):

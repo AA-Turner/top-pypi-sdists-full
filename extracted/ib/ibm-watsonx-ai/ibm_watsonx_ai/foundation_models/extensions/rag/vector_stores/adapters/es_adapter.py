@@ -247,8 +247,10 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
         self._index_properties = kwargs
         ###
 
-        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
+        # import is not at top-level of file due to circular import
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (  # noqa: E501, PLC0415
             VectorStoreConnector,
+            VectorStoreDataSourceType,
         )
 
         if vector_store is None:
@@ -257,9 +259,12 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
                     cast(str, self._connection_id)
                 )
             else:
-                self._datasource_type, connection_properties = "elasticsearch", {}
+                self._datasource_type, connection_properties = (
+                    VectorStoreDataSourceType.ELASTICSEARCH,
+                    {},
+                )
 
-            logger.info(f"Initializing vector store of type: {self._datasource_type}")
+            logger.info("Initializing vector store of type: %s", self._datasource_type)
 
             # overwrite text and vector field names set in langchain_elasticsearch
             if isinstance(
@@ -427,7 +432,7 @@ class ElasticsearchVectorStore(LangChainVectorStoreAdapter[ElasticsearchStore]):
             ),
             "index_name": self._index_name,
             **self._index_properties,
-            "datasource_type": self._datasource_type,
+            "datasource_type": str(self._datasource_type),
         }
         if strategy is not None:
             data_dict["strategy"] = strategy.to_dict()

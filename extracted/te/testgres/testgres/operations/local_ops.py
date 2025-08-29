@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import getpass
 import logging
 import os
@@ -10,6 +12,8 @@ import socket
 
 import psutil
 import typing
+import threading
+import copy
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -28,15 +32,56 @@ CMD_TIMEOUT_SEC = 60
 
 
 class LocalOperations(OsOperations):
+    sm_dummy_conn_params = ConnectionParams()
+    sm_single_instance: OsOperations = None
+    sm_single_instance_guard = threading.Lock()
+
+    # TODO: make it read-only
+    conn_params: ConnectionParams
+    host: str
+    ssh_key: typing.Optional[str]
+    remote: bool
+    username: str
+
     def __init__(self, conn_params=None):
+        super().__init__()
+
+        if conn_params is __class__.sm_dummy_conn_params:
+            return
+
         if conn_params is None:
             conn_params = ConnectionParams()
-        super(LocalOperations, self).__init__(conn_params.username)
+
         self.conn_params = conn_params
         self.host = conn_params.host
         self.ssh_key = None
         self.remote = False
         self.username = conn_params.username or getpass.getuser()
+
+    @staticmethod
+    def get_single_instance() -> OsOperations:
+        assert __class__ == LocalOperations
+        assert __class__.sm_single_instance_guard is not None
+
+        if __class__.sm_single_instance is not None:
+            assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+            return __class__.sm_single_instance
+
+        with __class__.sm_single_instance_guard:
+            if __class__.sm_single_instance is None:
+                __class__.sm_single_instance = __class__()
+        assert __class__.sm_single_instance is not None
+        assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+        return __class__.sm_single_instance
+
+    def create_clone(self) -> LocalOperations:
+        clone = __class__(__class__.sm_dummy_conn_params)
+        clone.conn_params = copy.copy(self.conn_params)
+        clone.host = self.host
+        clone.ssh_key = self.ssh_key
+        clone.remote = self.remote
+        clone.username = self.username
+        return clone
 
     @staticmethod
     def _process_output(encoding, temp_file_path):
@@ -47,8 +92,13 @@ class LocalOperations(OsOperations):
                 output = output.decode(encoding)
             return output, None  # In Windows stderr writing in stdout
 
-    def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command__nt(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
         # TODO: why don't we use the data from input?
 
@@ -84,6 +134,7 @@ class LocalOperations(OsOperations):
                 stdin=stdin or subprocess.PIPE if input is not None else None,
                 stdout=stdout,
                 stderr=stderr,
+                cwd=cwd,
                 **extParams,
             )
             if get_process:
@@ -96,8 +147,13 @@ class LocalOperations(OsOperations):
         output, error = self._process_output(encoding, temp_file_path)
         return process, output, error
 
-    def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command__generic(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
         input_prepared = None
         if not get_process:
@@ -134,6 +190,7 @@ class LocalOperations(OsOperations):
             stdin=stdin or subprocess.PIPE if input is not None else None,
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,
+            cwd=cwd,
             **extParams
         )
         assert not (process is None)
@@ -153,26 +210,44 @@ class LocalOperations(OsOperations):
             error = error.decode(encoding)
         return process, output, error
 
-    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         """Execute a command and return the process and its output."""
+
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
+
         if os.name == 'nt' and stdout is None:  # Windows
             method = __class__._run_command__nt
         else:  # Other OS
             method = __class__._run_command__generic
 
-        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
+        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env, cwd)
 
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
-                     text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
-                     ignore_errors=False, exec_env=None):
+    def exec_command(
+        self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
+        text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
+        ignore_errors=False,
+        exec_env: typing.Optional[dict] = None,
+        cwd: typing.Optional[str] = None
+    ):
         """
         Execute a command in a subprocess and handle the output based on the provided parameters.
         """
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
-        process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
+        process, output, error = self._run_command(
+            cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env,
+            cwd
+        )
+
         if get_process:
             return process
 
@@ -198,6 +273,13 @@ class LocalOperations(OsOperations):
             return process.returncode, output, error
 
         return output
+
+    def build_path(self, a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        return os.path.join(a, *parts)
 
     # Environment setup
     def environ(self, var_name):
@@ -229,6 +311,10 @@ class LocalOperations(OsOperations):
             os.makedirs(path)
         except FileExistsError:
             pass
+
+    def makedir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        os.mkdir(path)
 
     # [2025-02-03] Old name of parameter attempts is "retries".
     def rmdirs(self, path, ignore_errors=True, attempts=3, delay=1):
@@ -272,6 +358,10 @@ class LocalOperations(OsOperations):
 
             # OK!
             return True
+
+    def rmdir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        os.rmdir(path)
 
     def listdir(self, path):
         return os.listdir(path)
@@ -493,6 +583,8 @@ class LocalOperations(OsOperations):
 
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535  # OK?
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
@@ -500,3 +592,10 @@ class LocalOperations(OsOperations):
                 return True
             except OSError:
                 return False
+
+    def get_tempdir(self) -> str:
+        r = tempfile.gettempdir()
+        assert r is not None
+        assert type(r) == str  # noqa: E721
+        assert os.path.exists(r)
+        return r

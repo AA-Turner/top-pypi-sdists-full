@@ -51,6 +51,268 @@ QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_A
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
 
 
+class UniverseDefinitions(System.Object):
+    """Provides helpers for defining universes in algorithms"""
+
+    @property
+    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
+        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
+        ...
+
+    @dollar_volume.setter
+    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
+        ...
+
+    @property
+    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
+        """Specifies that universe selection should not make changes on this iteration"""
+        ...
+
+    @property
+    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
+        The algorithm creates a default tradable and liquid universe containing 500 US equities
+        which are chosen at the first trading day of each month.
+        """
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
+        """
+        Initializes a new instance of the UniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new coarse universe that contains the top count of stocks
+        by daily dollar volume
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe. Defaults to QCAlgorithm.UniverseSettings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
+        """
+        ...
+
+
 class CandlestickPatterns(System.Object):
     """Provides helpers for using candlestick patterns"""
 
@@ -802,268 +1064,6 @@ class CandlestickPatterns(System.Object):
         ...
 
 
-class UniverseDefinitions(System.Object):
-    """Provides helpers for defining universes in algorithms"""
-
-    @property
-    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
-        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
-        ...
-
-    @dollar_volume.setter
-    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
-        ...
-
-    @property
-    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
-        """Specifies that universe selection should not make changes on this iteration"""
-        ...
-
-    @property
-    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
-        The algorithm creates a default tradable and liquid universe containing 500 US equities
-        which are chosen at the first trading day of each month.
-        """
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the UniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse universe that contains the top count of stocks
-        by daily dollar volume
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe. Defaults to QCAlgorithm.UniverseSettings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        ...
-
-
 class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm):
     """
     QC Algorithm Base Class - Handle the basic requirements of a trading algorithm,
@@ -1607,31 +1607,32 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
             ...
 
     @property
+    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
+        """Access to the runtime statistics property. User provided statistics."""
+        ...
+
+    @property
+    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
+        """Gets universe manager which holds universes keyed by their symbol"""
+        ...
+
+    @property
+    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
+        """Gets the universe settings to be used when adding securities via universe selection"""
+        ...
+
+    @property
+    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
+        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
+        ...
+
+    @property
     def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
         """Transaction Manager - Process transaction fills and order management."""
         ...
 
     @transactions.setter
     def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
-        ...
-
-    @property
-    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
-        """Gets or sets the history provider for the algorithm"""
-        ...
-
-    @history_provider.setter
-    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
-        ...
-
-    @property
-    def is_warming_up(self) -> bool:
-        """Gets whether or not this algorithm is still warming up"""
-        ...
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
-        """Access to the runtime statistics property. User provided statistics."""
         ...
 
     MAX_NAME_AND_TAGS_LENGTH: int = 200
@@ -2010,11 +2011,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
-        """PandasConverter for this Algorithm"""
-        ...
-
-    @property
     def debug_mode(self) -> bool:
         """
         Enables additional logging of framework models including:
@@ -2077,18 +2073,22 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
-        """Gets universe manager which holds universes keyed by their symbol"""
+    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
+        """Gets or sets the history provider for the algorithm"""
+        ...
+
+    @history_provider.setter
+    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
         ...
 
     @property
-    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the universe settings to be used when adding securities via universe selection"""
+    def is_warming_up(self) -> bool:
+        """Gets whether or not this algorithm is still warming up"""
         ...
 
     @property
-    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
-        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
+    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
+        """PandasConverter for this Algorithm"""
         ...
 
     @property

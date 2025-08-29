@@ -1719,6 +1719,8 @@ EXPERIMENT_GET_ARTIFACT_NOT_SUPPORTED_EXCEPTION = (
     "Getting an artifact is only supported for Online Experiment at the moment"
 )
 
+EXPERIMENT_GET_HF_DATASET_NOT_SUPPORTED_EXCEPTION = "Getting a HuggingFace dataset is only supported for Online Experiment at the moment"
+
 EXPERIMENT_SET_CODE_IGNORE_FILENAME_WARNING = (
     "can't set code from string and filename; ignoring filename"
 )
@@ -1922,3 +1924,7 @@ COMET_INIT_API_KEY_DEPRECATED = (
 METRICS_SAMPLER_MIN_OPERATION_STRING_VALUE_WARNING = "The value '%s' for the metric '%s' is not a valid number (float or int), so the min sampling operation has been skipped."
 
 METRICS_SAMPLER_MAX_OPERATION_STRING_VALUE_WARNING = "The value '%s' for the metric '%s' is not a valid number (float or int), so the max sampling operation has been skipped."
+
+HF_DATASET_USING_CACHED = "Using cached dataset from [%s] folder"
+
+HF_DATASET_DOWNLOADING_DATASET = "Downloading dataset from [%s] to [%s] folder"

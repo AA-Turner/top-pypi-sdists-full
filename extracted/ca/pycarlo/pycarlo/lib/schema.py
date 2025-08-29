@@ -10040,6 +10040,7 @@ class ICustomRulesMonitor(sgqlc.types.Interface):
         "invalid_rows",
         "alert_ids",
         "breached",
+        "migrated_to_uuid",
     )
     has_custom_rule_name = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="hasCustomRuleName"
@@ -10101,6 +10102,9 @@ class ICustomRulesMonitor(sgqlc.types.Interface):
 
     breached = sgqlc.types.Field(MonitorBreachType, graphql_name="breached")
     """Monitor breached status"""
+
+    migrated_to_uuid = sgqlc.types.Field(String, graphql_name="migratedToUuid")
+    """UUID of the monitor this was migrated to, if applicable"""
 
 
 class IEtlAssetPerformanceSummary(sgqlc.types.Interface):
@@ -10354,6 +10358,7 @@ class IMonitor(sgqlc.types.Interface):
         "notify_rule_run_failure",
         "is_snoozeable",
         "is_paused",
+        "migrated_to_uuid",
         "is_template_managed",
         "namespace",
         "next_execution_time",
@@ -10472,6 +10477,9 @@ class IMonitor(sgqlc.types.Interface):
 
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
     """Whether the monitor is currently paused"""
+
+    migrated_to_uuid = sgqlc.types.Field(String, graphql_name="migratedToUuid")
+    """UUID of the monitor this was migrated to, if applicable"""
 
     is_template_managed = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="isTemplateManaged"
@@ -12229,7 +12237,7 @@ class AgentLogEntry(sgqlc.types.Type):
     """
 
 
-class AgentLogNode(sgqlc.types.Type):
+class AgentSpanNode(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("node_name", "node_value", "child_nodes", "level", "count", "is_leaf")
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
@@ -12237,7 +12245,7 @@ class AgentLogNode(sgqlc.types.Type):
     node_value = sgqlc.types.Field(String, graphql_name="nodeValue")
 
     child_nodes = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentLogNode"))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanNode"))),
         graphql_name="childNodes",
     )
 
@@ -12248,11 +12256,11 @@ class AgentLogNode(sgqlc.types.Type):
     is_leaf = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isLeaf")
 
 
-class AgentLogTree(sgqlc.types.Type):
+class AgentSpanTree(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("nodes", "query")
     nodes = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentLogNode))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanNode))),
         graphql_name="nodes",
     )
 
@@ -15517,6 +15525,13 @@ class CreateDatabricksSecret(sgqlc.types.Type):
     """Name of the secret that was created"""
 
 
+class CreateDatadogIncidentForAlert(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("datadog_incident",)
+    datadog_incident = sgqlc.types.Field("DatadogIncident", graphql_name="datadogIncident")
+    """The created Datadog incident"""
+
+
 class CreateDatadogIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("datadog_integration",)
@@ -17650,6 +17665,21 @@ class DatadogIntegrationOutput(sgqlc.types.Type):
 
     site = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="site")
     """Datadog site (e.g. datadoghq.com)"""
+
+
+class DatadogUserOutput(sgqlc.types.Type):
+    """A Datadog user"""
+
+    __schema__ = schema
+    __field_names__ = ("id", "email", "name")
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """Datadog user id"""
+
+    email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
+    """User email"""
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """User name"""
 
 
 class DatasetConnection(sgqlc.types.relay.Connection):
@@ -22000,12 +22030,15 @@ class JiraTicketDetailsOutput(sgqlc.types.Type):
     """Ticket details stored at Jira"""
 
     __schema__ = schema
-    __field_names__ = ("assignee", "status")
+    __field_names__ = ("assignee", "status", "found")
     assignee = sgqlc.types.Field("JiraUserOutput", graphql_name="assignee")
     """The user assigned to the ticket"""
 
     status = sgqlc.types.Field("JiraTicketStatusOutput", graphql_name="status")
     """The ticket status"""
+
+    found = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="found")
+    """Whether the ticket was found in JIRA"""
 
 
 class JiraTicketOutput(sgqlc.types.Type):
@@ -23044,6 +23077,13 @@ class LinkAzureDevopsInstallation(sgqlc.types.Type):
 
     installation = sgqlc.types.Field(AzureDevopsInstallation, graphql_name="installation")
     """Updated Azure DevOps installation"""
+
+
+class LinkDatadogIncidentForAlert(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("datadog_incident",)
+    datadog_incident = sgqlc.types.Field("DatadogIncident", graphql_name="datadogIncident")
+    """The linked Datadog incident"""
 
 
 class LinkGithubAppInstallation(sgqlc.types.Type):
@@ -24418,6 +24458,9 @@ class Mutation(sgqlc.types.Type):
         "create_datadog_integration",
         "update_datadog_integration",
         "delete_datadog_integration",
+        "create_datadog_incident_for_alert",
+        "link_datadog_incident_for_alert",
+        "unlink_datadog_incident_for_alert",
         "create_or_update_table_monitor",
         "pause_table_monitor",
         "delete_table_monitor",
@@ -25114,6 +25157,121 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID!`): The integration ID
+    """
+
+    create_datadog_incident_for_alert = sgqlc.types.Field(
+        CreateDatadogIncidentForAlert,
+        graphql_name="createDatadogIncidentForAlert",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+                (
+                    "commander_email",
+                    sgqlc.types.Arg(String, graphql_name="commanderEmail", default=None),
+                ),
+                ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                (
+                    "title",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="title", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Datadog incident for alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): ID of the alert
+    * `commander_email` (`String`): Email of the incident commander to
+      assign
+    * `description` (`String`): Description of the incident
+    * `integration_id` (`UUID!`): ID of the Datadog integration
+    * `title` (`String!`): Title of the incident
+    """
+
+    link_datadog_incident_for_alert = sgqlc.types.Field(
+        LinkDatadogIncidentForAlert,
+        graphql_name="linkDatadogIncidentForAlert",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+                (
+                    "dd_incident_url",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="ddIncidentUrl", default=None
+                    ),
+                ),
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Link Datadog Incident for Alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): ID of the alert
+    * `dd_incident_url` (`String!`): Full Datadog incident URL (any
+      site/region). Requires incident_read scope to resolve the
+      incident UUID.
+    * `integration_id` (`UUID!`): ID of the Datadog integration
+    """
+
+    unlink_datadog_incident_for_alert = sgqlc.types.Field(
+        "UnlinkDatadogIncidentForAlert",
+        graphql_name="unlinkDatadogIncidentForAlert",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+                (
+                    "dd_incident_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="ddIncidentId", default=None
+                    ),
+                ),
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Unlink Datadog Incident for Alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): ID of the alert
+    * `dd_incident_id` (`String!`): Datadog internal incident id
+    * `integration_id` (`UUID!`): ID of the Datadog integration
     """
 
     create_or_update_table_monitor = sgqlc.types.Field(
@@ -42542,6 +42700,7 @@ class Query(sgqlc.types.Type):
         "get_default_monitor_configuration",
         "test_datadog_credentials",
         "get_datadog_integrations",
+        "get_datadog_users",
         "get_billing_credit_grants",
         "get_contract_commits",
         "get_billing_invoices",
@@ -42727,7 +42886,8 @@ class Query(sgqlc.types.Type):
         "get_monitor_queries",
         "test_monitor_queries",
         "get_notification_audiences_for_table",
-        "retrieve_agent_log_groups",
+        "get_agent_span_groups",
+        "get_agent_span_sample",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
         "get_custom_rule",
@@ -43593,6 +43753,29 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID`): Filter by integration ID
+    """
+
+    get_datadog_users = sgqlc.types.Field(
+        sgqlc.types.list_of(DatadogUserOutput),
+        graphql_name="getDatadogUsers",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                ("query", sgqlc.types.Arg(String, graphql_name="query", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get the list of Datadog users
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): The integration ID
+    * `query` (`String`): A query to filter users
     """
 
     get_billing_credit_grants = sgqlc.types.Field(
@@ -50040,21 +50223,15 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): MCON that specifies a table
     """
 
-    retrieve_agent_log_groups = sgqlc.types.Field(
-        AgentLogTree,
-        graphql_name="retrieveAgentLogGroups",
+    get_agent_span_groups = sgqlc.types.Field(
+        AgentSpanTree,
+        graphql_name="getAgentSpanGroups",
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "data_source",
+                    "mcon",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(DataSourceUnionInput),
-                        graphql_name="dataSource",
-                        default=None,
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
                     ),
                 ),
             )
@@ -50064,8 +50241,39 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
-    * `dw_id` (`UUID!`): Warehouse UUID
-    * `data_source` (`DataSourceUnionInput!`): The data source
+    * `mcon` (`String!`): MCON of the table with agent observability
+      traces
+    """
+
+    get_agent_span_sample = sgqlc.types.Field(
+        "SQLResponse",
+        graphql_name="getAgentSpanSample",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "sql_blocks",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CustomRuleSqlBlocksInput),
+                        graphql_name="sqlBlocks",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Preview traces for a specific span node
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the table with agent observability
+      traces
+    * `sql_blocks` (`CustomRuleSqlBlocksInput!`): The SQL blocks
     """
 
     get_all_user_defined_monitors_v2 = sgqlc.types.Field(
@@ -63677,6 +63885,13 @@ class UnknownVectorIndexMetadata(sgqlc.types.Type):
     vector_db = sgqlc.types.Field(String, graphql_name="vectorDb")
 
 
+class UnlinkDatadogIncidentForAlert(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("unlinked",)
+    unlinked = sgqlc.types.Field(Boolean, graphql_name="unlinked")
+    """True if the incident was unlinked"""
+
+
 class UnlinkJiraTicketForAlert(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("unlinked",)
@@ -67938,6 +68153,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "data_collection_schedule_config",
         "notification_settings",
         "is_snoozed",
+        "migrated_to_uuid",
         "field_metric",
         "field_query_parameters",
         "query_template_id",
@@ -68178,6 +68394,9 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_snoozed = sgqlc.types.Field(Boolean, graphql_name="isSnoozed")
     """True if rule is currently snoozed"""
+
+    migrated_to_uuid = sgqlc.types.Field(UUID, graphql_name="migratedToUuid")
+    """UUID of the rule this was migrated to, if applicable"""
 
     field_metric = sgqlc.types.Field(FieldMetricOutput, graphql_name="fieldMetric")
     """Field quality rule parameters (if query generated by
@@ -69382,9 +69601,27 @@ class DatabricksTaskRun(sgqlc.types.Type, Node):
 
 class DatadogIncident(sgqlc.types.Type, NodeWithUUID):
     __schema__ = schema
-    __field_names__ = ("created_by", "display_name", "incident_url", "integration_id", "created_at")
+    __field_names__ = (
+        "created_by",
+        "dd_incident_id",
+        "dd_public_id",
+        "incident_title",
+        "display_name",
+        "incident_url",
+        "integration_id",
+        "created_at",
+    )
     created_by = sgqlc.types.Field("User", graphql_name="createdBy")
     """Creator"""
+
+    dd_incident_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ddIncidentId")
+    """Datadog internal incident identifier"""
+
+    dd_public_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ddPublicId")
+    """Datadog public incident identifier"""
+
+    incident_title = sgqlc.types.Field(String, graphql_name="incidentTitle")
+    """Incident title captured at creation time"""
 
     display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
 
@@ -71259,6 +71496,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "last_update_time",
         "collection_lag_hours",
         "version",
+        "sql_blocks",
+        "sampling_config",
         "table",
         "entities",
         "selected_metrics",
@@ -71427,6 +71666,12 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     version = sgqlc.types.Field(Int, graphql_name="version")
     """Configuration version of the monitor."""
+
+    sql_blocks = sgqlc.types.Field(JSONString, graphql_name="sqlBlocks")
+    """Structured SQL filtering"""
+
+    sampling_config = sgqlc.types.Field(JSONString, graphql_name="samplingConfig")
+    """Sampling configuration"""
 
     table = sgqlc.types.Field("WarehouseTable", graphql_name="table")
     """Table related to monitor"""

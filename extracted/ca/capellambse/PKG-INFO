@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: capellambse
-Version: 0.7.10
+Version: 0.7.11
 Summary: Provides access to Capella MBSE projects in Python
 Author: DB InfraGO AG
 License-Expression: Apache-2.0 AND OFL-1.1

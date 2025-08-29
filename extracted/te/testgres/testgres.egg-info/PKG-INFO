@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgres
-Version: 1.11.0
+Version: 1.11.1
 Summary: Testing utility for PostgreSQL and its extensions
 Home-page: https://github.com/postgrespro/testgres
 Author: Postgres Professional
@@ -33,7 +33,7 @@ Dynamic: summary
 
 # testgres
 
-PostgreSQL testing utility. Both Python 2.7 and 3.3+ are supported.
+PostgreSQL testing utility. Python 3.7.17+ is supported.
 
 
 ## Installation

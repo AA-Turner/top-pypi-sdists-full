@@ -74,6 +74,10 @@ class VLLMApp(App):
         else:
             extra_args = self.extra_args
 
+        stream_model_args = []
+        if self.stream_model:
+            stream_model_args.extend(["--load-format", "union-streaming"])
+
         self.args = [
             "union-model-loader-vllm",
             "serve",
@@ -82,6 +86,7 @@ class VLLMApp(App):
             self.model_id,
             "--port",
             str(self.port),
+            *stream_model_args,
             *extra_args,
         ]
 

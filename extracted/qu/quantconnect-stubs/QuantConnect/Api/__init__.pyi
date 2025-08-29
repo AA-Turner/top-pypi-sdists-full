@@ -3485,155 +3485,6 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         ...
 
 
-class ParameterSetJsonConverter(JsonConverter):
-    """Json converter for ParameterSet which creates a light weight easy to consume serialized version"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes a JSON object from a Parameter set"""
-        ...
-
-
-class BacktestResponseWrapper(QuantConnect.Api.RestResponse):
-    """
-    Wrapper class for Backtest/* endpoints JSON response
-    Currently used by Backtest/Read and Backtest/Create
-    """
-
-    @property
-    def backtest(self) -> QuantConnect.Api.Backtest:
-        """Backtest Object"""
-        ...
-
-    @backtest.setter
-    def backtest(self, value: QuantConnect.Api.Backtest) -> None:
-        ...
-
-    @property
-    def debugging(self) -> bool:
-        """Indicates if the backtest is run under debugging mode"""
-        ...
-
-    @debugging.setter
-    def debugging(self, value: bool) -> None:
-        ...
-
-
-class BacktestList(QuantConnect.Api.RestResponse):
-    """Collection container for a list of backtests for a project"""
-
-    @property
-    def backtests(self) -> typing.List[QuantConnect.Api.Backtest]:
-        """Collection of summarized backtest objects"""
-        ...
-
-    @backtests.setter
-    def backtests(self, value: typing.List[QuantConnect.Api.Backtest]) -> None:
-        ...
-
-
-class BacktestTags(QuantConnect.Api.RestResponse):
-    """Collection container for a list of backtest tags"""
-
-    @property
-    def tags(self) -> typing.List[str]:
-        """Collection of tags for a backtest"""
-        ...
-
-    @tags.setter
-    def tags(self, value: typing.List[str]) -> None:
-        ...
-
-
-class OptimizationResponseWrapper(QuantConnect.Api.RestResponse):
-    """Wrapper class for Optimizations/Read endpoint JSON response"""
-
-    @property
-    def optimization(self) -> QuantConnect.Api.Optimization:
-        """Optimization object"""
-        ...
-
-    @optimization.setter
-    def optimization(self, value: QuantConnect.Api.Optimization) -> None:
-        ...
-
-
-class OptimizationList(QuantConnect.Api.RestResponse):
-    """Collection container for a list of summarized optimizations for a project"""
-
-    @property
-    def optimizations(self) -> typing.List[QuantConnect.Api.OptimizationSummary]:
-        """Collection of summarized optimization objects"""
-        ...
-
-    @optimizations.setter
-    def optimizations(self, value: typing.List[QuantConnect.Api.OptimizationSummary]) -> None:
-        ...
-
-    @property
-    def count(self) -> int:
-        """The optimization count"""
-        ...
-
-
-class EstimateResponseWrapper(QuantConnect.Api.RestResponse):
-    """
-    Wrapper class for Optimizations/* endpoints JSON response
-    Currently used by Optimizations/Estimate
-    """
-
-    @property
-    def estimate(self) -> QuantConnect.Api.Estimate:
-        """Estimate object"""
-        ...
-
-    @estimate.setter
-    def estimate(self, value: QuantConnect.Api.Estimate) -> None:
-        ...
-
-
-class GetObjectStoreResponse(QuantConnect.Api.RestResponse):
-    """Response received when fetching Object Store"""
-
-    @property
-    def job_id(self) -> str:
-        """Job ID which can be used for querying state or packaging"""
-        ...
-
-    @job_id.setter
-    def job_id(self, value: str) -> None:
-        ...
-
-    @property
-    def url(self) -> str:
-        """The URL to download the object. This can also be null"""
-        ...
-
-    @url.setter
-    def url(self, value: str) -> None:
-        ...
-
-
 class LiveAlgorithmResultsJsonConverter(JsonConverter):
     """Custom JsonConverter for LiveResults data for live algorithms"""
 
@@ -3671,6 +3522,37 @@ class LiveAlgorithmResultsJsonConverter(JsonConverter):
         :param value: The value.
         :param serializer: The calling serializer.
         """
+        ...
+
+
+class OptimizationResponseWrapper(QuantConnect.Api.RestResponse):
+    """Wrapper class for Optimizations/Read endpoint JSON response"""
+
+    @property
+    def optimization(self) -> QuantConnect.Api.Optimization:
+        """Optimization object"""
+        ...
+
+    @optimization.setter
+    def optimization(self, value: QuantConnect.Api.Optimization) -> None:
+        ...
+
+
+class OptimizationList(QuantConnect.Api.RestResponse):
+    """Collection container for a list of summarized optimizations for a project"""
+
+    @property
+    def optimizations(self) -> typing.List[QuantConnect.Api.OptimizationSummary]:
+        """Collection of summarized optimization objects"""
+        ...
+
+    @optimizations.setter
+    def optimizations(self, value: typing.List[QuantConnect.Api.OptimizationSummary]) -> None:
+        ...
+
+    @property
+    def count(self) -> int:
+        """The optimization count"""
         ...
 
 
@@ -3747,6 +3629,108 @@ class LiveAlgorithmApiSettingsWrapper(System.Object):
         :param parameters: Dictionary to specify the parameters for the live algorithm
         :param notification: Dictionary with the lists of events and targets
         """
+        ...
+
+
+class BacktestResponseWrapper(QuantConnect.Api.RestResponse):
+    """
+    Wrapper class for Backtest/* endpoints JSON response
+    Currently used by Backtest/Read and Backtest/Create
+    """
+
+    @property
+    def backtest(self) -> QuantConnect.Api.Backtest:
+        """Backtest Object"""
+        ...
+
+    @backtest.setter
+    def backtest(self, value: QuantConnect.Api.Backtest) -> None:
+        ...
+
+    @property
+    def debugging(self) -> bool:
+        """Indicates if the backtest is run under debugging mode"""
+        ...
+
+    @debugging.setter
+    def debugging(self, value: bool) -> None:
+        ...
+
+
+class BacktestList(QuantConnect.Api.RestResponse):
+    """Collection container for a list of backtests for a project"""
+
+    @property
+    def backtests(self) -> typing.List[QuantConnect.Api.Backtest]:
+        """Collection of summarized backtest objects"""
+        ...
+
+    @backtests.setter
+    def backtests(self, value: typing.List[QuantConnect.Api.Backtest]) -> None:
+        ...
+
+
+class BacktestTags(QuantConnect.Api.RestResponse):
+    """Collection container for a list of backtest tags"""
+
+    @property
+    def tags(self) -> typing.List[str]:
+        """Collection of tags for a backtest"""
+        ...
+
+    @tags.setter
+    def tags(self, value: typing.List[str]) -> None:
+        ...
+
+
+class OptimizationBacktestJsonConverter(JsonConverter):
+    """Json converter for OptimizationBacktest which creates a light weight easy to consume serialized version"""
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class EstimateResponseWrapper(QuantConnect.Api.RestResponse):
+    """
+    Wrapper class for Optimizations/* endpoints JSON response
+    Currently used by Optimizations/Estimate
+    """
+
+    @property
+    def estimate(self) -> QuantConnect.Api.Estimate:
+        """Estimate object"""
+        ...
+
+    @estimate.setter
+    def estimate(self, value: QuantConnect.Api.Estimate) -> None:
         ...
 
 
@@ -3850,82 +3834,25 @@ class OptimizationNodes(System.Object):
     """8 CPUs 16 GB ram"""
 
 
-class OrganizationResponse(QuantConnect.Api.RestResponse):
-    """Response wrapper for Organizations/Read"""
+class GetObjectStoreResponse(QuantConnect.Api.RestResponse):
+    """Response received when fetching Object Store"""
 
     @property
-    def organization(self) -> QuantConnect.Api.Organization:
-        """Organization read from the response"""
+    def job_id(self) -> str:
+        """Job ID which can be used for querying state or packaging"""
         ...
 
-    @organization.setter
-    def organization(self, value: QuantConnect.Api.Organization) -> None:
-        ...
-
-
-class OptimizationBacktestJsonConverter(JsonConverter):
-    """Json converter for OptimizationBacktest which creates a light weight easy to consume serialized version"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class LiveResultsData(System.Object):
-    """Holds information about the state and operation of the live running algorithm"""
-
-    @property
-    def version(self) -> int:
-        """Results version"""
-        ...
-
-    @version.setter
-    def version(self, value: int) -> None:
+    @job_id.setter
+    def job_id(self, value: str) -> None:
         ...
 
     @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """Temporal resolution of the results returned from the Api"""
+    def url(self) -> str:
+        """The URL to download the object. This can also be null"""
         ...
 
-    @resolution.setter
-    def resolution(self, value: QuantConnect.Resolution) -> None:
-        ...
-
-    @property
-    def results(self) -> QuantConnect.Packets.LiveResult:
-        """Class to represent the data groups results return from the Api"""
-        ...
-
-    @results.setter
-    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
+    @url.setter
+    def url(self, value: str) -> None:
         ...
 
 
@@ -3966,6 +3893,79 @@ class Authentication(System.Object):
     @staticmethod
     def populate_query_string(query_string: System.Collections.Specialized.NameValueCollection, payload: typing.List[System.Collections.Generic.KeyValuePair[str, System.Object]] = None) -> None:
         """Helper method to populate a query string with the given payload"""
+        ...
+
+
+class ParameterSetJsonConverter(JsonConverter):
+    """Json converter for ParameterSet which creates a light weight easy to consume serialized version"""
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes a JSON object from a Parameter set"""
+        ...
+
+
+class LiveResultsData(System.Object):
+    """Holds information about the state and operation of the live running algorithm"""
+
+    @property
+    def version(self) -> int:
+        """Results version"""
+        ...
+
+    @version.setter
+    def version(self, value: int) -> None:
+        ...
+
+    @property
+    def resolution(self) -> QuantConnect.Resolution:
+        """Temporal resolution of the results returned from the Api"""
+        ...
+
+    @resolution.setter
+    def resolution(self, value: QuantConnect.Resolution) -> None:
+        ...
+
+    @property
+    def results(self) -> QuantConnect.Packets.LiveResult:
+        """Class to represent the data groups results return from the Api"""
+        ...
+
+    @results.setter
+    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
+        ...
+
+
+class OrganizationResponse(QuantConnect.Api.RestResponse):
+    """Response wrapper for Organizations/Read"""
+
+    @property
+    def organization(self) -> QuantConnect.Api.Organization:
+        """Organization read from the response"""
+        ...
+
+    @organization.setter
+    def organization(self, value: QuantConnect.Api.Organization) -> None:
         ...
 
 

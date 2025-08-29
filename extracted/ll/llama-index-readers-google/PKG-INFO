@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-readers-google
-Version: 0.7.0
+Version: 0.7.1
 Summary: llama-index readers google integration
 Author-email: Your Name <you@example.com>
 Maintainer: bbornsztein, jerryjliu, metanov, ong, piroz, pycui, ravi03071991

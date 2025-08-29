@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.23 15:00:00                  #
+# Updated Date: 2025.08.28 09:00:00                  #
 # ================================================== #
 
 import json
@@ -253,7 +253,17 @@ class ModelItem:
 
         :return: True if supports image input
         """
-        if MODE_VISION in self.mode or MULTIMODAL_IMAGE in self.input:
+        if MULTIMODAL_IMAGE in self.input:
+            return True
+        return False
+
+    def is_image_output(self) -> bool:
+        """
+        Check if model supports image output
+
+        :return: True if supports image output
+        """
+        if "image" in self.output or MODE_VISION in self.mode:
             return True
         return False
 
@@ -263,7 +273,17 @@ class ModelItem:
 
         :return: True if supports audio input
         """
-        if MODE_AUDIO in self.mode or MULTIMODAL_AUDIO in self.input:
+        if MULTIMODAL_AUDIO in self.input:
+            return True
+        return False
+
+    def is_audio_output(self) -> bool:
+        """
+        Check if model supports audio output
+
+        :return: True if supports audio output
+        """
+        if MULTIMODAL_AUDIO in self.output:
             return True
         return False
 

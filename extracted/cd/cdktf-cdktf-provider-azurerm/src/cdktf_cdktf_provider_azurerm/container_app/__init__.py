@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_app`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_app`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app).
+Refer to the Terraform Registry for docs: [`azurerm_container_app`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerApp.ContainerApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app azurerm_container_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app azurerm_container_app}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ContainerApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app azurerm_container_app} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app azurerm_container_app} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_app_environment_id: The ID of the Container App Environment to host this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
-        :param name: The name for this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.
-        :param revision_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#template ContainerApp#template}
-        :param dapr: dapr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#dapr ContainerApp#dapr}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#id ContainerApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ingress ContainerApp#ingress}
-        :param max_inactive_revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.
-        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#registry ContainerApp#registry}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret ContainerApp#secret}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tags ContainerApp#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
-        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.
+        :param container_app_environment_id: The ID of the Container App Environment to host this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
+        :param name: The name for this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.
+        :param revision_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#template ContainerApp#template}
+        :param dapr: dapr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#dapr ContainerApp#dapr}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#id ContainerApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ingress ContainerApp#ingress}
+        :param max_inactive_revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.
+        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#registry ContainerApp#registry}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret ContainerApp#secret}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tags ContainerApp#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
+        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ContainerApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerApp to import.
-        :param import_from_id: The id of the existing ContainerApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerApp to import is found.
         '''
         if __debug__:
@@ -165,9 +165,9 @@ class ContainerApp(
         app_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_id: The Dapr Application Identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_id ContainerApp#app_id}
-        :param app_port: The port which the application is listening on. This is the same as the ``ingress`` port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_port ContainerApp#app_port}
-        :param app_protocol: The protocol for the app. Possible values include ``http`` and ``grpc``. Defaults to ``http``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
+        :param app_id: The Dapr Application Identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_id ContainerApp#app_id}
+        :param app_port: The port which the application is listening on. This is the same as the ``ingress`` port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_port ContainerApp#app_port}
+        :param app_protocol: The protocol for the app. Possible values include ``http`` and ``grpc``. Defaults to ``http``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
         '''
         value = ContainerAppDapr(
             app_id=app_id, app_port=app_port, app_protocol=app_protocol
@@ -183,8 +183,8 @@ class ContainerApp(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#type ContainerApp#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#type ContainerApp#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.
         '''
         value = ContainerAppIdentity(type=type, identity_ids=identity_ids)
 
@@ -205,15 +205,15 @@ class ContainerApp(
         transport: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_port: The target port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#target_port ContainerApp#target_port}
-        :param traffic_weight: traffic_weight block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
-        :param allow_insecure_connections: Should this ingress allow insecure connections? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
-        :param client_certificate_mode: Client certificate mode for mTLS authentication. Ignore indicates server drops client certificate on forwarding. Accept indicates server forwards client certificate but does not require a client certificate. Require indicates server requires a client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cors ContainerApp#cors}
-        :param exposed_port: The exposed port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
-        :param external_enabled: Is this an external Ingress. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
-        :param ip_security_restriction: ip_security_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
-        :param transport: The transport method for the Ingress. Possible values include ``auto``, ``http``, and ``http2``, ``tcp``. Defaults to ``auto``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        :param target_port: The target port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#target_port ContainerApp#target_port}
+        :param traffic_weight: traffic_weight block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
+        :param allow_insecure_connections: Should this ingress allow insecure connections? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
+        :param client_certificate_mode: Client certificate mode for mTLS authentication. Ignore indicates server drops client certificate on forwarding. Accept indicates server forwards client certificate but does not require a client certificate. Require indicates server requires a client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cors ContainerApp#cors}
+        :param exposed_port: The exposed port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
+        :param external_enabled: Is this an external Ingress. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
+        :param ip_security_restriction: ip_security_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
+        :param transport: The transport method for the Ingress. Possible values include ``auto``, ``http``, and ``http2``, ``tcp``. Defaults to ``auto``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         value = ContainerAppIngress(
             target_port=target_port,
@@ -272,17 +272,17 @@ class ContainerApp(
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container ContainerApp#container}
-        :param azure_queue_scale_rule: azure_queue_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
-        :param custom_scale_rule: custom_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
-        :param http_scale_rule: http_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#init_container ContainerApp#init_container}
-        :param max_replicas: The maximum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
-        :param min_replicas: The minimum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
-        :param revision_suffix: The suffix for the revision. This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
-        :param tcp_scale_rule: tcp_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
-        :param termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume ContainerApp#volume}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container ContainerApp#container}
+        :param azure_queue_scale_rule: azure_queue_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
+        :param custom_scale_rule: custom_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
+        :param http_scale_rule: http_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#init_container ContainerApp#init_container}
+        :param max_replicas: The maximum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
+        :param min_replicas: The minimum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
+        :param revision_suffix: The suffix for the revision. This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
+        :param tcp_scale_rule: tcp_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
+        :param termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume ContainerApp#volume}
         '''
         value = ContainerAppTemplate(
             container=container,
@@ -310,10 +310,10 @@ class ContainerApp(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#create ContainerApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#delete ContainerApp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#read ContainerApp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#update ContainerApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#create ContainerApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#delete ContainerApp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#read ContainerApp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#update ContainerApp#update}.
         '''
         value = ContainerAppTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -675,21 +675,21 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_app_environment_id: The ID of the Container App Environment to host this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
-        :param name: The name for this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.
-        :param revision_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#template ContainerApp#template}
-        :param dapr: dapr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#dapr ContainerApp#dapr}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#id ContainerApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ingress ContainerApp#ingress}
-        :param max_inactive_revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.
-        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#registry ContainerApp#registry}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret ContainerApp#secret}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tags ContainerApp#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
-        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.
+        :param container_app_environment_id: The ID of the Container App Environment to host this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
+        :param name: The name for this Container App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.
+        :param revision_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#template ContainerApp#template}
+        :param dapr: dapr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#dapr ContainerApp#dapr}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#id ContainerApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ingress ContainerApp#ingress}
+        :param max_inactive_revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.
+        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#registry ContainerApp#registry}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret ContainerApp#secret}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tags ContainerApp#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
+        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -837,7 +837,7 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def container_app_environment_id(self) -> builtins.str:
         '''The ID of the Container App Environment to host this Container App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container_app_environment_id ContainerApp#container_app_environment_id}
         '''
         result = self._values.get("container_app_environment_id")
         assert result is not None, "Required property 'container_app_environment_id' is missing"
@@ -847,7 +847,7 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name for this Container App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -855,14 +855,14 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#resource_group_name ContainerApp#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revision_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_mode ContainerApp#revision_mode}.'''
         result = self._values.get("revision_mode")
         assert result is not None, "Required property 'revision_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -871,7 +871,7 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template(self) -> "ContainerAppTemplate":
         '''template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#template ContainerApp#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#template ContainerApp#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -881,14 +881,14 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dapr(self) -> typing.Optional["ContainerAppDapr"]:
         '''dapr block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#dapr ContainerApp#dapr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#dapr ContainerApp#dapr}
         '''
         result = self._values.get("dapr")
         return typing.cast(typing.Optional["ContainerAppDapr"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#id ContainerApp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#id ContainerApp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -900,7 +900,7 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ContainerAppIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ContainerAppIdentity"], result)
@@ -909,14 +909,14 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ingress(self) -> typing.Optional["ContainerAppIngress"]:
         '''ingress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ingress ContainerApp#ingress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ingress ContainerApp#ingress}
         '''
         result = self._values.get("ingress")
         return typing.cast(typing.Optional["ContainerAppIngress"], result)
 
     @builtins.property
     def max_inactive_revisions(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_inactive_revisions ContainerApp#max_inactive_revisions}.'''
         result = self._values.get("max_inactive_revisions")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -926,7 +926,7 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppRegistry"]]]:
         '''registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#registry ContainerApp#registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#registry ContainerApp#registry}
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppRegistry"]]], result)
@@ -937,14 +937,14 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppSecret"]]]:
         '''secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret ContainerApp#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret ContainerApp#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppSecret"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tags ContainerApp#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tags ContainerApp#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -952,14 +952,14 @@ class ContainerAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAppTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeouts ContainerApp#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAppTimeouts"], result)
 
     @builtins.property
     def workload_profile_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#workload_profile_name ContainerApp#workload_profile_name}.'''
         result = self._values.get("workload_profile_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -993,9 +993,9 @@ class ContainerAppDapr:
         app_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_id: The Dapr Application Identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_id ContainerApp#app_id}
-        :param app_port: The port which the application is listening on. This is the same as the ``ingress`` port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_port ContainerApp#app_port}
-        :param app_protocol: The protocol for the app. Possible values include ``http`` and ``grpc``. Defaults to ``http``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
+        :param app_id: The Dapr Application Identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_id ContainerApp#app_id}
+        :param app_port: The port which the application is listening on. This is the same as the ``ingress`` port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_port ContainerApp#app_port}
+        :param app_protocol: The protocol for the app. Possible values include ``http`` and ``grpc``. Defaults to ``http``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55ba1fd3395176bcd35feadafa390baf247798b5b00082cde7728f8b1c017a57)
@@ -1014,7 +1014,7 @@ class ContainerAppDapr:
     def app_id(self) -> builtins.str:
         '''The Dapr Application Identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_id ContainerApp#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_id ContainerApp#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -1024,7 +1024,7 @@ class ContainerAppDapr:
     def app_port(self) -> typing.Optional[jsii.Number]:
         '''The port which the application is listening on. This is the same as the ``ingress`` port.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_port ContainerApp#app_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_port ContainerApp#app_port}
         '''
         result = self._values.get("app_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1033,7 +1033,7 @@ class ContainerAppDapr:
     def app_protocol(self) -> typing.Optional[builtins.str]:
         '''The protocol for the app. Possible values include ``http`` and ``grpc``. Defaults to ``http``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#app_protocol ContainerApp#app_protocol}
         '''
         result = self._values.get("app_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1155,8 +1155,8 @@ class ContainerAppIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#type ContainerApp#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#type ContainerApp#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b7d9b8b8f67c98f8f7fc137b1cb5d845fbfde889dcdf557745980564cee9f97)
@@ -1170,14 +1170,14 @@ class ContainerAppIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#type ContainerApp#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#type ContainerApp#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity_ids ContainerApp#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1304,15 +1304,15 @@ class ContainerAppIngress:
         transport: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_port: The target port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#target_port ContainerApp#target_port}
-        :param traffic_weight: traffic_weight block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
-        :param allow_insecure_connections: Should this ingress allow insecure connections? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
-        :param client_certificate_mode: Client certificate mode for mTLS authentication. Ignore indicates server drops client certificate on forwarding. Accept indicates server forwards client certificate but does not require a client certificate. Require indicates server requires a client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cors ContainerApp#cors}
-        :param exposed_port: The exposed port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
-        :param external_enabled: Is this an external Ingress. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
-        :param ip_security_restriction: ip_security_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
-        :param transport: The transport method for the Ingress. Possible values include ``auto``, ``http``, and ``http2``, ``tcp``. Defaults to ``auto``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        :param target_port: The target port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#target_port ContainerApp#target_port}
+        :param traffic_weight: traffic_weight block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
+        :param allow_insecure_connections: Should this ingress allow insecure connections? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
+        :param client_certificate_mode: Client certificate mode for mTLS authentication. Ignore indicates server drops client certificate on forwarding. Accept indicates server forwards client certificate but does not require a client certificate. Require indicates server requires a client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cors ContainerApp#cors}
+        :param exposed_port: The exposed port on the container for the Ingress traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
+        :param external_enabled: Is this an external Ingress. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
+        :param ip_security_restriction: ip_security_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
+        :param transport: The transport method for the Ingress. Possible values include ``auto``, ``http``, and ``http2``, ``tcp``. Defaults to ``auto``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         if isinstance(cors, dict):
             cors = ContainerAppIngressCors(**cors)
@@ -1350,7 +1350,7 @@ class ContainerAppIngress:
     def target_port(self) -> jsii.Number:
         '''The target port on the container for the Ingress traffic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#target_port ContainerApp#target_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#target_port ContainerApp#target_port}
         '''
         result = self._values.get("target_port")
         assert result is not None, "Required property 'target_port' is missing"
@@ -1362,7 +1362,7 @@ class ContainerAppIngress:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppIngressTrafficWeight"]]:
         '''traffic_weight block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#traffic_weight ContainerApp#traffic_weight}
         '''
         result = self._values.get("traffic_weight")
         assert result is not None, "Required property 'traffic_weight' is missing"
@@ -1374,7 +1374,7 @@ class ContainerAppIngress:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should this ingress allow insecure connections?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_insecure_connections ContainerApp#allow_insecure_connections}
         '''
         result = self._values.get("allow_insecure_connections")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1385,7 +1385,7 @@ class ContainerAppIngress:
 
         Ignore indicates server drops client certificate on forwarding. Accept indicates server forwards client certificate but does not require a client certificate. Require indicates server requires a client certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#client_certificate_mode ContainerApp#client_certificate_mode}
         '''
         result = self._values.get("client_certificate_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1394,7 +1394,7 @@ class ContainerAppIngress:
     def cors(self) -> typing.Optional["ContainerAppIngressCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cors ContainerApp#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cors ContainerApp#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["ContainerAppIngressCors"], result)
@@ -1403,7 +1403,7 @@ class ContainerAppIngress:
     def exposed_port(self) -> typing.Optional[jsii.Number]:
         '''The exposed port on the container for the Ingress traffic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_port ContainerApp#exposed_port}
         '''
         result = self._values.get("exposed_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1414,7 +1414,7 @@ class ContainerAppIngress:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Is this an external Ingress.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#external_enabled ContainerApp#external_enabled}
         '''
         result = self._values.get("external_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1425,7 +1425,7 @@ class ContainerAppIngress:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppIngressIpSecurityRestriction"]]]:
         '''ip_security_restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ip_security_restriction ContainerApp#ip_security_restriction}
         '''
         result = self._values.get("ip_security_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppIngressIpSecurityRestriction"]]], result)
@@ -1434,7 +1434,7 @@ class ContainerAppIngress:
     def transport(self) -> typing.Optional[builtins.str]:
         '''The transport method for the Ingress. Possible values include ``auto``, ``http``, and ``http2``, ``tcp``. Defaults to ``auto``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         result = self._values.get("transport")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1475,12 +1475,12 @@ class ContainerAppIngressCors:
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.
-        :param allow_credentials_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.
+        :param allow_credentials_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__929902f62516e315f66d416f1c5eeeb6711138aca1d29b6fc4c5905bcc20c69c)
@@ -1506,7 +1506,7 @@ class ContainerAppIngressCors:
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1515,31 +1515,31 @@ class ContainerAppIngressCors:
     def allow_credentials_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.'''
         result = self._values.get("allow_credentials_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1891,10 +1891,10 @@ class ContainerAppIngressIpSecurityRestriction:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: The action. Allow or Deny. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#action ContainerApp#action}
-        :param ip_address_range: The incoming IP address or range of IP addresses (in CIDR notation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ip_address_range ContainerApp#ip_address_range}
-        :param name: Name for the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param description: Describe the IP restriction rule that is being sent to the container-app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#description ContainerApp#description}
+        :param action: The action. Allow or Deny. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#action ContainerApp#action}
+        :param ip_address_range: The incoming IP address or range of IP addresses (in CIDR notation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ip_address_range ContainerApp#ip_address_range}
+        :param name: Name for the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param description: Describe the IP restriction rule that is being sent to the container-app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#description ContainerApp#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3163d33d2e2dc053402b46f8acf2e702ffe0f5dbb7405f3b97332e09e3f783e)
@@ -1914,7 +1914,7 @@ class ContainerAppIngressIpSecurityRestriction:
     def action(self) -> builtins.str:
         '''The action. Allow or Deny.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#action ContainerApp#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#action ContainerApp#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1924,7 +1924,7 @@ class ContainerAppIngressIpSecurityRestriction:
     def ip_address_range(self) -> builtins.str:
         '''The incoming IP address or range of IP addresses (in CIDR notation).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#ip_address_range ContainerApp#ip_address_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#ip_address_range ContainerApp#ip_address_range}
         '''
         result = self._values.get("ip_address_range")
         assert result is not None, "Required property 'ip_address_range' is missing"
@@ -1934,7 +1934,7 @@ class ContainerAppIngressIpSecurityRestriction:
     def name(self) -> builtins.str:
         '''Name for the IP restriction rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1944,7 +1944,7 @@ class ContainerAppIngressIpSecurityRestriction:
     def description(self) -> typing.Optional[builtins.str]:
         '''Describe the IP restriction rule that is being sent to the container-app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#description ContainerApp#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#description ContainerApp#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2202,12 +2202,12 @@ class ContainerAppIngressOutputReference(
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.
-        :param allow_credentials_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_origins ContainerApp#allowed_origins}.
+        :param allow_credentials_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allow_credentials_enabled ContainerApp#allow_credentials_enabled}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_headers ContainerApp#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#allowed_methods ContainerApp#allowed_methods}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#exposed_headers ContainerApp#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_age_in_seconds ContainerApp#max_age_in_seconds}.
         '''
         value = ContainerAppIngressCors(
             allowed_origins=allowed_origins,
@@ -2467,10 +2467,10 @@ class ContainerAppIngressTrafficWeight:
         revision_suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param percentage: The percentage of traffic to send to this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#percentage ContainerApp#percentage}
-        :param label: The label to apply to the revision as a name prefix for routing traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#label ContainerApp#label}
-        :param latest_revision: This traffic Weight relates to the latest stable Container Revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#latest_revision ContainerApp#latest_revision}
-        :param revision_suffix: The suffix string to append to the revision. This must be unique for the Container App's lifetime. A default hash created by the service will be used if this value is omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
+        :param percentage: The percentage of traffic to send to this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#percentage ContainerApp#percentage}
+        :param label: The label to apply to the revision as a name prefix for routing traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#label ContainerApp#label}
+        :param latest_revision: This traffic Weight relates to the latest stable Container Revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#latest_revision ContainerApp#latest_revision}
+        :param revision_suffix: The suffix string to append to the revision. This must be unique for the Container App's lifetime. A default hash created by the service will be used if this value is omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df343944e26e19384e8da93e6321e64f0f11e00b7882161a5e45b5f12f3d747b)
@@ -2492,7 +2492,7 @@ class ContainerAppIngressTrafficWeight:
     def percentage(self) -> jsii.Number:
         '''The percentage of traffic to send to this revision.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#percentage ContainerApp#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#percentage ContainerApp#percentage}
         '''
         result = self._values.get("percentage")
         assert result is not None, "Required property 'percentage' is missing"
@@ -2502,7 +2502,7 @@ class ContainerAppIngressTrafficWeight:
     def label(self) -> typing.Optional[builtins.str]:
         '''The label to apply to the revision as a name prefix for routing traffic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#label ContainerApp#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#label ContainerApp#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2513,7 +2513,7 @@ class ContainerAppIngressTrafficWeight:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''This traffic Weight relates to the latest stable Container Revision.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#latest_revision ContainerApp#latest_revision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#latest_revision ContainerApp#latest_revision}
         '''
         result = self._values.get("latest_revision")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2524,7 +2524,7 @@ class ContainerAppIngressTrafficWeight:
 
         This must be unique for the Container App's lifetime. A default hash created by the service will be used if this value is omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
         '''
         result = self._values.get("revision_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2785,10 +2785,10 @@ class ContainerAppRegistry:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param server: The hostname for the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#server ContainerApp#server}
-        :param identity: ID of the System or User Managed Identity used to pull images from the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
-        :param password_secret_name: The name of the Secret Reference containing the password value for this user on the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#password_secret_name ContainerApp#password_secret_name}
-        :param username: The username to use for this Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#username ContainerApp#username}
+        :param server: The hostname for the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#server ContainerApp#server}
+        :param identity: ID of the System or User Managed Identity used to pull images from the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
+        :param password_secret_name: The name of the Secret Reference containing the password value for this user on the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#password_secret_name ContainerApp#password_secret_name}
+        :param username: The username to use for this Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#username ContainerApp#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3d4ea0344de6b1cca976766baaf1c3903c036919d800998a8927657a5e1edb7)
@@ -2810,7 +2810,7 @@ class ContainerAppRegistry:
     def server(self) -> builtins.str:
         '''The hostname for the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#server ContainerApp#server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#server ContainerApp#server}
         '''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
@@ -2820,7 +2820,7 @@ class ContainerAppRegistry:
     def identity(self) -> typing.Optional[builtins.str]:
         '''ID of the System or User Managed Identity used to pull images from the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2829,7 +2829,7 @@ class ContainerAppRegistry:
     def password_secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Secret Reference containing the password value for this user on the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#password_secret_name ContainerApp#password_secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#password_secret_name ContainerApp#password_secret_name}
         '''
         result = self._values.get("password_secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2838,7 +2838,7 @@ class ContainerAppRegistry:
     def username(self) -> typing.Optional[builtins.str]:
         '''The username to use for this Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#username ContainerApp#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#username ContainerApp#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3089,10 +3089,10 @@ class ContainerAppSecret:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The secret name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param identity: The identity to use for accessing key vault reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
-        :param key_vault_secret_id: The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#key_vault_secret_id ContainerApp#key_vault_secret_id}
-        :param value: The value for this secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The secret name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param identity: The identity to use for accessing key vault reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
+        :param key_vault_secret_id: The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#key_vault_secret_id ContainerApp#key_vault_secret_id}
+        :param value: The value for this secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72091c9c14a3dcbddab91d1501c0c8a23dcce091c37f04454dd65f2833303528)
@@ -3114,7 +3114,7 @@ class ContainerAppSecret:
     def name(self) -> builtins.str:
         '''The secret name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3124,7 +3124,7 @@ class ContainerAppSecret:
     def identity(self) -> typing.Optional[builtins.str]:
         '''The identity to use for accessing key vault reference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#identity ContainerApp#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#identity ContainerApp#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3133,7 +3133,7 @@ class ContainerAppSecret:
     def key_vault_secret_id(self) -> typing.Optional[builtins.str]:
         '''The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#key_vault_secret_id ContainerApp#key_vault_secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#key_vault_secret_id ContainerApp#key_vault_secret_id}
         '''
         result = self._values.get("key_vault_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3142,7 +3142,7 @@ class ContainerAppSecret:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3407,17 +3407,17 @@ class ContainerAppTemplate:
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container ContainerApp#container}
-        :param azure_queue_scale_rule: azure_queue_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
-        :param custom_scale_rule: custom_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
-        :param http_scale_rule: http_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#init_container ContainerApp#init_container}
-        :param max_replicas: The maximum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
-        :param min_replicas: The minimum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
-        :param revision_suffix: The suffix for the revision. This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
-        :param tcp_scale_rule: tcp_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
-        :param termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume ContainerApp#volume}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container ContainerApp#container}
+        :param azure_queue_scale_rule: azure_queue_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
+        :param custom_scale_rule: custom_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
+        :param http_scale_rule: http_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#init_container ContainerApp#init_container}
+        :param max_replicas: The maximum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
+        :param min_replicas: The minimum number of replicas for this container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
+        :param revision_suffix: The suffix for the revision. This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
+        :param tcp_scale_rule: tcp_scale_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
+        :param termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume ContainerApp#volume}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0f38ee2050a9a72a6ba8ab8ff306a388b685952d19af92c33d27d7804eeff9c)
@@ -3462,7 +3462,7 @@ class ContainerAppTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainer"]]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#container ContainerApp#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#container ContainerApp#container}
         '''
         result = self._values.get("container")
         assert result is not None, "Required property 'container' is missing"
@@ -3474,7 +3474,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateAzureQueueScaleRule"]]]:
         '''azure_queue_scale_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#azure_queue_scale_rule ContainerApp#azure_queue_scale_rule}
         '''
         result = self._values.get("azure_queue_scale_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateAzureQueueScaleRule"]]], result)
@@ -3485,7 +3485,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateCustomScaleRule"]]]:
         '''custom_scale_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#custom_scale_rule ContainerApp#custom_scale_rule}
         '''
         result = self._values.get("custom_scale_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateCustomScaleRule"]]], result)
@@ -3496,7 +3496,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateHttpScaleRule"]]]:
         '''http_scale_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#http_scale_rule ContainerApp#http_scale_rule}
         '''
         result = self._values.get("http_scale_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateHttpScaleRule"]]], result)
@@ -3507,7 +3507,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainer"]]]:
         '''init_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#init_container ContainerApp#init_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#init_container ContainerApp#init_container}
         '''
         result = self._values.get("init_container")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainer"]]], result)
@@ -3516,7 +3516,7 @@ class ContainerAppTemplate:
     def max_replicas(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of replicas for this container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#max_replicas ContainerApp#max_replicas}
         '''
         result = self._values.get("max_replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3525,7 +3525,7 @@ class ContainerAppTemplate:
     def min_replicas(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of replicas for this container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#min_replicas ContainerApp#min_replicas}
         '''
         result = self._values.get("min_replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3536,7 +3536,7 @@ class ContainerAppTemplate:
 
         This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#revision_suffix ContainerApp#revision_suffix}
         '''
         result = self._values.get("revision_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3547,7 +3547,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateTcpScaleRule"]]]:
         '''tcp_scale_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#tcp_scale_rule ContainerApp#tcp_scale_rule}
         '''
         result = self._values.get("tcp_scale_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateTcpScaleRule"]]], result)
@@ -3556,7 +3556,7 @@ class ContainerAppTemplate:
     def termination_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
         '''The time in seconds after the container is sent the termination signal before the process if forcibly killed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#termination_grace_period_seconds ContainerApp#termination_grace_period_seconds}
         '''
         result = self._values.get("termination_grace_period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3567,7 +3567,7 @@ class ContainerAppTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateVolume"]]]:
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume ContainerApp#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume ContainerApp#volume}
         '''
         result = self._values.get("volume")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateVolume"]]], result)
@@ -3604,10 +3604,10 @@ class ContainerAppTemplateAzureQueueScaleRule:
         queue_name: builtins.str,
     ) -> None:
         '''
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.
-        :param queue_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#queue_length ContainerApp#queue_length}.
-        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#queue_name ContainerApp#queue_name}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.
+        :param queue_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#queue_length ContainerApp#queue_length}.
+        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#queue_name ContainerApp#queue_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8440591433d5661498c4973812de956f7d91981266815a948114119ee9f40aa)
@@ -3628,7 +3628,7 @@ class ContainerAppTemplateAzureQueueScaleRule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateAzureQueueScaleRuleAuthentication"]]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         result = self._values.get("authentication")
         assert result is not None, "Required property 'authentication' is missing"
@@ -3636,21 +3636,21 @@ class ContainerAppTemplateAzureQueueScaleRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def queue_length(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#queue_length ContainerApp#queue_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#queue_length ContainerApp#queue_length}.'''
         result = self._values.get("queue_length")
         assert result is not None, "Required property 'queue_length' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def queue_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#queue_name ContainerApp#queue_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#queue_name ContainerApp#queue_name}.'''
         result = self._values.get("queue_name")
         assert result is not None, "Required property 'queue_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3683,8 +3683,8 @@ class ContainerAppTemplateAzureQueueScaleRuleAuthentication:
         trigger_parameter: builtins.str,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
-        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
+        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a99e7d5c46ab30bb958c02381531b75e964238c7be5b8457199d414635134a7)
@@ -3697,14 +3697,14 @@ class ContainerAppTemplateAzureQueueScaleRuleAuthentication:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_parameter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
         result = self._values.get("trigger_parameter")
         assert result is not None, "Required property 'trigger_parameter' is missing"
         return typing.cast(builtins.str, result)
@@ -4141,17 +4141,17 @@ class ContainerAppTemplateContainer:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateContainerVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cpu ContainerApp#cpu}
-        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#image ContainerApp#image}
-        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#memory ContainerApp#memory}
-        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#args ContainerApp#args}
-        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#command ContainerApp#command}
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#env ContainerApp#env}
-        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#liveness_probe ContainerApp#liveness_probe}
-        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#readiness_probe ContainerApp#readiness_probe}
-        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#startup_probe ContainerApp#startup_probe}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
+        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cpu ContainerApp#cpu}
+        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#image ContainerApp#image}
+        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#memory ContainerApp#memory}
+        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#args ContainerApp#args}
+        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#command ContainerApp#command}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#env ContainerApp#env}
+        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#liveness_probe ContainerApp#liveness_probe}
+        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#readiness_probe ContainerApp#readiness_probe}
+        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#startup_probe ContainerApp#startup_probe}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65787dacf2b743288fb2aa0314db8fe68135e864c6d4a60062a9d70c0bc1c5a1)
@@ -4193,7 +4193,7 @@ class ContainerAppTemplateContainer:
 
         Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cpu ContainerApp#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cpu ContainerApp#cpu}
         '''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
@@ -4203,7 +4203,7 @@ class ContainerAppTemplateContainer:
     def image(self) -> builtins.str:
         '''The image to use to create the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#image ContainerApp#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#image ContainerApp#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -4215,7 +4215,7 @@ class ContainerAppTemplateContainer:
 
         Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#memory ContainerApp#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#memory ContainerApp#memory}
         '''
         result = self._values.get("memory")
         assert result is not None, "Required property 'memory' is missing"
@@ -4225,7 +4225,7 @@ class ContainerAppTemplateContainer:
     def name(self) -> builtins.str:
         '''The name of the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4235,7 +4235,7 @@ class ContainerAppTemplateContainer:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of args to pass to the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#args ContainerApp#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#args ContainerApp#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4246,7 +4246,7 @@ class ContainerAppTemplateContainer:
 
         This is provided as a list of command line elements without spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#command ContainerApp#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#command ContainerApp#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4257,7 +4257,7 @@ class ContainerAppTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#env ContainerApp#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#env ContainerApp#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerEnv"]]], result)
@@ -4268,7 +4268,7 @@ class ContainerAppTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerLivenessProbe"]]]:
         '''liveness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#liveness_probe ContainerApp#liveness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#liveness_probe ContainerApp#liveness_probe}
         '''
         result = self._values.get("liveness_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerLivenessProbe"]]], result)
@@ -4279,7 +4279,7 @@ class ContainerAppTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerReadinessProbe"]]]:
         '''readiness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#readiness_probe ContainerApp#readiness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#readiness_probe ContainerApp#readiness_probe}
         '''
         result = self._values.get("readiness_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerReadinessProbe"]]], result)
@@ -4290,7 +4290,7 @@ class ContainerAppTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerStartupProbe"]]]:
         '''startup_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#startup_probe ContainerApp#startup_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#startup_probe ContainerApp#startup_probe}
         '''
         result = self._values.get("startup_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerStartupProbe"]]], result)
@@ -4301,7 +4301,7 @@ class ContainerAppTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerVolumeMounts"]]], result)
@@ -4332,9 +4332,9 @@ class ContainerAppTemplateContainerEnv:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
-        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
+        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7187d38829264f69ea66d88bbec759812baaf96178f2082a69e0522723b922d2)
@@ -4353,7 +4353,7 @@ class ContainerAppTemplateContainerEnv:
     def name(self) -> builtins.str:
         '''The name of the environment variable for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4363,7 +4363,7 @@ class ContainerAppTemplateContainerEnv:
     def secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the secret that contains the value for this environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
         '''
         result = self._values.get("secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4372,7 +4372,7 @@ class ContainerAppTemplateContainerEnv:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4705,15 +4705,15 @@ class ContainerAppTemplateContainerLivenessProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
-        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ecf26d64e77558622ade789eea744df6be101d85d943de1bc1a69297becbcd4)
@@ -4749,7 +4749,7 @@ class ContainerAppTemplateContainerLivenessProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -4759,7 +4759,7 @@ class ContainerAppTemplateContainerLivenessProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -4771,7 +4771,7 @@ class ContainerAppTemplateContainerLivenessProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4782,7 +4782,7 @@ class ContainerAppTemplateContainerLivenessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerLivenessProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerLivenessProbeHeader"]]], result)
@@ -4793,7 +4793,7 @@ class ContainerAppTemplateContainerLivenessProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4804,7 +4804,7 @@ class ContainerAppTemplateContainerLivenessProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4813,7 +4813,7 @@ class ContainerAppTemplateContainerLivenessProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4824,7 +4824,7 @@ class ContainerAppTemplateContainerLivenessProbe:
 
         Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4833,7 +4833,7 @@ class ContainerAppTemplateContainerLivenessProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4858,8 +4858,8 @@ class ContainerAppTemplateContainerLivenessProbe:
 class ContainerAppTemplateContainerLivenessProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6aeed8afedfedbeeb04ea544d2b1cf800f3520f001104d4e3a9f65a4ca7a45ae)
@@ -4874,7 +4874,7 @@ class ContainerAppTemplateContainerLivenessProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4884,7 +4884,7 @@ class ContainerAppTemplateContainerLivenessProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -5740,16 +5740,16 @@ class ContainerAppTemplateContainerReadinessProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
-        :param path: The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
-        :param success_count_threshold: The number of consecutive successful responses required to consider this probe as successful. Possible values are between ``1`` and ``10``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#success_count_threshold ContainerApp#success_count_threshold}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        :param path: The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
+        :param success_count_threshold: The number of consecutive successful responses required to consider this probe as successful. Possible values are between ``1`` and ``10``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#success_count_threshold ContainerApp#success_count_threshold}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8c6a021b0d75bb5b03c53a25543bf613502a7f472fa4374a6237585e12bd3d4)
@@ -5788,7 +5788,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -5798,7 +5798,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -5810,7 +5810,7 @@ class ContainerAppTemplateContainerReadinessProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5821,7 +5821,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerReadinessProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerReadinessProbeHeader"]]], result)
@@ -5832,7 +5832,7 @@ class ContainerAppTemplateContainerReadinessProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5843,7 +5843,7 @@ class ContainerAppTemplateContainerReadinessProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5852,7 +5852,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5861,7 +5861,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     def path(self) -> typing.Optional[builtins.str]:
         '''The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5872,7 +5872,7 @@ class ContainerAppTemplateContainerReadinessProbe:
 
         Possible values are between ``1`` and ``10``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#success_count_threshold ContainerApp#success_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#success_count_threshold ContainerApp#success_count_threshold}
         '''
         result = self._values.get("success_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5881,7 +5881,7 @@ class ContainerAppTemplateContainerReadinessProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5906,8 +5906,8 @@ class ContainerAppTemplateContainerReadinessProbe:
 class ContainerAppTemplateContainerReadinessProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eddebcb2fb7531c136273f699395161eb61acd9565b8ed05ba96b148dc2282c8)
@@ -5922,7 +5922,7 @@ class ContainerAppTemplateContainerReadinessProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5932,7 +5932,7 @@ class ContainerAppTemplateContainerReadinessProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -6498,15 +6498,15 @@ class ContainerAppTemplateContainerStartupProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
-        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d32c7a2ccff436d63148d722301729a5853aa4af06266ae74564396b594dffc2)
@@ -6542,7 +6542,7 @@ class ContainerAppTemplateContainerStartupProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#port ContainerApp#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#port ContainerApp#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -6552,7 +6552,7 @@ class ContainerAppTemplateContainerStartupProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#transport ContainerApp#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#transport ContainerApp#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -6564,7 +6564,7 @@ class ContainerAppTemplateContainerStartupProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#failure_count_threshold ContainerApp#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6575,7 +6575,7 @@ class ContainerAppTemplateContainerStartupProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerStartupProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#header ContainerApp#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#header ContainerApp#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateContainerStartupProbeHeader"]]], result)
@@ -6586,7 +6586,7 @@ class ContainerAppTemplateContainerStartupProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#host ContainerApp#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#host ContainerApp#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6597,7 +6597,7 @@ class ContainerAppTemplateContainerStartupProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#initial_delay ContainerApp#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6606,7 +6606,7 @@ class ContainerAppTemplateContainerStartupProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#interval_seconds ContainerApp#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6617,7 +6617,7 @@ class ContainerAppTemplateContainerStartupProbe:
 
         Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6626,7 +6626,7 @@ class ContainerAppTemplateContainerStartupProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#timeout ContainerApp#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#timeout ContainerApp#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6651,8 +6651,8 @@ class ContainerAppTemplateContainerStartupProbe:
 class ContainerAppTemplateContainerStartupProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70ab8d2cedf28729787c5ea3f5aaf743fc384704f331d9d1a2d3e65bdfb57dbe)
@@ -6667,7 +6667,7 @@ class ContainerAppTemplateContainerStartupProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6677,7 +6677,7 @@ class ContainerAppTemplateContainerStartupProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -7211,9 +7211,9 @@ class ContainerAppTemplateContainerVolumeMounts:
         sub_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
-        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
+        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
+        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe77f75f81f6afebcd37deb5d74acffd261f1a670c8c794ad5c034023abc1b77)
@@ -7231,7 +7231,7 @@ class ContainerAppTemplateContainerVolumeMounts:
     def name(self) -> builtins.str:
         '''The name of the Volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7241,7 +7241,7 @@ class ContainerAppTemplateContainerVolumeMounts:
     def path(self) -> builtins.str:
         '''The path in the container at which to mount this volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -7251,7 +7251,7 @@ class ContainerAppTemplateContainerVolumeMounts:
     def sub_path(self) -> typing.Optional[builtins.str]:
         '''The sub path of the volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
         '''
         result = self._values.get("sub_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7480,10 +7480,10 @@ class ContainerAppTemplateCustomScaleRule:
         authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateCustomScaleRuleAuthentication", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#custom_rule_type ContainerApp#custom_rule_type}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#metadata ContainerApp#metadata}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        :param custom_rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#custom_rule_type ContainerApp#custom_rule_type}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#metadata ContainerApp#metadata}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f74b1bec1525f6ce64d0eaa3be619a3dc065090f22a050b99d1c4156e7684c47)
@@ -7501,21 +7501,21 @@ class ContainerAppTemplateCustomScaleRule:
 
     @builtins.property
     def custom_rule_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#custom_rule_type ContainerApp#custom_rule_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#custom_rule_type ContainerApp#custom_rule_type}.'''
         result = self._values.get("custom_rule_type")
         assert result is not None, "Required property 'custom_rule_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metadata(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#metadata ContainerApp#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#metadata ContainerApp#metadata}.'''
         result = self._values.get("metadata")
         assert result is not None, "Required property 'metadata' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -7526,7 +7526,7 @@ class ContainerAppTemplateCustomScaleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateCustomScaleRuleAuthentication"]]]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateCustomScaleRuleAuthentication"]]], result)
@@ -7559,8 +7559,8 @@ class ContainerAppTemplateCustomScaleRuleAuthentication:
         trigger_parameter: builtins.str,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
-        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
+        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05271565ed6fdf3692ba53ec3018b4f2b32475085324b75122dd8bbaef4790f1)
@@ -7573,14 +7573,14 @@ class ContainerAppTemplateCustomScaleRuleAuthentication:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_parameter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
         result = self._values.get("trigger_parameter")
         assert result is not None, "Required property 'trigger_parameter' is missing"
         return typing.cast(builtins.str, result)
@@ -8005,9 +8005,9 @@ class ContainerAppTemplateHttpScaleRule:
         authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateHttpScaleRuleAuthentication", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param concurrent_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        :param concurrent_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86000771b2054d5e27fa165c385830b2a979718e757d7797f6ed85dda53e729b)
@@ -8023,14 +8023,14 @@ class ContainerAppTemplateHttpScaleRule:
 
     @builtins.property
     def concurrent_requests(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.'''
         result = self._values.get("concurrent_requests")
         assert result is not None, "Required property 'concurrent_requests' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -8041,7 +8041,7 @@ class ContainerAppTemplateHttpScaleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateHttpScaleRuleAuthentication"]]]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateHttpScaleRuleAuthentication"]]], result)
@@ -8074,8 +8074,8 @@ class ContainerAppTemplateHttpScaleRuleAuthentication:
         trigger_parameter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
-        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
+        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5bb7e461e0cf31480f4141b42f931134a35fe8ca8dc9e3f15032477b90f3ee0a)
@@ -8089,14 +8089,14 @@ class ContainerAppTemplateHttpScaleRuleAuthentication:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_parameter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
         result = self._values.get("trigger_parameter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8515,14 +8515,14 @@ class ContainerAppTemplateInitContainer:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateInitContainerVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#image ContainerApp#image}
-        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#args ContainerApp#args}
-        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#command ContainerApp#command}
-        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cpu ContainerApp#cpu}
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#env ContainerApp#env}
-        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#memory ContainerApp#memory}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
+        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#image ContainerApp#image}
+        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#args ContainerApp#args}
+        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#command ContainerApp#command}
+        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cpu ContainerApp#cpu}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#env ContainerApp#env}
+        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#memory ContainerApp#memory}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee1d83ef264a277dfb07f3ea1126eb98b9dc770123821cca97dc2b1c63b47948)
@@ -8555,7 +8555,7 @@ class ContainerAppTemplateInitContainer:
     def image(self) -> builtins.str:
         '''The image to use to create the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#image ContainerApp#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#image ContainerApp#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -8565,7 +8565,7 @@ class ContainerAppTemplateInitContainer:
     def name(self) -> builtins.str:
         '''The name of the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8575,7 +8575,7 @@ class ContainerAppTemplateInitContainer:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of args to pass to the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#args ContainerApp#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#args ContainerApp#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8586,7 +8586,7 @@ class ContainerAppTemplateInitContainer:
 
         This is provided as a list of command line elements without spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#command ContainerApp#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#command ContainerApp#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8597,7 +8597,7 @@ class ContainerAppTemplateInitContainer:
 
         Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#cpu ContainerApp#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#cpu ContainerApp#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8608,7 +8608,7 @@ class ContainerAppTemplateInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainerEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#env ContainerApp#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#env ContainerApp#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainerEnv"]]], result)
@@ -8619,7 +8619,7 @@ class ContainerAppTemplateInitContainer:
 
         Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#memory ContainerApp#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#memory ContainerApp#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8630,7 +8630,7 @@ class ContainerAppTemplateInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainerVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#volume_mounts ContainerApp#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateInitContainerVolumeMounts"]]], result)
@@ -8661,9 +8661,9 @@ class ContainerAppTemplateInitContainerEnv:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
-        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
+        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afb1376e8c9b09ea36fc9cae618dc9915f50fead06e78604b53d80e49f1ad6d0)
@@ -8682,7 +8682,7 @@ class ContainerAppTemplateInitContainerEnv:
     def name(self) -> builtins.str:
         '''The name of the environment variable for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8692,7 +8692,7 @@ class ContainerAppTemplateInitContainerEnv:
     def secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the secret that contains the value for this environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}
         '''
         result = self._values.get("secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8701,7 +8701,7 @@ class ContainerAppTemplateInitContainerEnv:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#value ContainerApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#value ContainerApp#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9246,9 +9246,9 @@ class ContainerAppTemplateInitContainerVolumeMounts:
         sub_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
-        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
+        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
+        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46d9168517f4a51e6dde12191c3949d0c6a2982cd2569bf652f595d36d44bb09)
@@ -9266,7 +9266,7 @@ class ContainerAppTemplateInitContainerVolumeMounts:
     def name(self) -> builtins.str:
         '''The name of the Volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -9276,7 +9276,7 @@ class ContainerAppTemplateInitContainerVolumeMounts:
     def path(self) -> builtins.str:
         '''The path in the container at which to mount this volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#path ContainerApp#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#path ContainerApp#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -9286,7 +9286,7 @@ class ContainerAppTemplateInitContainerVolumeMounts:
     def sub_path(self) -> typing.Optional[builtins.str]:
         '''The sub path of the volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#sub_path ContainerApp#sub_path}
         '''
         result = self._values.get("sub_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9829,9 +9829,9 @@ class ContainerAppTemplateTcpScaleRule:
         authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppTemplateTcpScaleRuleAuthentication", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param concurrent_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        :param concurrent_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c16e40e9000698092183ac843ee28d6a80fd4e326b1ca8f1348358d4d3f6506e)
@@ -9847,14 +9847,14 @@ class ContainerAppTemplateTcpScaleRule:
 
     @builtins.property
     def concurrent_requests(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#concurrent_requests ContainerApp#concurrent_requests}.'''
         result = self._values.get("concurrent_requests")
         assert result is not None, "Required property 'concurrent_requests' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -9865,7 +9865,7 @@ class ContainerAppTemplateTcpScaleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateTcpScaleRuleAuthentication"]]]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#authentication ContainerApp#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#authentication ContainerApp#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppTemplateTcpScaleRuleAuthentication"]]], result)
@@ -9898,8 +9898,8 @@ class ContainerAppTemplateTcpScaleRuleAuthentication:
         trigger_parameter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
-        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.
+        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64cf0becd61cac33ebf163dae876d92b533452f6b16c416a14f0f76073c911fa)
@@ -9913,14 +9913,14 @@ class ContainerAppTemplateTcpScaleRuleAuthentication:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#secret_name ContainerApp#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_parameter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#trigger_parameter ContainerApp#trigger_parameter}.'''
         result = self._values.get("trigger_parameter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10331,10 +10331,10 @@ class ContainerAppTemplateVolume:
         storage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
-        :param mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#mount_options ContainerApp#mount_options}
-        :param storage_name: The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#storage_name ContainerApp#storage_name}
-        :param storage_type: The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#storage_type ContainerApp#storage_type}
+        :param name: The name of the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
+        :param mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#mount_options ContainerApp#mount_options}
+        :param storage_name: The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#storage_name ContainerApp#storage_name}
+        :param storage_type: The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#storage_type ContainerApp#storage_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90df6a05df3d674dc9557183015fd9e5fc1600003abda3862f61f6dac97056ae)
@@ -10356,7 +10356,7 @@ class ContainerAppTemplateVolume:
     def name(self) -> builtins.str:
         '''The name of the volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#name ContainerApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#name ContainerApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -10366,7 +10366,7 @@ class ContainerAppTemplateVolume:
     def mount_options(self) -> typing.Optional[builtins.str]:
         '''Mount options used while mounting the AzureFile. Must be a comma-separated string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#mount_options ContainerApp#mount_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#mount_options ContainerApp#mount_options}
         '''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10375,7 +10375,7 @@ class ContainerAppTemplateVolume:
     def storage_name(self) -> typing.Optional[builtins.str]:
         '''The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#storage_name ContainerApp#storage_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#storage_name ContainerApp#storage_name}
         '''
         result = self._values.get("storage_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10384,7 +10384,7 @@ class ContainerAppTemplateVolume:
     def storage_type(self) -> typing.Optional[builtins.str]:
         '''The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#storage_type ContainerApp#storage_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#storage_type ContainerApp#storage_type}
         '''
         result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10635,10 +10635,10 @@ class ContainerAppTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#create ContainerApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#delete ContainerApp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#read ContainerApp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#update ContainerApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#create ContainerApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#delete ContainerApp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#read ContainerApp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#update ContainerApp#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3262741f8c45cef90d8b8b7ddcc1fad8a935d647ee43c2f88c56b9268ded30a4)
@@ -10658,25 +10658,25 @@ class ContainerAppTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#create ContainerApp#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#create ContainerApp#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#delete ContainerApp#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#delete ContainerApp#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#read ContainerApp#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#read ContainerApp#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app#update ContainerApp#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/container_app#update ContainerApp#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

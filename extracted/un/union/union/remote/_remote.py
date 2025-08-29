@@ -85,8 +85,8 @@ class DeployableModel:
 
 _hf_download_image = ImageSpec(
     name="hfhub-cache",
-    registry="ghcr.io/unionai-oss",
-    packages=["huggingface_hub[hf_transfer]==0.33.2", "union[vllm]==0.1.185"],
+    builder="union",
+    packages=["huggingface_hub[hf_transfer]==0.33.2", "union[vllm]>=0.1.190"],
     apt_packages=["build-essential", "gcc"],
 )
 
@@ -687,15 +687,6 @@ class UnionRemote(FlyteRemote):
 
     def _get_hf_hub_download_image(self) -> ImageSpec:
         # TODO: The backend should provide the hfhub-cache image
-        from union._config import _is_serverless_endpoint
-
-        if _is_serverless_endpoint(self.config.platform.endpoint):
-            # this is special handling for serverless so that the hf download
-            # image is built using the image-building service.
-            logger.info("Building huggingface downloader image.")
-            _hf_download_image.registry = None
-            _hf_download_image.builder = "union"
-
         return _hf_download_image
 
     def _get_deployable_engine_container(self, engine) -> str:

@@ -22,6 +22,12 @@ class ClickAllClickable:
     type: Literal["ClickAllClickable"] = "ClickAllClickable"
 
 @dataclass
+class ClickPoint:
+    type: Literal["ClickPoint"] = "ClickPoint"
+    x: float = 0
+    y: float = 0
+
+@dataclass
 class Wait:
     type: Literal["Wait"] = "Wait"
     ms: int = 0  # Rust: Wait(u64)
@@ -70,6 +76,12 @@ class Fill:
     value: str = ""
 
 @dataclass
+class Type:
+    type: Literal["Type"] = "Type"
+    modifier: int = 0
+    value: str = ""
+
+@dataclass
 class InfiniteScroll:
     type: Literal["InfiniteScroll"] = "InfiniteScroll"
     step_px: int = 0  # Rust: u32
@@ -93,6 +105,7 @@ WebAutomation = Union[
     Click,
     ClickAll,
     ClickAllClickable,
+    ClickPoint,
     Wait,
     WaitForNavigation,
     WaitForDom,
@@ -102,6 +115,7 @@ WebAutomation = Union[
     ScrollX,
     ScrollY,
     Fill,
+    Type,
     InfiniteScroll,
     Screenshot,
     ValidateChain,

@@ -221,6 +221,7 @@ def update_resource(
     roles_config_file=None,
     published=None,
     hide=None,
+    bundle_id=None,
     **kwargs,
 ):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
@@ -253,6 +254,8 @@ def update_resource(
         resource.spec.config.roles_config = roles_config_file
     if published is not None:
         resource.spec.config.published = published
+    if bundle_id is not None:
+        resource.spec.bundle_id = bundle_id
 
     if hide:
         display_info = config.display_info

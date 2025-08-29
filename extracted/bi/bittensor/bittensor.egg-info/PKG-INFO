@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor
-Version: 9.9.0
+Version: 9.10.0
 Summary: Bittensor
 Author: bittensor.com
 License: The MIT License (MIT)
@@ -46,7 +46,7 @@ Requires-Dist: scalecodec==1.2.11
 Requires-Dist: uvicorn
 Requires-Dist: bittensor-drand<2.0.0,>=1.0.0
 Requires-Dist: bittensor-wallet<5.0,>=4.0.0
-Requires-Dist: async-substrate-interface>=1.4.2
+Requires-Dist: async-substrate-interface>=1.5.1
 Provides-Extra: dev
 Requires-Dist: pytest==8.3.5; extra == "dev"
 Requires-Dist: pytest-asyncio==0.26.0; extra == "dev"

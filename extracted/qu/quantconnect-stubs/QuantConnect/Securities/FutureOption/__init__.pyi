@@ -11,21 +11,26 @@ import QuantConnect.Securities.Option
 import System
 
 
-class FutureOption(QuantConnect.Securities.Option.Option):
-    """Futures Options security"""
+class FutureOptionSymbol(System.Object):
+    """Static helper methods to resolve Futures Options Symbol-related tasks."""
 
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
+    @staticmethod
+    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> datetime.datetime:
         """
-        Constructor for the future option security
+        Gets the last day of trading, aliased to be the Futures options' expiry
         
-        :param symbol: Symbol of the future option
-        :param exchange_hours: Exchange hours of the future option
-        :param quote_currency: Quoted currency of the future option
-        :param symbol_properties: Symbol properties of the future option
-        :param currency_converter: Currency converter
-        :param registered_types: Provides all data types registered to the algorithm
-        :param security_cache: Cache of security objects
-        :param underlying: Future underlying security
+        :param symbol: Futures Options Symbol
+        :returns: Last day of trading date.
+        """
+        ...
+
+    @staticmethod
+    def is_standard(_: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Detects if the future option contract is standard, i.e. not weekly, not short-term, not mid-sized, etc.
+        
+        :param _: Symbol
+        :returns: true.
         """
         ...
 
@@ -86,26 +91,21 @@ class FuturesOptionsUnderlyingMapper(System.Object):
         ...
 
 
-class FutureOptionSymbol(System.Object):
-    """Static helper methods to resolve Futures Options Symbol-related tasks."""
+class FutureOption(QuantConnect.Securities.Option.Option):
+    """Futures Options security"""
 
-    @staticmethod
-    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> datetime.datetime:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
         """
-        Gets the last day of trading, aliased to be the Futures options' expiry
+        Constructor for the future option security
         
-        :param symbol: Futures Options Symbol
-        :returns: Last day of trading date.
-        """
-        ...
-
-    @staticmethod
-    def is_standard(_: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Detects if the future option contract is standard, i.e. not weekly, not short-term, not mid-sized, etc.
-        
-        :param _: Symbol
-        :returns: true.
+        :param symbol: Symbol of the future option
+        :param exchange_hours: Exchange hours of the future option
+        :param quote_currency: Quoted currency of the future option
+        :param symbol_properties: Symbol properties of the future option
+        :param currency_converter: Currency converter
+        :param registered_types: Provides all data types registered to the algorithm
+        :param security_cache: Cache of security objects
+        :param underlying: Future underlying security
         """
         ...
 

@@ -19,6 +19,7 @@ from .formats import (
     _BINARY_FORMAT_OPTIONS,
     _VALID_FORMAT_OPTIONS,
     JUPYTEXT_FORMATS,
+    NOTEBOOK_EXTENSIONS,
     check_auto_ext,
     check_file_version,
     long_form_multiple_formats,
@@ -26,7 +27,14 @@ from .formats import (
     short_form_one_format,
 )
 from .header import recursive_update
-from .jupytext import create_prefix_dir, read, reads, write, writes
+from .jupytext import (
+    create_prefix_dir,
+    get_formats_from_notebook_path,
+    read,
+    reads,
+    write,
+    writes,
+)
 from .kernels import find_kernel_specs, get_kernel_spec, kernelspec_from_language
 from .languages import _SCRIPT_EXTENSIONS
 from .paired_paths import (
@@ -94,20 +102,23 @@ def parse_jupytext_args(args=None):
         "file extension and content when missing.",
     )
     # Destination format & act on metadata
+
+    selected_file_extensions = ["md", "Rmd", "jl", "py", "R"]
     parser.add_argument(
         "--to",
         dest="output_format",
         help=(
             "The destination format: 'ipynb', 'markdown' or 'script', or a file extension: "
-            "'md', 'Rmd', 'jl', 'py', 'R', ..., 'auto' (script extension matching the notebook language), "
+            "'{}', ... or 'auto' (script extension matching the notebook language), "
             "or a combination of an extension and a format name, e.g. {} ".format(
+                "', '".join(selected_file_extensions),
                 ", ".join(
                     {
                         f"md:{fmt.format_name}"
                         for fmt in JUPYTEXT_FORMATS
                         if fmt.extension == ".md"
                     }
-                )
+                ),
             )
             + " or {}. ".format(
                 ", ".join(
@@ -125,7 +136,15 @@ def parse_jupytext_args(args=None):
             "notebooks and text documents in a roundtrip. Use the "
             "--test and and --test-strict commands to test the roundtrip on your files. "
             "Read more about the available formats at "
-            "https://jupytext.readthedocs.io/en/latest/formats.html"
+            "https://jupytext.readthedocs.io/en/latest/formats.html. "
+            "NB: in addition to the extensions listed above, you can also use these: '{}'".format(
+                "', '".join(
+                    sorted(
+                        set(ext.removeprefix(".") for ext in NOTEBOOK_EXTENSIONS)
+                        - set(selected_file_extensions + ["auto", "ipynb"])
+                    )
+                )
+            )
         ),
     )
 
@@ -997,8 +1016,7 @@ def is_untracked(filepath):
 
 def print_paired_paths(nb_file, fmt):
     """Display the paired paths for this notebook"""
-    notebook = read(nb_file, fmt=fmt)
-    formats = notebook.metadata.get("jupytext", {}).get("formats")
+    formats = get_formats_from_notebook_path(nb_file, fmt)
     if formats:
         for path, _ in paired_paths(nb_file, fmt, formats):
             if path != nb_file:
@@ -1091,7 +1109,7 @@ def git_timestamp(path):
 def get_timestamp(path):
     if not os.path.isfile(path):
         return None
-    return os.lstat(path).st_mtime
+    return os.stat(path).st_mtime
 
 
 def load_paired_notebook(notebook, fmt, config, formats, nb_file, log, pre_commit_mode):

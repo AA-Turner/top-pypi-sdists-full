@@ -18,7 +18,9 @@ By default, `TableV2` will create a single table in the main deployment region r
 ```python
 table = dynamodb.TableV2(self, "Table",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-    contributor_insights=True,
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+        enabled=True
+    ),
     table_class=dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
     point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
         point_in_time_recovery_enabled=True
@@ -68,12 +70,12 @@ global_table.add_replica(region="us-east-2", deletion_protection=True)
 
 The following properties are configurable on a per-replica basis, but will be inherited from the `TableV2` properties if not specified:
 
-* contributorInsights
+* contributorInsightsSpecification
 * deletionProtection
 * pointInTimeRecoverySpecification
 * tableClass
 * readCapacity (only configurable if the `TableV2` billing mode is `PROVISIONED`)
-* globalSecondaryIndexes (only `contributorInsights` and `readCapacity`)
+* globalSecondaryIndexes (only `contributorInsightsSpecification` and `readCapacity`)
 
 The following example shows how to define properties on a per-replica basis:
 
@@ -86,7 +88,9 @@ stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
 
 global_table = dynamodb.TableV2(stack, "GlobalTable",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-    contributor_insights=True,
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+        enabled=True
+    ),
     point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
         point_in_time_recovery_enabled=True
     ),
@@ -98,7 +102,9 @@ global_table = dynamodb.TableV2(stack, "GlobalTable",
         )
     ), dynamodb.ReplicaTableProps(
         region="us-east-2",
-        contributor_insights=False
+        contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+            enabled=False
+        )
     )
     ]
 )
@@ -430,7 +436,7 @@ table = dynamodb.TableV2(self, "Table",
 )
 ```
 
-All `globalSecondaryIndexes` for replica tables are inherited from the primary table. You can configure `contributorInsights` and `readCapacity` for each `globalSecondaryIndex` on a per-replica basis:
+All `globalSecondaryIndexes` for replica tables are inherited from the primary table. You can configure `contributorInsightsSpecification` and `readCapacity` for each `globalSecondaryIndex` on a per-replica basis:
 
 ```python
 import aws_cdk as cdk
@@ -441,7 +447,9 @@ stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
 
 global_table = dynamodb.TableV2(stack, "GlobalTable",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-    contributor_insights=True,
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+        enabled=True
+    ),
     billing=dynamodb.Billing.provisioned(
         read_capacity=dynamodb.Capacity.fixed(10),
         write_capacity=dynamodb.Capacity.autoscaled(max_capacity=10)
@@ -468,7 +476,9 @@ global_table = dynamodb.TableV2(stack, "GlobalTable",
         region="us-east-2",
         global_secondary_index_options={
             "gsi2": dynamodb.ReplicaGlobalSecondaryIndexOptions(
-                contributor_insights=False
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=False
+                )
             )
         }
     )
@@ -586,25 +596,37 @@ table = dynamodb.TableV2(self, "Table",
 
 ## Contributor Insights
 
-Enabling `contributorInsights` for `TableV2` will provide information about the most accessed and throttled items in a table or `globalSecondaryIndex`. DynamoDB delivers this information to you via CloudWatch Contributor Insights rules, reports, and graphs of report data.
+Enabling `contributorInsightSpecification` for `TableV2` will provide information about the most accessed and throttled or throttled only items in a table or `globalSecondaryIndex`. DynamoDB delivers this information to you via CloudWatch Contributor Insights rules, reports, and graphs of report data.
+
+By default, Contributor Insights for DynamoDB monitors all requests, including both the most accessed and most throttled items.
+To limit the scope to only the most accessed or only the most throttled items, use the optional `mode` parameter.
+
+* To monitor all traffic on a table or index, set `mode` to `ContributorInsightsMode.ACCESSED_AND_THROTTLED_KEYS`.
+* To monitor only throttled traffic on a table or index, set `mode` to `ContributorInsightsMode.THROTTLED_KEYS`.
 
 ```python
 table = dynamodb.TableV2(self, "Table",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-    contributor_insights=True
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+        enabled=True,
+        mode=dynamodb.ContributorInsightsMode.ACCESSED_AND_THROTTLED_KEYS
+    )
 )
 ```
 
-When you use `Table`, you can enable contributor insights for a table or specific global secondary index by setting `contributorInsightsEnabled` to `true`.
+When you use `Table`, you can enable contributor insights for a table or specific global secondary index by setting `contributorInsightsSpecification` parameter `enabled` to `true`.
 
 ```python
 table = dynamodb.Table(self, "Table",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-    contributor_insights_enabled=True
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification( # for a table
+        enabled=True,
+        mode=dynamodb.ContributorInsightsMode.THROTTLED_KEYS)
 )
 
 table.add_global_secondary_index(
-    contributor_insights_enabled=True,  # for a specific global secondary index
+    contributor_insights_specification=dynamodb.ContributorInsightsSpecification( # for a specific global secondary index
+        enabled=True),
     index_name="gsi",
     partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING)
 )
@@ -7990,6 +8012,121 @@ class CfnTableProps:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_dynamodb.ContributorInsightsMode")
+class ContributorInsightsMode(enum.Enum):
+    '''DynamoDB's Contributor Insights Mode.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-dynamodb-table-contributorinsightsspecification.html
+    :exampleMetadata: infused
+
+    Example::
+
+        table = dynamodb.TableV2(self, "Table",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                enabled=True,
+                mode=dynamodb.ContributorInsightsMode.ACCESSED_AND_THROTTLED_KEYS
+            )
+        )
+    '''
+
+    ACCESSED_AND_THROTTLED_KEYS = "ACCESSED_AND_THROTTLED_KEYS"
+    '''Emits metrics for all read and write requests, whether successful or throttled.'''
+    THROTTLED_KEYS = "THROTTLED_KEYS"
+    '''Emits metrics for read and write requests that were throttled.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dynamodb.ContributorInsightsSpecification",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled", "mode": "mode"},
+)
+class ContributorInsightsSpecification:
+    def __init__(
+        self,
+        *,
+        enabled: builtins.bool,
+        mode: typing.Optional[ContributorInsightsMode] = None,
+    ) -> None:
+        '''Reference to ContributorInsightsSpecification.
+
+        :param enabled: Indicates whether contributor insights is enabled. Default: false
+        :param mode: Indicates the type of metrics captured by contributor insights. Default: ACCESSED_AND_THROTTLED_KEYS
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            
+            
+            app = cdk.App()
+            stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
+            
+            global_table = dynamodb.TableV2(stack, "GlobalTable",
+                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=True
+                ),
+                point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                    point_in_time_recovery_enabled=True
+                ),
+                replicas=[dynamodb.ReplicaTableProps(
+                    region="us-east-1",
+                    table_class=dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
+                    point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                        point_in_time_recovery_enabled=False
+                    )
+                ), dynamodb.ReplicaTableProps(
+                    region="us-east-2",
+                    contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                        enabled=False
+                    )
+                )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__656543bd456aefaef11a80dfb0950fe5597d4bc0465f2f4fdec81a81dfe7358d)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enabled": enabled,
+        }
+        if mode is not None:
+            self._values["mode"] = mode
+
+    @builtins.property
+    def enabled(self) -> builtins.bool:
+        '''Indicates whether contributor insights is enabled.
+
+        :default: false
+        '''
+        result = self._values.get("enabled")
+        assert result is not None, "Required property 'enabled' is missing"
+        return typing.cast(builtins.bool, result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional[ContributorInsightsMode]:
+        '''Indicates the type of metrics captured by contributor insights.
+
+        :default: ACCESSED_AND_THROTTLED_KEYS
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional[ContributorInsightsMode], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContributorInsightsSpecification(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_dynamodb.CsvOptions",
     jsii_struct_bases=[],
@@ -9800,7 +9937,9 @@ class PointInTimeRecoverySpecification:
 
             table = dynamodb.TableV2(self, "Table",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                contributor_insights=True,
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=True
+                ),
                 table_class=dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
                 point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
                     point_in_time_recovery_enabled=True
@@ -9875,6 +10014,7 @@ class ProjectionType(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "contributor_insights": "contributorInsights",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "max_read_request_units": "maxReadRequestUnits",
         "read_capacity": "readCapacity",
     },
@@ -9884,12 +10024,14 @@ class ReplicaGlobalSecondaryIndexOptions:
         self,
         *,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         max_read_request_units: typing.Optional[jsii.Number] = None,
         read_capacity: typing.Optional[Capacity] = None,
     ) -> None:
         '''Options used to configure global secondary indexes on a replica table.
 
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled for a specific global secondary index on a replica table. Default: - inherited from the primary table
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled for a specific global secondary index on a replica table. Default: - inherited from the primary table
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected for a specific global secondary index on a replica table. Default: - contributor insights is not enabled
         :param max_read_request_units: The maximum read request units for a specific global secondary index on a replica table. Note: This can only be configured if primary table billing is PAY_PER_REQUEST. Default: - inherited from the primary table
         :param read_capacity: The read capacity for a specific global secondary index on a replica table. Note: This can only be configured if primary table billing is provisioned. Default: - inherited from the primary table
 
@@ -9905,7 +10047,9 @@ class ReplicaGlobalSecondaryIndexOptions:
             
             global_table = dynamodb.TableV2(stack, "GlobalTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                contributor_insights=True,
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=True
+                ),
                 billing=dynamodb.Billing.provisioned(
                     read_capacity=dynamodb.Capacity.fixed(10),
                     write_capacity=dynamodb.Capacity.autoscaled(max_capacity=10)
@@ -9932,21 +10076,28 @@ class ReplicaGlobalSecondaryIndexOptions:
                     region="us-east-2",
                     global_secondary_index_options={
                         "gsi2": dynamodb.ReplicaGlobalSecondaryIndexOptions(
-                            contributor_insights=False
+                            contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                                enabled=False
+                            )
                         )
                     }
                 )
                 ]
             )
         '''
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eaa3a170e1978a5997011b8319bcd83bf34642dac50e342aad0705ee28b15714)
             check_type(argname="argument contributor_insights", value=contributor_insights, expected_type=type_hints["contributor_insights"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
             check_type(argname="argument read_capacity", value=read_capacity, expected_type=type_hints["read_capacity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if contributor_insights is not None:
             self._values["contributor_insights"] = contributor_insights
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if max_read_request_units is not None:
             self._values["max_read_request_units"] = max_read_request_units
         if read_capacity is not None:
@@ -9954,12 +10105,27 @@ class ReplicaGlobalSecondaryIndexOptions:
 
     @builtins.property
     def contributor_insights(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled for a specific global secondary index on a replica table.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled for a specific global secondary index on a replica table.
 
         :default: - inherited from the primary table
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected for a specific global secondary index on a replica table.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def max_read_request_units(self) -> typing.Optional[jsii.Number]:
@@ -12707,7 +12873,9 @@ class TableClass(enum.Enum):
 
         table = dynamodb.TableV2(self, "Table",
             partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-            contributor_insights=True,
+            contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                enabled=True
+            ),
             table_class=dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
             point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
                 point_in_time_recovery_enabled=True
@@ -12837,6 +13005,7 @@ typing.cast(typing.Any, TableEncryptionV2).__jsii_proxy_class__ = lambda : _Tabl
         "sort_key": "sortKey",
         "billing_mode": "billingMode",
         "contributor_insights_enabled": "contributorInsightsEnabled",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "deletion_protection": "deletionProtection",
         "encryption": "encryption",
         "encryption_key": "encryptionKey",
@@ -12867,6 +13036,7 @@ class TableOptions(SchemaOptions):
         sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
         billing_mode: typing.Optional[BillingMode] = None,
         contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         encryption: typing.Optional[TableEncryption] = None,
         encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -12895,7 +13065,8 @@ class TableOptions(SchemaOptions):
         :param partition_key: Partition key attribute definition.
         :param sort_key: Sort key attribute definition. Default: no sort key
         :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Default: PROVISIONED if ``replicationRegions`` is not specified, PAY_PER_REQUEST otherwise
-        :param contributor_insights_enabled: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_enabled: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Enables deletion protection for the table. Default: false
         :param encryption: Whether server-side encryption with an AWS managed customer master key is enabled. This property cannot be set if ``serverSideEncryption`` is set. .. epigraph:: **NOTE**: if you set this to ``CUSTOMER_MANAGED`` and ``encryptionKey`` is not specified, the key that the Tablet generates for you will be created with default permissions. If you are using CDKv2, these permissions will be sufficient to enable the key for use with DynamoDB tables. If you are using CDKv1, make sure the feature flag ``@aws-cdk/aws-kms:defaultKeyPolicies`` is set to ``true`` in your ``cdk.json``. Default: - The table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
         :param encryption_key: External KMS key to use for table encryption. This property can only be set if ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED``. Default: - If ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED`` and this property is undefined, a new KMS key will be created and associated with this table. If ``encryption`` and this property are both undefined, then the table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
@@ -12943,6 +13114,12 @@ class TableOptions(SchemaOptions):
                 # the properties below are optional
                 billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
                 contributor_insights_enabled=False,
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    mode=dynamodb.ContributorInsightsMode.ACCESSED_AND_THROTTLED_KEYS
+                ),
                 deletion_protection=False,
                 encryption=dynamodb.TableEncryption.DEFAULT,
                 encryption_key=key,
@@ -12989,6 +13166,8 @@ class TableOptions(SchemaOptions):
             partition_key = Attribute(**partition_key)
         if isinstance(sort_key, dict):
             sort_key = Attribute(**sort_key)
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(import_source, dict):
             import_source = ImportSourceSpecification(**import_source)
         if isinstance(point_in_time_recovery_specification, dict):
@@ -13001,6 +13180,7 @@ class TableOptions(SchemaOptions):
             check_type(argname="argument sort_key", value=sort_key, expected_type=type_hints["sort_key"])
             check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
             check_type(argname="argument contributor_insights_enabled", value=contributor_insights_enabled, expected_type=type_hints["contributor_insights_enabled"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
@@ -13030,6 +13210,8 @@ class TableOptions(SchemaOptions):
             self._values["billing_mode"] = billing_mode
         if contributor_insights_enabled is not None:
             self._values["contributor_insights_enabled"] = contributor_insights_enabled
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if encryption is not None:
@@ -13098,12 +13280,27 @@ class TableOptions(SchemaOptions):
 
     @builtins.property
     def contributor_insights_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
 
         :default: false
+
+        :deprecated: use `contributorInsightsSpecification instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -13369,6 +13566,7 @@ class TableOptions(SchemaOptions):
     jsii_struct_bases=[],
     name_mapping={
         "contributor_insights": "contributorInsights",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "deletion_protection": "deletionProtection",
         "kinesis_stream": "kinesisStream",
         "point_in_time_recovery": "pointInTimeRecovery",
@@ -13383,6 +13581,7 @@ class TableOptionsV2:
         self,
         *,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -13393,7 +13592,8 @@ class TableOptionsV2:
     ) -> None:
         '''Options used to configure a DynamoDB table.
 
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
@@ -13417,6 +13617,12 @@ class TableOptionsV2:
             
             table_options_v2 = dynamodb.TableOptionsV2(
                 contributor_insights=False,
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    mode=dynamodb.ContributorInsightsMode.ACCESSED_AND_THROTTLED_KEYS
+                ),
                 deletion_protection=False,
                 kinesis_stream=stream,
                 point_in_time_recovery=False,
@@ -13434,11 +13640,14 @@ class TableOptionsV2:
                 )]
             )
         '''
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(point_in_time_recovery_specification, dict):
             point_in_time_recovery_specification = PointInTimeRecoverySpecification(**point_in_time_recovery_specification)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b65ee3c8ef5c3b632f4d1fad233252caadaa5f607c0fd92f49b64933f1de51c)
             check_type(argname="argument contributor_insights", value=contributor_insights, expected_type=type_hints["contributor_insights"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument kinesis_stream", value=kinesis_stream, expected_type=type_hints["kinesis_stream"])
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
@@ -13449,6 +13658,8 @@ class TableOptionsV2:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if contributor_insights is not None:
             self._values["contributor_insights"] = contributor_insights
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if kinesis_stream is not None:
@@ -13466,12 +13677,27 @@ class TableOptionsV2:
 
     @builtins.property
     def contributor_insights(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
 
         :default: false
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -13564,6 +13790,7 @@ class TableOptionsV2:
         "sort_key": "sortKey",
         "billing_mode": "billingMode",
         "contributor_insights_enabled": "contributorInsightsEnabled",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "deletion_protection": "deletionProtection",
         "encryption": "encryption",
         "encryption_key": "encryptionKey",
@@ -13597,6 +13824,7 @@ class TableProps(TableOptions):
         sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
         billing_mode: typing.Optional[BillingMode] = None,
         contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         encryption: typing.Optional[TableEncryption] = None,
         encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -13626,7 +13854,8 @@ class TableProps(TableOptions):
         :param partition_key: Partition key attribute definition.
         :param sort_key: Sort key attribute definition. Default: no sort key
         :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Default: PROVISIONED if ``replicationRegions`` is not specified, PAY_PER_REQUEST otherwise
-        :param contributor_insights_enabled: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_enabled: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Enables deletion protection for the table. Default: false
         :param encryption: Whether server-side encryption with an AWS managed customer master key is enabled. This property cannot be set if ``serverSideEncryption`` is set. .. epigraph:: **NOTE**: if you set this to ``CUSTOMER_MANAGED`` and ``encryptionKey`` is not specified, the key that the Tablet generates for you will be created with default permissions. If you are using CDKv2, these permissions will be sufficient to enable the key for use with DynamoDB tables. If you are using CDKv1, make sure the feature flag ``@aws-cdk/aws-kms:defaultKeyPolicies`` is set to ``true`` in your ``cdk.json``. Default: - The table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
         :param encryption_key: External KMS key to use for table encryption. This property can only be set if ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED``. Default: - If ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED`` and this property is undefined, a new KMS key will be created and associated with this table. If ``encryption`` and this property are both undefined, then the table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
@@ -13681,6 +13910,8 @@ class TableProps(TableOptions):
             partition_key = Attribute(**partition_key)
         if isinstance(sort_key, dict):
             sort_key = Attribute(**sort_key)
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(import_source, dict):
             import_source = ImportSourceSpecification(**import_source)
         if isinstance(point_in_time_recovery_specification, dict):
@@ -13693,6 +13924,7 @@ class TableProps(TableOptions):
             check_type(argname="argument sort_key", value=sort_key, expected_type=type_hints["sort_key"])
             check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
             check_type(argname="argument contributor_insights_enabled", value=contributor_insights_enabled, expected_type=type_hints["contributor_insights_enabled"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
@@ -13725,6 +13957,8 @@ class TableProps(TableOptions):
             self._values["billing_mode"] = billing_mode
         if contributor_insights_enabled is not None:
             self._values["contributor_insights_enabled"] = contributor_insights_enabled
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if encryption is not None:
@@ -13799,12 +14033,27 @@ class TableProps(TableOptions):
 
     @builtins.property
     def contributor_insights_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
 
         :default: false
+
+        :deprecated: use `contributorInsightsSpecification instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -14099,6 +14348,7 @@ class TableProps(TableOptions):
     jsii_struct_bases=[TableOptionsV2],
     name_mapping={
         "contributor_insights": "contributorInsights",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "deletion_protection": "deletionProtection",
         "kinesis_stream": "kinesisStream",
         "point_in_time_recovery": "pointInTimeRecovery",
@@ -14127,6 +14377,7 @@ class TablePropsV2(TableOptionsV2):
         self,
         *,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -14151,7 +14402,8 @@ class TablePropsV2(TableOptionsV2):
     ) -> None:
         '''Properties used to configure a DynamoDB table.
 
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
@@ -14187,11 +14439,12 @@ class TablePropsV2(TableOptionsV2):
             mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
                 multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
-                ],
-                witness_region="us-east-2"
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
+                ]
             )
         '''
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(point_in_time_recovery_specification, dict):
             point_in_time_recovery_specification = PointInTimeRecoverySpecification(**point_in_time_recovery_specification)
         if isinstance(partition_key, dict):
@@ -14203,6 +14456,7 @@ class TablePropsV2(TableOptionsV2):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd1077e84ba)
             check_type(argname="argument contributor_insights", value=contributor_insights, expected_type=type_hints["contributor_insights"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument kinesis_stream", value=kinesis_stream, expected_type=type_hints["kinesis_stream"])
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
@@ -14229,6 +14483,8 @@ class TablePropsV2(TableOptionsV2):
         }
         if contributor_insights is not None:
             self._values["contributor_insights"] = contributor_insights
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if kinesis_stream is not None:
@@ -14272,12 +14528,27 @@ class TablePropsV2(TableOptionsV2):
 
     @builtins.property
     def contributor_insights(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
 
         :default: false
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -14553,6 +14824,7 @@ class TableV2(
         warm_throughput: typing.Optional[typing.Union["WarmThroughput", typing.Dict[builtins.str, typing.Any]]] = None,
         witness_region: typing.Optional[builtins.str] = None,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -14578,7 +14850,8 @@ class TableV2(
         :param time_to_live_attribute: The name of the TTL attribute. Default: - TTL is disabled
         :param warm_throughput: The warm throughput configuration for the table. Default: - no warm throughput is configured
         :param witness_region: The witness Region for the MRSC global table. A MRSC global table can be configured with either three replicas, or with two replicas and one witness. Note: Witness region cannot be specified for a Multi-Region Eventual Consistency (MREC) Global Table. Witness regions are only supported for Multi-Region Strong Consistency (MRSC) Global Tables. Default: - no witness region
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
@@ -14607,6 +14880,7 @@ class TableV2(
             warm_throughput=warm_throughput,
             witness_region=witness_region,
             contributor_insights=contributor_insights,
+            contributor_insights_specification=contributor_insights_specification,
             deletion_protection=deletion_protection,
             kinesis_stream=kinesis_stream,
             point_in_time_recovery=point_in_time_recovery,
@@ -14787,6 +15061,7 @@ class TableV2(
         max_read_request_units: typing.Optional[jsii.Number] = None,
         read_capacity: typing.Optional[Capacity] = None,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -14803,7 +15078,8 @@ class TableV2(
         :param global_secondary_index_options: Options used to configure global secondary index properties. Default: - inherited from the primary table
         :param max_read_request_units: The maximum read request units. Note: This can only be configured if the primary table billing is PAY_PER_REQUEST. Default: - inherited from the primary table
         :param read_capacity: The read capacity. Note: This can only be configured if the primary table billing is provisioned. Default: - inherited from the primary table
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
@@ -14818,6 +15094,7 @@ class TableV2(
             max_read_request_units=max_read_request_units,
             read_capacity=read_capacity,
             contributor_insights=contributor_insights,
+            contributor_insights_specification=contributor_insights_specification,
             deletion_protection=deletion_protection,
             kinesis_stream=kinesis_stream,
             point_in_time_recovery=point_in_time_recovery,
@@ -15215,6 +15492,7 @@ class WarmThroughput:
         "partition_key": "partitionKey",
         "sort_key": "sortKey",
         "contributor_insights_enabled": "contributorInsightsEnabled",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "max_read_request_units": "maxReadRequestUnits",
         "max_write_request_units": "maxWriteRequestUnits",
         "read_capacity": "readCapacity",
@@ -15232,6 +15510,7 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
         partition_key: typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]],
         sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
         contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         max_read_request_units: typing.Optional[jsii.Number] = None,
         max_write_request_units: typing.Optional[jsii.Number] = None,
         read_capacity: typing.Optional[jsii.Number] = None,
@@ -15245,7 +15524,8 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
         :param projection_type: The set of attributes that are projected into the secondary index. Default: ALL
         :param partition_key: Partition key attribute definition.
         :param sort_key: Sort key attribute definition. Default: no sort key
-        :param contributor_insights_enabled: Whether CloudWatch contributor insights is enabled for the specified global secondary index. Default: false
+        :param contributor_insights_enabled: (deprecated) Whether CloudWatch contributor insights is enabled for the specified global secondary index. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param max_read_request_units: The maximum read request units for the global secondary index. Can only be provided if table billingMode is PAY_PER_REQUEST. Default: - on-demand throughput is disabled
         :param max_write_request_units: The maximum write request units for the global secondary index. Can only be provided if table billingMode is PAY_PER_REQUEST. Default: - on-demand throughput is disabled
         :param read_capacity: The read capacity for the global secondary index. Can only be provided if table billingMode is Provisioned or undefined. Default: 5
@@ -15258,11 +15538,14 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
 
             table = dynamodb.Table(self, "Table",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                contributor_insights_enabled=True
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification( # for a table
+                    enabled=True,
+                    mode=dynamodb.ContributorInsightsMode.THROTTLED_KEYS)
             )
             
             table.add_global_secondary_index(
-                contributor_insights_enabled=True,  # for a specific global secondary index
+                contributor_insights_specification=dynamodb.ContributorInsightsSpecification( # for a specific global secondary index
+                    enabled=True),
                 index_name="gsi",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING)
             )
@@ -15271,6 +15554,8 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
             partition_key = Attribute(**partition_key)
         if isinstance(sort_key, dict):
             sort_key = Attribute(**sort_key)
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(warm_throughput, dict):
             warm_throughput = WarmThroughput(**warm_throughput)
         if __debug__:
@@ -15281,6 +15566,7 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
             check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
             check_type(argname="argument sort_key", value=sort_key, expected_type=type_hints["sort_key"])
             check_type(argname="argument contributor_insights_enabled", value=contributor_insights_enabled, expected_type=type_hints["contributor_insights_enabled"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
             check_type(argname="argument max_write_request_units", value=max_write_request_units, expected_type=type_hints["max_write_request_units"])
             check_type(argname="argument read_capacity", value=read_capacity, expected_type=type_hints["read_capacity"])
@@ -15298,6 +15584,8 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
             self._values["sort_key"] = sort_key
         if contributor_insights_enabled is not None:
             self._values["contributor_insights_enabled"] = contributor_insights_enabled
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if max_read_request_units is not None:
             self._values["max_read_request_units"] = max_read_request_units
         if max_write_request_units is not None:
@@ -15352,12 +15640,27 @@ class GlobalSecondaryIndexProps(SecondaryIndexProps, SchemaOptions):
 
     @builtins.property
     def contributor_insights_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled for the specified global secondary index.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled for the specified global secondary index.
 
         :default: false
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def max_read_request_units(self) -> typing.Optional[jsii.Number]:
@@ -16038,6 +16341,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
     jsii_struct_bases=[TableOptionsV2],
     name_mapping={
         "contributor_insights": "contributorInsights",
+        "contributor_insights_specification": "contributorInsightsSpecification",
         "deletion_protection": "deletionProtection",
         "kinesis_stream": "kinesisStream",
         "point_in_time_recovery": "pointInTimeRecovery",
@@ -16056,6 +16360,7 @@ class ReplicaTableProps(TableOptionsV2):
         self,
         *,
         contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -16070,7 +16375,8 @@ class ReplicaTableProps(TableOptionsV2):
     ) -> None:
         '''Properties used to configure a replica table.
 
-        :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
@@ -16100,11 +16406,14 @@ class ReplicaTableProps(TableOptionsV2):
             
             global_table.add_replica(region="us-east-2", deletion_protection=True)
         '''
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
         if isinstance(point_in_time_recovery_specification, dict):
             point_in_time_recovery_specification = PointInTimeRecoverySpecification(**point_in_time_recovery_specification)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7500a741eaeb840f48aaefcd8fc5fbbb8b1082165601116ca363e5ddbaa79e6f)
             check_type(argname="argument contributor_insights", value=contributor_insights, expected_type=type_hints["contributor_insights"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument kinesis_stream", value=kinesis_stream, expected_type=type_hints["kinesis_stream"])
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
@@ -16121,6 +16430,8 @@ class ReplicaTableProps(TableOptionsV2):
         }
         if contributor_insights is not None:
             self._values["contributor_insights"] = contributor_insights
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if kinesis_stream is not None:
@@ -16144,12 +16455,27 @@ class ReplicaTableProps(TableOptionsV2):
 
     @builtins.property
     def contributor_insights(self) -> typing.Optional[builtins.bool]:
-        '''Whether CloudWatch contributor insights is enabled.
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
 
         :default: false
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("contributor_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[ContributorInsightsSpecification]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional[ContributorInsightsSpecification], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -16318,6 +16644,7 @@ class Table(
         table_name: typing.Optional[builtins.str] = None,
         billing_mode: typing.Optional[BillingMode] = None,
         contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         encryption: typing.Optional[TableEncryption] = None,
         encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -16348,7 +16675,8 @@ class Table(
         :param kinesis_stream: Kinesis Data Stream to capture item-level changes for the table. Default: - no Kinesis Data Stream
         :param table_name: Enforces a particular physical table name. Default: 
         :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Default: PROVISIONED if ``replicationRegions`` is not specified, PAY_PER_REQUEST otherwise
-        :param contributor_insights_enabled: Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_enabled: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param deletion_protection: Enables deletion protection for the table. Default: false
         :param encryption: Whether server-side encryption with an AWS managed customer master key is enabled. This property cannot be set if ``serverSideEncryption`` is set. .. epigraph:: **NOTE**: if you set this to ``CUSTOMER_MANAGED`` and ``encryptionKey`` is not specified, the key that the Tablet generates for you will be created with default permissions. If you are using CDKv2, these permissions will be sufficient to enable the key for use with DynamoDB tables. If you are using CDKv1, make sure the feature flag ``@aws-cdk/aws-kms:defaultKeyPolicies`` is set to ``true`` in your ``cdk.json``. Default: - The table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
         :param encryption_key: External KMS key to use for table encryption. This property can only be set if ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED``. Default: - If ``encryption`` is set to ``TableEncryption.CUSTOMER_MANAGED`` and this property is undefined, a new KMS key will be created and associated with this table. If ``encryption`` and this property are both undefined, then the table is encrypted with an encryption key managed by DynamoDB, and you are not charged any fee for using it.
@@ -16382,6 +16710,7 @@ class Table(
             table_name=table_name,
             billing_mode=billing_mode,
             contributor_insights_enabled=contributor_insights_enabled,
+            contributor_insights_specification=contributor_insights_specification,
             deletion_protection=deletion_protection,
             encryption=encryption,
             encryption_key=encryption_key,
@@ -16498,6 +16827,7 @@ class Table(
         self,
         *,
         contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
         max_read_request_units: typing.Optional[jsii.Number] = None,
         max_write_request_units: typing.Optional[jsii.Number] = None,
         read_capacity: typing.Optional[jsii.Number] = None,
@@ -16511,7 +16841,8 @@ class Table(
     ) -> None:
         '''Add a global secondary index of table.
 
-        :param contributor_insights_enabled: Whether CloudWatch contributor insights is enabled for the specified global secondary index. Default: false
+        :param contributor_insights_enabled: (deprecated) Whether CloudWatch contributor insights is enabled for the specified global secondary index. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
         :param max_read_request_units: The maximum read request units for the global secondary index. Can only be provided if table billingMode is PAY_PER_REQUEST. Default: - on-demand throughput is disabled
         :param max_write_request_units: The maximum write request units for the global secondary index. Can only be provided if table billingMode is PAY_PER_REQUEST. Default: - on-demand throughput is disabled
         :param read_capacity: The read capacity for the global secondary index. Can only be provided if table billingMode is Provisioned or undefined. Default: 5
@@ -16525,6 +16856,7 @@ class Table(
         '''
         props = GlobalSecondaryIndexProps(
             contributor_insights_enabled=contributor_insights_enabled,
+            contributor_insights_specification=contributor_insights_specification,
             max_read_request_units=max_read_request_units,
             max_write_request_units=max_write_request_units,
             read_capacity=read_capacity,
@@ -16744,6 +17076,8 @@ __all__ = [
     "CfnGlobalTableProps",
     "CfnTable",
     "CfnTableProps",
+    "ContributorInsightsMode",
+    "ContributorInsightsSpecification",
     "CsvOptions",
     "EnableScalingProps",
     "GlobalSecondaryIndexProps",
@@ -17509,6 +17843,14 @@ def _typecheckingstub__0b7f8e29621d526383ce725f2daafbe00b52cfe2381995edac86b72a6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__656543bd456aefaef11a80dfb0950fe5597d4bc0465f2f4fdec81a81dfe7358d(
+    *,
+    enabled: builtins.bool,
+    mode: typing.Optional[ContributorInsightsMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ea195ac1b9cf7ff33466083daefb8a95f1a8ce8a200cbc595c25050dc94670eb(
     *,
     delimiter: typing.Optional[builtins.str] = None,
@@ -17637,6 +17979,7 @@ def _typecheckingstub__4073f2e85ef31d8deba5f90be11b466e4a3f1ea003482bf5c4df5706f
 def _typecheckingstub__eaa3a170e1978a5997011b8319bcd83bf34642dac50e342aad0705ee28b15714(
     *,
     contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     max_read_request_units: typing.Optional[jsii.Number] = None,
     read_capacity: typing.Optional[Capacity] = None,
 ) -> None:
@@ -17944,6 +18287,7 @@ def _typecheckingstub__dadf5733fac70178ab246582a0b777b8c203659229753a8396594d751
     sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
     billing_mode: typing.Optional[BillingMode] = None,
     contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     encryption: typing.Optional[TableEncryption] = None,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -17971,6 +18315,7 @@ def _typecheckingstub__dadf5733fac70178ab246582a0b777b8c203659229753a8396594d751
 def _typecheckingstub__1b65ee3c8ef5c3b632f4d1fad233252caadaa5f607c0fd92f49b64933f1de51c(
     *,
     contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -17988,6 +18333,7 @@ def _typecheckingstub__00475a5e14af8c4c7049089f69b3d29ad81bc91e7e1f0a5a5b7b794a5
     sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
     billing_mode: typing.Optional[BillingMode] = None,
     contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     encryption: typing.Optional[TableEncryption] = None,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -18018,6 +18364,7 @@ def _typecheckingstub__00475a5e14af8c4c7049089f69b3d29ad81bc91e7e1f0a5a5b7b794a5
 def _typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd1077e84ba(
     *,
     contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -18062,6 +18409,7 @@ def _typecheckingstub__9ea47b003cdb497ff620f1410260696f97dbb2b00fa8558235f23771f
     warm_throughput: typing.Optional[typing.Union[WarmThroughput, typing.Dict[builtins.str, typing.Any]]] = None,
     witness_region: typing.Optional[builtins.str] = None,
     contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -18152,6 +18500,7 @@ def _typecheckingstub__7f586bf63a567e16bde337be791f392306be66abca1c4abb791989fb9
     partition_key: typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]],
     sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
     contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     max_read_request_units: typing.Optional[jsii.Number] = None,
     max_write_request_units: typing.Optional[jsii.Number] = None,
     read_capacity: typing.Optional[jsii.Number] = None,
@@ -18209,6 +18558,7 @@ def _typecheckingstub__323fc564f2052282a189a09de9130b5d9a855212d7bd5a514ddb98a52
 def _typecheckingstub__7500a741eaeb840f48aaefcd8fc5fbbb8b1082165601116ca363e5ddbaa79e6f(
     *,
     contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
@@ -18233,6 +18583,7 @@ def _typecheckingstub__b92f0ed514f00b57a2a41d754e55fe495d22b05b0ad4711b80ce00457
     table_name: typing.Optional[builtins.str] = None,
     billing_mode: typing.Optional[BillingMode] = None,
     contributor_insights_enabled: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     encryption: typing.Optional[TableEncryption] = None,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,

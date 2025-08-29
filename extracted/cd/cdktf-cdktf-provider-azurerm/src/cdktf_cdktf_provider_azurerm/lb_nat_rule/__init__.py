@@ -1,7 +1,7 @@
 r'''
 # `azurerm_lb_nat_rule`
 
-Refer to the Terraform Registry for docs: [`azurerm_lb_nat_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule).
+Refer to the Terraform Registry for docs: [`azurerm_lb_nat_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LbNatRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.lbNatRule.LbNatRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule azurerm_lb_nat_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule azurerm_lb_nat_rule}.'''
 
     def __init__(
         self,
@@ -60,11 +60,13 @@ class LbNatRule(
         backend_address_pool_id: typing.Optional[builtins.str] = None,
         enable_floating_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_tcp_reset: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        floating_ip_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         frontend_port: typing.Optional[jsii.Number] = None,
         frontend_port_end: typing.Optional[jsii.Number] = None,
         frontend_port_start: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        tcp_reset_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["LbNatRuleTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -74,25 +76,27 @@ class LbNatRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule azurerm_lb_nat_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule azurerm_lb_nat_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.
-        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.
-        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#name LbNatRule#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.
-        :param backend_address_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.
-        :param enable_floating_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.
-        :param enable_tcp_reset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.
-        :param frontend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.
-        :param frontend_port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.
-        :param frontend_port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#id LbNatRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
+        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.
+        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.
+        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#name LbNatRule#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.
+        :param backend_address_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.
+        :param enable_floating_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.
+        :param enable_tcp_reset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.
+        :param floating_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#floating_ip_enabled LbNatRule#floating_ip_enabled}.
+        :param frontend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.
+        :param frontend_port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.
+        :param frontend_port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#id LbNatRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.
+        :param tcp_reset_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#tcp_reset_enabled LbNatRule#tcp_reset_enabled}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,11 +119,13 @@ class LbNatRule(
             backend_address_pool_id=backend_address_pool_id,
             enable_floating_ip=enable_floating_ip,
             enable_tcp_reset=enable_tcp_reset,
+            floating_ip_enabled=floating_ip_enabled,
             frontend_port=frontend_port,
             frontend_port_end=frontend_port_end,
             frontend_port_start=frontend_port_start,
             id=id,
             idle_timeout_in_minutes=idle_timeout_in_minutes,
+            tcp_reset_enabled=tcp_reset_enabled,
             timeouts=timeouts,
             connection=connection,
             count=count,
@@ -145,7 +151,7 @@ class LbNatRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LbNatRule to import.
-        :param import_from_id: The id of the existing LbNatRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LbNatRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LbNatRule to import is found.
         '''
         if __debug__:
@@ -166,10 +172,10 @@ class LbNatRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#create LbNatRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#read LbNatRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#update LbNatRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#create LbNatRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#read LbNatRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#update LbNatRule#update}.
         '''
         value = LbNatRuleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -188,6 +194,10 @@ class LbNatRule(
     @jsii.member(jsii_name="resetEnableTcpReset")
     def reset_enable_tcp_reset(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnableTcpReset", []))
+
+    @jsii.member(jsii_name="resetFloatingIpEnabled")
+    def reset_floating_ip_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFloatingIpEnabled", []))
 
     @jsii.member(jsii_name="resetFrontendPort")
     def reset_frontend_port(self) -> None:
@@ -208,6 +218,10 @@ class LbNatRule(
     @jsii.member(jsii_name="resetIdleTimeoutInMinutes")
     def reset_idle_timeout_in_minutes(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIdleTimeoutInMinutes", []))
+
+    @jsii.member(jsii_name="resetTcpResetEnabled")
+    def reset_tcp_reset_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTcpResetEnabled", []))
 
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
@@ -266,6 +280,13 @@ class LbNatRule(
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableTcpResetInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="floatingIpEnabledInput")
+    def floating_ip_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "floatingIpEnabledInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="frontendIpConfigurationNameInput")
     def frontend_ip_configuration_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "frontendIpConfigurationNameInput"))
@@ -314,6 +335,13 @@ class LbNatRule(
     @jsii.member(jsii_name="resourceGroupNameInput")
     def resource_group_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceGroupNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tcpResetEnabledInput")
+    def tcp_reset_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "tcpResetEnabledInput"))
 
     @builtins.property
     @jsii.member(jsii_name="timeoutsInput")
@@ -379,6 +407,23 @@ class LbNatRule(
             type_hints = typing.get_type_hints(_typecheckingstub__5a48dcda0714e957b5b6057d504cf13180b5a54f231007d662842659e57f172e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableTcpReset", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="floatingIpEnabled")
+    def floating_ip_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "floatingIpEnabled"))
+
+    @floating_ip_enabled.setter
+    def floating_ip_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b7ae4fdbe8960ea8af7d3661c3d46054f0f8f7f649eb30827819493d74533a8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "floatingIpEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="frontendIpConfigurationName")
@@ -500,6 +545,23 @@ class LbNatRule(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceGroupName", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tcpResetEnabled")
+    def tcp_reset_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "tcpResetEnabled"))
+
+    @tcp_reset_enabled.setter
+    def tcp_reset_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8ff443fa32fe0027ef991cc5c7eb95a2a3b28bc33d56ebbcd4dd69f95f1736f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tcpResetEnabled", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-azurerm.lbNatRule.LbNatRuleConfig",
@@ -521,11 +583,13 @@ class LbNatRule(
         "backend_address_pool_id": "backendAddressPoolId",
         "enable_floating_ip": "enableFloatingIp",
         "enable_tcp_reset": "enableTcpReset",
+        "floating_ip_enabled": "floatingIpEnabled",
         "frontend_port": "frontendPort",
         "frontend_port_end": "frontendPortEnd",
         "frontend_port_start": "frontendPortStart",
         "id": "id",
         "idle_timeout_in_minutes": "idleTimeoutInMinutes",
+        "tcp_reset_enabled": "tcpResetEnabled",
         "timeouts": "timeouts",
     },
 )
@@ -549,11 +613,13 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         backend_address_pool_id: typing.Optional[builtins.str] = None,
         enable_floating_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_tcp_reset: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        floating_ip_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         frontend_port: typing.Optional[jsii.Number] = None,
         frontend_port_end: typing.Optional[jsii.Number] = None,
         frontend_port_start: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        tcp_reset_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["LbNatRuleTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -564,21 +630,23 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.
-        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.
-        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#name LbNatRule#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.
-        :param backend_address_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.
-        :param enable_floating_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.
-        :param enable_tcp_reset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.
-        :param frontend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.
-        :param frontend_port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.
-        :param frontend_port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#id LbNatRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
+        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.
+        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.
+        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#name LbNatRule#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.
+        :param backend_address_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.
+        :param enable_floating_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.
+        :param enable_tcp_reset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.
+        :param floating_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#floating_ip_enabled LbNatRule#floating_ip_enabled}.
+        :param frontend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.
+        :param frontend_port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.
+        :param frontend_port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#id LbNatRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.
+        :param tcp_reset_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#tcp_reset_enabled LbNatRule#tcp_reset_enabled}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -602,11 +670,13 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument backend_address_pool_id", value=backend_address_pool_id, expected_type=type_hints["backend_address_pool_id"])
             check_type(argname="argument enable_floating_ip", value=enable_floating_ip, expected_type=type_hints["enable_floating_ip"])
             check_type(argname="argument enable_tcp_reset", value=enable_tcp_reset, expected_type=type_hints["enable_tcp_reset"])
+            check_type(argname="argument floating_ip_enabled", value=floating_ip_enabled, expected_type=type_hints["floating_ip_enabled"])
             check_type(argname="argument frontend_port", value=frontend_port, expected_type=type_hints["frontend_port"])
             check_type(argname="argument frontend_port_end", value=frontend_port_end, expected_type=type_hints["frontend_port_end"])
             check_type(argname="argument frontend_port_start", value=frontend_port_start, expected_type=type_hints["frontend_port_start"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument idle_timeout_in_minutes", value=idle_timeout_in_minutes, expected_type=type_hints["idle_timeout_in_minutes"])
+            check_type(argname="argument tcp_reset_enabled", value=tcp_reset_enabled, expected_type=type_hints["tcp_reset_enabled"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "backend_port": backend_port,
@@ -636,6 +706,8 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["enable_floating_ip"] = enable_floating_ip
         if enable_tcp_reset is not None:
             self._values["enable_tcp_reset"] = enable_tcp_reset
+        if floating_ip_enabled is not None:
+            self._values["floating_ip_enabled"] = floating_ip_enabled
         if frontend_port is not None:
             self._values["frontend_port"] = frontend_port
         if frontend_port_end is not None:
@@ -646,6 +718,8 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if idle_timeout_in_minutes is not None:
             self._values["idle_timeout_in_minutes"] = idle_timeout_in_minutes
+        if tcp_reset_enabled is not None:
+            self._values["tcp_reset_enabled"] = tcp_reset_enabled
         if timeouts is not None:
             self._values["timeouts"] = timeouts
 
@@ -715,49 +789,49 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def backend_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_port LbNatRule#backend_port}.'''
         result = self._values.get("backend_port")
         assert result is not None, "Required property 'backend_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def frontend_ip_configuration_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_ip_configuration_name LbNatRule#frontend_ip_configuration_name}.'''
         result = self._values.get("frontend_ip_configuration_name")
         assert result is not None, "Required property 'frontend_ip_configuration_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def loadbalancer_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#loadbalancer_id LbNatRule#loadbalancer_id}.'''
         result = self._values.get("loadbalancer_id")
         assert result is not None, "Required property 'loadbalancer_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#name LbNatRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#name LbNatRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#protocol LbNatRule#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#resource_group_name LbNatRule#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backend_address_pool_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#backend_address_pool_id LbNatRule#backend_address_pool_id}.'''
         result = self._values.get("backend_address_pool_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -765,7 +839,7 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_floating_ip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_floating_ip LbNatRule#enable_floating_ip}.'''
         result = self._values.get("enable_floating_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -773,31 +847,39 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_tcp_reset(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#enable_tcp_reset LbNatRule#enable_tcp_reset}.'''
         result = self._values.get("enable_tcp_reset")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def floating_ip_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#floating_ip_enabled LbNatRule#floating_ip_enabled}.'''
+        result = self._values.get("floating_ip_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
     def frontend_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port LbNatRule#frontend_port}.'''
         result = self._values.get("frontend_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def frontend_port_end(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_end LbNatRule#frontend_port_end}.'''
         result = self._values.get("frontend_port_end")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def frontend_port_start(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#frontend_port_start LbNatRule#frontend_port_start}.'''
         result = self._values.get("frontend_port_start")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#id LbNatRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#id LbNatRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -807,15 +889,23 @@ class LbNatRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def idle_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#idle_timeout_in_minutes LbNatRule#idle_timeout_in_minutes}.'''
         result = self._values.get("idle_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tcp_reset_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#tcp_reset_enabled LbNatRule#tcp_reset_enabled}.'''
+        result = self._values.get("tcp_reset_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def timeouts(self) -> typing.Optional["LbNatRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#timeouts LbNatRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LbNatRuleTimeouts"], result)
@@ -852,10 +942,10 @@ class LbNatRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#create LbNatRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#read LbNatRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#update LbNatRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#create LbNatRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#read LbNatRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#update LbNatRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c07b61a9700b8207f001bf5f6ba7f3167301c2406edf38d130099e170055a2c9)
@@ -875,25 +965,25 @@ class LbNatRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#create LbNatRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#create LbNatRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#delete LbNatRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#read LbNatRule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#read LbNatRule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/lb_nat_rule#update LbNatRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/lb_nat_rule#update LbNatRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1053,11 +1143,13 @@ def _typecheckingstub__b0030fdf8fe57b87591293345b82529090f1c374e771821bb64fa68c3
     backend_address_pool_id: typing.Optional[builtins.str] = None,
     enable_floating_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_tcp_reset: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    floating_ip_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     frontend_port: typing.Optional[jsii.Number] = None,
     frontend_port_end: typing.Optional[jsii.Number] = None,
     frontend_port_start: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    tcp_reset_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[LbNatRuleTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -1098,6 +1190,12 @@ def _typecheckingstub__b0a45a8135d4d9d6f5db2a770805fac979c1d674f1894ae3141794b83
     pass
 
 def _typecheckingstub__5a48dcda0714e957b5b6057d504cf13180b5a54f231007d662842659e57f172e(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b7ae4fdbe8960ea8af7d3661c3d46054f0f8f7f649eb30827819493d74533a8(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
@@ -1163,6 +1261,12 @@ def _typecheckingstub__9288919b38f3086d270261dda6d0319164a5fe4923244d691909cb578
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a8ff443fa32fe0027ef991cc5c7eb95a2a3b28bc33d56ebbcd4dd69f95f1736f(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bebb165c895d298cda781a4f7257e528bf650b07c9a4506c716e7ffeeb664861(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1181,11 +1285,13 @@ def _typecheckingstub__bebb165c895d298cda781a4f7257e528bf650b07c9a4506c716e7ffee
     backend_address_pool_id: typing.Optional[builtins.str] = None,
     enable_floating_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_tcp_reset: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    floating_ip_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     frontend_port: typing.Optional[jsii.Number] = None,
     frontend_port_end: typing.Optional[jsii.Number] = None,
     frontend_port_start: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    tcp_reset_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[LbNatRuleTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

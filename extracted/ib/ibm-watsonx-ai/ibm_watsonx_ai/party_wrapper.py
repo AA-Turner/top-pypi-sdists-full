@@ -197,7 +197,7 @@ class Party(WMLResource):
     """
 
     base_platform = "runtime-23-1"
-    default_software_spec = "runtime-23.1-py3.10"
+    default_software_spec = "runtime-24.1-py3.11"
     SUPPORTED_PLATFORMS_MAP = {
         base_platform: "/runtime-23-1/ibmfl",  # default
         "runtime-24-1": "/runtime-24-1/ibmfl",

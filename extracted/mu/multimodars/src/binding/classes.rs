@@ -14,7 +14,7 @@ use pyo3::prelude::*;
 ///     x (float): X-coordinate in mm
 ///     y (float): Y-coordinate in mm
 ///     z (float): Z-coordinate (depth) in mm
-///     aortic (bool): Flag indicating aortic position
+///     aortic (bool): Flag indicating aortic position (in case of intramural course)
 ///
 /// Example:
 ///     >>> point = PyContourPoint(
@@ -74,6 +74,9 @@ impl PyContourPoint {
 
     /// Euclidean distance to another PyContourPoint
     ///
+    /// Args:
+    ///     point (PyContourPoint): Any other PyContourPoint.
+    /// 
     /// Example:
     ///     >>> p1.distance(p2)
     pub fn distance(&self, other: &PyContourPoint) -> f64 {
@@ -231,7 +234,7 @@ impl PyContour {
     ///         Ratio of farthest points distance divided by closest
     ///         opposite points distance.
     /// Example:
-    ///     elliptic_ratio = contour.get_elliptic_ratio()
+    ///     >>> elliptic_ratio = contour.get_elliptic_ratio()
     pub fn get_elliptic_ratio(&self) -> PyResult<f64> {
         let rust_contour = self.to_rust_contour()?;
         let elliptic_ratio = rust_contour.elliptic_ratio();
@@ -245,7 +248,7 @@ impl PyContour {
     ///         Area of the current contour in the unit that the original
     ///         contour data was provided (e.g. mm2).
     /// Example:
-    ///     elliptic_ratio = contour.get_elliptic_ratio()    
+    ///     >>> area = contour.get_area()    
     pub fn get_area(&self) -> PyResult<f64> {
         let rust_contour = self.to_rust_contour()?;
         let area = rust_contour.area();
@@ -259,7 +262,7 @@ impl PyContour {
     ///     PyContour:
     ///         Original Contour rotated around it's centroid
     /// Example:
-    ///     contour = contour.rotate(20)
+    ///     >>> contour = contour.rotate(20)
     #[pyo3(signature = (angle_deg))]
     pub fn rotate(&mut self, angle_deg: f64) -> PyResult<PyContour> {
         let angle_rad = angle_deg.to_radians();
@@ -271,11 +274,16 @@ impl PyContour {
 
     /// translate a given contour by x, y, z coordinates
     ///
+    /// Args:
+    ///     dx (float): Translation in x-direction.
+    ///     dy (float): Translation in y-direction.
+    ///     dz (float): Translation in z-direction.
+    /// 
     /// Returns:
     ///     PyContour:
     ///         Original Contour translated to (x, y, z)
     /// Example:
-    ///     contour = contour.translate((0.0, 1.0, 2.0))
+    ///     >>> contour = contour.translate((0.0, 1.0, 2.0))
     #[pyo3(signature = (dx, dy, dz))]
     pub fn translate(&mut self, dx: f64, dy: f64, dz: f64) -> PyResult<PyContour> {
         let translation = (dx, dy, dz);
@@ -292,7 +300,7 @@ impl PyContour {
     ///     PyContour:
     ///         Original Contour rearranged points.point_idx
     /// Example:
-    ///     contour = contour.sort_contour_points()
+    ///     >>> contour = contour.sort_contour_points()
     pub fn sort_contour_points(&mut self) -> PyResult<PyContour> {
         let mut rust_contour = self.to_rust_contour()?;
         rust_contour.sort_contour_points();
@@ -397,6 +405,13 @@ impl PyGeometry {
     }
 
     /// Replace the contour at `idx` (can be negative).
+    /// 
+    /// Args:
+    ///     idx (float): Target index to replace.
+    ///     contour (PyContour): Contour to set to target index.
+    /// Example:
+    ///     >>> contour = geom.contours[0].copy()
+    ///     >>> geom.set_contour(10, contour)
     #[pyo3(signature = (idx, contour))]
     fn set_contour(&mut self, idx: isize, contour: PyContour) -> PyResult<()> {
         let len = self.contours.len() as isize;
@@ -412,6 +427,13 @@ impl PyGeometry {
     }
 
     /// Replace the contour at `idx` (can be negative).
+    /// 
+    /// Args:
+    ///     idx (float): Target index to replace.
+    ///     wall (PyContour): Wall-contour to set to target index.
+    /// Example:
+    ///     >>> wall = geom.walls[0].copy()
+    ///     >>> geom.set_wall(10, wall)
     #[pyo3(signature = (idx, wall))]
     fn set_wall(&mut self, idx: isize, wall: PyContour) -> PyResult<()> {
         let len = self.walls.len() as isize;
@@ -427,6 +449,13 @@ impl PyGeometry {
     }
 
     /// Replace the contour at `idx` (can be negative).
+    /// 
+    /// Args:
+    ///     idx (float): Target index to replace.
+    ///     catheter (PyContour): Catheter to set to target index.
+    /// Example:
+    ///     >>> catheter = geom.catheters[0].copy()
+    ///     >>> geom.set_catheter(10, catheter)
     #[pyo3(signature = (idx, catheter))]
     fn set_catheter(&mut self, idx: isize, catheter: PyContour) -> PyResult<()> {
         let len = self.catheters.len() as isize;
@@ -449,7 +478,7 @@ impl PyGeometry {
     ///     PyGeometry:
     ///         Original Geometry rotated around it's centroid
     /// Example:
-    ///     geometry = geometry.rotate(20)
+    ///     >>> geometry = geometry.rotate(20)
     #[pyo3(signature = (angle_deg))]
     pub fn rotate(&self, angle_deg: f64) -> PyGeometry {
         let angle_rad = angle_deg.to_radians();
@@ -493,10 +522,10 @@ impl PyGeometry {
 
     /// Translates all contours, walls, and catheters in a geometry by (dx, dy, dz).
     ///
-    /// Arguments:
-    ///     - dx: translation in x-direction
-    ///     - dy: translation in y-direction
-    ///     - dz: translation in z-direction
+    /// Args:
+    ///     dx (float): translation in x-direction.
+    ///     dy (float): translation in y-direction.
+    ///     dz (float): translation in z-direction.
     ///
     /// Returns:
     ///     A new PyGeometry with all elements translated.
@@ -536,16 +565,10 @@ impl PyGeometry {
         }
     }
 
-    /// Applies smoothing to all contours using moving average
-    ///
-    /// Args:
-    ///     window_size (int): Number of points in smoothing window
-    ///
-    /// Note:
-    ///     Larger windows create smoother contours but may lose detail
-    ///
+    /// Applies smoothing to all contours using a threepoint moving average
+    /// 
     /// Example:
-    ///     >>> geom.smooth_contours(window_size=5)
+    ///     >>> geom.smooth_contours()
     pub fn smooth_contours(&self) -> PyGeometry {
         // take &self, build the Rust Geometry, run smoothing, convert back
         let geometry = self.to_rust_geometry();
@@ -572,22 +595,17 @@ impl PyGeometry {
 
     /// Get a compact summary of lumen properties for this geometry.
     ///
-    /// Returns a tuple (mla, max_stenosis, stenosis_length_mm):
-    ///     - mla: minimal lumen area (same units as contour.area(), e.g. mm^2)
-    ///     - max_stenosis: 1 - (mla / biggest_area)
-    ///     - stenosis_length_mm: length (in mm) of the longest contiguous region
+    /// Returns:
+    ///     tuple: (mla, max_stenosis, stenosis_length_mm)
+    ///         mla (float): minimal lumen area (same units as contour.area(), e.g. mm^2)
+    ///         max_stenosis (float): 1 - (mla / biggest_area)
+    ///         stenosis_length_mm (float): length (in mm) of the longest contiguous region
     ///         where contour area < threshold.
     ///
     /// Threshold logic (implemented by assumption):
-    ///     - If ALL contours have elliptic_ratio < 1.3 we treat the vessel as "elliptic"
-    ///       and use a more lenient threshold of 0.70 * biggest_area.
-    ///     - Otherwise we use a stricter threshold of 0.50 * biggest_area (50%).
-    ///
-    /// Note: you asked for behavior described as
-    ///     "stenosis length (if elliptic vessels all <1.3 else all with <50% lumen area of biggest)"
-    /// This implementation interprets that to mean: choose threshold 0.7*biggest when all
-    /// elliptic ratios < 1.3, otherwise 0.5*biggest. If you prefer a different elliptic
-    /// threshold (e.g. 0.8 or another method), tell me and I will adjust.
+    ///     If ALL contours have elliptic_ratio < 1.3 we treat the vessel as "elliptic"
+    ///     and use a more lenient threshold of 0.70 * biggest_area.
+    ///     Otherwise we use a stricter threshold of 0.50 * biggest_area (50%).
     #[pyo3(signature = ())]
     pub fn get_summary(&self) -> PyResult<(f64, f64, f64)> {
         let geom = self.to_rust_geometry();
@@ -654,6 +672,7 @@ impl PyGeometry {
             }
         }
 
+        println!("Geometry {:?}:\nMLA [mm²]: {:.2}\nMax. stenosis [%]: {:.0}\nStenosis length [mm]: {:.2}\n", geom.label, mla, max_stenosis * 100.0, longest_mm);
         Ok((mla, max_stenosis, longest_mm))
     }
 }
@@ -732,13 +751,137 @@ impl PyGeometryPair {
     /// Get summaries for both diastolic and systolic geometries.
     ///
     /// Returns a tuple: ((dia_mla, dia_max_stenosis, dia_len_mm), (sys_mla, sys_max_stenosis, sys_len_mm))
+    /// and a matrix (N, 6): (contour id, area_dia, ellip_dia, area_sys, ellip_sys, z-coordinate)
     ///
-    /// This simply calls `get_summary()` on each contained PyGeometry and returns both results.
+    /// This calls ``get_summary()`` on each contained PyGeometry and returns both results.
+    /// and additionally assesses dynamic between the two PyGeometry object (area, elliptic ratio)
     #[pyo3(signature = ())]
-    pub fn get_summary(&self) -> PyResult<((f64, f64, f64), (f64, f64, f64))> {
+    pub fn get_summary(&self) -> PyResult<(((f64, f64, f64), (f64, f64, f64)), Vec<[f64; 6]>)> {
         let dia = self.dia_geom.get_summary()?;
         let sys = self.sys_geom.get_summary()?;
-        Ok((dia, sys))
+
+        let map = self.create_deformation_table();
+        Ok(((dia, sys), map))
+    }
+
+    fn create_deformation_table(&self) -> Vec<[f64; 6]> {
+        let areas_dia: Vec<f64> =
+            self.dia_geom.contours.iter().map(|c| c.get_area().unwrap()).collect();
+        let areas_sys: Vec<f64> =
+            self.sys_geom.contours.iter().map(|c| c.get_area().unwrap()).collect();
+
+        let ellip_dia: Vec<f64> =
+            self.dia_geom.contours.iter().map(|c| c.get_elliptic_ratio().unwrap()).collect();
+        let ellip_sys: Vec<f64> =
+            self.sys_geom.contours.iter().map(|c| c.get_elliptic_ratio().unwrap()).collect();
+
+        let ids: Vec<u32> = self.dia_geom.contours.iter().map(|c| c.id).collect();
+        let z_coords: Vec<f64> =
+            self.dia_geom.contours.iter().map(|c| c.centroid.2).collect();
+
+        // Ensure all vectors have same length
+        let n = ids.len();
+        if areas_dia.len() != n
+            || ellip_dia.len() != n
+            || areas_sys.len() != n
+            || ellip_sys.len() != n
+            || z_coords.len() != n
+        {
+            eprintln!("ERROR: mismatched lengths between contour vectors");
+        }
+
+        // Build numeric matrix: each row is [id, area_dia, ellip_dia, area_sys, ellip_sys, z]
+        let mut mat: Vec<[f64; 6]> = Vec::with_capacity(n);
+        for i in 0..n {
+            mat.push([
+                ids[i] as f64,
+                areas_dia[i],
+                ellip_dia[i],
+                areas_sys[i],
+                ellip_sys[i],
+                z_coords[i],
+            ]);
+        }
+
+        // Prepare printable rows (format floats to 6 decimal places)
+        let headers = ["id", "area_dia", "ellip_dia", "area_sys", "ellip_sys", "z"];
+        let rows: Vec<[String; 6]> = (0..n)
+            .map(|i| {
+                [
+                    ids[i].to_string(),                      // id as integer
+                    format!("{:.2}", mat[i][1]),             // area_dia
+                    format!("{:.2}", mat[i][2]),             // ellip_dia
+                    format!("{:.2}", mat[i][3]),             // area_sys
+                    format!("{:.2}", mat[i][4]),             // ellip_sys
+                    format!("{:.2}", mat[i][5]),             // z
+                ]
+            })
+            .collect();
+
+        // Compute max width for each of the 6 columns
+        let mut widths = [0usize; 6];
+        for (i, &h) in headers.iter().enumerate() {
+            widths[i] = h.len();
+        }
+        for row in &rows {
+            for (i, cell) in row.iter().enumerate() {
+                widths[i] = widths[i].max(cell.len());
+            }
+        }
+
+        // Print a left-aligned data row (same style as your dump_table)
+        fn print_row(cells: &[String], widths: &[usize]) {
+            print!("|");
+            for (i, cell) in cells.iter().enumerate() {
+                let pad = widths[i] - cell.len();
+                print!(" {}{} |", cell, " ".repeat(pad));
+            }
+            println!();
+        }
+
+        // Print a centered header row
+        fn print_header(cells: &[String], widths: &[usize]) {
+            print!("|");
+            for (i, cell) in cells.iter().enumerate() {
+                let total_pad = widths[i] - cell.len();
+                let left = total_pad / 2;
+                let right = total_pad - left;
+                print!(" {}{}{} |", " ".repeat(left), cell, " ".repeat(right));
+            }
+            println!();
+        }
+
+        // Top border
+        print!("+");
+        for w in &widths {
+            print!("{}+", "-".repeat(w + 2));
+        }
+        println!();
+
+        // Header row
+        let header_cells: Vec<String> = headers.iter().map(|&s| s.to_string()).collect();
+        print_header(&header_cells, &widths);
+
+        // Separator
+        print!("+");
+        for w in &widths {
+            print!("{}+", "-".repeat(w + 2));
+        }
+        println!();
+
+        // Data rows
+        for row in &rows {
+            print_row(&row.to_vec(), &widths);
+        }
+
+        // Bottom border
+        print!("+");
+        for w in &widths {
+            print!("{}+", "-".repeat(w + 2));
+        }
+        println!();
+
+        mat
     }
 }
 
@@ -929,7 +1072,21 @@ impl From<Centerline> for PyCenterline {
     }
 }
 
-/// Python wrapper for your Rust `Record`
+/// Python representation of a measurement record
+///
+/// Attributes:
+///     frame (int): Frame number
+///     phase (str): Cardiac phase ('D'/'S') for diastole or systole
+///     measurement_1 (float, optional): Primary measurement. In coronary artery anomalies thickness between aorta and coronary.
+///     measurement_2 (float, optional): Secondary measurement. In coronary artery anomalies thickness between pulmonary artery and coronary.
+///
+/// Example:
+///     >>> record = PyRecord(
+///     ...     frame=5,
+///     ...     phase="D",
+///     ...     measurement_1=1.4,
+///     ...     measurement_2=2.1
+///     ... )
 #[pyclass]
 #[derive(Debug, Clone)]
 pub struct PyRecord {
@@ -943,21 +1100,6 @@ pub struct PyRecord {
     pub measurement_2: Option<f64>,
 }
 
-/// Python representation of a measurement record
-///
-/// Attributes:
-///     frame (int): Frame number
-///     phase (str): Cardiac phase ('Diastole'/'Systole')
-///     measurement_1 (float, optional): Primary measurement
-///     measurement_2 (float, optional): Secondary measurement
-///
-/// Example:
-///     >>> record = PyRecord(
-///     ...     frame=5,
-///     ...     phase="Diastole",
-///     ...     measurement_1=42.0,
-///     ...     measurement_2=38.5
-///     ... )
 #[pymethods]
 impl PyRecord {
     /// Python constructor

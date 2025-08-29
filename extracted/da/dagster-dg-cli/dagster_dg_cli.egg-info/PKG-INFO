@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dg-cli
-Version: 1.11.7
+Version: 1.11.8
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-cli
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -12,8 +12,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
-Requires-Dist: dagster-dg-core==1.11.7
-Requires-Dist: dagster==1.11.7
+Requires-Dist: dagster-dg-core==1.11.8
+Requires-Dist: dagster==1.11.8
 Requires-Dist: anthropic; python_version >= "3.10"
 Requires-Dist: claude-code-sdk>=0.0.19; python_version >= "3.10"
 Requires-Dist: mcp; python_version >= "3.10"

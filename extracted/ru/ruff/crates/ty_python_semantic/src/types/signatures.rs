@@ -21,7 +21,8 @@ use crate::types::constraints::{Constraints, IteratorConstraintsExtension};
 use crate::types::generics::{GenericContext, walk_generic_context};
 use crate::types::{
     BindingContext, BoundTypeVarInstance, HasRelationToVisitor, IsEquivalentVisitor, KnownClass,
-    NormalizedVisitor, TypeMapping, TypeRelation, VarianceInferable, todo_type,
+    MaterializationKind, NormalizedVisitor, TypeMapping, TypeRelation, VarianceInferable,
+    todo_type,
 };
 use crate::{Db, FxOrderSet};
 use ruff_python_ast::{self as ast, name::Name};
@@ -57,11 +58,15 @@ impl<'db> CallableSignature<'db> {
         self.overloads.iter()
     }
 
-    pub(super) fn materialize(&self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+    pub(super) fn materialize(
+        &self,
+        db: &'db dyn Db,
+        materialization_kind: MaterializationKind,
+    ) -> Self {
         Self::from_overloads(
             self.overloads
                 .iter()
-                .map(|signature| signature.materialize(db, variance)),
+                .map(|signature| signature.materialize(db, materialization_kind)),
         )
     }
 
@@ -247,7 +252,7 @@ impl<'db> VarianceInferable<'db> for &CallableSignature<'db> {
 }
 
 /// The signature of one of the overloads of a callable.
-#[derive(Clone, Debug, salsa::Update, get_size2::GetSize)]
+#[derive(Clone, Debug, salsa::Update, get_size2::GetSize, PartialEq, Eq, Hash)]
 pub struct Signature<'db> {
     /// The generic context for this overload, if it is generic.
     pub(crate) generic_context: Option<GenericContext<'db>>,
@@ -405,17 +410,17 @@ impl<'db> Signature<'db> {
         self
     }
 
-    fn materialize(&self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+    fn materialize(&self, db: &'db dyn Db, materialization_kind: MaterializationKind) -> Self {
         Self {
             generic_context: self.generic_context,
             inherited_generic_context: self.inherited_generic_context,
             definition: self.definition,
             // Parameters are at contravariant position, so the variance is flipped.
-            parameters: self.parameters.materialize(db, variance.flip()),
+            parameters: self.parameters.materialize(db, materialization_kind.flip()),
             return_ty: Some(
                 self.return_ty
                     .unwrap_or(Type::unknown())
-                    .materialize(db, variance),
+                    .materialize(db, materialization_kind),
             ),
         }
     }
@@ -993,28 +998,6 @@ impl<'db> Signature<'db> {
     }
 }
 
-// Manual implementations of PartialEq, Eq, and Hash that exclude the definition field
-// since the definition is not relevant for type equality/equivalence
-impl PartialEq for Signature<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.generic_context == other.generic_context
-            && self.inherited_generic_context == other.inherited_generic_context
-            && self.parameters == other.parameters
-            && self.return_ty == other.return_ty
-    }
-}
-
-impl Eq for Signature<'_> {}
-
-impl std::hash::Hash for Signature<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.generic_context.hash(state);
-        self.inherited_generic_context.hash(state);
-        self.parameters.hash(state);
-        self.return_ty.hash(state);
-    }
-}
-
 impl<'db> VarianceInferable<'db> for &Signature<'db> {
     fn variance_of(self, db: &'db dyn Db, typevar: BoundTypeVarInstance<'db>) -> TypeVarVariance {
         tracing::debug!(
@@ -1085,13 +1068,13 @@ impl<'db> Parameters<'db> {
         }
     }
 
-    fn materialize(&self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+    fn materialize(&self, db: &'db dyn Db, materialization_kind: MaterializationKind) -> Self {
         if self.is_gradual {
             Parameters::object(db)
         } else {
             Parameters::new(
                 self.iter()
-                    .map(|parameter| parameter.materialize(db, variance)),
+                    .map(|parameter| parameter.materialize(db, materialization_kind)),
             )
         }
     }
@@ -1417,12 +1400,12 @@ impl<'db> Parameter<'db> {
         self
     }
 
-    fn materialize(&self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+    fn materialize(&self, db: &'db dyn Db, materialization_kind: MaterializationKind) -> Self {
         Self {
             annotated_type: Some(
                 self.annotated_type
                     .unwrap_or(Type::unknown())
-                    .materialize(db, variance),
+                    .materialize(db, materialization_kind),
             ),
             kind: self.kind.clone(),
             form: self.form,

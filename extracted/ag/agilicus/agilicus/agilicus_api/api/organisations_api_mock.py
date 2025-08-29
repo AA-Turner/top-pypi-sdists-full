@@ -22,6 +22,7 @@ class OrganisationsApiMock:
         self.mock_list_org_guid_mapping = MagicMock()
         self.mock_list_orgs = MagicMock()
         self.mock_list_sub_orgs = MagicMock()
+        self.mock_org_fixup = MagicMock()
         self.mock_reconcile_sub_org_issuer = MagicMock()
         self.mock_replace_org = MagicMock()
         self.mock_replace_system_options = MagicMock()
@@ -141,6 +142,12 @@ class OrganisationsApiMock:
         This method mocks the original api OrganisationsApi.list_sub_orgs with MagicMock.
         """
         return self.mock_list_sub_orgs(self, *args, **kwargs)
+
+    def org_fixup(self, *args, **kwargs):
+        """
+        This method mocks the original api OrganisationsApi.org_fixup with MagicMock.
+        """
+        return self.mock_org_fixup(self, *args, **kwargs)
 
     def reconcile_sub_org_issuer(self, *args, **kwargs):
         """

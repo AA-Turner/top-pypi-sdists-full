@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylink-square
-Version: 1.6.0
+Version: 1.7.0
 Summary: Python interface for SEGGER J-Link.
 Home-page: http://www.github.com/Square/pylink
 Author: Square Embedded Software Team

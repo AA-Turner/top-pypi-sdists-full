@@ -1282,6 +1282,20 @@ def add_org(ctx, **kwargs):
     )
 
 
+@cli.command(name="fixup-org")
+@click.argument("org-id")
+@click.option("--product-label-override", default=None)
+@click.pass_context
+def fixup_org(ctx, **kwargs):
+    output_entry(
+        ctx,
+        orgs.fixup(
+            ctx,
+            **kwargs,
+        ),
+    )
+
+
 @cli.command(name="add-sub-org")
 @click.argument("organisation")
 @click.option("--auto-create", type=bool, default=True)
@@ -6212,6 +6226,7 @@ def list_resource_groups(ctx, **kwargs):
 @click.argument("id")
 @click.option("--org-id", default=None)
 @click.option("--name", default=None)
+@click.option("--bundle-id", default=None)
 @click.option("--resource-member", multiple=True, type=str)
 @click.option("--remove-resource-member", multiple=True, type=str)
 @click.option(

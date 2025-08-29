@@ -30,6 +30,11 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: Implementation :: CPython',
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Scientific/Engineering :: Information Analysis',
@@ -47,7 +52,7 @@ for m in ext_modules:
     m.include_dirs=[LIBDATRIE_DIR]
 
 setup(name="datrie",
-      version="0.8.2",
+      version="0.8.3",
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       author='Mikhail Korobov',
@@ -60,5 +65,5 @@ setup(name="datrie",
           "include_dirs": [LIBDATRIE_DIR]})],
       ext_modules=ext_modules,
       python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
-      setup_requires=["pytest-runner", 'Cython>=0.28'],
+      setup_requires=['Cython>=0.28'],
       tests_require=["pytest", "hypothesis"])

@@ -87,7 +87,7 @@ class HotglueBaseSink(Rest):
             self.logger.info(f"Record of type {self.name} already exists with id: {state.get('id')}")
             self.latest_state["summary"][self.name]["existing"] += 1
 
-        if not state.get("success", False):
+        elif not state.get("success", False):
             self.latest_state["summary"][self.name]["fail"] += 1
         elif state.get("is_updated", False):
             self.latest_state["summary"][self.name]["updated"] += 1
@@ -167,10 +167,15 @@ class HotglueSink(HotglueBaseSink, RecordSink):
         if external_id:
             state["externalId"] = external_id
 
+        # if is_duplicate is in state_updates, set is_duplicate to True
+        is_duplicate = False
+        if state_updates.pop("existing", False):
+            is_duplicate = True
+
         if state_updates and isinstance(state_updates, dict):
             state = dict(state, **state_updates)
 
-        self.update_state(state)
+        self.update_state(state, is_duplicate=is_duplicate)
 
 
 class HotglueBatchSink(HotglueBaseSink, BatchSink):

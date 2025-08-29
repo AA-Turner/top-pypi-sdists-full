@@ -296,14 +296,30 @@ def handle_type_set(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.CurvesHandleTypeItems | None = "AUTO",
+    type: typing.Literal["AUTO", "VECTOR", "ALIGN", "FREE_ALIGN", "TOGGLE_FREE_ALIGN"]
+    | None = "AUTO",
 ) -> None:
     """Set the handle type for bezier curves
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param type: Type
-    :type type: bpy.stub_internal.rna_enums.CurvesHandleTypeItems | None
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param type: Type
+
+    AUTO
+    Auto -- The location is automatically calculated to be smooth.
+
+    VECTOR
+    Vector -- The location is calculated to point to the next/previous control point.
+
+    ALIGN
+    Align -- The location is constrained to point in the opposite direction as the other handle.
+
+    FREE_ALIGN
+    Free -- The handle can be moved anywhere, and does not influence the points other handle.
+
+    TOGGLE_FREE_ALIGN
+    Toggle Free/Align -- Replace Free handles with Align, and all Align with Free handles.
+        :type type: typing.Literal['AUTO','VECTOR','ALIGN','FREE_ALIGN','TOGGLE_FREE_ALIGN'] | None
     """
 
 def sculptmode_toggle(

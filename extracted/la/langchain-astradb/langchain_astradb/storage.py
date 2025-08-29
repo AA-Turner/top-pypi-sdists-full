@@ -9,10 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
     Generic,
-    Iterator,
-    Sequence,
     TypeVar,
 )
 
@@ -30,6 +27,9 @@ from langchain_astradb.utils.astradb import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterator, Sequence
+
+    from astrapy.api_options import APIOptions
     from astrapy.authentication import TokenProvider
     from astrapy.results import CollectionUpdateResult
 
@@ -179,13 +179,13 @@ class AstraDBBaseStore(BaseStore[str, V], Generic[V]):
 
             sem = asyncio.Semaphore(MAX_CONCURRENT_DOCUMENT_REPLACEMENTS)
 
-            _async_collection = self.async_collection
+            async_collection = self.async_collection
 
             async def _replace_document(
                 document: dict[str, Any],
             ) -> CollectionUpdateResult:
                 async with sem:
-                    return await _async_collection.replace_one(
+                    return await async_collection.replace_one(
                         {"_id": document["_id"]},
                         document,
                     )
@@ -246,6 +246,7 @@ class AstraDBStore(AstraDBBaseStore[Any]):
         pre_delete_collection: bool = False,
         setup_mode: SetupMode = SetupMode.SYNC,
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
+        api_options: APIOptions | None = None,
     ) -> None:
         """BaseStore implementation using DataStax AstraDB as the underlying store.
 
@@ -286,6 +287,13 @@ class AstraDBStore(AstraDBBaseStore[Any]):
                 or just strings if no version info is provided, which, if supplied,
                 becomes the leading part of the User-Agent string in all API requests
                 related to this component.
+            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+                can be supplied to customize the interaction with the Data API
+                regarding serialization/deserialization, timeouts, custom headers
+                and so on. The provided options are applied on top of settings already
+                tailored to this library, and if specified will take precedence.
+                Passing None (default) means no customization is requested.
+                Refer to the astrapy documentation for details.
         """
         super().__init__(
             collection_name=collection_name,
@@ -297,6 +305,7 @@ class AstraDBStore(AstraDBBaseStore[Any]):
             pre_delete_collection=pre_delete_collection,
             ext_callers=ext_callers,
             component_name=COMPONENT_NAME_STORE,
+            api_options=api_options,
         )
 
     @override
@@ -320,6 +329,7 @@ class AstraDBByteStore(AstraDBBaseStore[bytes], ByteStore):
         pre_delete_collection: bool = False,
         setup_mode: SetupMode = SetupMode.SYNC,
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
+        api_options: APIOptions | None = None,
     ) -> None:
         """ByteStore implementation using DataStax AstraDB as the underlying store.
 
@@ -357,6 +367,13 @@ class AstraDBByteStore(AstraDBBaseStore[bytes], ByteStore):
                 or just strings if no version info is provided, which, if supplied,
                 becomes the leading part of the User-Agent string in all API requests
                 related to this component.
+            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+                can be supplied to customize the interaction with the Data API
+                regarding serialization/deserialization, timeouts, custom headers
+                and so on. The provided options are applied on top of settings already
+                tailored to this library, and if specified will take precedence.
+                Passing None (default) means no customization is requested.
+                Refer to the astrapy documentation for details.
         """
         super().__init__(
             collection_name=collection_name,
@@ -368,6 +385,7 @@ class AstraDBByteStore(AstraDBBaseStore[bytes], ByteStore):
             pre_delete_collection=pre_delete_collection,
             ext_callers=ext_callers,
             component_name=COMPONENT_NAME_BYTESTORE,
+            api_options=api_options,
         )
 
     @override

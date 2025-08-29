@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain-astradb"
-version = "0.6.0"
+version = "0.6.1"
 description = "An integration package connecting Astra DB and LangChain"
 authors = []
 readme = "README.md"
@@ -12,8 +12,13 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-langchain-community = ">=0.3.1"
-numpy = "^1.26.0"
+langchain-core = ">=0.3.74,<1.0.0"
+numpy = [
+  { version = ">=1.21", python = ">=3.10,<3.12" },
+  { version = ">=1.26", python = ">=3.12,<3.13" },
+  { version = ">=2.1.0", python = ">=3.13" },
+  { version = ">=1.21,<2.1.0", python = "<3.10" },
+]
 astrapy = ">=2.0.1,<3.0.0"
 
 [tool.poetry.group.test]
@@ -28,10 +33,8 @@ pytest-mock = "^3.10.0"
 syrupy = "^4.0.2"
 pytest-watcher = "^0.3.4"
 pytest-asyncio = "^0.21.1"
-langchain = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/langchain" }
-langchain-text-splitters = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/text-splitters" }
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-langchain-community = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/community" }
+langchain = "^0.3.21"
+langchain-tests = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/standard-tests" }
 blockbuster = "^1.2.0"
 
 [tool.poetry.group.codespell]
@@ -49,17 +52,20 @@ optional = true
 optional = true
 
 [tool.poetry.group.lint.dependencies]
-ruff = "^0.6"
+ruff = "<0.13,>=0.12.10"
 
 [tool.poetry.group.typing.dependencies]
-mypy = "^0.991"
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+mypy = "~=1.17.1"
+simsimd = "^6.5.1"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
 langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+
+[tool.ruff]
+target-version = "py39"
 
 [tool.ruff.lint]
 pydocstyle.convention = "google"
@@ -99,7 +105,14 @@ ignore = [
 ]
 
 [tool.mypy]
-disallow_untyped_defs = "True"
+plugins = ["pydantic.mypy"]
+strict = true
+enable_error_code = "deprecated"
+warn_unreachable = true
+
+# TODO: activate for 'strict' checking
+disallow_any_generics = false
+
 
 [tool.coverage.run]
 omit = ["tests/*"]

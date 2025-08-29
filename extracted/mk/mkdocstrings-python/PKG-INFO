@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocstrings-python
-Version: 1.18.0
+Version: 1.18.2
 Summary: A Python handler for mkdocstrings.
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
 License-Expression: ISC

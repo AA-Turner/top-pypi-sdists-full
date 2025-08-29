@@ -410,7 +410,7 @@ class DatasetStats(MetricContainer):
         child_widgets: Optional[List[Tuple[Optional[MetricId], List[BaseWidgetInfo]]]] = None,
     ) -> List[BaseWidgetInfo]:
         legacy_metric = DatasetSummaryMetric()
-        _, render = context.get_legacy_metric(legacy_metric, _default_input_data_generator)
+        _, render = context.get_legacy_metric(legacy_metric, _default_input_data_generator, None)
         for metric in self.list_metrics(context):
             link_metric(render, metric)
         return render
@@ -476,6 +476,8 @@ class TextEvals(MetricContainer):
         metrics: List[MetricOrContainer] = [RowTestSummary(), RowCount(tests=self._get_tests(self.row_count_tests))]
         value_stats = self.get_value_stats(context)
         metrics.extend(list(chain(*[vs.metrics(context)[1:] for vs in value_stats])))
+        for column_info in context.data_definition.special_columns:
+            metrics.extend(column_info.get_metrics())
         return metrics
 
     def render(
@@ -484,7 +486,14 @@ class TextEvals(MetricContainer):
         child_widgets: Optional[List[Tuple[Optional[MetricId], List[BaseWidgetInfo]]]] = None,
     ) -> List[BaseWidgetInfo]:
         value_stats = self.get_value_stats(context)
-        return list(chain(*([RowTestSummary().render(context)] + [vs.render(context) for vs in value_stats])))
+        result = list(chain(*([RowTestSummary().render(context)] + [vs.render(context) for vs in value_stats])))
+        for column_info in context.data_definition.special_columns:
+            for metric in column_info.get_metrics():
+                if isinstance(metric, MetricContainer):
+                    result.extend(metric.render(context))
+                else:
+                    result.extend(context.get_metric_result(metric).widget or [])
+        return result
 
 
 class DataSummaryPreset(MetricContainer):

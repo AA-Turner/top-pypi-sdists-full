@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-octaviaclient
-Version: 3.11.1
+Version: 3.12.0
 Summary: Octavia client for OpenStack Load Balancing
 Home-page: https://docs.openstack.org/python-octaviaclient/latest/
 Author: OpenStack
@@ -14,11 +14,10 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: cliff!=2.9.0,>=2.8.0
 Requires-Dist: keystoneauth1>=3.18.0

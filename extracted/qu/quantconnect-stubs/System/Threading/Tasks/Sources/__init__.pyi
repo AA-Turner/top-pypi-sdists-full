@@ -6,8 +6,27 @@ import typing
 import System
 import System.Threading.Tasks.Sources
 
-System_Threading_Tasks_Sources_IValueTaskSource_TResult = typing.TypeVar("System_Threading_Tasks_Sources_IValueTaskSource_TResult")
 System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult = typing.TypeVar("System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult")
+System_Threading_Tasks_Sources_IValueTaskSource_TResult = typing.TypeVar("System_Threading_Tasks_Sources_IValueTaskSource_TResult")
+
+
+class ValueTaskSourceStatus(Enum):
+    """Indicates the status of an IValueTaskSource or IValueTaskSource{TResult}."""
+
+    PENDING = 0
+    """The operation has not yet completed."""
+
+    SUCCEEDED = 1
+    """The operation completed successfully."""
+
+    FAULTED = 2
+    """The operation completed with an error."""
+
+    CANCELED = 3
+    """The operation completed due to cancellation."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class ValueTaskSourceOnCompletedFlags(Enum):
@@ -31,56 +50,6 @@ class ValueTaskSourceOnCompletedFlags(Enum):
     """Set if OnCompleted should capture the current ExecutionContext and use it to run the continuation."""
 
     def __int__(self) -> int:
-        ...
-
-
-class ValueTaskSourceStatus(Enum):
-    """Indicates the status of an IValueTaskSource or IValueTaskSource{TResult}."""
-
-    PENDING = 0
-    """The operation has not yet completed."""
-
-    SUCCEEDED = 1
-    """The operation completed successfully."""
-
-    FAULTED = 2
-    """The operation completed with an error."""
-
-    CANCELED = 3
-    """The operation completed due to cancellation."""
-
-    def __int__(self) -> int:
-        ...
-
-
-class IValueTaskSource(typing.Generic[System_Threading_Tasks_Sources_IValueTaskSource_TResult], metaclass=abc.ABCMeta):
-    """Represents an object that can be wrapped by a ValueTask{TResult}."""
-
-    def get_result(self, token: int) -> None:
-        """
-        Gets the result of the IValueTaskSource.
-        
-        :param token: Opaque value that was provided to the ValueTask's constructor.
-        """
-        ...
-
-    def get_status(self, token: int) -> System.Threading.Tasks.Sources.ValueTaskSourceStatus:
-        """
-        Gets the status of the current operation.
-        
-        :param token: Opaque value that was provided to the ValueTask's constructor.
-        """
-        ...
-
-    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
-        """
-        Schedules the continuation action for this IValueTaskSource.
-        
-        :param continuation: The continuation to invoke when the operation has completed.
-        :param state: The state object to pass to  when it's invoked.
-        :param token: Opaque value that was provided to the ValueTask's constructor.
-        :param flags: The flags describing the behavior of the continuation.
-        """
         ...
 
 
@@ -145,6 +114,37 @@ class ManualResetValueTaskSourceCore(typing.Generic[System_Threading_Tasks_Sourc
         Completes with a successful result.
         
         :param result: The result.
+        """
+        ...
+
+
+class IValueTaskSource(typing.Generic[System_Threading_Tasks_Sources_IValueTaskSource_TResult], metaclass=abc.ABCMeta):
+    """Represents an object that can be wrapped by a ValueTask{TResult}."""
+
+    def get_result(self, token: int) -> None:
+        """
+        Gets the result of the IValueTaskSource.
+        
+        :param token: Opaque value that was provided to the ValueTask's constructor.
+        """
+        ...
+
+    def get_status(self, token: int) -> System.Threading.Tasks.Sources.ValueTaskSourceStatus:
+        """
+        Gets the status of the current operation.
+        
+        :param token: Opaque value that was provided to the ValueTask's constructor.
+        """
+        ...
+
+    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
+        """
+        Schedules the continuation action for this IValueTaskSource.
+        
+        :param continuation: The continuation to invoke when the operation has completed.
+        :param state: The state object to pass to  when it's invoked.
+        :param token: Opaque value that was provided to the ValueTask's constructor.
+        :param flags: The flags describing the behavior of the continuation.
         """
         ...
 

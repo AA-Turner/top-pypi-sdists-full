@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.25
+Version: 0.6.26
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
@@ -67,7 +67,6 @@ Requires-Dist: chromadb==0.6.3
 Requires-Dist: colbert-ai==0.2.21
 Requires-Dist: cryptography
 Requires-Dist: ddgs==9.0.0
-Requires-Dist: docker~=7.1.0
 Requires-Dist: docx2txt==0.8
 Requires-Dist: einops==0.8.1
 Requires-Dist: elasticsearch==9.0.1
@@ -77,22 +76,19 @@ Requires-Dist: faster-whisper==1.1.1
 Requires-Dist: firecrawl-py==1.12.0
 Requires-Dist: fpdf2==2.8.2
 Requires-Dist: ftfy==6.2.3
-Requires-Dist: gcp-storage-emulator>=2024.8.3
 Requires-Dist: google-api-python-client
 Requires-Dist: google-auth-httplib2
 Requires-Dist: google-auth-oauthlib
 Requires-Dist: google-cloud-storage==2.19.0
-Requires-Dist: google-genai==1.28.0
+Requires-Dist: google-genai==1.32.0
 Requires-Dist: google-generativeai==0.8.5
 Requires-Dist: googleapis-common-protos==1.63.2
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
 Requires-Dist: langchain-community==0.3.26
 Requires-Dist: langchain==0.3.26
-Requires-Dist: langfuse==2.44.0
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
 Requires-Dist: markdown==3.8.2
-Requires-Dist: moto[s3]>=5.0.26
 Requires-Dist: nltk==3.9.1
 Requires-Dist: onnxruntime==1.20.1
 Requires-Dist: openai
@@ -105,13 +101,11 @@ Requires-Dist: pandas==2.2.3
 Requires-Dist: passlib[bcrypt]==1.7.4
 Requires-Dist: peewee-migrate==1.12.2
 Requires-Dist: peewee==3.18.1
-Requires-Dist: pgvector==0.4.0
 Requires-Dist: pillow==11.3.0
 Requires-Dist: pinecone==6.0.2
 Requires-Dist: playwright==1.49.1
 Requires-Dist: posthog==5.4.0
 Requires-Dist: psutil
-Requires-Dist: psycopg2-binary==2.9.9
 Requires-Dist: pyarrow==20.0.0
 Requires-Dist: pycrdt==0.12.25
 Requires-Dist: pydantic==2.11.7
@@ -119,12 +113,9 @@ Requires-Dist: pydub
 Requires-Dist: pyjwt[crypto]==2.10.1
 Requires-Dist: pymdown-extensions==10.14.2
 Requires-Dist: pymilvus==2.5.0
-Requires-Dist: pymongo
 Requires-Dist: pymysql==1.1.1
 Requires-Dist: pypandoc==1.15
 Requires-Dist: pypdf==4.3.1
-Requires-Dist: pytest-docker~=3.1.1
-Requires-Dist: pytest~=8.3.2
 Requires-Dist: python-jose==3.4.0
 Requires-Dist: python-multipart==0.0.20
 Requires-Dist: python-pptx==1.0.2
@@ -150,6 +141,18 @@ Requires-Dist: uvicorn[standard]==0.35.0
 Requires-Dist: validators==0.35.0
 Requires-Dist: xlrd==2.0.1
 Requires-Dist: youtube-transcript-api==1.1.0
+Provides-Extra: all
+Requires-Dist: docker~=7.1.0; extra == 'all'
+Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
+Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
+Requires-Dist: pgvector==0.4.0; extra == 'all'
+Requires-Dist: psycopg2-binary==2.9.9; extra == 'all'
+Requires-Dist: pymongo; extra == 'all'
+Requires-Dist: pytest-docker~=3.1.1; extra == 'all'
+Requires-Dist: pytest~=8.3.2; extra == 'all'
+Provides-Extra: postgres
+Requires-Dist: pgvector==0.4.0; extra == 'postgres'
+Requires-Dist: psycopg2-binary==2.9.9; extra == 'postgres'
 Description-Content-Type: text/markdown
 
 # Open WebUI 👋

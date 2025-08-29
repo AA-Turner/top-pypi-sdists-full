@@ -1,7 +1,7 @@
 r'''
 # `azurerm_dev_test_schedule`
 
-Refer to the Terraform Registry for docs: [`azurerm_dev_test_schedule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule).
+Refer to the Terraform Registry for docs: [`azurerm_dev_test_schedule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevTestSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.devTestSchedule.DevTestSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule azurerm_dev_test_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule azurerm_dev_test_schedule}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class DevTestSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule azurerm_dev_test_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule azurerm_dev_test_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.
-        :param notification_settings: notification_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.
-        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.
-        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.
-        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
-        :param hourly_recurrence: hourly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
-        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
+        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.
+        :param notification_settings: notification_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.
+        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.
+        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.
+        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
+        :param hourly_recurrence: hourly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
+        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class DevTestSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevTestSchedule to import.
-        :param import_from_id: The id of the existing DevTestSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevTestSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevTestSchedule to import is found.
         '''
         if __debug__:
@@ -156,7 +156,7 @@ class DevTestSchedule(
     @jsii.member(jsii_name="putDailyRecurrence")
     def put_daily_recurrence(self, *, time: builtins.str) -> None:
         '''
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
         '''
         value = DevTestScheduleDailyRecurrence(time=time)
 
@@ -165,7 +165,7 @@ class DevTestSchedule(
     @jsii.member(jsii_name="putHourlyRecurrence")
     def put_hourly_recurrence(self, *, minute: jsii.Number) -> None:
         '''
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.
         '''
         value = DevTestScheduleHourlyRecurrence(minute=minute)
 
@@ -180,9 +180,9 @@ class DevTestSchedule(
         webhook_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
-        :param time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.
-        :param webhook_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
+        :param time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.
+        :param webhook_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.
         '''
         value = DevTestScheduleNotificationSettings(
             status=status, time_in_minutes=time_in_minutes, webhook_url=webhook_url
@@ -200,10 +200,10 @@ class DevTestSchedule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.
         '''
         value = DevTestScheduleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -219,8 +219,8 @@ class DevTestSchedule(
         week_days: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
-        :param week_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
+        :param week_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.
         '''
         value = DevTestScheduleWeeklyRecurrence(time=time, week_days=week_days)
 
@@ -544,20 +544,20 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.
-        :param notification_settings: notification_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.
-        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.
-        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.
-        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
-        :param hourly_recurrence: hourly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
-        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
+        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.
+        :param notification_settings: notification_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.
+        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.
+        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.
+        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
+        :param hourly_recurrence: hourly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
+        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -698,21 +698,21 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lab_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#lab_name DevTestSchedule#lab_name}.'''
         result = self._values.get("lab_name")
         assert result is not None, "Required property 'lab_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#location DevTestSchedule#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#name DevTestSchedule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -721,7 +721,7 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notification_settings(self) -> "DevTestScheduleNotificationSettings":
         '''notification_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#notification_settings DevTestSchedule#notification_settings}
         '''
         result = self._values.get("notification_settings")
         assert result is not None, "Required property 'notification_settings' is missing"
@@ -729,21 +729,21 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#resource_group_name DevTestSchedule#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def task_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#task_type DevTestSchedule#task_type}.'''
         result = self._values.get("task_type")
         assert result is not None, "Required property 'task_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_zone_id DevTestSchedule#time_zone_id}.'''
         result = self._values.get("time_zone_id")
         assert result is not None, "Required property 'time_zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -752,7 +752,7 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def daily_recurrence(self) -> typing.Optional["DevTestScheduleDailyRecurrence"]:
         '''daily_recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#daily_recurrence DevTestSchedule#daily_recurrence}
         '''
         result = self._values.get("daily_recurrence")
         return typing.cast(typing.Optional["DevTestScheduleDailyRecurrence"], result)
@@ -761,14 +761,14 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hourly_recurrence(self) -> typing.Optional["DevTestScheduleHourlyRecurrence"]:
         '''hourly_recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#hourly_recurrence DevTestSchedule#hourly_recurrence}
         '''
         result = self._values.get("hourly_recurrence")
         return typing.cast(typing.Optional["DevTestScheduleHourlyRecurrence"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#id DevTestSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -778,13 +778,13 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#tags DevTestSchedule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -792,7 +792,7 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DevTestScheduleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#timeouts DevTestSchedule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DevTestScheduleTimeouts"], result)
@@ -801,7 +801,7 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def weekly_recurrence(self) -> typing.Optional["DevTestScheduleWeeklyRecurrence"]:
         '''weekly_recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#weekly_recurrence DevTestSchedule#weekly_recurrence}
         '''
         result = self._values.get("weekly_recurrence")
         return typing.cast(typing.Optional["DevTestScheduleWeeklyRecurrence"], result)
@@ -826,7 +826,7 @@ class DevTestScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DevTestScheduleDailyRecurrence:
     def __init__(self, *, time: builtins.str) -> None:
         '''
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6cc8c0424bd7a950bc4857403e1f2281d8cb9e63e0a89f3a39bbe2563b1ed49)
@@ -837,7 +837,7 @@ class DevTestScheduleDailyRecurrence:
 
     @builtins.property
     def time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.'''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
         return typing.cast(builtins.str, result)
@@ -915,7 +915,7 @@ class DevTestScheduleDailyRecurrenceOutputReference(
 class DevTestScheduleHourlyRecurrence:
     def __init__(self, *, minute: jsii.Number) -> None:
         '''
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2a6f75bca231b69416ad6662d902b05f8d55f019febdd709935312d223e50a4)
@@ -926,7 +926,7 @@ class DevTestScheduleHourlyRecurrence:
 
     @builtins.property
     def minute(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#minute DevTestSchedule#minute}.'''
         result = self._values.get("minute")
         assert result is not None, "Required property 'minute' is missing"
         return typing.cast(jsii.Number, result)
@@ -1014,9 +1014,9 @@ class DevTestScheduleNotificationSettings:
         webhook_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
-        :param time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.
-        :param webhook_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.
+        :param time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.
+        :param webhook_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c245ca5694a1b0c74f9a27e0ad28ec269eaaad444f12b18062562e9a0fcb1f99)
@@ -1033,19 +1033,19 @@ class DevTestScheduleNotificationSettings:
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#status DevTestSchedule#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time_in_minutes DevTestSchedule#time_in_minutes}.'''
         result = self._values.get("time_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def webhook_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#webhook_url DevTestSchedule#webhook_url}.'''
         result = self._values.get("webhook_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1180,10 +1180,10 @@ class DevTestScheduleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55890127b64b8c4f8a6dd33a1c83e6df9621e8cd665b3df92abb234328e3514a)
@@ -1203,25 +1203,25 @@ class DevTestScheduleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#create DevTestSchedule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#delete DevTestSchedule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#read DevTestSchedule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#update DevTestSchedule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1372,8 +1372,8 @@ class DevTestScheduleWeeklyRecurrence:
         week_days: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
-        :param week_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.
+        :param week_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9477c2e0193d2967bd62e8d5adb14952ba7585a8014370b2c178f138658e3fe3)
@@ -1387,14 +1387,14 @@ class DevTestScheduleWeeklyRecurrence:
 
     @builtins.property
     def time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#time DevTestSchedule#time}.'''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def week_days(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/dev_test_schedule#week_days DevTestSchedule#week_days}.'''
         result = self._values.get("week_days")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

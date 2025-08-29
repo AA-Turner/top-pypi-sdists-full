@@ -13,6 +13,33 @@ import QuantConnect.Securities
 import System.Collections.Generic
 
 
+class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
+    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
+
+    @property
+    def data_point_count(self) -> int:
+        """Gets the total number of data points emitted by this history provider"""
+        ...
+
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
+        """
+        ...
+
+    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
+        """
+        Initializes this history provider to work for the specified job
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+
 class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
     """
     Provides an implementation of IHistoryProvider which
@@ -109,6 +136,52 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         ...
 
 
+class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider):
+    """
+    Provides an implementation of IHistoryProvider that uses BaseData
+    instances to retrieve historical data
+    """
+
+    @property
+    def data_permission_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
+        """
+        Manager used to allow or deny access to a requested datasource for specific users
+        
+        This property is protected.
+        """
+        ...
+
+    @data_permission_manager.setter
+    def data_permission_manager(self, value: QuantConnect.Interfaces.IDataPermissionManager) -> None:
+        ...
+
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
+        """
+        ...
+
+    def get_intraday_data_enumerator(self, raw_data: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], request: QuantConnect.Data.HistoryRequest) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Gets the intraday data enumerator if any
+        
+        This method is protected.
+        """
+        ...
+
+    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
+        """
+        Initializes this history provider to work for the specified job
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+
 class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider):
     """
     Provides an implementation of IHistoryProvider that relies on
@@ -165,79 +238,6 @@ class SineHistoryProvider(QuantConnect.Data.HistoryProviderBase):
         :param requests: The historical data requests
         :param slice_time_zone: The time zone used when time stamping the slice instances
         :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
-        """
-        Initializes this history provider to work for the specified job
-        
-        :param parameters: The initialization parameters
-        """
-        ...
-
-
-class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
-    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
-
-    @property
-    def data_point_count(self) -> int:
-        """Gets the total number of data points emitted by this history provider"""
-        ...
-
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
-        """
-        Initializes this history provider to work for the specified job
-        
-        :param parameters: The initialization parameters
-        """
-        ...
-
-
-class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider):
-    """
-    Provides an implementation of IHistoryProvider that uses BaseData
-    instances to retrieve historical data
-    """
-
-    @property
-    def data_permission_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
-        """
-        Manager used to allow or deny access to a requested datasource for specific users
-        
-        This property is protected.
-        """
-        ...
-
-    @data_permission_manager.setter
-    def data_permission_manager(self, value: QuantConnect.Interfaces.IDataPermissionManager) -> None:
-        ...
-
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def get_intraday_data_enumerator(self, raw_data: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], request: QuantConnect.Data.HistoryRequest) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Gets the intraday data enumerator if any
-        
-        This method is protected.
         """
         ...
 

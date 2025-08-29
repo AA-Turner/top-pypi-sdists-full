@@ -14,6 +14,7 @@ from tqdm import tqdm
 from mitreattack.constants import MITRE_ATTACK_ID_SOURCE_NAMES, PLATFORMS_LOOKUP
 from mitreattack.stix20 import MitreAttackData
 
+
 def remove_revoked_deprecated(stix_objects):
     """Remove any revoked or deprecated objects from queries made to the data source."""
     # Note we use .get() because the property may not be present in the JSON data. The default is False
@@ -132,6 +133,8 @@ def techniquesToDf(src, domain):
         if subtechnique:
             subtechnique_of = all_sub_techniques.query([Filter("source_ref", "=", technique["id"])])[0]
             parent = src.get(subtechnique_of["target_ref"])
+        else:
+            parent = None
 
         # base STIX properties
         row = parseBaseStix(technique)
@@ -164,7 +167,7 @@ def techniquesToDf(src, domain):
         # domain specific fields -- enterprise
         if domain == "enterprise-attack":
             row["is sub-technique"] = subtechnique
-            if subtechnique:
+            if subtechnique and parent is not None:
                 row["name"] = f"{parent['name']}: {technique['name']}"
                 row["sub-technique of"] = parent["external_references"][0]["external_id"]
 
@@ -839,7 +842,7 @@ def matricesToDf(src, domain):
         for column in matrix_grid:
             longest_column = max(len(column), longest_column)
         for column in matrix_grid:
-            for i in range((longest_column - len(column))):
+            for _ in range((longest_column - len(column))):
                 column.append("")
 
         for submatrix in sub_matrices_grid:
@@ -847,7 +850,7 @@ def matricesToDf(src, domain):
             for column in mg:
                 longest_column = max(len(column), longest_column)
             for column in mg:
-                for i in range((longest_column - len(column))):
+                for _ in range((longest_column - len(column))):
                     column.append("")
         # matrix is now squared
 

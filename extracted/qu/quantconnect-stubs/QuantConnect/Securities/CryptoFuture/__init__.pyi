@@ -10,6 +10,46 @@ import QuantConnect.Securities.CryptoFuture
 import System
 
 
+class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Crypto Future holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Crypto Future Holding Class constructor
+        
+        :param security: The crypto future security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the total value of the specified  of shares of this security
+        in the account currency
+        
+        :param quantity: The quantity of shares
+        :param price: The current price
+        :returns: The value of the quantity of shares in the account currency.
+        """
+        ...
+
+
+class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
+    """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
+        """
+        Apply margin interest rates to the portfolio
+        
+        :param margin_interest_rate_parameters: The parameters to use
+        """
+        ...
+
+
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+
 class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """Crypto Future Security Object Implementation for Crypto Future Assets"""
 
@@ -68,22 +108,6 @@ class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
-class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
-    """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
-        """
-        Apply margin interest rates to the portfolio
-        
-        :param margin_interest_rate_parameters: The parameters to use
-        """
-        ...
-
-
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-
 class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
     """The crypto future margin model which supports both Coin and USDT futures"""
 
@@ -125,30 +149,6 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         :param security: The security to be traded
         :param direction: The direction of the trade
         :returns: The margin available for the trade.
-        """
-        ...
-
-
-class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Crypto Future holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Crypto Future Holding Class constructor
-        
-        :param security: The crypto future security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
-        """
-        Gets the total value of the specified  of shares of this security
-        in the account currency
-        
-        :param quantity: The quantity of shares
-        :param price: The current price
-        :returns: The value of the quantity of shares in the account currency.
         """
         ...
 

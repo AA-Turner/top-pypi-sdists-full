@@ -143,7 +143,7 @@ class PoolResponseCommon(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            between_bytes_timeout (str): Maximum duration in milliseconds that Fastly will wait while receiving no data on a download from a backend. If exceeded, the response received so far will be considered complete and the fetch will end. May be set at runtime using `bereq.between_bytes_timeout`.. [optional]  # noqa: E501
+            between_bytes_timeout (str): Maximum duration in milliseconds that Fastly will wait while receiving no data on a download from a backend. If exceeded, for Delivery services, the response received so far will be considered complete and the fetch will end. For Compute services, timeout expiration is treated as a failure of the backend connection, and an error is generated. May be set at runtime using `bereq.between_bytes_timeout`.. [optional]  # noqa: E501
             connect_timeout (str): How long to wait for a timeout in milliseconds.. [optional]  # noqa: E501
             first_byte_timeout (str): How long to wait for the first byte in milliseconds.. [optional]  # noqa: E501
             max_conn_default (str): Maximum number of connections.. [optional] if omitted the server will use the default value of "200"  # noqa: E501
@@ -230,7 +230,7 @@ class PoolResponseCommon(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            between_bytes_timeout (str): Maximum duration in milliseconds that Fastly will wait while receiving no data on a download from a backend. If exceeded, the response received so far will be considered complete and the fetch will end. May be set at runtime using `bereq.between_bytes_timeout`.. [optional]  # noqa: E501
+            between_bytes_timeout (str): Maximum duration in milliseconds that Fastly will wait while receiving no data on a download from a backend. If exceeded, for Delivery services, the response received so far will be considered complete and the fetch will end. For Compute services, timeout expiration is treated as a failure of the backend connection, and an error is generated. May be set at runtime using `bereq.between_bytes_timeout`.. [optional]  # noqa: E501
             connect_timeout (str): How long to wait for a timeout in milliseconds.. [optional]  # noqa: E501
             first_byte_timeout (str): How long to wait for the first byte in milliseconds.. [optional]  # noqa: E501
             max_conn_default (str): Maximum number of connections.. [optional] if omitted the server will use the default value of "200"  # noqa: E501

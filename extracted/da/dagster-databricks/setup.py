@@ -13,7 +13,7 @@ def get_version() -> str:
 
 ver = get_version()
 # dont pin dev installs to avoid pip dep resolver issues
-pin = "" if ver == "1!0+dev" else f"=={ver}"
+pin = "" if ver == "1!0+dev" or "rc" in ver else f"=={ver}"
 setup(
     name="dagster-databricks",
     version=ver,
@@ -32,9 +32,9 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.7",
-        "dagster-pipes==1.11.7",
-        "dagster-pyspark==0.27.7",
+        "dagster==1.11.8",
+        "dagster-pipes==1.11.8",
+        "dagster-pyspark==0.27.8",
         "databricks-sdk>=0.41,<0.61.0",  # dbt-databricks is pinned to this version
     ],
     zip_safe=False,

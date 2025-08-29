@@ -295,51 +295,113 @@ def test_type_encoding_negative(
     [
         # Primary only
         (
-            "ascii", "ascii", ["5", "7"],
-            b"0A00000000000000", "0A00000000000000",
-            None, None
+            "ascii", "ascii", {5, 7},
+            b"0A00000000000000",
+            "0A00000000000000",
+            None,
+            None,
         ),
         (
-            "cp500", "cp500", ["5", "7"],
-            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000",
-            None, None
+            "cp500", "cp500", {5, 7},
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "0A00000000000000",
+            None,
+            None,
         ),
         (
-            "b", "b", ["5", "7"],
-            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000",
-            None, None
+            "b", "b", {5, 7},
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00",
+            "0A00000000000000",
+            None,
+            None,
         ),
-        # Secondary bitmap is added when secondary fields are present
+        # Primary and secondary
         (
-            "ascii", "ascii", ["5", "7", "69", "71"],
-            b"8A00000000000000", "8A00000000000000",
-            b"0A00000000000000", "0A00000000000000"
+            "ascii", "ascii",  {5, 7, 69, 71},
+            b"8A00000000000000",
+            "8A00000000000000",
+            b"0A00000000000000",
+            "0A00000000000000",
         ),
         (
-            "cp500", "cp500", ["5", "7", "69", "71"],
-            b"\xf8\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "8A00000000000000",
-            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000"
+            "cp500", "cp500", {5, 7, 69, 71},
+            b"\xf8\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "8A00000000000000",
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "0A00000000000000",
         ),
         (
-            "b", "b", ["5", "7", "69", "71"],
-            b"\x8A\x00\x00\x00\x00\x00\x00\x00", "8A00000000000000",
-            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000"
+            "b", "b", {5, 7, 69, 71},
+            b"\x8A\x00\x00\x00\x00\x00\x00\x00",
+            "8A00000000000000",
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00",
+            "0A00000000000000",
         ),
         # Secondary bitmap only
         (
-            "ascii", "ascii", ["69", "71"],
-            b"8000000000000000", "8000000000000000",
-            b"0A00000000000000", "0A00000000000000"
+            "ascii", "ascii", {69, 71},
+            b"8000000000000000",
+            "8000000000000000",
+            b"0A00000000000000",
+            "0A00000000000000",
         ),
         (
-            "cp500", "cp500", ["69", "71"],
-            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "8000000000000000",
-            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000"
+            "cp500", "cp500", {69, 71},
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "8000000000000000",
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "0A00000000000000",
         ),
         (
-            "b", "b", ["69", "71"],
-            b"\x80\x00\x00\x00\x00\x00\x00\x00", "8000000000000000",
-            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000"
+            "b", "b", {69, 71},
+            b"\x80\x00\x00\x00\x00\x00\x00\x00",
+            "8000000000000000",
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00",
+            "0A00000000000000",
+        ),
+        # Primary, secondary, and tertiary bitmaps
+        (
+            "ascii", "ascii", {5, 7, 69, 71, 133, 135},
+            b"8A00000000000000",
+            "8A00000000000000",
+            b"8A000000000000000A00000000000000",
+            "8A000000000000000A00000000000000",
+        ),
+        (
+            "cp500", "cp500", {5, 7, 69, 71, 133, 135},
+            b"\xf8\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "8A00000000000000",
+            b"\xf8\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "8A000000000000000A00000000000000",
+        ),
+        (
+            "b", "b", {5, 7, 69, 71, 133, 135},
+            b"\x8A\x00\x00\x00\x00\x00\x00\x00",
+            "8A00000000000000",
+            b"\x8A\x00\x00\x00\x00\x00\x00\x00\x0A\x00\x00\x00\x00\x00\x00\x00",
+            "8A000000000000000A00000000000000",
+        ),
+        # Tertiary bitmap only
+        (
+            "ascii", "ascii", {133, 135},
+            b"8000000000000000",
+            "8000000000000000",
+            b"80000000000000000A00000000000000",
+            "80000000000000000A00000000000000",
+        ),
+        (
+            "cp500", "cp500", {133, 135},
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "8000000000000000",
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+            "80000000000000000A00000000000000",
+        ),
+        (
+            "b", "b", {133, 135},
+            b"\x80\x00\x00\x00\x00\x00\x00\x00",
+            "8000000000000000",
+            b"\x80\x00\x00\x00\x00\x00\x00\x00\x0A\x00\x00\x00\x00\x00\x00\x00",
+            "80000000000000000A00000000000000",
         ),
     ]
 )
@@ -347,7 +409,7 @@ def test_type_encoding_negative(
 def test_bitmap_encoding(
     primary_data_enc: str,
     secondary_data_enc: str,
-    enabled_fields: typing.Set[str],
+    enabled_fields: typing.Set[int],
     expected_primary_enc_data: bytes,
     expected_primary_data: str,
     expected_secondary_enc_data: typing.Optional[bytes],
@@ -358,60 +420,59 @@ def test_bitmap_encoding(
     spec["1"]["data_enc"] = secondary_data_enc
 
     doc_dec = {"t": "0200"}
-    expected_message_payload: typing.List[bytes] = []
+    expected_message_payload = bytearray(b"0200" + expected_primary_enc_data)
 
-    for enabled_field in enabled_fields:
-        spec[enabled_field]["len_type"] = 3
-        spec[enabled_field]["max_len"] = 999
-        spec[enabled_field]["data_enc"] = "ascii"
-        doc_dec[enabled_field] = enabled_field.zfill(3)
-        expected_message_payload.append(b"003")
-        expected_message_payload.append(bytes(enabled_field.zfill(3), "ascii"))
-
-    s, doc_enc = iso8583.encode(doc_dec, spec)
-
-    if expected_secondary_enc_data is None:
-        assert bytes(s) == b"0200" + expected_primary_enc_data + b"".join(
-            expected_message_payload
-        )
-    else:
-        assert bytes(
-            s
-        ) == b"0200" + expected_primary_enc_data + expected_secondary_enc_data + b"".join(
-            expected_message_payload
-        )
-
-    assert doc_dec["p"] == expected_primary_data
-    if expected_secondary_data is not None:
-        assert doc_dec["1"] == expected_secondary_data
-
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == expected_primary_enc_data
     if expected_secondary_enc_data is not None:
-        assert doc_enc["1"]["data"] == expected_secondary_enc_data
-    # Expected field count: enabled_fields + primary bitmap + type + secondary bitmap if expected
-    assert (
-        len(doc_enc) == len(enabled_fields) + 2 + 0
-        if expected_secondary_enc_data is None
-        else 1
-    )
+        enabled_fields.add(1)
 
-    for enabled_field in enabled_fields:
-        assert doc_dec[enabled_field] == enabled_field.zfill(3)
-        assert doc_enc[enabled_field]["data"] == bytes(enabled_field.zfill(3), "ascii")
-        assert doc_enc[enabled_field]["len"] == b"003"
+    # Generate expected message and the input
+    for enabled_field in [str(f) for f in sorted(enabled_fields)]:
+        if enabled_field == "1":
+            expected_message_payload += expected_secondary_enc_data  # type: ignore
+        else:
+            spec[enabled_field] = {
+                "len_type": 3,
+                "max_len": 999,
+                "len_enc": "ascii",
+                "data_enc": "ascii",
+            }
+            doc_dec[enabled_field] = enabled_field.zfill(3)
+            expected_message_payload += b"003"
+            expected_message_payload += bytes(enabled_field.zfill(3), "ascii")
+
+    raw_message, doc_enc = iso8583.encode(doc_dec, spec)
+
+    assert bytes(raw_message) == expected_message_payload
+
+    assert doc_dec["t"] == "0200"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_dec["p"] == expected_primary_data
+    assert doc_enc["p"]["data"] == expected_primary_enc_data
+
+    for enabled_field in [str(f) for f in sorted(enabled_fields)]:
+        if enabled_field == "1":
+            assert doc_dec["1"] == expected_secondary_data
+            assert doc_enc["1"]["data"] == expected_secondary_enc_data
+        else:
+            assert doc_dec[enabled_field] == enabled_field.zfill(3)
+            assert doc_enc[enabled_field]["data"] == bytes(
+                enabled_field.zfill(3), "ascii"
+            )
+            assert doc_enc[enabled_field]["len"] == b"003"
 
 
 # fmt: off
 @pytest.mark.parametrize(
     [ "primary_data_enc", "secondary_data_enc", "enabled_fields", "expected_error"],
     [
-        ("unknown_encoding", "ascii", ["5", "65"], "Failed to encode field, unknown encoding specified: field p"),
-        ("ascii", "unknown_encoding", ["5", "65"], "Failed to encode field, unknown encoding specified: field 1"),
-        ("ascii", "ascii", ["0"], "Dictionary contains fields outside of 1-128 range [0]: field p"),
-        ("ascii", "ascii", ["129"], "Dictionary contains fields outside of 1-128 range [129]: field p"),
-        ("ascii", "ascii", [str(f) for f in range(0, 130)], "Dictionary contains fields outside of 1-128 range [0, 129]: field p"),
-        ("ascii", "ascii", [str(f) for f in range(0, 131)], "Dictionary contains fields outside of 1-128 range [0, 129, 130]: field p"),
+        ("unknown_encoding", "ascii", ["5"], "Failed to encode field, unknown encoding specified: field p"),
+        ("ascii", "unknown_encoding", ["66"], "Failed to encode field, unknown encoding specified: field 1"),
+        # Extended secondary bitmap fails encoding
+        ("ascii", "unknown_encoding", ["130"], "Failed to encode field, unknown encoding specified: field 1"),
+        ("ascii", "ascii", ["0"], "Dictionary contains fields outside of 1-192 range [0]: field p"),
+        ("ascii", "ascii", ["193"], "Dictionary contains fields outside of 1-192 range [193]: field p"),
+        ("ascii", "ascii", [str(f) for f in range(0, 194)], "Dictionary contains fields outside of 1-192 range [0, 193]: field p"),
+        ("ascii", "ascii", [str(f) for f in range(0, 195)], "Dictionary contains fields outside of 1-192 range [0, 193, 194]: field p"),
     ]
 )
 # fmt: on
@@ -439,8 +500,10 @@ def test_bitmap_encoding_negative(
     assert e.value.args[0] == expected_error
 
 
-def test_bitmap_remove_secondary() -> None:
-    """If 65-128 fields are not in bitmap then remove field 1."""
+def test_bitmap_remove_unused_bitmaps() -> None:
+    """If 65-128 fields are not present then remove field 1.
+    If 129-192 fields are not present then remove field 65.
+    """
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -453,6 +516,7 @@ def test_bitmap_remove_secondary() -> None:
         "t": "0200",
         "1": "not needed",
         "2": "1234567890",
+        "65": "do not pack bitmap presence indicator",
     }
 
     s, doc_enc = iso8583.encode(doc_dec, spec=spec)

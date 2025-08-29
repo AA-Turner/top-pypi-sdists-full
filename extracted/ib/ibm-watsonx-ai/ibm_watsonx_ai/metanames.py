@@ -2713,6 +2713,10 @@ class GenChatParamsMetaNames(MetaNamesBase):
     LOGIT_BIAS = "logit_bias"
     SEED = "seed"
     STOP = "stop"
+    GUIDED_CHOICE = "guided_choice"
+    GUIDED_REGEX = "guided_regex"
+    GUIDED_GRAMMAR = "guided_grammar"
+    GUIDED_JSON = "guided_json"
 
     _meta_props_definitions = [
         MetaProp("FREQUENCY_PENALTY", FREQUENCY_PENALTY, float, False, 1),
@@ -2731,6 +2735,25 @@ class GenChatParamsMetaNames(MetaNamesBase):
         MetaProp("LOGIT_BIAS", LOGIT_BIAS, dict, False, {"1003": -100, "1004": -100}),
         MetaProp("SEED", SEED, int, False, 41),
         MetaProp("STOP", STOP, list, False, ["this", "the"]),
+        MetaProp("GUIDED_CHOICE", GUIDED_CHOICE, list, False, ["red", "blue"]),
+        MetaProp("GUIDED_REGEX", GUIDED_REGEX, str, False, "\\w+@\\w+\\.xai"),
+        MetaProp(
+            "GUIDED_GRAMMAR",
+            GUIDED_GRAMMAR,
+            str,
+            False,
+            'root ::= rating " stars"\nrating ::= [1-5]',
+        ),
+        MetaProp(
+            "GUIDED_JSON",
+            GUIDED_JSON,
+            dict,
+            False,
+            {
+                "type": "object",
+                "properties": {"sentiment": {"type": "string"}},
+            },
+        ),
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(

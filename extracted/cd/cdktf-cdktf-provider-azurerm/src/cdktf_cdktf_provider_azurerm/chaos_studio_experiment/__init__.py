@@ -1,7 +1,7 @@
 r'''
 # `azurerm_chaos_studio_experiment`
 
-Refer to the Terraform Registry for docs: [`azurerm_chaos_studio_experiment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment).
+Refer to the Terraform Registry for docs: [`azurerm_chaos_studio_experiment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ChaosStudioExperiment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.chaosStudioExperiment.ChaosStudioExperiment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment azurerm_chaos_studio_experiment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment azurerm_chaos_studio_experiment}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ChaosStudioExperiment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment azurerm_chaos_studio_experiment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment azurerm_chaos_studio_experiment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ChaosStudioExperiment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ChaosStudioExperiment to import.
-        :param import_from_id: The id of the existing ChaosStudioExperiment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ChaosStudioExperiment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ChaosStudioExperiment to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class ChaosStudioExperiment(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.
         '''
         value = ChaosStudioExperimentIdentity(type=type, identity_ids=identity_ids)
 
@@ -186,10 +186,10 @@ class ChaosStudioExperiment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.
         '''
         value = ChaosStudioExperimentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -386,14 +386,14 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -512,21 +512,21 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#location ChaosStudioExperiment#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#resource_group_name ChaosStudioExperiment#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -537,7 +537,7 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChaosStudioExperimentSelectors"]]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#selectors ChaosStudioExperiment#selectors}
         '''
         result = self._values.get("selectors")
         assert result is not None, "Required property 'selectors' is missing"
@@ -549,7 +549,7 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChaosStudioExperimentSteps"]]:
         '''steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#steps ChaosStudioExperiment#steps}
         '''
         result = self._values.get("steps")
         assert result is not None, "Required property 'steps' is missing"
@@ -557,7 +557,7 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#id ChaosStudioExperiment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -569,7 +569,7 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ChaosStudioExperimentIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity ChaosStudioExperiment#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ChaosStudioExperimentIdentity"], result)
@@ -578,7 +578,7 @@ class ChaosStudioExperimentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ChaosStudioExperimentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#timeouts ChaosStudioExperiment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ChaosStudioExperimentTimeouts"], result)
@@ -608,8 +608,8 @@ class ChaosStudioExperimentIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45337d19dbde12274562910a806c6e69b9e7d6be4a8047ae22c34b3161f7605c)
@@ -623,14 +623,14 @@ class ChaosStudioExperimentIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#type ChaosStudioExperiment#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#identity_ids ChaosStudioExperiment#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -743,8 +743,8 @@ class ChaosStudioExperimentSelectors:
         name: builtins.str,
     ) -> None:
         '''
-        :param chaos_studio_target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#chaos_studio_target_ids ChaosStudioExperiment#chaos_studio_target_ids}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
+        :param chaos_studio_target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#chaos_studio_target_ids ChaosStudioExperiment#chaos_studio_target_ids}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db583f908e66bf235e8b231ee4b1ed06ecd80dd158a31e3d151b117080adba74)
@@ -757,14 +757,14 @@ class ChaosStudioExperimentSelectors:
 
     @builtins.property
     def chaos_studio_target_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#chaos_studio_target_ids ChaosStudioExperiment#chaos_studio_target_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#chaos_studio_target_ids ChaosStudioExperiment#chaos_studio_target_ids}.'''
         result = self._values.get("chaos_studio_target_ids")
         assert result is not None, "Required property 'chaos_studio_target_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -967,8 +967,8 @@ class ChaosStudioExperimentSteps:
         name: builtins.str,
     ) -> None:
         '''
-        :param branch: branch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#branch ChaosStudioExperiment#branch}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
+        :param branch: branch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#branch ChaosStudioExperiment#branch}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f47de259399277e8943ef2a384e59e1c88fd84a02d8369fca57d7bb0738882d)
@@ -985,7 +985,7 @@ class ChaosStudioExperimentSteps:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChaosStudioExperimentStepsBranch"]]:
         '''branch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#branch ChaosStudioExperiment#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#branch ChaosStudioExperiment#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -993,7 +993,7 @@ class ChaosStudioExperimentSteps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1023,8 +1023,8 @@ class ChaosStudioExperimentStepsBranch:
         name: builtins.str,
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#actions ChaosStudioExperiment#actions}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#actions ChaosStudioExperiment#actions}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8e25e10e2f11994beebe2af730b0e48a9e4917b5ab943cea86bcf8d4c1b163c)
@@ -1041,7 +1041,7 @@ class ChaosStudioExperimentStepsBranch:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChaosStudioExperimentStepsBranchActions"]]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#actions ChaosStudioExperiment#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#actions ChaosStudioExperiment#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -1049,7 +1049,7 @@ class ChaosStudioExperimentStepsBranch:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#name ChaosStudioExperiment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1088,11 +1088,11 @@ class ChaosStudioExperimentStepsBranchActions:
         urn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#action_type ChaosStudioExperiment#action_type}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#duration ChaosStudioExperiment#duration}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#parameters ChaosStudioExperiment#parameters}.
-        :param selector_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#selector_name ChaosStudioExperiment#selector_name}.
-        :param urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#urn ChaosStudioExperiment#urn}.
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#action_type ChaosStudioExperiment#action_type}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#duration ChaosStudioExperiment#duration}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#parameters ChaosStudioExperiment#parameters}.
+        :param selector_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#selector_name ChaosStudioExperiment#selector_name}.
+        :param urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#urn ChaosStudioExperiment#urn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8af609a32fd7c1f3554bc240d1bc4969b8f9481d3cf4257695ecb8ccd435ab6f)
@@ -1115,32 +1115,32 @@ class ChaosStudioExperimentStepsBranchActions:
 
     @builtins.property
     def action_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#action_type ChaosStudioExperiment#action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#action_type ChaosStudioExperiment#action_type}.'''
         result = self._values.get("action_type")
         assert result is not None, "Required property 'action_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#duration ChaosStudioExperiment#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#duration ChaosStudioExperiment#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#parameters ChaosStudioExperiment#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#parameters ChaosStudioExperiment#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def selector_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#selector_name ChaosStudioExperiment#selector_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#selector_name ChaosStudioExperiment#selector_name}.'''
         result = self._values.get("selector_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def urn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#urn ChaosStudioExperiment#urn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#urn ChaosStudioExperiment#urn}.'''
         result = self._values.get("urn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1771,10 +1771,10 @@ class ChaosStudioExperimentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9641a7c4739e17642e20c1638399f8c15b75f6ac2cc4f8c2eb7b009ca7a55af3)
@@ -1794,25 +1794,25 @@ class ChaosStudioExperimentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#create ChaosStudioExperiment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#delete ChaosStudioExperiment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#read ChaosStudioExperiment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/chaos_studio_experiment#update ChaosStudioExperiment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

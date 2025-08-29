@@ -2226,7 +2226,7 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[CopySnapshotRequestTypeDef]
     ) -> CopySnapshotResultTypeDef:
         """
-        Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
+        Creates an exact copy of an Amazon EBS snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/copy_snapshot.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#copy_snapshot)

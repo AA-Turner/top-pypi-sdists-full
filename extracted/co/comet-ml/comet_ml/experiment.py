@@ -227,6 +227,7 @@ from .logging_messages import (
     EXPERIMENT_CREATE_EMBEDDING_NO_IMAGE_SIZE_ERROR,
     EXPERIMENT_CREATE_EMBEDDING_VECTOR_SHAPE_ERROR,
     EXPERIMENT_GET_ARTIFACT_NOT_SUPPORTED_EXCEPTION,
+    EXPERIMENT_GET_HF_DATASET_NOT_SUPPORTED_EXCEPTION,
     EXPERIMENT_GET_KERAS_CALLBACK_DEPRECATED_WARNING,
     EXPERIMENT_GET_PARAMETER_SHORT_NAME_DEPRECATION,
     EXPERIMENT_INIT_DISPLAY_SUMMARY_WARNING,
@@ -5904,6 +5905,86 @@ class CometExperiment(CommonExperiment):
             ```
         """
         raise NotImplementedError(EXPERIMENT_GET_ARTIFACT_NOT_SUPPORTED_EXCEPTION)
+
+    def get_hf_dataset(
+        self,
+        name: str,
+        workspace: Optional[str] = None,
+        version_or_alias: Optional[str] = None,
+        download_directory: Optional[str] = None,
+        pathname: str = "**",
+        recursive: bool = True,
+        use_cached_dataset: bool = True,
+    ) -> List[str]:
+        """
+        Fetches Comet artifact files to be used as Hugging Face dataset using specified parameters.
+
+        This method retrieves a dataset artifact from Comet, allowing
+        specification of workspace, version or alias, file pathname, and
+        recursive fetching. The dataset is downloaded to the specified directory or custom
+        directory if no download directory is specified. By default, all files are downloaded
+        only once for specified parameters and cached locally. Later calls to this method
+        with the same parameters will retrieve the cached dataset.
+
+        Args:
+            name: The name of the dataset artifact to retrieve. This could either be a fully
+                qualified artifact name like `workspace/artifact-name:versionOrAlias` or just the name
+                of the artifact like `artifact-name`.
+            workspace: The workspace context where the artifact exists.
+            version_or_alias: Specific version or alias to identify the artifact dataset.
+            download_directory: The directory to download the dataset to. If not specified, the dataset
+                will be downloaded to a directory created using the artifact name and version or alias in the
+                current working directory.
+            pathname: File path or pattern to match within the dataset. This can be a glob pattern. Defaults to "**".
+            recursive: Determines whether to fetch files recursively. Defaults to True.
+            use_cached_dataset: Determines whether to use cached dataset. Defaults to True.
+
+        Returns:
+            List of strings representing the retrieved dataset files.
+
+        Raises:
+            NotImplementedError: This is not yet supported for offline experiments.
+
+        Example:
+            ```python
+            import comet_ml
+            from comet_ml import Artifact
+
+            # log a dataset artifact
+            exp = comet_ml.start(project_name="hf-datasets")
+            dataset_artifact = Artifact(
+                artifact_type="dataset",
+                name="iris",
+            )
+            dataset_artifact.add(
+                local_path_or_data="./Downloads/iris", # folder with 2 csvs
+            )
+            exp.log_artifact(dataset_artifact)
+            exp.end()
+
+            # retrieve the dataset artifact and load it as HuggingFace dataset
+            from datasets import load_dataset
+
+            dataset = load_dataset(
+                "csv",
+                data_files={
+                    "train": exp.get_hf_dataset(
+                        name="iris",
+                        version_or_alias="1.0.0",
+                        pathname="train/*.csv",
+                        download_directory="./iris-dataset",
+                    ),
+                    "test": exp.get_hf_dataset(
+                        name="iris",
+                        version_or_alias="1.0.0",
+                        pathname="test/*.csv",
+                        download_directory="./iris-dataset",
+                    )
+                }
+            )
+            ```
+        """
+        raise NotImplementedError(EXPERIMENT_GET_HF_DATASET_NOT_SUPPORTED_EXCEPTION)
 
     def set_code(
         self,

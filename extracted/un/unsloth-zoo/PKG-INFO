@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2025.8.8
+Version: 2025.8.9
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -20,7 +20,7 @@ Requires-Dist: triton; platform_system == "Linux"
 Requires-Dist: triton_windows; platform_system == "Windows"
 Requires-Dist: packaging>=24.1
 Requires-Dist: tyro
-Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,>=4.51.3
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,>=4.51.3
 Requires-Dist: datasets<4.0.0,>=3.4.1
 Requires-Dist: sentencepiece>=0.2.0
 Requires-Dist: tqdm
@@ -41,7 +41,7 @@ Requires-Dist: typing_extensions
 Provides-Extra: huggingface
 Requires-Dist: packaging>=24.1; extra == "huggingface"
 Requires-Dist: tyro; extra == "huggingface"
-Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,>=4.51.3; extra == "huggingface"
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,>=4.51.3; extra == "huggingface"
 Requires-Dist: datasets<4.0.0,>=3.4.1; extra == "huggingface"
 Requires-Dist: sentencepiece>=0.2.0; extra == "huggingface"
 Requires-Dist: tqdm; extra == "huggingface"

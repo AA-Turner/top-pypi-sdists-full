@@ -44,9 +44,11 @@ from typing import (
     Deque,
     Iterable,
     Iterator,
+    List,
     Mapping,
     Match,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -181,7 +183,7 @@ class Tok:
             return []
         return cast(PersonNameList, self.val) or []
 
-    def split(self, pos: int) -> tuple["Tok", "Tok"]:
+    def split(self, pos: int) -> Tuple["Tok", "Tok"]:
         """Split this token into two at 'pos'.
         The first token returned will have 'pos'
         characters and the second one will have the rest.
@@ -224,7 +226,7 @@ class Tok:
 
         return ltk, rtk
 
-    def substitute(self, span: tuple[int, int], new: str) -> None:
+    def substitute(self, span: Tuple[int, int], new: str) -> None:
         """Substitute a span with a single or empty character 'new'."""
         self.txt = self.txt[: span[0]] + new + self.txt[span[1] :]
         if self.origin_spans is not None:
@@ -233,7 +235,7 @@ class Tok:
                 self.origin_spans[: span[0] + len(new)] + self.origin_spans[span[1] :]
             )
 
-    def substitute_longer(self, span: tuple[int, int], new: str) -> None:
+    def substitute_longer(self, span: Tuple[int, int], new: str) -> None:
         """Substitute a span with a potentially longer string"""
 
         # This tracks origin differently from the regular
@@ -310,7 +312,7 @@ class Tok:
 
         self_origin_spans = self.origin_spans or []
         other_origin_spans = other.origin_spans or []
-        separator_origin_spans: list[int] = (
+        separator_origin_spans: List[int] = (
             [len(self_original)] * len(separator) if len(other_origin_spans) > 0 else []
         )
         new_origin_spans = (
@@ -322,7 +324,7 @@ class Tok:
         return Tok(new_kind, new_txt, new_val, new_original, new_origin_spans)
 
     @property
-    def as_tuple(self) -> tuple[Any, ...]:
+    def as_tuple(self) -> Tuple[Any, ...]:
         """Return the contents of this token as a generic tuple,
         suitable e.g. for serialization"""
         return (self.kind, self.txt, self.val)
@@ -991,7 +993,7 @@ def is_valid_date(y: int, m: int, d: int) -> bool:
     return False
 
 
-def parse_digits(tok: Tok, convert_numbers: bool) -> tuple[Tok, Tok]:
+def parse_digits(tok: Tok, convert_numbers: bool) -> Tuple[Tok, Tok]:
     """Parse a raw token starting with a digit"""
     w = tok.txt
     s: Optional[Match[str]] = re.match(r"\d{1,2}:\d\d:\d\d,\d\d(?!\d)", w)
@@ -1334,7 +1336,7 @@ def parse_digits(tok: Tok, convert_numbers: bool) -> tuple[Tok, Tok]:
     )
 
 
-def html_escape(match: Match[str]) -> tuple[tuple[int, int], str]:
+def html_escape(match: Match[str]) -> Tuple[Tuple[int, int], str]:
     """Regex substitution function for HTML escape codes"""
     g = match.group(4)
     if g is not None:
@@ -1350,15 +1352,35 @@ def html_escape(match: Match[str]) -> tuple[tuple[int, int], str]:
     return match.span(), chr(int(g[1:]))
 
 
-def unicode_replacement(token: Tok) -> Tok:
-    """Replace some composite glyphs with single code points"""
+def composite_replacement(token: Tok) -> Tok:
+    """Replace composite glyphs with single code points"""
     total_reduction = 0
-    for m in UNICODE_REGEX.finditer(token.txt):
-        span, new_letter = m.span(), UNICODE_REPLACEMENTS[m.group(0)]
+    for m in COMPOSITE_REGEX.finditer(token.txt):
+        span, new_letter = m.span(), COMPOSITE_REPLACEMENTS[m.group(0)]
         token.substitute(
             (span[0] - total_reduction, span[1] - total_reduction), new_letter
         )
         total_reduction += span[1] - span[0] - len(new_letter)
+    return token
+
+
+def zerowidth_replacement(token: Tok) -> Tok:
+    """Remove zero-width characters (always applied)"""
+    total_reduction = 0
+    for m in ZEROWIDTH_REGEX.finditer(token.txt):
+        span, new_letter = m.span(), ZEROWIDTH_CHARACTERS[m.group(0)]
+        token.substitute(
+            (span[0] - total_reduction, span[1] - total_reduction), new_letter
+        )
+        total_reduction += span[1] - span[0] - len(new_letter)
+    return token
+
+
+def unicode_replacement(token: Tok) -> Tok:
+    """Replace some composite glyphs with single code points (backward compatibility)"""
+    # This function maintains backward compatibility by doing both replacements
+    token = composite_replacement(token)
+    token = zerowidth_replacement(token)
     return token
 
 
@@ -1397,7 +1419,7 @@ def generate_rough_tokens_from_tok(tok: Tok) -> Iterator[Tok]:
     # This function further splits those tokens into multiple tokens.
     # Rough tokens are tokens that are separated by white space, i.e. the regex (\\s*).
 
-    def shift_span(span: tuple[int, int], pos: int) -> tuple[int, int]:
+    def shift_span(span: Tuple[int, int], pos: int) -> Tuple[int, int]:
         """Shift a span by a given amount"""
         return (span[SPAN_START] + pos, span[SPAN_END] + pos)
 
@@ -1502,9 +1524,11 @@ def generate_raw_tokens(
                         # Postpone the yield until after the raw token loop
                         paragraph_end += 1
                 for tok in generate_rough_tokens_from_txt(text):
+                    # Always remove zero-width characters
+                    tok = zerowidth_replacement(tok)
                     if replace_composite_glyphs:
                         # Replace composite glyphs with single code points
-                        tok = unicode_replacement(tok)
+                        tok = composite_replacement(tok)
                     if replace_html_escapes:
                         # Replace HTML escapes: '&aacute;' -> 'á'
                         tok = html_replacement(tok)
@@ -1576,11 +1600,15 @@ def could_be_end_of_sentence(
 
 
 class LetterParser:
-    """Parses a sequence of alphabetic characters
-    off the front of a raw token"""
+    """Parses a sequence of alphabetic characters off the front of a raw token.
+    Fast path for standard characters using isalpha()."""
 
     def __init__(self, rt: Tok) -> None:
         self.rt = rt
+        
+    def _is_letter(self, char: str) -> bool:
+        """Test if character is alphabetic - fast path."""
+        return char.isalpha()
 
     def parse(self) -> Iterable[Tok]:
         """Parse the raw token, yielding result tokens"""
@@ -1588,11 +1616,11 @@ class LetterParser:
         lw = len(rt.txt)
         i = 1
         while i < lw and (
-            rt.txt[i].isalpha()
+            self._is_letter(rt.txt[i])
             or (
                 rt.txt[i] in PUNCT_INSIDE_WORD
                 and i + 1 < lw
-                and rt.txt[i + 1].isalpha()
+                and self._is_letter(rt.txt[i + 1])
             )
         ):
             # We allow dots to occur inside words in the case of
@@ -1657,6 +1685,16 @@ class LetterParser:
             yield TOK.Punctuation(punct, normalized=COMPOSITE_HYPHEN)
 
         self.rt = rt
+
+
+class LetterParserComposite(LetterParser):
+    """Parses a sequence of alphabetic characters off the front of a raw token.
+    Handles combining characters when --keep_composite_glyphs is specified."""
+    
+    def _is_letter(self, char: str) -> bool:
+        """Test if character is alphabetic or a combining mark."""
+        cat = unicodedata.category(char)
+        return cat.startswith(('L', 'M'))
 
 
 class NumberParser:
@@ -1817,9 +1855,12 @@ class PunctuationParser:
 
 
 def parse_mixed(
-    rt: Tok, handle_kludgy_ordinals: int, convert_numbers: bool
+    rt: Tok, handle_kludgy_ordinals: int, convert_numbers: bool, replace_composite_glyphs: bool = True
 ) -> Iterable[Tok]:
     """Parse a mixed raw token string, from the token rt"""
+
+    # Select the appropriate letter parser class based on composite glyph handling
+    LetterParserClass = LetterParser if replace_composite_glyphs else LetterParserComposite
 
     # Initialize a singleton parser for punctuation
     pp = PunctuationParser()
@@ -1935,8 +1976,12 @@ def parse_mixed(
                 ate = True
 
         # Alphabetic characters
+        # Note: the initial character must be a proper letter,
+        # not a combining accent, for the letter parser to be applied.
+        # However, the letter parser allows subsequent characters to
+        # be combining accents.
         if rt.txt and rt.txt[0].isalpha():
-            lp = LetterParser(rt)
+            lp = LetterParserClass(rt)
             yield from lp.parse()
             rt = lp.rt
             ate = True
@@ -1957,6 +2002,16 @@ def parse_mixed(
             # Ensure that we eat everything, even unknown stuff
             unk, rt = rt.split(1)
             yield TOK.Unknown(unk)
+
+
+def is_word_with_composites(txt: str) -> bool:
+    """Return true if txt is an alphabetic word in the wider sense that
+    it can contain composite characters (combining accents, etc.). However,
+    the word must start with a proper alphabetic character, since combining
+    accents musth *follow* a letter - they can't *precede* it."""
+    return len(txt) > 1 and txt[0].isalpha() and all(
+        unicodedata.category(char).startswith(('L', 'M')) for char in txt[1:]
+    )
 
 
 def parse_tokens(txt: Union[str, Iterable[str]], **options: Any) -> Iterator[Tok]:
@@ -2009,6 +2064,10 @@ def parse_tokens(txt: Union[str, Iterable[str]], **options: Any) -> Iterator[Tok
         rtxt = rt.txt
         if rtxt.isalpha() or rtxt in SI_UNITS:
             # Shortcut for most common case: pure word
+            yield TOK.Word(rt)
+            continue
+        elif not replace_composite_glyphs and is_word_with_composites(rtxt):
+            # This is a word with combining characters when --keep_composite_glyphs is specified
             yield TOK.Word(rt)
             continue
 
@@ -2070,7 +2129,7 @@ def parse_tokens(txt: Union[str, Iterable[str]], **options: Any) -> Iterator[Tok
                 yield TOK.Punctuation(punct, normalized="‚")
 
         # More complex case of mixed punctuation, letters and numbers
-        yield from parse_mixed(rt, handle_kludgy_ordinals, convert_numbers)
+        yield from parse_mixed(rt, handle_kludgy_ordinals, convert_numbers, replace_composite_glyphs)
 
     # Yield a sentinel token at the end that will be cut off by the final generator
     yield TOK.End_Sentinel()
@@ -2970,7 +3029,7 @@ def parse_phrases_2(
             # Check for composites:
             # 'stjórnskipunar- og eftirlitsnefnd'
             # 'dómsmála-, viðskipta- og iðnaðarráðherra'
-            tq: list[Tok] = []
+            tq: List[Tok] = []
             while token.kind == TOK.WORD and next_token.punctuation == COMPOSITE_HYPHEN:
                 # Accumulate the prefix in tq
                 tq.append(token)
@@ -3076,7 +3135,7 @@ def split_into_sentences(
         to_text = lambda t: t.original or t.txt
     else:
         to_text = lambda t: t.txt
-    curr_sent: list[str] = []
+    curr_sent: List[str] = []
     for t in tokenize_without_annotation(text_or_gen, **options):
         if t.kind in TOK.END:
             # End of sentence/paragraph
@@ -3121,9 +3180,9 @@ def paragraphs(tokens: Iterable[Tok]) -> Iterator[list[tuple[int, list[Tok]]]]:
         # A sentence with only punctuation is not valid
         return any(t[0] != TOK.PUNCTUATION for t in sent)
 
-    sent: list[Tok] = []  # Current sentence
+    sent: List[Tok] = []  # Current sentence
     sent_begin = 0
-    current_p: list[tuple[int, list[Tok]]] = []  # Current paragraph
+    current_p: List[Tuple[int, List[Tok]]] = []  # Current paragraph
 
     for ix, t in enumerate(tokens):
         t0 = t[0]
@@ -3177,7 +3236,7 @@ def correct_spaces(s: str) -> str:
     with correct spacing between tokens.
     NOTE that this function uses a quick-and-dirty approach
     which may not handle all edge cases!"""
-    r: list[str] = []
+    r: List[str] = []
     last = TP_NONE
     double_quote_count = 0
     for w in RE_SPLIT.split(s):
@@ -3250,7 +3309,7 @@ def detokenize(tokens: Iterable[Tok], normalize: bool = False) -> str:
     to a correctly spaced string. If normalize is True,
     punctuation is normalized before assembling the string."""
     to_text: Callable[[Tok], str] = normalized_text if normalize else lambda t: t.txt
-    r: list[str] = []
+    r: List[str] = []
     last = TP_NONE
     double_quote_count = 0
     for t in tokens:
@@ -3284,7 +3343,7 @@ def detokenize(tokens: Iterable[Tok], normalize: bool = False) -> str:
 
 def calculate_indexes(
     tokens: Iterable[Tok], last_is_end: bool = False
-) -> tuple[list[int], list[int]]:
+) -> Tuple[List[int], List[int]]:
     """Calculate character and byte indexes for a token stream.
     The indexes are the start positions of each token in the original
     text that was tokenized.

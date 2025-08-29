@@ -1,7 +1,7 @@
 r'''
 # `aws_iot_thing_principal_attachment`
 
-Refer to the Terraform Registry for docs: [`aws_iot_thing_principal_attachment`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment).
+Refer to the Terraform Registry for docs: [`aws_iot_thing_principal_attachment`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IotThingPrincipalAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iotThingPrincipalAttachment.IotThingPrincipalAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment aws_iot_thing_principal_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment aws_iot_thing_principal_attachment}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class IotThingPrincipalAttachment(
         thing: builtins.str,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        thing_principal_type: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +64,15 @@ class IotThingPrincipalAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment aws_iot_thing_principal_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment aws_iot_thing_principal_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.
-        :param thing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.
+        :param thing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
+        :param thing_principal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing_principal_type IotThingPrincipalAttachment#thing_principal_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,6 +90,7 @@ class IotThingPrincipalAttachment(
             thing=thing,
             id=id,
             region=region,
+            thing_principal_type=thing_principal_type,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +115,7 @@ class IotThingPrincipalAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IotThingPrincipalAttachment to import.
-        :param import_from_id: The id of the existing IotThingPrincipalAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IotThingPrincipalAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IotThingPrincipalAttachment to import is found.
         '''
         if __debug__:
@@ -130,6 +133,10 @@ class IotThingPrincipalAttachment(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetThingPrincipalType")
+    def reset_thing_principal_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetThingPrincipalType", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -163,6 +170,11 @@ class IotThingPrincipalAttachment(
     @jsii.member(jsii_name="thingInput")
     def thing_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "thingInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="thingPrincipalTypeInput")
+    def thing_principal_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "thingPrincipalTypeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -212,6 +224,18 @@ class IotThingPrincipalAttachment(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thing", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="thingPrincipalType")
+    def thing_principal_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "thingPrincipalType"))
+
+    @thing_principal_type.setter
+    def thing_principal_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6fc935e5b8b26ee39732d31ca42155ba9979293cabd67a02128b63b9bd34d54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "thingPrincipalType", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.iotThingPrincipalAttachment.IotThingPrincipalAttachmentConfig",
@@ -228,6 +252,7 @@ class IotThingPrincipalAttachment(
         "thing": "thing",
         "id": "id",
         "region": "region",
+        "thing_principal_type": "thingPrincipalType",
     },
 )
 class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -245,6 +270,7 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         thing: builtins.str,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        thing_principal_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -254,10 +280,11 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.
-        :param thing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.
+        :param thing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
+        :param thing_principal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing_principal_type IotThingPrincipalAttachment#thing_principal_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -274,6 +301,7 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument thing", value=thing, expected_type=type_hints["thing"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument thing_principal_type", value=thing_principal_type, expected_type=type_hints["thing_principal_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "principal": principal,
             "thing": thing,
@@ -296,6 +324,8 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if region is not None:
             self._values["region"] = region
+        if thing_principal_type is not None:
+            self._values["thing_principal_type"] = thing_principal_type
 
     @builtins.property
     def connection(
@@ -363,21 +393,21 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#principal IotThingPrincipalAttachment#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def thing(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing IotThingPrincipalAttachment#thing}.'''
         result = self._values.get("thing")
         assert result is not None, "Required property 'thing' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#id IotThingPrincipalAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -389,9 +419,15 @@ class IotThingPrincipalAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#region IotThingPrincipalAttachment#region}
         '''
         result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def thing_principal_type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/iot_thing_principal_attachment#thing_principal_type IotThingPrincipalAttachment#thing_principal_type}.'''
+        result = self._values.get("thing_principal_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -421,6 +457,7 @@ def _typecheckingstub__80dc488673a26928bcc61c4bcf0c1718948b527572c78c3310b3d8582
     thing: builtins.str,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    thing_principal_type: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -465,6 +502,12 @@ def _typecheckingstub__c7014c49a71bdafabc486d3a3c7231c7d10373e50774e5907249a668f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d6fc935e5b8b26ee39732d31ca42155ba9979293cabd67a02128b63b9bd34d54(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4212224e487acfe68bb75015626f6bbfd092dcb82c1e731e4cf1b54b459f1b70(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -478,6 +521,7 @@ def _typecheckingstub__4212224e487acfe68bb75015626f6bbfd092dcb82c1e731e4cf1b54b4
     thing: builtins.str,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    thing_principal_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -2,8 +2,10 @@ from django.db.models import CharField, F, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 from django.utils.functional import cached_property
 from dynamic_preferences.registries import global_preferences_registry
-from rest_framework import filters
+from rest_framework import filters, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_fuzzysearch.search import RankedFuzzySearchFilter
 from reversion.views import RevisionMixin
 
@@ -19,6 +21,7 @@ from wbcore.filters import DjangoFilterBackend
 from wbcore.viewsets import ModelViewSet, ReadOnlyModelViewSet, RepresentationViewSet
 
 from ..filters import ClientManagerFilter, RelationshipEntryFilter, RelationshipFilter
+from ..permissions import IsClientManagerRelationshipAdmin
 from ..serializers import (
     ClientManagerModelSerializer,
     ClientManagerRelationshipRepresentationSerializer,
@@ -29,7 +32,7 @@ from ..serializers import (
     RelationshipTypeRepresentationSerializer,
     UserIsClientModelSerializer,
 )
-from .buttons import EmployerEmployeeRelationshipButtonConfig
+from .buttons import ClientManagerRelationshipButtonConfig, EmployerEmployeeRelationshipButtonConfig
 from .display import (
     ClientManagerModelDisplay,
     EmployeeEmployerDisplayConfig,
@@ -179,6 +182,7 @@ class ClientManagerViewSet(RevisionMixin, ModelViewSet):
     queryset = ClientManagerRelationship.objects.none()
     serializer_class = ClientManagerModelSerializer
     display_config_class = ClientManagerModelDisplay
+    button_config_class = ClientManagerRelationshipButtonConfig
     endpoint_config_class = ClientManagerEndpoint
     filterset_class = ClientManagerFilter
     title_config_class = ClientManagerTitleConfig
@@ -196,6 +200,16 @@ class ClientManagerViewSet(RevisionMixin, ModelViewSet):
         if user.is_superuser or profile.is_internal:  # TODO: Can TPM have access to this view?
             return ClientManagerRelationship.objects.select_related("client", "relationship_manager")
         return ClientManagerRelationship.objects.none()
+
+    @action(detail=False, methods=["PATCH"], permission_classes=[IsClientManagerRelationshipAdmin])
+    def approveallpendingrequests(self, *args, **kwargs):
+        for request in ClientManagerRelationship.objects.filter(status=ClientManagerRelationship.Status.PENDINGADD):
+            request.approve(by=self.request.user)
+            request.save()
+        for request in ClientManagerRelationship.objects.filter(status=ClientManagerRelationship.Status.PENDINGREMOVE):
+            request.approveremoval(by=self.request.user)
+            request.save()
+        return Response({}, status=status.HTTP_200_OK)
 
 
 class UserIsClientViewSet(ReadOnlyModelViewSet):

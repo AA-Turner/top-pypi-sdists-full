@@ -124,6 +124,21 @@ class Visitor:
                           self.__data_fabric.fetch_data_fabric_dashboard_json(encoded_uri_stub, locust_request_label),
                           breadcrumb="DataFabricDashboard.SailUi")
 
+    def visit_data_fabric_report(self, encoded_uri_stub: str = "new", locust_request_label: Optional[str] = None) -> SailUiForm:
+        """
+        Navigate to a Data Fabric Report
+        Args:
+            encoded_uri_stub (str): encoded uri stub of the report to load. Defaults to "new" if not provided,
+            bringing the user to an empty report.
+            locust_request_label (str, optional): label to be used within locust
+
+        Returns (SailUiForm): UiForm representing a Data Fabric Report
+
+        """
+        return SailUiForm(self.__interactor,
+                          self.__data_fabric.fetch_data_fabric_report_json(encoded_uri_stub, locust_request_label),
+                          breadcrumb="DataFabricReport.SailUi")
+
     def visit_application_by_id(self, application_id: str, locust_request_label: Optional[str] = None) -> ApplicationUiForm:
         """
         Visit an application by its opaque id

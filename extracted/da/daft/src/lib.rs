@@ -128,6 +128,7 @@ pub mod pylib {
         common_resource_request::register_modules(m)?;
         common_file_formats::python::register_modules(m)?;
         common_scan_info::register_modules(m)?;
+        daft_ai::register_modules(m)?;
         daft_catalog::register_modules(m)?;
         daft_connect::register_modules(m)?;
         daft_context::register_modules(m)?;
@@ -187,6 +188,7 @@ pub mod pylib {
         functions_registry.register::<daft_functions_tokenize::TokenizeFunctions>();
 
         functions_registry.add_fn(daft_functions::coalesce::Coalesce);
+        functions_registry.add_fn(daft_file::File);
         functions_registry
             .add_fn(daft_functions::monotonically_increasing_id::MonotonicallyIncreasingId);
         functions_registry.register::<daft_functions::distance::DistanceFunctions>();

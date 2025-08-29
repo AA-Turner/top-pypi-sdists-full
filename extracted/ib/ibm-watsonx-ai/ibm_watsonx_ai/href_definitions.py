@@ -89,7 +89,6 @@ PROD_SVT_URL = [
     "https://private.yp-qa.ml.cloud.ibm.com",
     "https://yp-cr.ml.cloud.ibm.com",
     "https://private.yp-cr.ml.cloud.ibm.com",
-
 ]
 
 PIPELINES_HREF_PATTERN = "{}/v4/pipelines"
@@ -499,11 +498,12 @@ class HrefDefinitions:
                 # PreProd AWS GovCloud
                 base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
             case (
-                "https://wxai.ibmforusgov.com"
-                | "https://private.wxai.ibmforusgov.com"
+                "https://wxai.ibmforusgov.com" | "https://private.wxai.ibmforusgov.com"
             ):
                 # Prod AWS GovCloud
-                base_auth_url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
+                base_auth_url = (
+                    "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
+                )
             case _:
                 # AWS Dev
                 base_auth_url = "https://account-iam.platform.test.saas.ibm.com"

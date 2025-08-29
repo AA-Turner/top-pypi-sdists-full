@@ -42,6 +42,7 @@ from pipecat.frames.frames import (
     FunctionCallResultFrame,
     InputAudioRawFrame,
     InterimTranscriptionFrame,
+    LLMContextFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     LLMMessagesAppendFrame,
@@ -916,7 +917,10 @@ class RTVIObserver(BaseObserver):
             and self._params.user_transcription_enabled
         ):
             await self._handle_user_transcriptions(frame)
-        elif isinstance(frame, OpenAILLMContextFrame) and self._params.user_llm_enabled:
+        elif (
+            isinstance(frame, (OpenAILLMContextFrame, LLMContextFrame))
+            and self._params.user_llm_enabled
+        ):
             await self._handle_context(frame)
         elif isinstance(frame, LLMFullResponseStartFrame) and self._params.bot_llm_enabled:
             await self.push_transport_message_urgent(RTVIBotLLMStartedMessage())
@@ -1017,16 +1021,20 @@ class RTVIObserver(BaseObserver):
         if message:
             await self.push_transport_message_urgent(message)
 
-    async def _handle_context(self, frame: OpenAILLMContextFrame):
+    async def _handle_context(self, frame: OpenAILLMContextFrame | LLMContextFrame):
         """Process LLM context frames to extract user messages for the RTVI client."""
         try:
-            messages = frame.context.messages
+            if isinstance(frame, OpenAILLMContextFrame):
+                messages = frame.context.messages
+            else:
+                messages = frame.context.get_messages()
             if not messages:
                 return
 
             message = messages[-1]
 
             # Handle Google LLM format (protobuf objects with attributes)
+            # Note: not possible if frame is a universal LLMContextFrame
             if hasattr(message, "role") and message.role == "user" and hasattr(message, "parts"):
                 text = "".join(part.text for part in message.parts if hasattr(part, "text"))
                 if text:
@@ -1116,7 +1124,9 @@ class RTVIProcessor(FrameProcessor):
         self._bot_ready = False
         self._client_ready = False
         self._client_ready_id = ""
-        self._client_version = []
+        # Default to 0.3.0 which is the last version before actually having a
+        # "client-version".
+        self._client_version = [0, 3, 0]
         self._errors_enabled = True
 
         self._registered_actions: Dict[str, RTVIAction] = {}
@@ -1423,16 +1433,13 @@ class RTVIProcessor(FrameProcessor):
 
     async def _handle_client_ready(self, request_id: str, data: RTVIClientReadyData | None):
         """Handle the client-ready message from the client."""
-        version = data.version if data else "unknown"
+        version = data.version if data else None
         logger.debug(f"Received client-ready: version {version}")
-        if version == "unknown":
-            self._client_version = [0, 3, 0]  # Default to 0.3.0 if unknown
-        else:
+        if version:
             try:
                 self._client_version = [int(v) for v in version.split(".")]
             except ValueError:
                 logger.warning(f"Invalid client version format: {version}")
-                self._client_version = [0, 3, 0]
         about = data.about if data else {"library": "unknown"}
         logger.debug(f"Client Details: {about}")
         if self._input_transport:
@@ -1615,7 +1622,7 @@ class RTVIProcessor(FrameProcessor):
     async def _send_bot_ready(self):
         """Send the bot-ready message to the client."""
         config = None
-        if self._client_version[0] < 1:
+        if self._client_version and self._client_version[0] < 1:
             config = self._config.config
         message = RTVIBotReady(
             id=self._client_ready_id,

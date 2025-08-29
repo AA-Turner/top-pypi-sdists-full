@@ -18,16 +18,15 @@ import logging
 import traceback
 from typing import Callable
 
+from comet_ml.artifacts import get_artifact, log_artifact, parse_artifact_name
+
 import requests
 
 from . import announcements, reporter
 from ._reporting import EXPERIMENT_CREATION_FAILED
 from ._typing import Any, Dict, HeartBeatResponse, List, Optional, Tuple
 from .api_helpers.experiment_key import get_experiment_key
-from .artifact_helpers.artifact_getter import get_artifact
-from .artifact_helpers.artifact_logger import log_artifact
-from .artifact_helpers.artifact_name import parse_artifact_name
-from .artifacts import Artifact, LoggedArtifact
+from .artifacts import Artifact, LoggedArtifact, hf_dataset
 from .backend_response_helper import (
     get_latest_metric_value,
     get_other_value,
@@ -1096,43 +1095,41 @@ class Experiment(CometExperiment):
             )
 
         # Parse the artifact_name
-        parsed_workspace, artifact_name, parsed_version_or_alias = parse_artifact_name(
-            artifact_name
-        )
+        parsed_name = parse_artifact_name(artifact_name)
 
         params = {}  # type: Dict[str, Optional[str]]
 
-        if parsed_workspace is None and workspace is None:
+        if parsed_name.workspace is None and workspace is None:
             # In that case, the backend will use the experiment id to get the workspace
             param_workspace = None
-        elif parsed_workspace is not None and workspace is not None:
-            if parsed_workspace != workspace:
+        elif parsed_name.workspace is not None and workspace is not None:
+            if parsed_name.workspace != workspace:
                 LOGGER.warning(
                     GET_ARTIFACT_WORKSPACE_GIVEN_TWICE
-                    % (parsed_workspace, artifact_name)
+                    % (parsed_name.workspace, parsed_name.name)
                 )
             param_workspace = workspace
         elif workspace is None:
-            param_workspace = parsed_workspace
+            param_workspace = parsed_name.workspace
         else:
             param_workspace = workspace
 
-        if parsed_version_or_alias is not None and version_or_alias is not None:
-            if parsed_version_or_alias != version_or_alias:
+        if parsed_name.version_or_alias is not None and version_or_alias is not None:
+            if parsed_name.version_or_alias != version_or_alias:
                 LOGGER.warning(
                     GET_ARTIFACT_VERSION_OR_ALIAS_GIVEN_TWICE
-                    % (parsed_version_or_alias, artifact_name)
+                    % (parsed_name.version_or_alias, parsed_name.name)
                 )
             param_version_or_alias = version_or_alias
-        elif parsed_version_or_alias is not None:
-            param_version_or_alias = parsed_version_or_alias
+        elif parsed_name.version_or_alias is not None:
+            param_version_or_alias = parsed_name.version_or_alias
         else:
             param_version_or_alias = version_or_alias
 
         params = {
             "consumer_experiment_key": self.id,
             "experiment_key": self.id,
-            "name": artifact_name,
+            "name": parsed_name.name,
             "version_or_alias": param_version_or_alias,
             "workspace": param_workspace,
         }
@@ -1144,6 +1141,30 @@ class Experiment(CometExperiment):
         self._summary.increment_section("downloads", "artifacts")
 
         return logged_artifact
+
+    def get_hf_dataset(
+        self,
+        name: str,
+        workspace: Optional[str] = None,
+        version_or_alias: Optional[str] = None,
+        download_directory: Optional[str] = None,
+        pathname: str = "**",
+        recursive: bool = True,
+        use_cached_dataset: bool = True,
+    ) -> List[str]:
+        logged_artifact = self.get_artifact(
+            artifact_name=name,
+            workspace=workspace,
+            version_or_alias=version_or_alias,
+        )
+
+        return hf_dataset.get_hf_dataset(
+            logged_artifact,
+            download_directory=download_directory,
+            pathname=pathname,
+            recursive=recursive,
+            use_cached_dataset=use_cached_dataset,
+        )
 
     def set_offline_zip_uploader(self, upload_callback: UploadCallback) -> None:
         """

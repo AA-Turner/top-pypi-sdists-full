@@ -1,5 +1,5 @@
 import ast
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 from graphql import (
     BooleanValueNode,
@@ -46,7 +46,6 @@ from .scalars import ScalarData, generate_input_scalar_annotation
 from .types import Annotation, CodegenInputFieldType
 
 
-# pylint: disable=too-many-return-statements
 def parse_input_field_type(
     type_: CodegenInputFieldType,
     nullable: bool = True,
@@ -115,7 +114,6 @@ def parse_input_field_default_value(
     return None
 
 
-# pylint: disable=too-many-return-statements
 def parse_input_const_value_node(
     node: ConstValueNode,
     field_type: str = "",
@@ -142,15 +140,18 @@ def parse_input_const_value_node(
 
     if isinstance(node, ListValueNode):
         list_ = generate_list(
-            [
-                parse_input_const_value_node(
-                    node=v,
-                    field_type=field_type,
-                    nested_object=nested_object,
-                    nested_list=True,
-                )
-                for v in node.values
-            ]
+            cast(
+                List[ast.expr],
+                [
+                    parse_input_const_value_node(
+                        node=v,
+                        field_type=field_type,
+                        nested_object=nested_object,
+                        nested_list=True,
+                    )
+                    for v in node.values
+                ],
+            )
         )
         if not nested_list:
             return generate_call(
@@ -166,15 +167,18 @@ def parse_input_const_value_node(
     if isinstance(node, ObjectValueNode):
         dict_ = generate_dict(
             keys=[generate_constant(f.name.value) for f in node.fields],
-            values=[
-                parse_input_const_value_node(
-                    node=f.value,
-                    field_type=field_type,
-                    nested_object=True,
-                    nested_list=True,
-                )
-                for f in node.fields
-            ],
+            values=cast(
+                List[ast.expr],
+                [
+                    parse_input_const_value_node(
+                        node=f.value,
+                        field_type=field_type,
+                        nested_object=True,
+                        nested_list=True,
+                    )
+                    for f in node.fields
+                ],
+            ),
         )
         if not nested_object:
             return generate_call(

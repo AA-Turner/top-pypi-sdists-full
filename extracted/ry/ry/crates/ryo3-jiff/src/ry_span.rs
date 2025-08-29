@@ -6,7 +6,7 @@ use crate::span_relative_to::RySpanRelativeTo;
 use crate::{JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyZoned, timespan};
 use jiff::{Span, SpanArithmetic, SpanRelativeTo, SpanRound};
 use pyo3::prelude::*;
-use pyo3::types::{PyDelta, PyDict, PyTuple, PyType};
+use pyo3::types::{PyDelta, PyDict, PyTuple};
 use pyo3::{IntoPyObjectExt, intern};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -85,19 +85,24 @@ impl RySpan {
     fn __str__(&self) -> String {
         self.0.to_string()
     }
+
     fn __getnewargs_ex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let args = PyTuple::empty(py).into_bound_py_any(py)?;
         let kwargs = self.asdict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
 
-    #[pyo3(signature = (human=false))]
-    fn string(&self, human: bool) -> String {
-        if human {
+    #[pyo3(signature = (*, friendly=false))]
+    fn string(&self, friendly: bool) -> String {
+        if friendly {
             format!("{:#}", self.0)
         } else {
             self.0.to_string()
         }
+    }
+
+    fn friendly(&self) -> String {
+        format!("{:#}", self.0)
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -133,8 +138,8 @@ impl RySpan {
         Self(self.0.negate())
     }
 
-    #[classmethod]
-    fn from_pytimedelta(_cls: &Bound<'_, PyType>, delta: Span) -> Self {
+    #[staticmethod]
+    fn from_pytimedelta(delta: Span) -> Self {
         Self(delta)
     }
 
@@ -147,24 +152,24 @@ impl RySpan {
         jiff_span.into_pyobject(py)
     }
 
-    #[classmethod]
-    fn parse_common_iso(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn parse_common_iso(s: &str) -> PyResult<Self> {
         SPAN_PARSER
             .parse_span(s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
 
-    #[classmethod]
-    fn from_str(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
         Span::from_str(s)
             .map(Self::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
     }
 
-    #[classmethod]
-    fn parse(cls: &Bound<'_, PyType>, input: &str) -> PyResult<Self> {
-        Self::from_str(cls, input)
+    #[staticmethod]
+    fn parse(input: &str) -> PyResult<Self> {
+        Self::from_str(input)
     }
 
     fn _years(&self, n: i64) -> PyResult<Self> {
@@ -316,53 +321,11 @@ impl RySpan {
         })
     }
 
-    // getter functions
-
     fn __repr__(&self) -> String {
         // parts that we want are the years, months, weeks, days, hours,
         // minutes, seconds, milliseconds, microseconds, nanoseconds if not
         // zero in the form of kwargs i guess??? tbd
-        let mut parts = vec![];
-        if self.0.get_years() != 0 {
-            parts.push(format!("years={}", self.0.get_years()));
-        }
-        if self.0.get_months() != 0 {
-            parts.push(format!("months={}", self.0.get_months()));
-        }
-
-        if self.0.get_weeks() != 0 {
-            parts.push(format!("weeks={}", self.0.get_weeks()));
-        }
-
-        if self.0.get_days() != 0 {
-            parts.push(format!("days={}", self.0.get_days()));
-        }
-
-        if self.0.get_hours() != 0 {
-            parts.push(format!("hours={}", self.0.get_hours()));
-        }
-
-        if self.0.get_minutes() != 0 {
-            parts.push(format!("minutes={}", self.0.get_minutes()));
-        }
-
-        if self.0.get_seconds() != 0 {
-            parts.push(format!("seconds={}", self.0.get_seconds()));
-        }
-
-        if self.0.get_milliseconds() != 0 {
-            parts.push(format!("milliseconds={}", self.0.get_milliseconds()));
-        }
-
-        if self.0.get_microseconds() != 0 {
-            parts.push(format!("microseconds={}", self.0.get_microseconds()));
-        }
-
-        if self.0.get_nanoseconds() != 0 {
-            parts.push(format!("nanoseconds={}", self.0.get_nanoseconds()));
-        }
-
-        format!("TimeSpan({})", parts.join(", "))
+        format!("{self}")
     }
 
     fn repr_full(&self) -> String {
@@ -380,6 +343,7 @@ impl RySpan {
             self.0.get_nanoseconds()
         )
     }
+
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.0.fieldwise().hash(&mut hasher);
@@ -732,7 +696,42 @@ impl RySpan {
 
 impl Display for RySpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        // TODO: FIX THIS TO NOT DO THE JOIN
+        f.write_str("TimeSpan(")?;
+        let mut parts = vec![];
+        if self.0.get_years() != 0 {
+            parts.push(format!("years={}", self.0.get_years()));
+        }
+        if self.0.get_months() != 0 {
+            parts.push(format!("months={}", self.0.get_months()));
+        }
+        if self.0.get_weeks() != 0 {
+            parts.push(format!("weeks={}", self.0.get_weeks()));
+        }
+        if self.0.get_days() != 0 {
+            parts.push(format!("days={}", self.0.get_days()));
+        }
+        if self.0.get_hours() != 0 {
+            parts.push(format!("hours={}", self.0.get_hours()));
+        }
+        if self.0.get_minutes() != 0 {
+            parts.push(format!("minutes={}", self.0.get_minutes()));
+        }
+        if self.0.get_seconds() != 0 {
+            parts.push(format!("seconds={}", self.0.get_seconds()));
+        }
+        if self.0.get_milliseconds() != 0 {
+            parts.push(format!("milliseconds={}", self.0.get_milliseconds()));
+        }
+        if self.0.get_microseconds() != 0 {
+            parts.push(format!("microseconds={}", self.0.get_microseconds()));
+        }
+        if self.0.get_nanoseconds() != 0 {
+            parts.push(format!("nanoseconds={}", self.0.get_nanoseconds()));
+        }
+        write!(f, "{}", parts.join(", "))?;
+
+        write!(f, ")")
     }
 }
 

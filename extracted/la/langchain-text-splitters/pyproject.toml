@@ -8,10 +8,11 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.72",
+    "langchain-core<2.0.0,>=0.3.75",
+    "pip>=25.2",
 ]
 name = "langchain-text-splitters"
-version = "0.3.9"
+version = "0.3.10"
 description = "LangChain text splitting utilities"
 readme = "README.md"
 
@@ -25,11 +26,11 @@ repository = "https://github.com/langchain-ai/langchain"
 
 [dependency-groups]
 lint = [
-    "ruff<0.13,>=0.12.2",
+    "ruff<0.13,>=0.12.8",
     "langchain-core",
 ]
 typing = [
-    "mypy<2.0,>=1.15",
+    "mypy<1.18,>=1.17.1",
     "lxml-stubs<1.0.0,>=0.5.1",
     "types-requests<3.0.0.0,>=2.31.0.20240218",
     "tiktoken<1.0.0,>=0.8.0",
@@ -54,6 +55,7 @@ test_integration = [
     "nltk<4.0.0,>=3.9.1",
     "transformers<5.0.0,>=4.51.3",
     "sentence-transformers>=3.0.1",
+    "tiktoken<1.0.0,>=0.8.0",
 ]
 
 [tool.uv.sources.langchain-core]
@@ -61,38 +63,92 @@ path = "../core"
 editable = true
 
 [tool.mypy]
-strict = "True"
-strict_bytes = "True"
+plugins = [
+    "pydantic.mypy",
+]
+strict = true
 enable_error_code = "deprecated"
-report_deprecated_as_note = "True"
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 module = [
     "konlpy",
     "nltk",
 ]
-ignore_missing_imports = "True"
+ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py39"
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "FBT",
-    "I",
-    "UP",
-    "PGH003",
-    "T201",
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
     "D",
+    "E",
+    "EM",
+    "F",
+    "FA",
+    "FBT",
+    "FLY",
+    "I",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
+    "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
     "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D203",
+    "D213",
+    "D407",
+    "COM812",
+    "ISC001",
+    "PERF203",
+    "S112",
+    "RUF012",
+    "SLF001",
+    "UP007",
+    "UP045",
+]
+unfixable = [
+    "B028",
 ]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

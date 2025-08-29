@@ -14,6 +14,73 @@ import System
 import System.Collections.Generic
 
 
+class Prices(System.Object):
+    """Prices class used by IFillModels"""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """End time for these prices"""
+        ...
+
+    @property
+    def current(self) -> float:
+        """Current price"""
+        ...
+
+    @property
+    def open(self) -> float:
+        """Open price"""
+        ...
+
+    @property
+    def high(self) -> float:
+        """High price"""
+        ...
+
+    @property
+    def low(self) -> float:
+        """Low price"""
+        ...
+
+    @property
+    def close(self) -> float:
+        """Closing price"""
+        ...
+
+    @overload
+    def __init__(self, bar: QuantConnect.Data.Market.IBaseDataBar) -> None:
+        """
+        Create an instance of Prices class with a data bar
+        
+        :param bar: Data bar to use for prices
+        """
+        ...
+
+    @overload
+    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.IBar) -> None:
+        """
+        Create an instance of Prices class with a data bar and end time
+        
+        :param end_time: The end time for these prices
+        :param bar: Data bar to use for prices
+        """
+        ...
+
+    @overload
+    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], current: float, open: float, high: float, low: float, close: float) -> None:
+        """
+        Create a instance of the Prices class with specific values for all prices
+        
+        :param end_time: The end time for these prices
+        :param current: Current price
+        :param open: Open price
+        :param high: High price
+        :param low: Low price
+        :param close: Close price
+        """
+        ...
+
+
 class Fill(System.Object, typing.Iterable[QuantConnect.Orders.OrderEvent]):
     """Defines a possible result for IFillModel.Fill for a single order"""
 
@@ -98,73 +165,6 @@ class IFillModel(metaclass=abc.ABCMeta):
         
         :param parameters: A FillModelParameters object containing the security and order
         :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-
-class Prices(System.Object):
-    """Prices class used by IFillModels"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """End time for these prices"""
-        ...
-
-    @property
-    def current(self) -> float:
-        """Current price"""
-        ...
-
-    @property
-    def open(self) -> float:
-        """Open price"""
-        ...
-
-    @property
-    def high(self) -> float:
-        """High price"""
-        ...
-
-    @property
-    def low(self) -> float:
-        """Low price"""
-        ...
-
-    @property
-    def close(self) -> float:
-        """Closing price"""
-        ...
-
-    @overload
-    def __init__(self, bar: QuantConnect.Data.Market.IBaseDataBar) -> None:
-        """
-        Create an instance of Prices class with a data bar
-        
-        :param bar: Data bar to use for prices
-        """
-        ...
-
-    @overload
-    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.IBar) -> None:
-        """
-        Create an instance of Prices class with a data bar and end time
-        
-        :param end_time: The end time for these prices
-        :param bar: Data bar to use for prices
-        """
-        ...
-
-    @overload
-    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], current: float, open: float, high: float, low: float, close: float) -> None:
-        """
-        Create a instance of the Prices class with specific values for all prices
-        
-        :param end_time: The end time for these prices
-        :param current: Current price
-        :param open: Open price
-        :param high: High price
-        :param low: Low price
-        :param close: Close price
         """
         ...
 
@@ -360,57 +360,6 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         ...
 
 
-class ImmediateFillModel(QuantConnect.Orders.Fills.FillModel):
-    """Represents the default fill model used to simulate order fills"""
-
-
-class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
-    """
-    This fill model is provided for cases where the trade/quote distinction should be
-    ignored and the fill price should be determined from the latest pricing information.
-    """
-
-    def get_prices(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
-        """
-        Get the minimum and maximum price for this security in the last bar
-        Ignore the Trade/Quote distinction - fill with the latest pricing information
-        
-        This method is protected.
-        
-        :param asset: Security asset we're checking
-        :param direction: The order direction, decides whether to pick bid or ask
-        """
-        ...
-
-
-class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
-    """Represents the fill model used to simulate order fills for futures"""
-
-    def market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.MarketOrder) -> QuantConnect.Orders.OrderEvent:
-        """
-        Default market fill model for the base security class. Fills at the last traded price.
-        
-        :param asset: Security asset we're filling
-        :param order: Order packet to model
-        :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-    def stop_market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopMarketOrder) -> QuantConnect.Orders.OrderEvent:
-        """
-        Stop fill model implementation for Future.
-        
-        :param asset: Security asset we're filling
-        :param order: Order packet to model
-        :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-
-class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
-    """Represents the default fill model used to simulate order fills for future options"""
-
-
 class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
     """Represents the fill model used to simulate order fills for equities"""
 
@@ -513,5 +462,56 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         :returns: Order fill information detailing the average price and quantity filled.
         """
         ...
+
+
+class ImmediateFillModel(QuantConnect.Orders.Fills.FillModel):
+    """Represents the default fill model used to simulate order fills"""
+
+
+class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
+    """
+    This fill model is provided for cases where the trade/quote distinction should be
+    ignored and the fill price should be determined from the latest pricing information.
+    """
+
+    def get_prices(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
+        """
+        Get the minimum and maximum price for this security in the last bar
+        Ignore the Trade/Quote distinction - fill with the latest pricing information
+        
+        This method is protected.
+        
+        :param asset: Security asset we're checking
+        :param direction: The order direction, decides whether to pick bid or ask
+        """
+        ...
+
+
+class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
+    """Represents the fill model used to simulate order fills for futures"""
+
+    def market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.MarketOrder) -> QuantConnect.Orders.OrderEvent:
+        """
+        Default market fill model for the base security class. Fills at the last traded price.
+        
+        :param asset: Security asset we're filling
+        :param order: Order packet to model
+        :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
+
+    def stop_market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopMarketOrder) -> QuantConnect.Orders.OrderEvent:
+        """
+        Stop fill model implementation for Future.
+        
+        :param asset: Security asset we're filling
+        :param order: Order packet to model
+        :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
+
+
+class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
+    """Represents the default fill model used to simulate order fills for future options"""
 
 

@@ -30,6 +30,8 @@ __all__ = (
     "ClusterStatusType",
     "ComponentStatusType",
     "ComponentTypeType",
+    "ConfigurationCheckOperationListingModeType",
+    "ConfigurationCheckTypeType",
     "ConnectedEntityTypeType",
     "CredentialTypeType",
     "DatabaseConnectionMethodType",
@@ -39,9 +41,13 @@ __all__ = (
     "HostRoleType",
     "ListApplicationsPaginatorName",
     "ListComponentsPaginatorName",
+    "ListConfigurationCheckDefinitionsPaginatorName",
+    "ListConfigurationCheckOperationsPaginatorName",
     "ListDatabasesPaginatorName",
     "ListOperationEventsPaginatorName",
     "ListOperationsPaginatorName",
+    "ListSubCheckResultsPaginatorName",
+    "ListSubCheckRuleResultsPaginatorName",
     "OperationEventStatusType",
     "OperationModeType",
     "OperationStatusType",
@@ -50,6 +56,7 @@ __all__ = (
     "RegionName",
     "ReplicationModeType",
     "ResourceServiceName",
+    "RuleResultStatusType",
     "ServiceName",
     "SsmSapServiceName",
 )
@@ -68,6 +75,8 @@ ComponentStatusType = Literal[
     "ACTIVATED", "RUNNING", "RUNNING_WITH_ERROR", "STARTING", "STOPPED", "STOPPING", "UNDEFINED"
 ]
 ComponentTypeType = Literal["ABAP", "ASCS", "DIALOG", "ERS", "HANA", "HANA_NODE", "WD", "WEBDISP"]
+ConfigurationCheckOperationListingModeType = Literal["ALL_OPERATIONS", "LATEST_PER_CHECK"]
+ConfigurationCheckTypeType = Literal["SAP_CHECK_01", "SAP_CHECK_02", "SAP_CHECK_03"]
 ConnectedEntityTypeType = Literal["DBMS"]
 CredentialTypeType = Literal["ADMIN"]
 DatabaseConnectionMethodType = Literal["DIRECT", "OVERLAY"]
@@ -77,9 +86,13 @@ FilterOperatorType = Literal["Equals", "GreaterThanOrEquals", "LessThanOrEquals"
 HostRoleType = Literal["LEADER", "STANDBY", "UNKNOWN", "WORKER"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListComponentsPaginatorName = Literal["list_components"]
+ListConfigurationCheckDefinitionsPaginatorName = Literal["list_configuration_check_definitions"]
+ListConfigurationCheckOperationsPaginatorName = Literal["list_configuration_check_operations"]
 ListDatabasesPaginatorName = Literal["list_databases"]
 ListOperationEventsPaginatorName = Literal["list_operation_events"]
 ListOperationsPaginatorName = Literal["list_operations"]
+ListSubCheckResultsPaginatorName = Literal["list_sub_check_results"]
+ListSubCheckRuleResultsPaginatorName = Literal["list_sub_check_rule_results"]
 OperationEventStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 OperationModeType = Literal[
     "DELTA_DATASHIPPING", "LOGREPLAY", "LOGREPLAY_READACCESS", "NONE", "PRIMARY"
@@ -87,6 +100,7 @@ OperationModeType = Literal[
 OperationStatusType = Literal["ERROR", "INPROGRESS", "SUCCESS"]
 PermissionActionTypeType = Literal["RESTORE"]
 ReplicationModeType = Literal["ASYNC", "NONE", "PRIMARY", "SYNC", "SYNCMEM"]
+RuleResultStatusType = Literal["FAILED", "INFO", "PASSED", "UNKNOWN", "WARNING"]
 SsmSapServiceName = Literal["ssm-sap"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -115,6 +129,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -126,8 +141,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -369,8 +386,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -503,23 +518,18 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_applications",
     "list_components",
+    "list_configuration_check_definitions",
+    "list_configuration_check_operations",
     "list_databases",
     "list_operation_events",
     "list_operations",
+    "list_sub_check_results",
+    "list_sub_check_rule_results",
 ]
 RegionName = Literal[
     "af-south-1",

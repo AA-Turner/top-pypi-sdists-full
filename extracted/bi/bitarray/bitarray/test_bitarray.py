@@ -1,3 +1,7 @@
+# Copyright (c) 2008 - 2025, Ilan Schnell; All Rights Reserved
+# bitarray is published under the PSF license.
+#
+# Author: Ilan Schnell
 """
 Tests for bitarray
 
@@ -14,6 +18,7 @@ import shutil
 import tempfile
 from io import BytesIO, UnsupportedOperation
 from random import choice, getrandbits, randrange, randint, shuffle
+from string import whitespace
 
 # imports needed inside tests
 import array
@@ -56,8 +61,6 @@ def urandom_2(n, endian="<RAND>"):
     a = bitarray(os.urandom(bits2bytes(n)), endian)
     del a[n:]
     return a
-
-WHITESPACE = ' \n\r\t\v'
 
 
 class Util(object):
@@ -400,10 +403,10 @@ class CreateObjectTests(unittest.TestCase, Util):
         self.assertRaises(ValueError, bitarray, '0\U00010348')  # UCS4
 
     def test_string01_whitespace(self):
-        a = bitarray(WHITESPACE)
+        a = bitarray(whitespace)
         self.assertEqual(a, bitarray())
 
-        for c in WHITESPACE:
+        for c in whitespace:
             a = bitarray(c + '1101110001')
             self.assertEqual(a, bitarray('1101110001'))
 
@@ -2614,7 +2617,7 @@ class ExtendTests(unittest.TestCase, Util):
 
     def test_string01_whitespace(self):
         a = bitarray()
-        a.extend(WHITESPACE)
+        a.extend(whitespace)
         self.assertEqual(len(a), 0)
         a.extend('0 1\n0\r1\t0\v1_')
         self.assertEqual(a, bitarray('010101'))

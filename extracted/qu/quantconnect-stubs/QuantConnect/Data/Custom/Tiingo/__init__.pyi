@@ -29,6 +29,20 @@ class Tiingo(System.Object):
         ...
 
 
+class TiingoSymbolMapper(System.Object):
+    """Helper class to map a Lean format ticker to Tiingo format"""
+
+    @staticmethod
+    def get_lean_ticker(ticker: str) -> str:
+        """Maps a given Tiingo ticker to Lean equivalent"""
+        ...
+
+    @staticmethod
+    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+        """Maps a given Symbol instance to it's Tiingo equivalent"""
+        ...
+
+
 class TiingoPrice(QuantConnect.Data.Market.TradeBar):
     """
     Tiingo daily price data
@@ -233,19 +247,5 @@ class TiingoDailyData(QuantConnect.Data.Custom.Tiingo.TiingoPrice):
     
     This is kept for backwards compatibility, please use TiingoPrice
     """
-
-
-class TiingoSymbolMapper(System.Object):
-    """Helper class to map a Lean format ticker to Tiingo format"""
-
-    @staticmethod
-    def get_lean_ticker(ticker: str) -> str:
-        """Maps a given Tiingo ticker to Lean equivalent"""
-        ...
-
-    @staticmethod
-    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
-        """Maps a given Symbol instance to it's Tiingo equivalent"""
-        ...
 
 

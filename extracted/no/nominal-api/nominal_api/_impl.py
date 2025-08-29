@@ -50365,10 +50365,6 @@ scout_compute_api_OnChangeRanges.__module__ = "nominal_api.scout_compute_api"
 
 class scout_compute_api_OutputFormat(ConjureEnumType):
 
-    ARROW_V1 = 'ARROW_V1'
-    '''ARROW_V1'''
-    ARROW_V1_1 = 'ARROW_V1_1'
-    '''ARROW_V1_1'''
     ARROW_V2 = 'ARROW_V2'
     '''ARROW_V2'''
     LEGACY = 'LEGACY'

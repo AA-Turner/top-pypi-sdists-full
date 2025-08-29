@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupytext
-Version: 1.17.2
+Version: 1.17.3
 Summary: Jupyter notebooks as Markdown documents, Julia, Python or R scripts
 Project-URL: Homepage, https://github.com/mwouts/jupytext
 Project-URL: Source Code, https://github.com/mwouts/jupytext
@@ -59,7 +59,7 @@ Requires-Dist: flake8; extra == 'dev'
 Requires-Dist: gitpython; extra == 'dev'
 Requires-Dist: ipykernel; extra == 'dev'
 Requires-Dist: isort; extra == 'dev'
-Requires-Dist: jupyter-fs>=1.0; extra == 'dev'
+Requires-Dist: jupyter-fs[fs]>=1.0; extra == 'dev'
 Requires-Dist: jupyter-server!=2.11; extra == 'dev'
 Requires-Dist: nbconvert; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
@@ -97,7 +97,7 @@ Requires-Dist: flake8; extra == 'test-external'
 Requires-Dist: gitpython; extra == 'test-external'
 Requires-Dist: ipykernel; extra == 'test-external'
 Requires-Dist: isort; extra == 'test-external'
-Requires-Dist: jupyter-fs>=1.0; extra == 'test-external'
+Requires-Dist: jupyter-fs[fs]>=1.0; extra == 'test-external'
 Requires-Dist: jupyter-server!=2.11; extra == 'test-external'
 Requires-Dist: nbconvert; extra == 'test-external'
 Requires-Dist: pre-commit; extra == 'test-external'

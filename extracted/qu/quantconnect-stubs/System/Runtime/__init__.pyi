@@ -10,15 +10,19 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
-class ProfileOptimization(System.Object):
+class AmbiguousImplementationException(System.Exception):
     """This class has no documentation."""
 
-    @staticmethod
-    def set_profile_root(directory_path: str) -> None:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    @staticmethod
-    def start_profile(profile: str) -> None:
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -69,41 +73,15 @@ class JitInfo(System.Object):
         ...
 
 
-class AssemblyTargetedPatchBandAttribute(System.Attribute):
+class ProfileOptimization(System.Object):
     """This class has no documentation."""
 
-    @property
-    def targeted_patch_band(self) -> str:
+    @staticmethod
+    def set_profile_root(directory_path: str) -> None:
         ...
 
-    def __init__(self, targeted_patch_band: str) -> None:
-        ...
-
-
-class TargetedPatchingOptOutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def reason(self) -> str:
-        ...
-
-    def __init__(self, reason: str) -> None:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    @staticmethod
+    def start_profile(profile: str) -> None:
         ...
 
 
@@ -143,6 +121,28 @@ class GCSettings(System.Object):
     large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
 
     IS_SERVER_GC: bool
+
+
+class AssemblyTargetedPatchBandAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def targeted_patch_band(self) -> str:
+        ...
+
+    def __init__(self, targeted_patch_band: str) -> None:
+        ...
+
+
+class TargetedPatchingOptOutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def reason(self) -> str:
+        ...
+
+    def __init__(self, reason: str) -> None:
+        ...
 
 
 class ControlledExecution(System.Object):

@@ -1,21 +1,41 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 5.0.0
+Version: 5.1.0
 Summary: MITRE ATT&CK python library
-Home-page: https://github.com/mitre-attack/mitreattack-python/
-Author: MITRE ATT&CK, MITRE Corporation
+License: Apache-2.0
+Author: MITRE ATT&CK
 Author-email: attack@mitre.org
-Maintainer: Jared Ondricek
-Maintainer-email: jondricek@mitre.org
-License: Apache 2.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Topic :: Security
+Requires-Python: >=3.11,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.11
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Security
+Requires-Dist: Markdown (>=3.5)
+Requires-Dist: Pillow (>=10.1.0)
+Requires-Dist: colour (>=0.1.5)
+Requires-Dist: deepdiff (>=6.6.0)
+Requires-Dist: drawsvg (>=2.4.0)
+Requires-Dist: loguru (>=0.6.0)
+Requires-Dist: numpy (>=1.26.1)
+Requires-Dist: openpyxl (>=3.1.2)
+Requires-Dist: pandas (>=2.1.1)
+Requires-Dist: pooch (>=1.7.0)
+Requires-Dist: python-dateutil (>=2.8.2)
+Requires-Dist: requests (>=2.31.0)
+Requires-Dist: rich (>=13.6.0)
+Requires-Dist: stix2 (>=3.0.1)
+Requires-Dist: tabulate (>=0.9.0)
+Requires-Dist: tqdm (>=4.66.1)
+Requires-Dist: typer (>=0.9.0)
+Requires-Dist: wheel (>=0.41.2)
+Requires-Dist: xlsxwriter (>=3.1.8)
+Project-URL: Documentation, https://mitreattack-python.readthedocs.io/
+Project-URL: Homepage, https://github.com/mitre-attack/mitreattack-python/
+Project-URL: Repository, https://github.com/mitre-attack/mitreattack-python/
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-License-File: NOTICE.txt
 
 # mitreattack-python
 
@@ -44,10 +64,10 @@ More detailed information and examples about the specific usage of the additiona
 
 | module | description | documentation |
 |:------------|:------------|:--------------|
-| [navlayers](https://github.com/mitre-attack/mitreattack-python/tree/master/mitreattack/navlayers) | A collection of utilities for working with [ATT&CK Navigator](https://github.com/mitre-attack/attack-navigator) layers. Provides the ability to import, export, and manipulate layers. Layers can be read in from the filesystem or python dictionaries, combined and edited, and then exported to excel or SVG images. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/master/mitreattack/navlayers/README.md).|
-| [attackToExcel](https://github.com/mitre-attack/mitreattack-python/tree/master/mitreattack/attackToExcel) | A collection of utilities for converting [ATT&CK STIX data](https://github.com/mitre/cti) to Excel spreadsheets. It also provides access to [Pandas](https://pandas.pydata.org/) DataFrames representing the dataset for use in data analysis. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/master/mitreattack/attackToExcel/README.md).|
-| [collections](https://github.com/mitre-attack/mitreattack-python/tree/master/mitreattack/collections) | A set of utilities for working with [ATT&CK Collections and Collection Indexes](https://github.com/center-for-threat-informed-defense/attack-workbench-frontend/blob/master/docs/collections.md). Provides functionalities for converting and summarizing data in collections and collection indexes, as well as generating a collection from a raw stix bundle input. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/master/mitreattack/collections/README.md).|
-| [diffStix](https://github.com/mitre-attack/mitreattack-python/tree/master/mitreattack/diffStix) | Create markdown, HTML, JSON and/or ATT&CK Navigator layers reporting on the changes between two versions of the STIX2 bundles representing the ATT&CK content. Run `diff_stix -h` for full usage instructions. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/master/mitreattack/diffStix/README.md).|
+| [navlayers](https://github.com/mitre-attack/mitreattack-python/tree/main/mitreattack/navlayers) | A collection of utilities for working with [ATT&CK Navigator](https://github.com/mitre-attack/attack-navigator) layers. Provides the ability to import, export, and manipulate layers. Layers can be read in from the filesystem or python dictionaries, combined and edited, and then exported to excel or SVG images. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/main/mitreattack/navlayers/README.md).|
+| [attackToExcel](https://github.com/mitre-attack/mitreattack-python/tree/main/mitreattack/attackToExcel) | A collection of utilities for converting [ATT&CK STIX data](https://github.com/mitre/cti) to Excel spreadsheets. It also provides access to [Pandas](https://pandas.pydata.org/) DataFrames representing the dataset for use in data analysis. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/main/mitreattack/attackToExcel/README.md).|
+| [collections](https://github.com/mitre-attack/mitreattack-python/tree/main/mitreattack/collections) | A set of utilities for working with [ATT&CK Collections and Collection Indexes](https://github.com/center-for-threat-informed-defense/attack-workbench-frontend/blob/main/docs/collections.md). Provides functionalities for converting and summarizing data in collections and collection indexes, as well as generating a collection from a raw stix bundle input. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/main/mitreattack/collections/README.md).|
+| [diffStix](https://github.com/mitre-attack/mitreattack-python/tree/main/mitreattack/diffStix) | Create markdown, HTML, JSON and/or ATT&CK Navigator layers reporting on the changes between two versions of the STIX2 bundles representing the ATT&CK content. Run `diff_stix -h` for full usage instructions. | Further documentation can be found [here](https://github.com/mitre-attack/mitreattack-python/blob/main/mitreattack/diffStix/README.md).|
 
 
 ## Related MITRE Work
@@ -89,7 +109,7 @@ One-off scripts and code examples you can use as inspiration for how to work wit
 ## Contributing
 
 To contribute to this project, either through a bug report, feature request, or merge request,
-please see the [Contributors Guide](https://github.com/mitre-attack/mitreattack-python/blob/master/docs/CONTRIBUTING.md).
+please see the [Contributors Guide](https://github.com/mitre-attack/mitreattack-python/blob/main/docs/CONTRIBUTING.md).
 
 ## Notice
 
@@ -112,3 +132,4 @@ limitations under the License.
 This project makes use of ATT&CK®
 
 [ATT&CK Terms of Use](https://attack.mitre.org/resources/terms-of-use/)
+

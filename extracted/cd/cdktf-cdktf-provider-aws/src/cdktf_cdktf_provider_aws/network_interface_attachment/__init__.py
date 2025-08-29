@@ -1,7 +1,7 @@
 r'''
 # `aws_network_interface_attachment`
 
-Refer to the Terraform Registry for docs: [`aws_network_interface_attachment`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment).
+Refer to the Terraform Registry for docs: [`aws_network_interface_attachment`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkInterfaceAttachmentA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkInterfaceAttachment.NetworkInterfaceAttachmentA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment aws_network_interface_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment aws_network_interface_attachment}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class NetworkInterfaceAttachmentA(
         instance_id: builtins.str,
         network_interface_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        network_card_index: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +65,16 @@ class NetworkInterfaceAttachmentA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment aws_network_interface_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment aws_network_interface_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
+        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_card_index NetworkInterfaceAttachmentA#network_card_index}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,6 +92,7 @@ class NetworkInterfaceAttachmentA(
             instance_id=instance_id,
             network_interface_id=network_interface_id,
             id=id,
+            network_card_index=network_card_index,
             region=region,
             connection=connection,
             count=count,
@@ -115,7 +118,7 @@ class NetworkInterfaceAttachmentA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkInterfaceAttachmentA to import.
-        :param import_from_id: The id of the existing NetworkInterfaceAttachmentA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkInterfaceAttachmentA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkInterfaceAttachmentA to import is found.
         '''
         if __debug__:
@@ -129,6 +132,10 @@ class NetworkInterfaceAttachmentA(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetNetworkCardIndex")
+    def reset_network_card_index(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNetworkCardIndex", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -171,6 +178,11 @@ class NetworkInterfaceAttachmentA(
     @jsii.member(jsii_name="instanceIdInput")
     def instance_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkCardIndexInput")
+    def network_card_index_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "networkCardIndexInput"))
 
     @builtins.property
     @jsii.member(jsii_name="networkInterfaceIdInput")
@@ -219,6 +231,18 @@ class NetworkInterfaceAttachmentA(
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="networkCardIndex")
+    def network_card_index(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "networkCardIndex"))
+
+    @network_card_index.setter
+    def network_card_index(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93dbb0390f28bdf535da536663a2ec40c980bf1ec4be4a1ed33cc0e5fa1397ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkCardIndex", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="networkInterfaceId")
     def network_interface_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "networkInterfaceId"))
@@ -258,6 +282,7 @@ class NetworkInterfaceAttachmentA(
         "instance_id": "instanceId",
         "network_interface_id": "networkInterfaceId",
         "id": "id",
+        "network_card_index": "networkCardIndex",
         "region": "region",
     },
 )
@@ -276,6 +301,7 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         instance_id: builtins.str,
         network_interface_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        network_card_index: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -286,11 +312,12 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
+        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_card_index NetworkInterfaceAttachmentA#network_card_index}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -307,6 +334,7 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument network_interface_id", value=network_interface_id, expected_type=type_hints["network_interface_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument network_card_index", value=network_card_index, expected_type=type_hints["network_card_index"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "device_index": device_index,
@@ -329,6 +357,8 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if network_card_index is not None:
+            self._values["network_card_index"] = network_card_index
         if region is not None:
             self._values["region"] = region
 
@@ -398,28 +428,28 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def device_index(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#device_index NetworkInterfaceAttachmentA#device_index}.'''
         result = self._values.get("device_index")
         assert result is not None, "Required property 'device_index' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#instance_id NetworkInterfaceAttachmentA#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def network_interface_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_interface_id NetworkInterfaceAttachmentA#network_interface_id}.'''
         result = self._values.get("network_interface_id")
         assert result is not None, "Required property 'network_interface_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#id NetworkInterfaceAttachmentA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -428,10 +458,16 @@ class NetworkInterfaceAttachmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def network_card_index(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#network_card_index NetworkInterfaceAttachmentA#network_card_index}.'''
+        result = self._values.get("network_card_index")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_attachment#region NetworkInterfaceAttachmentA#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -463,6 +499,7 @@ def _typecheckingstub__cdf65270cdf6311f4f8bc60ed1f95739a81db8741a5adbba159591fa6
     instance_id: builtins.str,
     network_interface_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    network_card_index: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -502,6 +539,12 @@ def _typecheckingstub__3fddb0f6b5a6ab409c62427eeb56440342f56b0d86d42c8462ce2eec6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__93dbb0390f28bdf535da536663a2ec40c980bf1ec4be4a1ed33cc0e5fa1397ea(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7a5b2a671ed8dee86785f928b95a1fe5ea2d527868fc23c4e14e68c797c48731(
     value: builtins.str,
 ) -> None:
@@ -527,6 +570,7 @@ def _typecheckingstub__93573b69779eacdb0faab6c77022b807691b6939ec77072c4b34b51e3
     instance_id: builtins.str,
     network_interface_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    network_card_index: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

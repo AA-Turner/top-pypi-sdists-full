@@ -9,7 +9,7 @@ from agilicus.output.json import convert_to_json
 from dataclasses import dataclass
 from typing import Callable
 
-from prettytable import PrettyTable
+from prettytable import PrettyTable, MARKDOWN
 from . import column_builder
 
 
@@ -390,11 +390,13 @@ def format_table(
     return _table_to_console(ctx, table, nested)
 
 
-def _table_to_console(ctx, table, nested):
+def _table_to_console(ctx, table: PrettyTable, nested):
     if context.output_csv(ctx):
         if nested:
             return table.get_json_string(header=False, indent=None, default=str)
         return table.get_csv_string()
+    if context.output_markdown(ctx):
+        table.set_style(MARKDOWN)
     return table
 
 

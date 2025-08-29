@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-ge
-Version: 0.27.7
+Version: 0.27.8
 Summary: Package for GE-specific Dagster framework op and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-ge
 Author: Dagster Labs
@@ -11,8 +11,8 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10,<3.14
 License-File: LICENSE
-Requires-Dist: dagster==1.11.7
-Requires-Dist: dagster-pandas==0.27.7
+Requires-Dist: dagster==1.11.8
+Requires-Dist: dagster-pandas==0.27.8
 Requires-Dist: pandas
 Requires-Dist: great_expectations<1.0.0,>=0.17.15
 Provides-Extra: test

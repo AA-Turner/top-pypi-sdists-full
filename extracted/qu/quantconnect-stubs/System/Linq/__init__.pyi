@@ -11,9 +11,9 @@ System_Linq_ILookup_TKey = typing.TypeVar("System_Linq_ILookup_TKey")
 System_Linq_ILookup_TElement = typing.TypeVar("System_Linq_ILookup_TElement")
 System_Linq_Lookup_TKey = typing.TypeVar("System_Linq_Lookup_TKey")
 System_Linq_Lookup_TElement = typing.TypeVar("System_Linq_Lookup_TElement")
-System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
 System_Linq_IGrouping_TKey = typing.TypeVar("System_Linq_IGrouping_TKey")
 System_Linq_IGrouping_TElement = typing.TypeVar("System_Linq_IGrouping_TElement")
+System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
 
 
 class ImmutableArrayExtensions(System.Object):
@@ -143,10 +143,6 @@ class Lookup(typing.Generic[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement
         ...
 
 
-class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
 class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping_TElement], System.Collections.Generic.IEnumerable[System_Linq_IGrouping_TElement], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -154,5 +150,9 @@ class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping
     @abc.abstractmethod
     def key(self) -> System_Linq_IGrouping_TKey:
         ...
+
+
+class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
 

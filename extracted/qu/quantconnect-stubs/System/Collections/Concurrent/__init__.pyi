@@ -12,11 +12,11 @@ import System.Threading
 
 System_Collections_Concurrent_IProducerConsumerCollection_T = typing.TypeVar("System_Collections_Concurrent_IProducerConsumerCollection_T")
 System_Collections_Concurrent_ConcurrentQueue_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentQueue_T")
-System_Collections_Concurrent_OrderablePartitioner_TSource = typing.TypeVar("System_Collections_Concurrent_OrderablePartitioner_TSource")
-System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_BlockingCollection_T = typing.TypeVar("System_Collections_Concurrent_BlockingCollection_T")
-System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
+System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
+System_Collections_Concurrent_OrderablePartitioner_TSource = typing.TypeVar("System_Collections_Concurrent_OrderablePartitioner_TSource")
+System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
 System_Collections_Concurrent_ConcurrentDictionary_TKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TKey")
 System_Collections_Concurrent_ConcurrentDictionary_TValue = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TValue")
 System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey")
@@ -150,163 +150,6 @@ class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQue
         
         :param result: When this method returns,  contains an object from the beginning of the ConcurrentQueue{T} or default(T) if the operation failed.
         :returns: true if and object was returned successfully; otherwise, false.
-        """
-        ...
-
-
-class OrderablePartitioner(typing.Generic[System_Collections_Concurrent_OrderablePartitioner_TSource], System.Collections.Concurrent.Partitioner[System_Collections_Concurrent_OrderablePartitioner_TSource], metaclass=abc.ABCMeta):
-    """Represents a particular manner of splitting an orderable data source into multiple partitions."""
-
-    @property
-    def keys_ordered_in_each_partition(self) -> bool:
-        """Gets whether elements in each partition are yielded in the order of increasing keys."""
-        ...
-
-    @property
-    def keys_ordered_across_partitions(self) -> bool:
-        """Gets whether elements in an earlier partition always come before elements in a later partition."""
-        ...
-
-    @property
-    def keys_normalized(self) -> bool:
-        """Gets whether order keys are normalized."""
-        ...
-
-    def __init__(self, keys_ordered_in_each_partition: bool, keys_ordered_across_partitions: bool, keys_normalized: bool) -> None:
-        """
-        Initializes a new instance of the OrderablePartitioner{TSource} class with the
-        specified constraints on the index keys.
-        
-        This method is protected.
-        
-        :param keys_ordered_in_each_partition: Indicates whether the elements in each partition are yielded in the order of increasing keys.
-        :param keys_ordered_across_partitions: Indicates whether elements in an earlier partition always come before elements in a later partition. If true, each element in partition 0 has a smaller order key than any element in partition 1, each element in partition 1 has a smaller order key than any element in partition 2, and so on.
-        :param keys_normalized: Indicates whether keys are normalized. If true, all order keys are distinct integers in the range [0 .. numberOfElements-1]. If false, order keys must still be distinct, but only their relative order is considered, not their absolute values.
-        """
-        ...
-
-    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_OrderablePartitioner_TSource]:
-        """
-        Creates an object that can partition the underlying collection into a variable number of
-        partitions.
-        
-        :returns: An object that can create partitions over the underlying data source.
-        """
-        ...
-
-    def get_orderable_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[int, System_Collections_Concurrent_OrderablePartitioner_TSource]]:
-        """
-        Creates an object that can partition the underlying collection into a variable number of
-        partitions.
-        
-        :returns: An object that can create partitions over the underlying data source.
-        """
-        ...
-
-    def get_orderable_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[int, System_Collections_Concurrent_OrderablePartitioner_TSource]]]:
-        """
-        Partitions the underlying collection into the specified number of orderable partitions.
-        
-        :param partition_count: The number of partitions to create.
-        :returns: A list containing  enumerators.
-        """
-        ...
-
-    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_OrderablePartitioner_TSource]]:
-        """
-        Partitions the underlying collection into the given number of ordered partitions.
-        
-        :param partition_count: The number of partitions to create.
-        :returns: A list containing  enumerators.
-        """
-        ...
-
-
-class ConcurrentBag(typing.Generic[System_Collections_Concurrent_ConcurrentBag_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentBag_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentBag_T], typing.Iterable[System_Collections_Concurrent_ConcurrentBag_T]):
-    """Represents a thread-safe, unordered collection of objects."""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of elements contained in the ConcurrentBag{T}."""
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value that indicates whether the ConcurrentBag{T} is empty."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the ConcurrentBag{T} class."""
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentBag_T]) -> None:
-        """
-        Initializes a new instance of the ConcurrentBag{T}
-        class that contains elements copied from the specified collection.
-        
-        :param collection: The collection whose elements are copied to the new ConcurrentBag{T}.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentBag_T]:
-        ...
-
-    def add(self, item: System_Collections_Concurrent_ConcurrentBag_T) -> None:
-        """
-        Adds an object to the ConcurrentBag{T}.
-        
-        :param item: The object to be added to the ConcurrentBag{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
-        """
-        ...
-
-    def clear(self) -> None:
-        """Removes all values from the ConcurrentBag{T}."""
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentBag_T], index: int) -> None:
-        """
-        Copies the ConcurrentBag{T} elements to an existing
-        one-dimensional System.Array, starting at the specified array
-        index.
-        
-        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentBag{T}. The System.Array must have zero-based indexing.
-        :param index: The zero-based index in  at which copying begins.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Returns an enumerator that iterates through the ConcurrentBag{T}.
-        
-        :returns: An enumerator for the contents of the ConcurrentBag{T}.
-        """
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Copies the ConcurrentBag{T} elements to a new array.
-        
-        :returns: A new array containing a snapshot of elements copied from the ConcurrentBag{T}.
-        """
-        ...
-
-    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Attempts to return an object from the ConcurrentBag{T} without removing it.
-        
-        :param result: When this method returns,  contains an object from the ConcurrentBag{T} or the default value of T if the operation failed.
-        :returns: true if and object was returned successfully; otherwise, false.
-        """
-        ...
-
-    def try_take(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Attempts to remove and return an object from the ConcurrentBag{T}.
-        
-        :param result: When this method returns,  contains the object removed from the ConcurrentBag{T} or the default value of T if the operation failed.
-        :returns: true if an object was removed successfully; otherwise, false.
         """
         ...
 
@@ -749,6 +592,239 @@ class BlockingCollection(typing.Generic[System_Collections_Concurrent_BlockingCo
         ...
 
 
+class ConcurrentBag(typing.Generic[System_Collections_Concurrent_ConcurrentBag_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentBag_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentBag_T], typing.Iterable[System_Collections_Concurrent_ConcurrentBag_T]):
+    """Represents a thread-safe, unordered collection of objects."""
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the ConcurrentBag{T}."""
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets a value that indicates whether the ConcurrentBag{T} is empty."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ConcurrentBag{T} class."""
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentBag_T]) -> None:
+        """
+        Initializes a new instance of the ConcurrentBag{T}
+        class that contains elements copied from the specified collection.
+        
+        :param collection: The collection whose elements are copied to the new ConcurrentBag{T}.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentBag_T]:
+        ...
+
+    def add(self, item: System_Collections_Concurrent_ConcurrentBag_T) -> None:
+        """
+        Adds an object to the ConcurrentBag{T}.
+        
+        :param item: The object to be added to the ConcurrentBag{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all values from the ConcurrentBag{T}."""
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentBag_T], index: int) -> None:
+        """
+        Copies the ConcurrentBag{T} elements to an existing
+        one-dimensional System.Array, starting at the specified array
+        index.
+        
+        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentBag{T}. The System.Array must have zero-based indexing.
+        :param index: The zero-based index in  at which copying begins.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Returns an enumerator that iterates through the ConcurrentBag{T}.
+        
+        :returns: An enumerator for the contents of the ConcurrentBag{T}.
+        """
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Copies the ConcurrentBag{T} elements to a new array.
+        
+        :returns: A new array containing a snapshot of elements copied from the ConcurrentBag{T}.
+        """
+        ...
+
+    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Attempts to return an object from the ConcurrentBag{T} without removing it.
+        
+        :param result: When this method returns,  contains an object from the ConcurrentBag{T} or the default value of T if the operation failed.
+        :returns: true if and object was returned successfully; otherwise, false.
+        """
+        ...
+
+    def try_take(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Attempts to remove and return an object from the ConcurrentBag{T}.
+        
+        :param result: When this method returns,  contains the object removed from the ConcurrentBag{T} or the default value of T if the operation failed.
+        :returns: true if an object was removed successfully; otherwise, false.
+        """
+        ...
+
+
+class EnumerablePartitionerOptions(Enum):
+    """
+    Out-of-the-box partitioners are created with a set of default behaviors.
+    For example, by default, some form of buffering and chunking will be employed to achieve
+    optimal performance in the common scenario where an IEnumerable{T} implementation is fast and
+    non-blocking.  These behaviors can be overridden via this enumeration.
+    """
+
+    NONE = ...
+    """Use the default behavior (i.e., use buffering to achieve optimal performance)"""
+
+    NO_BUFFERING = ...
+    """
+    Creates a partitioner that will take items from the source enumerable one at a time
+    and will not use intermediate storage that can be accessed more efficiently by multiple threads.
+    This option provides support for low latency (items will be processed as soon as they are available from
+    the source) and partial support for dependencies between items (a thread cannot deadlock waiting for an item
+    that it, itself, is responsible for processing).
+    """
+
+    def __int__(self) -> int:
+        ...
+
+
+class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
+    """Represents a particular manner of splitting a data source into multiple partitions."""
+
+    @property
+    def supports_dynamic_partitions(self) -> bool:
+        """Gets whether additional partitions can be created dynamically."""
+        ...
+
+    @staticmethod
+    @overload
+    def create(from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        """
+        Creates a partitioner that chunks the user-specified range.
+        
+        :param from_inclusive: The lower, inclusive bound of the range.
+        :param to_exclusive: The upper, exclusive bound of the range.
+        :returns: A partitioner.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        """
+        Creates a partitioner that chunks the user-specified range.
+        
+        :param from_inclusive: The lower, inclusive bound of the range.
+        :param to_exclusive: The upper, exclusive bound of the range.
+        :param range_size: The size of each subrange.
+        :returns: A partitioner.
+        """
+        ...
+
+    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
+        """
+        Creates an object that can partition the underlying collection into a variable number of
+        partitions.
+        
+        :returns: An object that can create partitions over the underlying data source.
+        """
+        ...
+
+    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
+        """
+        Partitions the underlying collection into the given number of partitions.
+        
+        :param partition_count: The number of partitions to create.
+        :returns: A list containing  enumerators.
+        """
+        ...
+
+
+class OrderablePartitioner(typing.Generic[System_Collections_Concurrent_OrderablePartitioner_TSource], System.Collections.Concurrent.Partitioner[System_Collections_Concurrent_OrderablePartitioner_TSource], metaclass=abc.ABCMeta):
+    """Represents a particular manner of splitting an orderable data source into multiple partitions."""
+
+    @property
+    def keys_ordered_in_each_partition(self) -> bool:
+        """Gets whether elements in each partition are yielded in the order of increasing keys."""
+        ...
+
+    @property
+    def keys_ordered_across_partitions(self) -> bool:
+        """Gets whether elements in an earlier partition always come before elements in a later partition."""
+        ...
+
+    @property
+    def keys_normalized(self) -> bool:
+        """Gets whether order keys are normalized."""
+        ...
+
+    def __init__(self, keys_ordered_in_each_partition: bool, keys_ordered_across_partitions: bool, keys_normalized: bool) -> None:
+        """
+        Initializes a new instance of the OrderablePartitioner{TSource} class with the
+        specified constraints on the index keys.
+        
+        This method is protected.
+        
+        :param keys_ordered_in_each_partition: Indicates whether the elements in each partition are yielded in the order of increasing keys.
+        :param keys_ordered_across_partitions: Indicates whether elements in an earlier partition always come before elements in a later partition. If true, each element in partition 0 has a smaller order key than any element in partition 1, each element in partition 1 has a smaller order key than any element in partition 2, and so on.
+        :param keys_normalized: Indicates whether keys are normalized. If true, all order keys are distinct integers in the range [0 .. numberOfElements-1]. If false, order keys must still be distinct, but only their relative order is considered, not their absolute values.
+        """
+        ...
+
+    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_OrderablePartitioner_TSource]:
+        """
+        Creates an object that can partition the underlying collection into a variable number of
+        partitions.
+        
+        :returns: An object that can create partitions over the underlying data source.
+        """
+        ...
+
+    def get_orderable_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[int, System_Collections_Concurrent_OrderablePartitioner_TSource]]:
+        """
+        Creates an object that can partition the underlying collection into a variable number of
+        partitions.
+        
+        :returns: An object that can create partitions over the underlying data source.
+        """
+        ...
+
+    def get_orderable_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[int, System_Collections_Concurrent_OrderablePartitioner_TSource]]]:
+        """
+        Partitions the underlying collection into the specified number of orderable partitions.
+        
+        :param partition_count: The number of partitions to create.
+        :returns: A list containing  enumerators.
+        """
+        ...
+
+    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_OrderablePartitioner_TSource]]:
+        """
+        Partitions the underlying collection into the given number of ordered partitions.
+        
+        :param partition_count: The number of partitions to create.
+        :returns: A list containing  enumerators.
+        """
+        ...
+
+
 class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentStack_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentStack_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentStack_T], typing.Iterable[System_Collections_Concurrent_ConcurrentStack_T]):
     """Represents a thread-safe last-in, first-out collection of objects."""
 
@@ -880,58 +956,6 @@ class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentSta
         :param start_index: The zero-based offset in  at which to begin inserting elements from the top of the ConcurrentStack{T}.
         :param count: The number of elements to be popped from top of the ConcurrentStack{T} and inserted into .
         :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
-        """
-        ...
-
-
-class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
-    """Represents a particular manner of splitting a data source into multiple partitions."""
-
-    @property
-    def supports_dynamic_partitions(self) -> bool:
-        """Gets whether additional partitions can be created dynamically."""
-        ...
-
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        """
-        Creates a partitioner that chunks the user-specified range.
-        
-        :param from_inclusive: The lower, inclusive bound of the range.
-        :param to_exclusive: The upper, exclusive bound of the range.
-        :returns: A partitioner.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        """
-        Creates a partitioner that chunks the user-specified range.
-        
-        :param from_inclusive: The lower, inclusive bound of the range.
-        :param to_exclusive: The upper, exclusive bound of the range.
-        :param range_size: The size of each subrange.
-        :returns: A partitioner.
-        """
-        ...
-
-    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
-        """
-        Creates an object that can partition the underlying collection into a variable number of
-        partitions.
-        
-        :returns: An object that can create partitions over the underlying data source.
-        """
-        ...
-
-    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
-        """
-        Partitions the underlying collection into the given number of partitions.
-        
-        :param partition_count: The number of partitions to create.
-        :returns: A list containing  enumerators.
         """
         ...
 
@@ -1307,30 +1331,6 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
         :param comparison_value: The value that is compared to the value of the element with .
         :returns: true if the value with  was equal to  and replaced with ; otherwise, false.
         """
-        ...
-
-
-class EnumerablePartitionerOptions(Enum):
-    """
-    Out-of-the-box partitioners are created with a set of default behaviors.
-    For example, by default, some form of buffering and chunking will be employed to achieve
-    optimal performance in the common scenario where an IEnumerable{T} implementation is fast and
-    non-blocking.  These behaviors can be overridden via this enumeration.
-    """
-
-    NONE = ...
-    """Use the default behavior (i.e., use buffering to achieve optimal performance)"""
-
-    NO_BUFFERING = ...
-    """
-    Creates a partitioner that will take items from the source enumerable one at a time
-    and will not use intermediate storage that can be accessed more efficiently by multiple threads.
-    This option provides support for low latency (items will be processed as soon as they are available from
-    the source) and partial support for dependencies between items (a thread cannot deadlock waiting for an item
-    that it, itself, is responsible for processing).
-    """
-
-    def __int__(self) -> int:
         ...
 
 

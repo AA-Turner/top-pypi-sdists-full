@@ -19,97 +19,6 @@ QuantConnect_Data_Auxiliary_MapFileRow = typing.Any
 QuantConnect_Data_Auxiliary_FactorFile_T = typing.TypeVar("QuantConnect_Data_Auxiliary_FactorFile_T")
 
 
-class IFactorRow(metaclass=abc.ABCMeta):
-    """Factor row abstraction. IFactorProvider"""
-
-    @property
-    @abc.abstractmethod
-    def date(self) -> datetime.datetime:
-        """Gets the date associated with this data"""
-        ...
-
-    def get_file_format(self, source: str = None) -> str:
-        """Writes factor file row into it's file format"""
-        ...
-
-
-class MappingContractFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFactorRow):
-    """Collection of factors for continuous contracts and their back months contracts for a specific mapping mode DataMappingMode and date"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Gets the date associated with this data"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def backwards_ratio_scale(self) -> typing.Sequence[float]:
-        """
-        Backwards ratio price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
-        DataNormalizationMode.BackwardsRatio
-        """
-        ...
-
-    @backwards_ratio_scale.setter
-    def backwards_ratio_scale(self, value: typing.Sequence[float]) -> None:
-        ...
-
-    @property
-    def backwards_panama_canal_scale(self) -> typing.Sequence[float]:
-        """
-        Backwards Panama Canal price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
-        DataNormalizationMode.BackwardsPanamaCanal
-        """
-        ...
-
-    @backwards_panama_canal_scale.setter
-    def backwards_panama_canal_scale(self, value: typing.Sequence[float]) -> None:
-        ...
-
-    @property
-    def forward_panama_canal_scale(self) -> typing.Sequence[float]:
-        """
-        Forward Panama Canal price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
-        DataNormalizationMode.ForwardPanamaCanal
-        """
-        ...
-
-    @forward_panama_canal_scale.setter
-    def forward_panama_canal_scale(self, value: typing.Sequence[float]) -> None:
-        ...
-
-    @property
-    def data_mapping_mode(self) -> typing.Optional[QuantConnect.DataMappingMode]:
-        """Allows the consumer to specify a desired mapping mode"""
-        ...
-
-    @data_mapping_mode.setter
-    def data_mapping_mode(self, value: typing.Optional[QuantConnect.DataMappingMode]) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Empty constructor for json converter"""
-        ...
-
-    def get_file_format(self, source: str = None) -> str:
-        """Writes factor file row into it's file format"""
-        ...
-
-    @staticmethod
-    def parse(lines: typing.List[str], factor_file_minimum_date: typing.Optional[typing.Optional[datetime.datetime]]) -> typing.Tuple[typing.List[QuantConnect.Data.Auxiliary.MappingContractFactorRow], typing.Optional[datetime.datetime]]:
-        """
-        Parses the lines as factor files rows while properly handling inf entries
-        
-        :param lines: The lines from the factor file to be parsed
-        :param factor_file_minimum_date: The minimum date from the factor file
-        :returns: An enumerable of factor file rows.
-        """
-        ...
-
-
 class MapFileRow(System.Object, System.IEquatable[QuantConnect_Data_Auxiliary_MapFileRow]):
     """Represents a single row in a map_file. This is a csv file ordered as {date, mapped symbol}"""
 
@@ -311,492 +220,6 @@ class MapFileZipHelper(System.Object):
         ...
 
 
-class IFactorProvider(typing.Iterable[QuantConnect.Data.Auxiliary.IFactorRow], metaclass=abc.ABCMeta):
-    """Providers price scaling factors for a permanent tick"""
-
-    @property
-    @abc.abstractmethod
-    def permtick(self) -> str:
-        """Gets the symbol this factor file represents"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def factor_file_minimum_date(self) -> typing.Optional[datetime.datetime]:
-        """The minimum tradeable date for the symbol"""
-        ...
-
-    @factor_file_minimum_date.setter
-    def factor_file_minimum_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
-        """Gets the price factor for the specified search date"""
-        ...
-
-
-class PriceScalingExtensions(System.Object):
-    """Set of helper methods for factor files and price scaling operations"""
-
-    @staticmethod
-    def get_empty_factor_file(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """Helper method to return an empty factor file"""
-        ...
-
-    @staticmethod
-    def get_factor_file_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
-        """Determines the symbol to use to fetch it's factor file"""
-        ...
-
-    @staticmethod
-    def get_price_scale(factor_file: QuantConnect.Data.Auxiliary.IFactorProvider, date_time: typing.Union[datetime.datetime, datetime.date], normalization_mode: QuantConnect.DataNormalizationMode, contract_offset: int = 0, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, end_date_time: typing.Optional[datetime.datetime] = None) -> float:
-        """
-        Resolves the price scale for a date given a factor file and required settings
-        
-        :param factor_file: The factor file to use
-        :param date_time: The date for the price scale lookup
-        :param normalization_mode: The price normalization mode requested
-        :param contract_offset: The contract offset, useful for continuous contracts
-        :param data_mapping_mode: The data mapping mode used, useful for continuous contracts
-        :param end_date_time: The reference end date for scaling prices.
-        :returns: The price scale to use.
-        """
-        ...
-
-    @staticmethod
-    def safe_read(permtick: str, contents: typing.List[str], security_type: QuantConnect.SecurityType) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """Parses the contents as a FactorFile, if error returns a new empty factor file"""
-        ...
-
-
-class MapFileResolver(System.Object, typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]):
-    """
-    Provides a means of mapping a symbol at a point in time to the map file
-    containing that share class's mapping information
-    """
-
-    EMPTY: QuantConnect.Data.Auxiliary.MapFileResolver = ...
-    """
-    Gets an empty MapFileResolver, that is an instance that contains
-    zero mappings
-    """
-
-    def __init__(self, map_files: typing.List[QuantConnect.Data.Auxiliary.MapFile]) -> None:
-        """
-        Initializes a new instance of the MapFileResolver by reading
-        in all files in the specified directory.
-        
-        :param map_files: The data used to initialize this resolver.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect.Data.Auxiliary.MapFile]:
-        ...
-
-    def get_by_permtick(self, permtick: str) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Gets the map file matching the specified permtick
-        
-        :param permtick: The permtick to match on
-        :returns: The map file matching the permtick, or null if not found.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.Auxiliary.MapFile]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
-        """
-        ...
-
-    def resolve_map_file(self, symbol: str, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Resolves the map file path containing the mapping information for the symbol defined at
-        
-        :param symbol: The symbol as of  to be mapped
-        :param date: The date associated with the
-        :returns: The map file responsible for mapping the symbol, if no map file is found, null is returned.
-        """
-        ...
-
-
-class TickerDateRange:
-    """Represents stock data for a specific ticker within a date range."""
-
-    @property
-    def ticker(self) -> str:
-        """Ticker simple name of stock"""
-        ...
-
-    @property
-    def start_date_time_local(self) -> datetime.datetime:
-        """Ticker Start Date Time in Local"""
-        ...
-
-    @property
-    def end_date_time_local(self) -> datetime.datetime:
-        """Ticker End Date Time in Local"""
-        ...
-
-    def __init__(self, ticker: str, start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Create the instance of TickerDateRange struct.
-        
-        :param ticker: Name of ticker
-        :param start_date_time_local: Start Date Time Local
-        :param end_date_time_local: End Date Time Local
-        """
-        ...
-
-
-class SymbolDateRange:
-    """Represents security identifier within a date range."""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Represents a unique security identifier."""
-        ...
-
-    @property
-    def start_date_time_local(self) -> datetime.datetime:
-        """Ticker Start Date Time in Local"""
-        ...
-
-    @property
-    def end_date_time_local(self) -> datetime.datetime:
-        """Ticker End Date Time in Local"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Create the instance of SymbolDateRange struct.
-        
-        :param symbol: The unique security identifier
-        :param start_date_time_local: Start Date Time Local
-        :param end_date_time_local: End Date Time Local
-        """
-        ...
-
-
-class MappingExtensions(System.Object):
-    """Mapping extensions helper methods"""
-
-    @staticmethod
-    @overload
-    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Helper method to resolve the mapping file to use.
-        
-        :param map_file_provider: The map file provider
-        :param data_config: The configuration to fetch the map file for
-        :returns: The mapping file to use.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def resolve_map_file(map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data_type: str = None) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Helper method to resolve the mapping file to use.
-        
-        :param map_file_resolver: The map file resolver
-        :param symbol: The symbol that we want to map
-        :param data_type: The string data type name if any
-        :returns: The mapping file to use.
-        """
-        ...
-
-    @staticmethod
-    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Iterable[QuantConnect.Data.Auxiliary.SymbolDateRange]:
-        """
-        Retrieves all Symbol from map files based on specific Symbol.
-        
-        :param map_file_provider: The provider for map files containing ticker data.
-        :param symbol: The symbol to get MapFileResolver and generate new Symbol.
-        :returns: An enumerable collection of SymbolDateRange.
-        """
-        ...
-
-    @staticmethod
-    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.Auxiliary.TickerDateRange]:
-        """
-        Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
-        
-        :param map_file_provider: Provides instances of MapFileResolver at run time
-        :param symbol: Represents a unique security identifier
-        :param start_date_time: The date since we began our search for the historical name of the symbol.
-        :param end_date_time: The end date and time of the historical data range.
-        :returns: An enumerable collection of tuples containing symbol ticker, start date and time, and end date and time representing the historical definitions of the symbol within the specified time range.
-        """
-        ...
-
-
-class AuxiliaryDataKey(System.Object):
-    """Unique definition key for a collection of auxiliary data for a Market and SecurityType"""
-
-    EQUITY_USA: QuantConnect.Data.Auxiliary.AuxiliaryDataKey
-    """USA equities market corporate actions key definition"""
-
-    @property
-    def market(self) -> str:
-        """The market associated with these corporate actions"""
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """The associated security type"""
-        ...
-
-    def __init__(self, market: str, security_type: QuantConnect.SecurityType) -> None:
-        """Creates a new instance"""
-        ...
-
-    @staticmethod
-    @overload
-    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
-        """Helper method to create a new instance from a Symbol"""
-        ...
-
-    @staticmethod
-    @overload
-    def create(security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
-        """Helper method to create a new instance from a SecurityIdentifier"""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified System.Object is equal to the current System.Object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """Serves as a hash function for a particular type."""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string containing the market and security type"""
-        ...
-
-
-class CorporateFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFactorRow):
-    """Defines a single row in a factor_factor file. This is a csv file ordered as {date, price factor, split factor, reference price}"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Gets the date associated with this data"""
-        ...
-
-    @property
-    def price_factor(self) -> float:
-        """Gets the price factor associated with this data"""
-        ...
-
-    @price_factor.setter
-    def price_factor(self, value: float) -> None:
-        ...
-
-    @property
-    def split_factor(self) -> float:
-        """Gets the split factor associated with the date"""
-        ...
-
-    @split_factor.setter
-    def split_factor(self, value: float) -> None:
-        ...
-
-    @property
-    def price_scale_factor(self) -> float:
-        """Gets the combined factor used to create adjusted prices from raw prices"""
-        ...
-
-    @property
-    def reference_price(self) -> float:
-        """Gets the raw closing value from the trading date before the updated factor takes effect"""
-        ...
-
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], price_factor: float, split_factor: float, reference_price: float = 0) -> None:
-        """Initializes a new instance of the CorporateFactorRow class"""
-        ...
-
-    @overload
-    def apply(self, dividend: QuantConnect.Data.Market.Dividend, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
-        """
-        Applies the dividend to this factor file row.
-        This dividend date must be on or before the factor
-        file row date
-        
-        :param dividend: The dividend to apply with reference price and distribution specified
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :returns: A new factor file row that applies the dividend to this row's factors.
-        """
-        ...
-
-    @overload
-    def apply(self, split: QuantConnect.Data.Market.Split, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
-        """
-        Applies the split to this factor file row.
-        This split date must be on or before the factor
-        file row date
-        
-        :param split: The split to apply with reference price and split factor specified
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :returns: A new factor file row that applies the split to this row's factors.
-        """
-        ...
-
-    def get_dividend(self, next_corporate_factor_row: QuantConnect.Data.Auxiliary.CorporateFactorRow, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> QuantConnect.Data.Market.Dividend:
-        """
-        Creates a new dividend from this factor file row and the one chronologically in front of it
-        This dividend may have a distribution of zero if this row doesn't represent a dividend
-        
-        :param next_corporate_factor_row: The next factor file row in time
-        :param symbol: The symbol to use for the dividend
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
-        :returns: A new dividend instance.
-        """
-        ...
-
-    def get_file_format(self, source: str = None) -> str:
-        """Writes factor file row into it's file format"""
-        ...
-
-    def get_split(self, next_corporate_factor_row: QuantConnect.Data.Auxiliary.CorporateFactorRow, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Market.Split:
-        """
-        Creates a new split from this factor file row and the one chronologically in front of it
-        This split may have a split factor of one if this row doesn't represent a split
-        
-        :param next_corporate_factor_row: The next factor file row in time
-        :param symbol: The symbol to use for the split
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :returns: A new split instance.
-        """
-        ...
-
-    @staticmethod
-    def parse(lines: typing.List[str], factor_file_minimum_date: typing.Optional[typing.Optional[datetime.datetime]]) -> typing.Tuple[typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], typing.Optional[datetime.datetime]]:
-        """
-        Parses the lines as factor files rows while properly handling inf entries
-        
-        :param lines: The lines from the factor file to be parsed
-        :param factor_file_minimum_date: The minimum date from the factor file
-        :returns: An enumerable of factor file rows.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class CorporateFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.CorporateFactorRow]):
-    """Corporate related factor provider. Factors based on splits and dividends"""
-
-    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
-        """Creates a new instance"""
-        ...
-
-    def apply(self, data: typing.List[QuantConnect.Data.BaseData], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
-        """
-        Creates a new factor file with the specified data applied.
-        Only Dividend and Split data types
-        will be used.
-        
-        :param data: The data to apply
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :returns: A new factor file that incorporates the specified dividend.
-        """
-        ...
-
-    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
-        """Gets the price scale factor that includes dividend and split adjustments for the specified search date"""
-        ...
-
-    def get_scaling_factors(self, search_date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
-        """Gets price and split factors to be applied at the specified date"""
-        ...
-
-    def get_splits_and_dividends(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> typing.List[QuantConnect.Data.BaseData]:
-        """
-        Gets all of the splits and dividends represented by this factor file
-        
-        :param symbol: The symbol to ues for the dividend and split objects
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
-        :returns: All splits and dividends represented by this factor file in chronological order.
-        """
-        ...
-
-    def has_dividend_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], price_factor_ratio: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
-        """
-        Returns true if the specified date is the last trading day before a dividend event
-        is to be fired
-        
-        :param date: The date to check the factor file for a dividend event
-        :param price_factor_ratio: When this function returns true, this value will be populated with the price factor ratio required to scale the closing value (pf_i/pf_i+1)
-        :param reference_price: When this function returns true, this value will be populated with the reference raw price, which is the close of the provided date
-        """
-        ...
-
-    def has_split_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], split_factor: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
-        """
-        Returns true if the specified date is the last trading day before a split event
-        is to be fired
-        
-        :param date: The date to check the factor file for a split event
-        :param split_factor: When this function returns true, this value will be populated with the split factor ratio required to scale the closing value
-        :param reference_price: When this function returns true, this value will be populated with the reference raw price, which is the close of the provided date
-        """
-        ...
-
-
-class MappingContractFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.MappingContractFactorRow]):
-    """Mapping related factor provider. Factors based on price differences on mapping dates"""
-
-    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.MappingContractFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
-        """Creates a new instance"""
-        ...
-
-    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
-        """Gets the price scale factor for the specified search date"""
-        ...
-
-
-class LocalDiskFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
-    """Provides an implementation of IFactorFileProvider that searches the local disk"""
-
-    def __init__(self) -> None:
-        """Creates a new instance of the LocalDiskFactorFileProvider"""
-        ...
-
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """
-        Gets a FactorFile{T} instance for the specified symbol, or null if not found
-        
-        :param symbol: The security's symbol whose factor file we seek
-        :returns: The resolved factor file, or null if not found.
-        """
-        ...
-
-    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
-        """
-        Initializes our FactorFileProvider by supplying our map_file_provider
-        and data_provider
-        
-        :param map_file_provider: MapFileProvider to use
-        :param data_provider: DataProvider to use
-        """
-        ...
-
-
 class QuoteConditionFlags(Enum):
     """Flag system for quote conditions"""
 
@@ -922,6 +345,448 @@ class QuoteConditionFlags(Enum):
         ...
 
 
+class IFactorRow(metaclass=abc.ABCMeta):
+    """Factor row abstraction. IFactorProvider"""
+
+    @property
+    @abc.abstractmethod
+    def date(self) -> datetime.datetime:
+        """Gets the date associated with this data"""
+        ...
+
+    def get_file_format(self, source: str = None) -> str:
+        """Writes factor file row into it's file format"""
+        ...
+
+
+class IFactorProvider(typing.Iterable[QuantConnect.Data.Auxiliary.IFactorRow], metaclass=abc.ABCMeta):
+    """Providers price scaling factors for a permanent tick"""
+
+    @property
+    @abc.abstractmethod
+    def permtick(self) -> str:
+        """Gets the symbol this factor file represents"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def factor_file_minimum_date(self) -> typing.Optional[datetime.datetime]:
+        """The minimum tradeable date for the symbol"""
+        ...
+
+    @factor_file_minimum_date.setter
+    def factor_file_minimum_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
+        """Gets the price factor for the specified search date"""
+        ...
+
+
+class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
+    """Provides an implementation of IFactorFileProvider that searches the local disk for a zip file containing all factor files"""
+
+    @property
+    def cache_refresh_period(self) -> datetime.timedelta:
+        """
+        The cached refresh period for the factor files
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance of the LocalZipFactorFileProvider class."""
+        ...
+
+    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """
+        Gets a FactorFile{T} instance for the specified symbol, or null if not found
+        
+        :param symbol: The security's symbol whose factor file we seek
+        :returns: The resolved factor file, or null if not found.
+        """
+        ...
+
+    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our FactorFileProvider by supplying our map_file_provider
+        and data_provider
+        
+        :param map_file_provider: MapFileProvider to use
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+    def start_expiration_task(self) -> None:
+        """
+        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
+        
+        This method is protected.
+        """
+        ...
+
+
+class MapFileResolver(System.Object, typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]):
+    """
+    Provides a means of mapping a symbol at a point in time to the map file
+    containing that share class's mapping information
+    """
+
+    EMPTY: QuantConnect.Data.Auxiliary.MapFileResolver = ...
+    """
+    Gets an empty MapFileResolver, that is an instance that contains
+    zero mappings
+    """
+
+    def __init__(self, map_files: typing.List[QuantConnect.Data.Auxiliary.MapFile]) -> None:
+        """
+        Initializes a new instance of the MapFileResolver by reading
+        in all files in the specified directory.
+        
+        :param map_files: The data used to initialize this resolver.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect.Data.Auxiliary.MapFile]:
+        ...
+
+    def get_by_permtick(self, permtick: str) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Gets the map file matching the specified permtick
+        
+        :param permtick: The permtick to match on
+        :returns: The map file matching the permtick, or null if not found.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.Auxiliary.MapFile]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+    def resolve_map_file(self, symbol: str, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Resolves the map file path containing the mapping information for the symbol defined at
+        
+        :param symbol: The symbol as of  to be mapped
+        :param date: The date associated with the
+        :returns: The map file responsible for mapping the symbol, if no map file is found, null is returned.
+        """
+        ...
+
+
+class FactorFileZipHelper(System.Object):
+    """Provides methods for reading factor file zips"""
+
+    @staticmethod
+    def get_factor_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
+        """Gets the factor file zip filename for the specified date"""
+        ...
+
+    @staticmethod
+    def get_relative_factor_file_path(market: str, security_type: QuantConnect.SecurityType) -> str:
+        """
+        Constructs the factor file path for the specified market and security type
+        
+        :param market: The market this symbol belongs to
+        :param security_type: The security type
+        :returns: The relative file path.
+        """
+        ...
+
+    @staticmethod
+    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
+        """Reads the zip bytes as text and parses as FactorFileRows to create FactorFiles"""
+        ...
+
+
+class CorporateFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFactorRow):
+    """Defines a single row in a factor_factor file. This is a csv file ordered as {date, price factor, split factor, reference price}"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Gets the date associated with this data"""
+        ...
+
+    @property
+    def price_factor(self) -> float:
+        """Gets the price factor associated with this data"""
+        ...
+
+    @price_factor.setter
+    def price_factor(self, value: float) -> None:
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Gets the split factor associated with the date"""
+        ...
+
+    @split_factor.setter
+    def split_factor(self, value: float) -> None:
+        ...
+
+    @property
+    def price_scale_factor(self) -> float:
+        """Gets the combined factor used to create adjusted prices from raw prices"""
+        ...
+
+    @property
+    def reference_price(self) -> float:
+        """Gets the raw closing value from the trading date before the updated factor takes effect"""
+        ...
+
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], price_factor: float, split_factor: float, reference_price: float = 0) -> None:
+        """Initializes a new instance of the CorporateFactorRow class"""
+        ...
+
+    @overload
+    def apply(self, dividend: QuantConnect.Data.Market.Dividend, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
+        """
+        Applies the dividend to this factor file row.
+        This dividend date must be on or before the factor
+        file row date
+        
+        :param dividend: The dividend to apply with reference price and distribution specified
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :returns: A new factor file row that applies the dividend to this row's factors.
+        """
+        ...
+
+    @overload
+    def apply(self, split: QuantConnect.Data.Market.Split, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
+        """
+        Applies the split to this factor file row.
+        This split date must be on or before the factor
+        file row date
+        
+        :param split: The split to apply with reference price and split factor specified
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :returns: A new factor file row that applies the split to this row's factors.
+        """
+        ...
+
+    def get_dividend(self, next_corporate_factor_row: QuantConnect.Data.Auxiliary.CorporateFactorRow, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> QuantConnect.Data.Market.Dividend:
+        """
+        Creates a new dividend from this factor file row and the one chronologically in front of it
+        This dividend may have a distribution of zero if this row doesn't represent a dividend
+        
+        :param next_corporate_factor_row: The next factor file row in time
+        :param symbol: The symbol to use for the dividend
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
+        :returns: A new dividend instance.
+        """
+        ...
+
+    def get_file_format(self, source: str = None) -> str:
+        """Writes factor file row into it's file format"""
+        ...
+
+    def get_split(self, next_corporate_factor_row: QuantConnect.Data.Auxiliary.CorporateFactorRow, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Market.Split:
+        """
+        Creates a new split from this factor file row and the one chronologically in front of it
+        This split may have a split factor of one if this row doesn't represent a split
+        
+        :param next_corporate_factor_row: The next factor file row in time
+        :param symbol: The symbol to use for the split
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :returns: A new split instance.
+        """
+        ...
+
+    @staticmethod
+    def parse(lines: typing.List[str], factor_file_minimum_date: typing.Optional[typing.Optional[datetime.datetime]]) -> typing.Tuple[typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], typing.Optional[datetime.datetime]]:
+        """
+        Parses the lines as factor files rows while properly handling inf entries
+        
+        :param lines: The lines from the factor file to be parsed
+        :param factor_file_minimum_date: The minimum date from the factor file
+        :returns: An enumerable of factor file rows.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class MappingContractFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFactorRow):
+    """Collection of factors for continuous contracts and their back months contracts for a specific mapping mode DataMappingMode and date"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Gets the date associated with this data"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def backwards_ratio_scale(self) -> typing.Sequence[float]:
+        """
+        Backwards ratio price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
+        DataNormalizationMode.BackwardsRatio
+        """
+        ...
+
+    @backwards_ratio_scale.setter
+    def backwards_ratio_scale(self, value: typing.Sequence[float]) -> None:
+        ...
+
+    @property
+    def backwards_panama_canal_scale(self) -> typing.Sequence[float]:
+        """
+        Backwards Panama Canal price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
+        DataNormalizationMode.BackwardsPanamaCanal
+        """
+        ...
+
+    @backwards_panama_canal_scale.setter
+    def backwards_panama_canal_scale(self, value: typing.Sequence[float]) -> None:
+        ...
+
+    @property
+    def forward_panama_canal_scale(self) -> typing.Sequence[float]:
+        """
+        Forward Panama Canal price scaling factors for the front month [index 0] and it's 'i' back months [index 0 + i]
+        DataNormalizationMode.ForwardPanamaCanal
+        """
+        ...
+
+    @forward_panama_canal_scale.setter
+    def forward_panama_canal_scale(self, value: typing.Sequence[float]) -> None:
+        ...
+
+    @property
+    def data_mapping_mode(self) -> typing.Optional[QuantConnect.DataMappingMode]:
+        """Allows the consumer to specify a desired mapping mode"""
+        ...
+
+    @data_mapping_mode.setter
+    def data_mapping_mode(self, value: typing.Optional[QuantConnect.DataMappingMode]) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Empty constructor for json converter"""
+        ...
+
+    def get_file_format(self, source: str = None) -> str:
+        """Writes factor file row into it's file format"""
+        ...
+
+    @staticmethod
+    def parse(lines: typing.List[str], factor_file_minimum_date: typing.Optional[typing.Optional[datetime.datetime]]) -> typing.Tuple[typing.List[QuantConnect.Data.Auxiliary.MappingContractFactorRow], typing.Optional[datetime.datetime]]:
+        """
+        Parses the lines as factor files rows while properly handling inf entries
+        
+        :param lines: The lines from the factor file to be parsed
+        :param factor_file_minimum_date: The minimum date from the factor file
+        :returns: An enumerable of factor file rows.
+        """
+        ...
+
+
+class MappingContractFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.MappingContractFactorRow]):
+    """Mapping related factor provider. Factors based on price differences on mapping dates"""
+
+    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.MappingContractFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
+        """Creates a new instance"""
+        ...
+
+    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
+        """Gets the price scale factor for the specified search date"""
+        ...
+
+
+class AuxiliaryDataKey(System.Object):
+    """Unique definition key for a collection of auxiliary data for a Market and SecurityType"""
+
+    EQUITY_USA: QuantConnect.Data.Auxiliary.AuxiliaryDataKey
+    """USA equities market corporate actions key definition"""
+
+    @property
+    def market(self) -> str:
+        """The market associated with these corporate actions"""
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """The associated security type"""
+        ...
+
+    def __init__(self, market: str, security_type: QuantConnect.SecurityType) -> None:
+        """Creates a new instance"""
+        ...
+
+    @staticmethod
+    @overload
+    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
+        """Helper method to create a new instance from a Symbol"""
+        ...
+
+    @staticmethod
+    @overload
+    def create(security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
+        """Helper method to create a new instance from a SecurityIdentifier"""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """Serves as a hash function for a particular type."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string containing the market and security type"""
+        ...
+
+
+class LocalDiskMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):
+    """
+    Provides a default implementation of IMapFileProvider that reads from
+    the local disk
+    """
+
+    def __init__(self) -> None:
+        """Creates a new instance of the LocalDiskFactorFileProvider"""
+        ...
+
+    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
+        """
+        Gets a MapFileResolver representing all the map
+        files for the specified market
+        
+        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
+        :returns: A MapFileRow containing all map files for the specified market.
+        """
+        ...
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our MapFileProvider by supplying our data_provider
+        
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+
 class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):
     """Provides an implementation of IMapFileProvider that reads from a local zip file"""
 
@@ -964,23 +829,87 @@ class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFilePro
         ...
 
 
-class MapFilePrimaryExchangeProvider(System.Object, QuantConnect.Interfaces.IPrimaryExchangeProvider):
-    """Implementation of IPrimaryExchangeProvider from map files."""
+class LocalDiskFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
+    """Provides an implementation of IFactorFileProvider that searches the local disk"""
 
-    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
+    def __init__(self) -> None:
+        """Creates a new instance of the LocalDiskFactorFileProvider"""
+        ...
+
+    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
         """
-        Constructor for Primary Exchange Provider from MapFiles
+        Gets a FactorFile{T} instance for the specified symbol, or null if not found
         
-        :param map_file_provider: MapFile to use
+        :param symbol: The security's symbol whose factor file we seek
+        :returns: The resolved factor file, or null if not found.
         """
         ...
 
-    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
+    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
         """
-        Gets the primary exchange for a given security identifier
+        Initializes our FactorFileProvider by supplying our map_file_provider
+        and data_provider
         
-        :param security_identifier: The security identifier to get the primary exchange for
-        :returns: Returns the primary exchange or null if not found.
+        :param map_file_provider: MapFileProvider to use
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+
+class TickerDateRange:
+    """Represents stock data for a specific ticker within a date range."""
+
+    @property
+    def ticker(self) -> str:
+        """Ticker simple name of stock"""
+        ...
+
+    @property
+    def start_date_time_local(self) -> datetime.datetime:
+        """Ticker Start Date Time in Local"""
+        ...
+
+    @property
+    def end_date_time_local(self) -> datetime.datetime:
+        """Ticker End Date Time in Local"""
+        ...
+
+    def __init__(self, ticker: str, start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Create the instance of TickerDateRange struct.
+        
+        :param ticker: Name of ticker
+        :param start_date_time_local: Start Date Time Local
+        :param end_date_time_local: End Date Time Local
+        """
+        ...
+
+
+class SymbolDateRange:
+    """Represents security identifier within a date range."""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Represents a unique security identifier."""
+        ...
+
+    @property
+    def start_date_time_local(self) -> datetime.datetime:
+        """Ticker Start Date Time in Local"""
+        ...
+
+    @property
+    def end_date_time_local(self) -> datetime.datetime:
+        """Ticker End Date Time in Local"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Create the instance of SymbolDateRange struct.
+        
+        :param symbol: The unique security identifier
+        :param start_date_time_local: Start Date Time Local
+        :param end_date_time_local: End Date Time Local
         """
         ...
 
@@ -1129,100 +1058,150 @@ class TradeConditionFlags(Enum):
         ...
 
 
-class FactorFileZipHelper(System.Object):
-    """Provides methods for reading factor file zips"""
+class MappingExtensions(System.Object):
+    """Mapping extensions helper methods"""
 
     @staticmethod
-    def get_factor_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
-        """Gets the factor file zip filename for the specified date"""
-        ...
-
-    @staticmethod
-    def get_relative_factor_file_path(market: str, security_type: QuantConnect.SecurityType) -> str:
+    @overload
+    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
         """
-        Constructs the factor file path for the specified market and security type
+        Helper method to resolve the mapping file to use.
         
-        :param market: The market this symbol belongs to
-        :param security_type: The security type
-        :returns: The relative file path.
+        :param map_file_provider: The map file provider
+        :param data_config: The configuration to fetch the map file for
+        :returns: The mapping file to use.
         """
         ...
 
     @staticmethod
-    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
-        """Reads the zip bytes as text and parses as FactorFileRows to create FactorFiles"""
-        ...
-
-
-class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
-    """Provides an implementation of IFactorFileProvider that searches the local disk for a zip file containing all factor files"""
-
-    @property
-    def cache_refresh_period(self) -> datetime.timedelta:
+    @overload
+    def resolve_map_file(map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data_type: str = None) -> QuantConnect.Data.Auxiliary.MapFile:
         """
-        The cached refresh period for the factor files
+        Helper method to resolve the mapping file to use.
         
-        This property is protected.
+        :param map_file_resolver: The map file resolver
+        :param symbol: The symbol that we want to map
+        :param data_type: The string data type name if any
+        :returns: The mapping file to use.
         """
         ...
 
-    def __init__(self) -> None:
-        """Creates a new instance of the LocalZipFactorFileProvider class."""
-        ...
-
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+    @staticmethod
+    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Iterable[QuantConnect.Data.Auxiliary.SymbolDateRange]:
         """
-        Gets a FactorFile{T} instance for the specified symbol, or null if not found
+        Retrieves all Symbol from map files based on specific Symbol.
         
-        :param symbol: The security's symbol whose factor file we seek
-        :returns: The resolved factor file, or null if not found.
+        :param map_file_provider: The provider for map files containing ticker data.
+        :param symbol: The symbol to get MapFileResolver and generate new Symbol.
+        :returns: An enumerable collection of SymbolDateRange.
         """
         ...
 
-    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+    @staticmethod
+    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.Auxiliary.TickerDateRange]:
         """
-        Initializes our FactorFileProvider by supplying our map_file_provider
-        and data_provider
+        Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
         
-        :param map_file_provider: MapFileProvider to use
-        :param data_provider: DataProvider to use
+        :param map_file_provider: Provides instances of MapFileResolver at run time
+        :param symbol: Represents a unique security identifier
+        :param start_date_time: The date since we began our search for the historical name of the symbol.
+        :param end_date_time: The end date and time of the historical data range.
+        :returns: An enumerable collection of tuples containing symbol ticker, start date and time, and end date and time representing the historical definitions of the symbol within the specified time range.
         """
         ...
 
-    def start_expiration_task(self) -> None:
+
+class PriceScalingExtensions(System.Object):
+    """Set of helper methods for factor files and price scaling operations"""
+
+    @staticmethod
+    def get_empty_factor_file(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """Helper method to return an empty factor file"""
+        ...
+
+    @staticmethod
+    def get_factor_file_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
+        """Determines the symbol to use to fetch it's factor file"""
+        ...
+
+    @staticmethod
+    def get_price_scale(factor_file: QuantConnect.Data.Auxiliary.IFactorProvider, date_time: typing.Union[datetime.datetime, datetime.date], normalization_mode: QuantConnect.DataNormalizationMode, contract_offset: int = 0, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, end_date_time: typing.Optional[datetime.datetime] = None) -> float:
         """
-        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
+        Resolves the price scale for a date given a factor file and required settings
         
-        This method is protected.
+        :param factor_file: The factor file to use
+        :param date_time: The date for the price scale lookup
+        :param normalization_mode: The price normalization mode requested
+        :param contract_offset: The contract offset, useful for continuous contracts
+        :param data_mapping_mode: The data mapping mode used, useful for continuous contracts
+        :param end_date_time: The reference end date for scaling prices.
+        :returns: The price scale to use.
         """
         ...
 
-
-class LocalDiskMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):
-    """
-    Provides a default implementation of IMapFileProvider that reads from
-    the local disk
-    """
-
-    def __init__(self) -> None:
-        """Creates a new instance of the LocalDiskFactorFileProvider"""
+    @staticmethod
+    def safe_read(permtick: str, contents: typing.List[str], security_type: QuantConnect.SecurityType) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """Parses the contents as a FactorFile, if error returns a new empty factor file"""
         ...
 
-    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
+
+class CorporateFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.CorporateFactorRow]):
+    """Corporate related factor provider. Factors based on splits and dividends"""
+
+    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
+        """Creates a new instance"""
+        ...
+
+    def apply(self, data: typing.List[QuantConnect.Data.BaseData], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
         """
-        Gets a MapFileResolver representing all the map
-        files for the specified market
+        Creates a new factor file with the specified data applied.
+        Only Dividend and Split data types
+        will be used.
         
-        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
-        :returns: A MapFileRow containing all map files for the specified market.
+        :param data: The data to apply
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :returns: A new factor file that incorporates the specified dividend.
         """
         ...
 
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
+        """Gets the price scale factor that includes dividend and split adjustments for the specified search date"""
+        ...
+
+    def get_scaling_factors(self, search_date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
+        """Gets price and split factors to be applied at the specified date"""
+        ...
+
+    def get_splits_and_dividends(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> typing.List[QuantConnect.Data.BaseData]:
         """
-        Initializes our MapFileProvider by supplying our data_provider
+        Gets all of the splits and dividends represented by this factor file
         
-        :param data_provider: DataProvider to use
+        :param symbol: The symbol to ues for the dividend and split objects
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
+        :returns: All splits and dividends represented by this factor file in chronological order.
+        """
+        ...
+
+    def has_dividend_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], price_factor_ratio: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
+        """
+        Returns true if the specified date is the last trading day before a dividend event
+        is to be fired
+        
+        :param date: The date to check the factor file for a dividend event
+        :param price_factor_ratio: When this function returns true, this value will be populated with the price factor ratio required to scale the closing value (pf_i/pf_i+1)
+        :param reference_price: When this function returns true, this value will be populated with the reference raw price, which is the close of the provided date
+        """
+        ...
+
+    def has_split_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], split_factor: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
+        """
+        Returns true if the specified date is the last trading day before a split event
+        is to be fired
+        
+        :param date: The date to check the factor file for a split event
+        :param split_factor: When this function returns true, this value will be populated with the split factor ratio required to scale the closing value
+        :param reference_price: When this function returns true, this value will be populated with the reference raw price, which is the close of the provided date
         """
         ...
 
@@ -1303,6 +1282,27 @@ class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], Syste
         Write the factor file to the correct place in the default Data folder
         
         :param symbol: The symbol this factor file represents
+        """
+        ...
+
+
+class MapFilePrimaryExchangeProvider(System.Object, QuantConnect.Interfaces.IPrimaryExchangeProvider):
+    """Implementation of IPrimaryExchangeProvider from map files."""
+
+    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
+        """
+        Constructor for Primary Exchange Provider from MapFiles
+        
+        :param map_file_provider: MapFile to use
+        """
+        ...
+
+    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
+        """
+        Gets the primary exchange for a given security identifier
+        
+        :param security_identifier: The security identifier to get the primary exchange for
+        :returns: Returns the primary exchange or null if not found.
         """
         ...
 

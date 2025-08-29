@@ -21,17 +21,20 @@ from urllib.parse import ParseResult, quote_plus, urlparse
 
 import lxml.etree as ET
 from strong_typing.core import JsonType
+from strong_typing.exception import JsonTypeError
 
 from . import drawio, mermaid
 from .collection import ConfluencePageCollection
 from .csf import AC_ATTR, AC_ELEM, HTML, RI_ATTR, RI_ELEM, ParseError, elements_from_strings, elements_to_string, normalize_inline
 from .domain import ConfluenceDocumentOptions, ConfluencePageID
+from .emoticon import emoji_to_emoticon
+from .environment import PageError
 from .extra import override, path_relative_to
 from .latex import get_png_dimensions, remove_png_chunks, render_latex
 from .markdown import markdown_to_html
+from .mermaid import MermaidConfigProperties
 from .metadata import ConfluenceSiteMetadata
-from .properties import PageError
-from .scanner import ScannedDocument, Scanner
+from .scanner import MermaidScanner, ScannedDocument, Scanner
 from .toc import TableOfContentsBuilder
 from .uri import is_absolute_url, to_uuid_urn
 from .xml import element_to_text
@@ -425,11 +428,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         anchor.tail = heading.text
         heading.text = None
 
-    def _warn_or_raise(self, msg: str) -> None:
+    def _anchor_warn_or_raise(self, anchor: ET._Element, msg: str) -> None:
         "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
 
         if self.options.ignore_invalid_url:
             LOGGER.warning(msg)
+            if anchor.text:
+                anchor.text = "❌ " + anchor.text
+            elif len(anchor) > 0:
+                anchor.text = "❌ "
         else:
             raise DocumentError(msg)
 
@@ -478,7 +485,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         # look up the absolute path in the page metadata dictionary to discover the relative path within Confluence that should be used
         if not is_directory_within(absolute_path, self.root_dir):
-            self._warn_or_raise(f"relative URL {url} points to outside root path: {self.root_dir}")
+            self._anchor_warn_or_raise(anchor, f"relative URL {url} points to outside root path: {self.root_dir}")
             return None
 
         if absolute_path.suffix == ".md":
@@ -493,7 +500,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         link_metadata = self.page_metadata.get(absolute_path)
         if link_metadata is None:
-            self._warn_or_raise(f"unable to find matching page for URL: {relative_url.geturl()}")
+            self._anchor_warn_or_raise(anchor, f"unable to find matching page for URL: {relative_url.geturl()}")
             return None
 
         relative_path = os.path.relpath(absolute_path, self.base_dir)
@@ -529,7 +536,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         """
 
         if not absolute_path.exists():
-            self._warn_or_raise(f"relative URL points to non-existing file: {absolute_path}")
+            self._anchor_warn_or_raise(anchor, f"relative URL points to non-existing file: {absolute_path}")
             return None
 
         file_name = attachment_name(path_relative_to(absolute_path, self.base_dir))
@@ -603,7 +610,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             absolute_path = self._verify_image_path(path)
             if absolute_path is None:
-                return self._create_missing(path, attrs.caption)
+                return self._create_missing(path, attrs)
 
             if absolute_path.name.endswith(".drawio.png") or absolute_path.name.endswith(".drawio.svg"):
                 return self._transform_drawio_image(absolute_path, attrs)
@@ -629,6 +636,14 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             elements.append(AC_ELEM("caption", attrs.caption))
 
         return AC_ELEM("image", attrs.as_dict(), *elements)
+
+    def _warn_or_raise(self, msg: str) -> None:
+        "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
+
+        if self.options.ignore_invalid_url:
+            LOGGER.warning(msg)
+        else:
+            raise DocumentError(msg)
 
     def _verify_image_path(self, path: Path) -> Optional[Path]:
         "Checks whether an image path is safe to use."
@@ -749,30 +764,33 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             *parameters,
         )
 
-    def _create_missing(self, path: Path, caption: Optional[str]) -> ET._Element:
+    def _create_missing(self, path: Path, attrs: ImageAttributes) -> ET._Element:
         "A warning panel for a missing image."
 
-        message = HTML.p("Missing image: ", HTML.code(path.as_posix()))
-        if caption is not None:
-            content = [
-                AC_ELEM(
-                    "parameter",
-                    {AC_ATTR("name"): "title"},
-                    caption,
-                ),
-                AC_ELEM("rich-text-body", {}, message),
-            ]
-        else:
-            content = [AC_ELEM("rich-text-body", {}, message)]
+        if attrs.context is FormattingContext.BLOCK:
+            message = HTML.p("❌ Missing image: ", HTML.code(path.as_posix()))
+            if attrs.caption is not None:
+                content = [
+                    AC_ELEM(
+                        "parameter",
+                        {AC_ATTR("name"): "title"},
+                        attrs.caption,
+                    ),
+                    AC_ELEM("rich-text-body", {}, message),
+                ]
+            else:
+                content = [AC_ELEM("rich-text-body", {}, message)]
 
-        return AC_ELEM(
-            "structured-macro",
-            {
-                AC_ATTR("name"): "warning",
-                AC_ATTR("schema-version"): "1",
-            },
-            *content,
-        )
+            return AC_ELEM(
+                "structured-macro",
+                {
+                    AC_ATTR("name"): "warning",
+                    AC_ATTR("schema-version"): "1",
+                },
+                *content,
+            )
+        else:
+            return HTML.span({"style": "color: rgb(255,86,48);"}, "❌ ", HTML.code(path.as_posix()))
 
     def _transform_code_block(self, code: ET._Element) -> ET._Element:
         "Transforms a code block."
@@ -811,6 +829,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("plain-text-body", ET.CDATA(content)),
         )
 
+    def _extract_mermaid_config(self, content: str) -> Optional[MermaidConfigProperties]:
+        """Extract scale from Mermaid YAML front matter configuration."""
+        try:
+            properties = MermaidScanner().read(content)
+            return properties.config
+        except JsonTypeError as ex:
+            LOGGER.warning("Failed to extract Mermaid properties: %s", ex)
+            return None
+
     def _transform_external_mermaid(self, absolute_path: Path, attrs: ImageAttributes) -> ET._Element:
         "Emits Confluence Storage Format XHTML for a Mermaid diagram read from an external file."
 
@@ -821,7 +848,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         if self.options.render_mermaid:
             with open(absolute_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            image_data = mermaid.render_diagram(content, self.options.diagram_output_format)
+            config = self._extract_mermaid_config(content)
+            image_data = mermaid.render_diagram(content, self.options.diagram_output_format, config=config)
             image_filename = attachment_name(relative_path.with_suffix(f".{self.options.diagram_output_format}"))
             self.embedded_files[image_filename] = EmbeddedFileData(image_data, attrs.alt)
             return self._create_attached_image(image_filename, attrs)
@@ -834,7 +862,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         "Emits Confluence Storage Format XHTML for a Mermaid diagram defined in a fenced code block."
 
         if self.options.render_mermaid:
-            image_data = mermaid.render_diagram(content, self.options.diagram_output_format)
+            config = self._extract_mermaid_config(content)
+            image_data = mermaid.render_diagram(content, self.options.diagram_output_format, config=config)
             image_hash = hashlib.md5(image_data).hexdigest()
             image_filename = attachment_name(f"embedded_{image_hash}.{self.options.diagram_output_format}")
             self.embedded_files[image_filename] = EmbeddedFileData(image_data)
@@ -1057,7 +1086,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("rich-text-body", {}, *list(blockquote)),
         )
 
-    def _transform_section(self, details: ET._Element) -> ET._Element:
+    def _transform_collapsed(self, details: ET._Element) -> ET._Element:
         """
         Creates a collapsed section.
 
@@ -1115,11 +1144,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         unicode = elem.get("data-unicode", None)
         alt = elem.text or ""
 
+        # emoji with a matching emoticon:
         # <ac:emoticon ac:name="wink" ac:emoji-shortname=":wink:" ac:emoji-id="1f609" ac:emoji-fallback="&#128521;"/>
+        #
+        # emoji without a corresponding emoticon:
+        # <ac:emoticon ac:name="blue-star" ac:emoji-shortname=":shield:" ac:emoji-id="1f6e1" ac:emoji-fallback="&#128737;"/>
         return AC_ELEM(
             "emoticon",
             {
-                AC_ATTR("name"): shortname,
+                AC_ATTR("name"): emoji_to_emoticon(shortname),
                 AC_ATTR("emoji-shortname"): f":{shortname}:",
                 AC_ATTR("emoji-id"): unicode,
                 AC_ATTR("emoji-fallback"): alt,
@@ -1240,7 +1273,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         Transforms a footnote reference.
 
         ```
-        <sup id="fnref:NAME"><a class="footnote-ref" href="#fn:NAME">1</a></sup>
+        <sup id="fnref:NAME"><a class="footnote-ref" href="#fn:NAME">REF</a></sup>
         ```
         """
 
@@ -1498,7 +1531,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         # ...
         # </details>
         elif child.tag == "details" and len(child) > 1 and child[0].tag == "summary":
-            return self._transform_section(child)
+            return self._transform_collapsed(child)
 
         # <ol>...</ol>
         elif child.tag == "ol":
@@ -1526,6 +1559,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         # <table>...</table>
         elif child.tag == "table":
+            for td in child.iterdescendants("td", "th"):
+                normalize_inline(td)
             child.set("data-layout", "default")
             return None
 

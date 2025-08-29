@@ -8,40 +8,6 @@ import System.Runtime.Versioning
 System_Runtime_Versioning_FrameworkName = typing.Any
 
 
-class ComponentGuaranteesOptions(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    EXCHANGE = ...
-
-    STABLE = ...
-
-    SIDE_BY_SIDE = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class TargetFrameworkAttribute(System.Attribute):
-    """Identifies the version of .NET that a particular assembly was compiled against."""
-
-    @property
-    def framework_name(self) -> str:
-        ...
-
-    @property
-    def framework_display_name(self) -> str:
-        ...
-
-    @framework_display_name.setter
-    def framework_display_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, framework_name: str) -> None:
-        ...
-
-
 class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_FrameworkName]):
     """This class has no documentation."""
 
@@ -135,6 +101,51 @@ class ResourceConsumptionAttribute(System.Attribute):
         ...
 
 
+class TargetFrameworkAttribute(System.Attribute):
+    """Identifies the version of .NET that a particular assembly was compiled against."""
+
+    @property
+    def framework_name(self) -> str:
+        ...
+
+    @property
+    def framework_display_name(self) -> str:
+        ...
+
+    @framework_display_name.setter
+    def framework_display_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, framework_name: str) -> None:
+        ...
+
+
+class ResourceExposureAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
+        ...
+
+    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
+
+
+class ComponentGuaranteesOptions(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    EXCHANGE = ...
+
+    STABLE = ...
+
+    SIDE_BY_SIDE = ...
+
+    def __int__(self) -> int:
+        ...
+
+
 class VersioningHelper(System.Object):
     """This class has no documentation."""
 
@@ -157,17 +168,6 @@ class ComponentGuaranteesAttribute(System.Attribute):
         ...
 
     def __init__(self, guarantees: System.Runtime.Versioning.ComponentGuaranteesOptions) -> None:
-        ...
-
-
-class ResourceExposureAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
-        ...
-
-    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
         ...
 
 

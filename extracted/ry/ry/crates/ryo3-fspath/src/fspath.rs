@@ -5,7 +5,7 @@ use pyo3::exceptions::{
     PyFileExistsError, PyFileNotFoundError, PyNotADirectoryError, PyUnicodeDecodeError,
     PyValueError,
 };
-use pyo3::types::{PyBytes, PyTuple, PyType};
+use pyo3::types::{PyBytes, PyTuple};
 use pyo3::{intern, prelude::*};
 use ryo3_bytes::extract_bytes_ref;
 use ryo3_core::types::PathLike;
@@ -304,13 +304,13 @@ impl PyFsPath {
             })
     }
 
-    #[classmethod]
-    fn home(_cls: &Bound<'_, PyType>) -> Option<Self> {
+    #[staticmethod]
+    fn home() -> Option<Self> {
         ryo3_dirs::home().map(Self::from)
     }
 
-    #[classmethod]
-    fn cwd(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+    #[staticmethod]
+    fn cwd() -> PyResult<Self> {
         std::env::current_dir()
             .map(Self::from)
             .map_err(|e| PyFileNotFoundError::new_err(format!("cwd: {e}")))
@@ -824,7 +824,8 @@ impl PyFsPathReadDir {
     }
 
     fn __next__(&self) -> Option<PyFsPath> {
-        match self.iter.lock().next() {
+        let value = self.iter.lock().next();
+        match value {
             Some(Ok(entry)) => Some(PyFsPath::from(entry.path())),
             _ => None,
         }

@@ -50,6 +50,7 @@ from .literals import (
     CrawlStateType,
     CsvHeaderOptionType,
     CsvSerdeOptionType,
+    DatabaseAttributesType,
     DataFormatType,
     DataOperationType,
     DataQualityEncryptionModeType,
@@ -2768,7 +2769,7 @@ class GetDatabasesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     ResourceShareType: NotRequired[ResourceShareTypeType]
-    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
+    AttributesToGet: NotRequired[Sequence[DatabaseAttributesType]]
 
 class GetDataflowGraphRequestTypeDef(TypedDict):
     PythonScript: NotRequired[str]
@@ -5019,7 +5020,7 @@ class GetCrawlersRequestPaginateTypeDef(TypedDict):
 class GetDatabasesRequestPaginateTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     ResourceShareType: NotRequired[ResourceShareTypeType]
-    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
+    AttributesToGet: NotRequired[Sequence[DatabaseAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetDevEndpointsRequestPaginateTypeDef(TypedDict):

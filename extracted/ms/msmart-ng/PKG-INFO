@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msmart-ng
-Version: 2025.7.0
+Version: 2025.9.0
 Summary: A Python library for local control of Midea (and associated brands) smart air conditioners.
 Author-email: Tucker Kern <tuckkern@gmail.com>
 License-Expression: MIT

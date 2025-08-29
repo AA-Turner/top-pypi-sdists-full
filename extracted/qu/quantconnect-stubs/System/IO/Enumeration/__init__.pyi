@@ -96,6 +96,44 @@ class FileSystemEntry:
         ...
 
 
+class FileSystemName(System.Object):
+    """Provides methods for matching file system names."""
+
+    @staticmethod
+    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        """
+        Verifies whether the given expression matches the given name. Supports the following wildcards: '*' and '?'. The backslash character '\\\\' escapes.
+        
+        :param expression: The expression to match with.
+        :param name: The name to check against the expression.
+        :param ignore_case: true to ignore case (default); false if the match should be case-sensitive.
+        :returns: true if the given expression matches the given name; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        """
+        Verifies whether the given Win32 expression matches the given name. Supports the following wildcards: '*', '?', '<', '>', '"'. The backslash character '\\' escapes.
+        
+        :param expression: The expression to match with, such as "*.foo".
+        :param name: The name to check against the expression.
+        :param ignore_case: true to ignore case (default), false if the match should be case-sensitive.
+        :returns: true if the given expression matches the given name; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def translate_win_32_expression(expression: str) -> str:
+        """
+        Translates the given Win32 expression. Change '*' and '?' to '<', '>' and '"' to match Win32 behavior.
+        
+        :param expression: The expression to translate.
+        :returns: A string with the translated Win32 expression.
+        """
+        ...
+
+
 class FileSystemEnumerator(typing.Generic[System_IO_Enumeration_FileSystemEnumerator_TResult], System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerator_TResult], metaclass=abc.ABCMeta):
     """Enumerates the file system elements of the provided type that are being searched and filtered by a FileSystemEnumerable{T}."""
 
@@ -230,44 +268,6 @@ class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
-        ...
-
-
-class FileSystemName(System.Object):
-    """Provides methods for matching file system names."""
-
-    @staticmethod
-    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        """
-        Verifies whether the given expression matches the given name. Supports the following wildcards: '*' and '?'. The backslash character '\\\\' escapes.
-        
-        :param expression: The expression to match with.
-        :param name: The name to check against the expression.
-        :param ignore_case: true to ignore case (default); false if the match should be case-sensitive.
-        :returns: true if the given expression matches the given name; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        """
-        Verifies whether the given Win32 expression matches the given name. Supports the following wildcards: '*', '?', '<', '>', '"'. The backslash character '\\' escapes.
-        
-        :param expression: The expression to match with, such as "*.foo".
-        :param name: The name to check against the expression.
-        :param ignore_case: true to ignore case (default), false if the match should be case-sensitive.
-        :returns: true if the given expression matches the given name; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def translate_win_32_expression(expression: str) -> str:
-        """
-        Translates the given Win32 expression. Change '*' and '?' to '<', '>' and '"' to match Win32 behavior.
-        
-        :param expression: The expression to translate.
-        :returns: A string with the translated Win32 expression.
-        """
         ...
 
 

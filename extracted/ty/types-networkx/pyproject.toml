@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-networkx"
-version = "3.5.0.20250827"
+version = "3.5.0.20250829"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for networkx"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.404
 
 It was generated from typeshed commit
-[`4fa56fbc236c99159c6132254d8f182598469df8`](https://github.com/python/typeshed/commit/4fa56fbc236c99159c6132254d8f182598469df8).
+[`d019a53a3b0fe628753d0a1f13f6c85b37acf740`](https://github.com/python/typeshed/commit/d019a53a3b0fe628753d0a1f13f6c85b37acf740).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

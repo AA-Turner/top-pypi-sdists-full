@@ -11,14 +11,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterable,
-    Awaitable,
     Callable,
-    Dict,
-    Iterable,
     Literal,
     NamedTuple,
-    Sequence,
     TypeVar,
     Union,
     cast,
@@ -33,8 +28,6 @@ from astrapy.info import (
     CollectionRerankOptions,
     VectorServiceOptions,
 )
-from langchain_community.vectorstores.utils import maximal_marginal_relevance
-from langchain_core.documents import Document
 from langchain_core.runnables.utils import gather_with_concurrency
 from langchain_core.vectorstores import VectorStore
 from typing_extensions import override
@@ -62,7 +55,18 @@ from langchain_astradb.utils.vector_store_codecs import (
     _DefaultVSDocumentCodec,
 )
 
+is_simd_available: bool = False
+try:
+    import simsimd as simd
+
+    is_simd_available = True
+except ImportError:
+    pass
+
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterable, Awaitable, Iterable, Sequence
+
+    from astrapy.api_options import APIOptions
     from astrapy.authentication import (
         EmbeddingHeadersProvider,
         RerankingHeadersProvider,
@@ -71,11 +75,12 @@ if TYPE_CHECKING:
     from astrapy.cursors import RerankedResult
     from astrapy.info import RerankServiceOptions
     from astrapy.results import CollectionUpdateResult
+    from langchain_core.documents import Document
     from langchain_core.embeddings import Embeddings
 
 T = TypeVar("T")
 U = TypeVar("U")
-DocDict = Dict[str, Any]  # dicts expressing entries to insert
+DocDict = dict[str, Any]  # dicts expressing entries to insert
 
 # error code to check for during bulk insertions
 DOCUMENT_ALREADY_EXISTS_API_ERROR_CODE = "DOCUMENT_ALREADY_EXISTS"
@@ -87,6 +92,13 @@ RERANK_SCORE_KEY = "$rerank"
 ERROR_LEXICAL_QUERY_ON_NONHYBRID_SEARCH = (
     "Parameter 'lexical_query' cannot be passed for a non-hybrid search"
 )
+# Warning message for retrieving scores on a hybrid search
+WARNING_HYBRID_SEARCH_WITH_SCORES = (
+    "Scores returned as part of a hybrid search, which come from the "
+    "reranking step, may not be deterministically computed solely based "
+    "on the query and result. Using the scores e.g. for "
+    "threshold-filtering may lead to unpredictable results and is discouraged."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +109,7 @@ class AstraDBQueryResult(NamedTuple):
     This class represents all that can be returned from the collection when running
     a query, which goes beyond just the corresponding Document.
 
-    Atributes:
+    Attributes:
         document: a ``langchain.schema.Document`` object representing the query result.
         id: the ID of the returned document.
         embedding: the embedding vector associated to the document. This may be None,
@@ -303,6 +315,75 @@ def _insertmany_error_message(err: CollectionInsertManyException) -> str:
         f": ignore '{DOCUMENT_ALREADY_EXISTS_API_ERROR_CODE}'.)"
     )
     return err_msg
+
+
+_Matrix = Union[list[list[float]], list[np.ndarray], np.ndarray]
+
+
+def _cosine_similarity(x: _Matrix, y: _Matrix) -> np.ndarray:
+    """Row-wise cosine similarity between two equal-width matrices."""
+    if len(x) == 0 or len(y) == 0:
+        return np.array([])
+
+    x = np.array(x)
+    y = np.array(y)
+    if x.shape[1] != y.shape[1]:
+        msg = (
+            f"Number of columns in X and Y must be the same. X has shape {x.shape} "
+            f"and Y has shape {y.shape}."
+        )
+        raise ValueError(msg)
+
+    if is_simd_available:
+        x = np.array(x, dtype=np.float32)
+        y = np.array(y, dtype=np.float32)
+        return 1 - np.array(simd.cdist(x, y, metric="cosine"))
+
+    logger.debug(
+        "Unable to use simsimd, defaulting to NumPy implementation. If you want "
+        "to use simsimd please install with `pip install simsimd`."
+    )
+    x_norm = np.linalg.norm(x, axis=1)
+    y_norm = np.linalg.norm(y, axis=1)
+    # Ignore divide by zero errors run time warnings as those are handled below.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        similarity: np.ndarray = np.dot(x, y.T) / np.outer(x_norm, y_norm)
+    similarity[np.isnan(similarity) | np.isinf(similarity)] = 0.0
+    return similarity
+
+
+def _maximal_marginal_relevance(
+    query_embedding: np.ndarray,
+    embedding_list: list[list[float]],
+    lambda_mult: float = 0.5,
+    k: int = 4,
+) -> list[int]:
+    """Calculate maximal marginal relevance."""
+    if min(k, len(embedding_list)) <= 0:
+        return []
+    if query_embedding.ndim == 1:
+        query_embedding = np.expand_dims(query_embedding, axis=0)
+    similarity_to_query = _cosine_similarity(query_embedding, embedding_list)[0]
+    most_similar = int(np.argmax(similarity_to_query))
+    idxs = [most_similar]
+    selected = np.array([embedding_list[most_similar]])
+    while len(idxs) < min(k, len(embedding_list)):
+        best_score = -np.inf
+        idx_to_add = -1
+        similarity_to_selected = _cosine_similarity(embedding_list, selected)
+        for i, query_score in enumerate(similarity_to_query):
+            if i in idxs:
+                continue
+            redundant_score = max(similarity_to_selected[i])
+            equation_score = (
+                lambda_mult * query_score - (1 - lambda_mult) * redundant_score
+            )
+            if equation_score > best_score:
+                best_score = equation_score
+                idx_to_add = i
+        idxs.append(idx_to_add)
+        selected = np.append(selected, [embedding_list[idx_to_add]], axis=0)
+    return idxs
 
 
 class AstraDBVectorStoreError(Exception):
@@ -649,6 +730,7 @@ class AstraDBVectorStore(VectorStore):
         autodetect_collection: bool = False,
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
         component_name: str = COMPONENT_NAME_VECTORSTORE,
+        api_options: APIOptions | None = None,
         collection_rerank: CollectionRerankOptions | RerankServiceOptions | None = None,
         collection_reranking_api_key: str | RerankingHeadersProvider | None = None,
         collection_lexical: str
@@ -661,7 +743,7 @@ class AstraDBVectorStore(VectorStore):
         | dict[str, float]
         | HybridLimitFactorPrescription = None,
     ) -> None:
-        """A vector store wich uses DataStax Astra DB as backend.
+        """A vector store which uses DataStax Astra DB as backend.
 
         For more on Astra DB, visit
         https://docs.datastax.com/en/astra-db-serverless/index.html
@@ -764,7 +846,14 @@ class AstraDBVectorStore(VectorStore):
                 stack of usage info passed as the User-Agent string to the Data API.
                 Defaults to "langchain_vectorstore", but can be overridden if this
                 component actually serves as the building block for another component
-                (such as a Graph Vector Store).
+                (such as when the vector store is used within a ``GraphRetriever``).
+            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+                can be supplied to customize the interaction with the Data API
+                regarding serialization/deserialization, timeouts, custom headers
+                and so on. The provided options are applied on top of settings already
+                tailored to this library, and if specified will take precedence.
+                Passing None (default) means no customization is requested.
+                Refer to the astrapy documentation for details.
             collection_rerank: providing reranking settings is necessary to run
                 hybrid searches for similarity. This parameter can be an instance
                 of the astrapy classes `CollectionRerankOptions` or
@@ -846,8 +935,8 @@ class AstraDBVectorStore(VectorStore):
             bulk_delete_concurrency or MAX_CONCURRENT_DOCUMENT_DELETIONS
         )
 
-        _setup_mode: SetupMode
-        _embedding_dimension: int | Awaitable[int] | None
+        setup_mode_: SetupMode
+        embedding_dimension: int | Awaitable[int] | None
         self.has_lexical: bool
         self.has_hybrid: bool
         self.hybrid_search: bool  # affecting the actual behaviour when running searches
@@ -858,11 +947,11 @@ class AstraDBVectorStore(VectorStore):
             logger.info(
                 "vector store default init, collection '%s'", self.collection_name
             )
-            _setup_mode = SetupMode.SYNC if setup_mode is None else setup_mode
-            _embedding_dimension = self._prepare_embedding_dimension(_setup_mode)
+            setup_mode_ = SetupMode.SYNC if setup_mode is None else setup_mode
+            embedding_dimension = self._prepare_embedding_dimension(setup_mode_)
             # determine vectorize/nonvectorize
             has_vectorize = self.collection_vector_service_options is not None
-            _content_field = _normalize_content_field(
+            content_field_ = _normalize_content_field(
                 content_field,
                 is_autodetect=False,
                 has_vectorize=has_vectorize,
@@ -873,12 +962,12 @@ class AstraDBVectorStore(VectorStore):
                 if isinstance(collection_lexical, CollectionLexicalOptions)
                 else (collection_lexical is not None)
             )
-            _has_reranking = (
+            has_reranking = (
                 collection_rerank.enabled
                 if isinstance(collection_rerank, CollectionRerankOptions)
                 else (collection_rerank is not None)
             )
-            self.has_hybrid = self.has_lexical and _has_reranking
+            self.has_hybrid = self.has_lexical and has_reranking
 
             self.hybrid_search = _decide_hybrid_search_setting(
                 required_hybrid_search=hybrid_search,
@@ -892,7 +981,7 @@ class AstraDBVectorStore(VectorStore):
                 )
             else:
                 self.document_codec = _DefaultVSDocumentCodec(
-                    content_field=_content_field,
+                    content_field=content_field_,
                     ignore_invalid_documents=ignore_invalid_documents,
                     has_lexical=self.has_lexical,
                 )
@@ -919,7 +1008,7 @@ class AstraDBVectorStore(VectorStore):
                 collection_lexical=collection_lexical,
                 collection_rerank=collection_rerank,
             )
-            _setup_mode = SetupMode.OFF
+            setup_mode_ = SetupMode.OFF
 
             # fetch collection intelligence
             c_descriptor, c_documents = _survey_collection(
@@ -930,6 +1019,7 @@ class AstraDBVectorStore(VectorStore):
                 environment=self.environment,
                 ext_callers=ext_callers,
                 component_name=component_name,
+                api_options=api_options,
             )
             if c_descriptor is None:
                 msg = f"Collection '{self.collection_name}' not found."
@@ -939,7 +1029,7 @@ class AstraDBVectorStore(VectorStore):
             if not c_vector_options:
                 msg = "Non-vector collection detected."
                 raise ValueError(msg)
-            _embedding_dimension = c_vector_options.get("dimension")
+            embedding_dimension = c_vector_options.get("dimension")
             self.collection_vector_service_options = c_vector_options.get("service")
             has_vectorize = self.collection_vector_service_options is not None
             logger.info("vector store autodetect: has_vectorize = %s", has_vectorize)
@@ -968,11 +1058,11 @@ class AstraDBVectorStore(VectorStore):
                 document_codec=self.document_codec,
             )
 
-            _has_reranking = (
+            has_reranking = (
                 c_descriptor.definition.rerank is not None
                 and c_descriptor.definition.rerank.enabled
             )
-            self.has_hybrid = self.has_lexical and _has_reranking
+            self.has_hybrid = self.has_lexical and has_reranking
 
             self.hybrid_search = _decide_hybrid_search_setting(
                 required_hybrid_search=hybrid_search,
@@ -999,9 +1089,9 @@ class AstraDBVectorStore(VectorStore):
             api_endpoint=self.api_endpoint,
             keyspace=self.namespace,
             environment=self.environment,
-            setup_mode=_setup_mode,
+            setup_mode=setup_mode_,
             pre_delete_collection=pre_delete_collection,
-            embedding_dimension=_embedding_dimension,
+            embedding_dimension=embedding_dimension,
             metric=self.metric,
             requested_indexing_policy=self.indexing_policy,
             default_indexing_policy=(
@@ -1011,6 +1101,7 @@ class AstraDBVectorStore(VectorStore):
             collection_embedding_api_key=self.collection_embedding_api_key,
             ext_callers=ext_callers,
             component_name=component_name,
+            api_options=api_options,
             collection_rerank=collection_rerank,
             collection_reranking_api_key=self.collection_reranking_api_key,
             collection_lexical=collection_lexical,
@@ -1231,8 +1322,8 @@ class AstraDBVectorStore(VectorStore):
             msg = "No ids provided to delete."
             raise ValueError(msg)
 
-        _max_workers = concurrency or self.bulk_delete_concurrency
-        with ThreadPoolExecutor(max_workers=_max_workers) as tpe:
+        max_workers = concurrency or self.bulk_delete_concurrency
+        with ThreadPoolExecutor(max_workers=max_workers) as tpe:
             _ = list(
                 tpe.map(
                     self.delete_by_document_id,
@@ -1271,9 +1362,9 @@ class AstraDBVectorStore(VectorStore):
             msg = "No ids provided to delete."
             raise ValueError(msg)
 
-        _max_workers = concurrency or self.bulk_delete_concurrency
+        max_workers = concurrency or self.bulk_delete_concurrency
         await gather_with_concurrency(
-            _max_workers, *[self.adelete_by_document_id(doc_id) for doc_id in ids]
+            max_workers, *[self.adelete_by_document_id(doc_id) for doc_id in ids]
         )
         return True
 
@@ -1471,7 +1562,7 @@ class AstraDBVectorStore(VectorStore):
             # here, assume all in err.exceptions is a DataAPIResponseException:
             error_codes = {
                 err_desc.error_code
-                for in_err in cast(list[DataAPIResponseException], err.exceptions)
+                for in_err in cast("list[DataAPIResponseException]", err.exceptions)
                 for err_desc in in_err.error_descriptors
             }
             if error_codes == {DOCUMENT_ALREADY_EXISTS_API_ERROR_CODE}:
@@ -1495,11 +1586,11 @@ class AstraDBVectorStore(VectorStore):
                 if self.document_codec.get_id(document) in ids_to_replace
             ]
 
-            _max_workers = (
+            max_workers = (
                 overwrite_concurrency or self.bulk_insert_overwrite_concurrency
             )
             with ThreadPoolExecutor(
-                max_workers=_max_workers,
+                max_workers=max_workers,
             ) as executor:
 
                 def _replace_document(
@@ -1614,7 +1705,7 @@ class AstraDBVectorStore(VectorStore):
             # here, assume all in err.exceptions is a DataAPIResponseException:
             error_codes = {
                 err_desc.error_code
-                for in_err in cast(list[DataAPIResponseException], err.exceptions)
+                for in_err in cast("list[DataAPIResponseException]", err.exceptions)
                 for err_desc in in_err.error_descriptors
             }
             if error_codes == {DOCUMENT_ALREADY_EXISTS_API_ERROR_CODE}:
@@ -1642,14 +1733,14 @@ class AstraDBVectorStore(VectorStore):
                 overwrite_concurrency or self.bulk_insert_overwrite_concurrency,
             )
 
-            _async_collection = self.astra_env.async_collection
+            async_collection = self.astra_env.async_collection
 
             async def _replace_document(
                 document: DocDict,
             ) -> tuple[CollectionUpdateResult, str]:
                 async with sem:
                     doc_id = self.document_codec.get_id(document)
-                    return await _async_collection.replace_one(
+                    return await async_collection.replace_one(
                         self.document_codec.encode_query(ids=[doc_id]),
                         document,
                     ), doc_id
@@ -1700,9 +1791,9 @@ class AstraDBVectorStore(VectorStore):
         """
         self.astra_env.ensure_db_setup()
 
-        _max_workers = overwrite_concurrency or self.bulk_insert_overwrite_concurrency
+        max_workers = overwrite_concurrency or self.bulk_insert_overwrite_concurrency
         with ThreadPoolExecutor(
-            max_workers=_max_workers,
+            max_workers=max_workers,
         ) as executor:
 
             def _update_document(
@@ -1755,7 +1846,7 @@ class AstraDBVectorStore(VectorStore):
             overwrite_concurrency or self.bulk_insert_overwrite_concurrency,
         )
 
-        _async_collection = self.astra_env.async_collection
+        async_collection = self.astra_env.async_collection
 
         async def _update_document(
             id_md_pair: tuple[str, dict],
@@ -1763,7 +1854,7 @@ class AstraDBVectorStore(VectorStore):
             document_id, update_metadata = id_md_pair
             encoded_metadata = self.filter_to_query(update_metadata)
             async with sem:
-                return await _async_collection.update_one(
+                return await async_collection.update_one(
                     self.document_codec.encode_query(ids=[document_id]),
                     {"$set": encoded_metadata},
                 )
@@ -1973,7 +2064,7 @@ class AstraDBVectorStore(VectorStore):
         if include_sort_vector:
             # the codec option in the AstraDBEnv class disables DataAPIVectors here:
             sort_vector = cast(
-                Union[list[float], None],
+                "Union[list[float], None]",
                 (find_raw_iterator.get_sort_vector() if include_sort_vector else None),
             )
             return sort_vector, final_doc_iterator
@@ -2227,7 +2318,7 @@ class AstraDBVectorStore(VectorStore):
         if include_sort_vector:
             # the codec option in the AstraDBEnv class disables DataAPIVectors here:
             sort_vector = cast(
-                Union[list[float], None],
+                "Union[list[float], None]",
                 (
                     await find_raw_iterator.get_sort_vector()
                     if include_sort_vector
@@ -2459,7 +2550,7 @@ class AstraDBVectorStore(VectorStore):
         """
         return [
             doc
-            for (doc, _, _) in self.similarity_search_with_score_id(
+            for (doc, _, _) in self._similarity_search_with_score_id_impl(
                 query=query,
                 k=k,
                 filter=filter,
@@ -2488,9 +2579,11 @@ class AstraDBVectorStore(VectorStore):
         Returns:
             The list of (Document, score), the most similar to the query vector.
         """
+        if self.hybrid_search:
+            warnings.warn(WARNING_HYBRID_SEARCH_WITH_SCORES, stacklevel=2)
         return [
             (doc, score)
-            for (doc, score, _) in self.similarity_search_with_score_id(
+            for (doc, score, _) in self._similarity_search_with_score_id_impl(
                 query=query,
                 k=k,
                 filter=filter,
@@ -2498,14 +2591,14 @@ class AstraDBVectorStore(VectorStore):
             )
         ]
 
-    def similarity_search_with_score_id(
+    def _similarity_search_with_score_id_impl(
         self,
         query: str,
         k: int = 4,
         filter: dict[str, Any] | None = None,  # noqa: A002
         lexical_query: str | None = None,
     ) -> list[tuple[Document, float, str]]:
-        """Return docs most similar to the query with score and id.
+        """Implementation for similarity_search_with_score_id.
 
         Args:
             query: Query to look up documents similar to.
@@ -2559,6 +2652,35 @@ class AstraDBVectorStore(VectorStore):
             sort=sort,
             k=k,
             filter_dict=filter,
+        )
+
+    def similarity_search_with_score_id(
+        self,
+        query: str,
+        k: int = 4,
+        filter: dict[str, Any] | None = None,  # noqa: A002
+        lexical_query: str | None = None,
+    ) -> list[tuple[Document, float, str]]:
+        """Return docs most similar to the query with score and id.
+
+        Args:
+            query: Query to look up documents similar to.
+            k: Number of Documents to return. Defaults to 4.
+            filter: Filter on the metadata to apply.
+            lexical_query: for hybrid search, a specific query for the lexical
+                portion of the retrieval. If omitted or empty, defaults to the same
+                as 'query'. If passed on a non-hybrid search, an error is raised.
+
+        Returns:
+            The list of (Document, score, id), the most similar to the query.
+        """
+        if self.hybrid_search:
+            warnings.warn(WARNING_HYBRID_SEARCH_WITH_SCORES, stacklevel=2)
+        return self._similarity_search_with_score_id_impl(
+            query=query,
+            k=k,
+            filter=filter,
+            lexical_query=lexical_query,
         )
 
     @override
@@ -2658,7 +2780,7 @@ class AstraDBVectorStore(VectorStore):
         )
         # doc is a Document and sim is a float:
         return [
-            cast(tuple[Document, float, str], (doc, sim, did))
+            cast("tuple[Document, float, str]", (doc, sim, did))
             for doc, did, _, sim in hits_ite
         ]
 
@@ -2686,7 +2808,7 @@ class AstraDBVectorStore(VectorStore):
         )
         return [
             cast(
-                tuple[Document, float, str],
+                "tuple[Document, float, str]",
                 (
                     decoded_tuple.document,
                     decoded_tuple.similarity,
@@ -2727,7 +2849,7 @@ class AstraDBVectorStore(VectorStore):
         """
         return [
             doc
-            for (doc, _, _) in await self.asimilarity_search_with_score_id(
+            for (doc, _, _) in await self._asimilarity_search_with_score_id_impl(
                 query=query,
                 k=k,
                 filter=filter,
@@ -2756,9 +2878,11 @@ class AstraDBVectorStore(VectorStore):
         Returns:
             The list of (Document, score), the most similar to the query vector.
         """
+        if self.hybrid_search:
+            warnings.warn(WARNING_HYBRID_SEARCH_WITH_SCORES, stacklevel=2)
         return [
             (doc, score)
-            for (doc, score, _) in await self.asimilarity_search_with_score_id(
+            for (doc, score, _) in await self._asimilarity_search_with_score_id_impl(
                 query=query,
                 k=k,
                 filter=filter,
@@ -2766,14 +2890,14 @@ class AstraDBVectorStore(VectorStore):
             )
         ]
 
-    async def asimilarity_search_with_score_id(
+    async def _asimilarity_search_with_score_id_impl(
         self,
         query: str,
         k: int = 4,
         filter: dict[str, Any] | None = None,  # noqa: A002
         lexical_query: str | None = None,
     ) -> list[tuple[Document, float, str]]:
-        """Return docs most similar to the query with score and id.
+        """Implementation for asimilarity_search_with_score_id.
 
         Args:
             query: Query to look up documents similar to.
@@ -2827,6 +2951,35 @@ class AstraDBVectorStore(VectorStore):
             sort=sort,
             k=k,
             filter_dict=filter,
+        )
+
+    async def asimilarity_search_with_score_id(
+        self,
+        query: str,
+        k: int = 4,
+        filter: dict[str, Any] | None = None,  # noqa: A002
+        lexical_query: str | None = None,
+    ) -> list[tuple[Document, float, str]]:
+        """Return docs most similar to the query with score and id.
+
+        Args:
+            query: Query to look up documents similar to.
+            k: Number of Documents to return. Defaults to 4.
+            filter: Filter on the metadata to apply.
+            lexical_query: for hybrid search, a specific query for the lexical
+                portion of the retrieval. If omitted or empty, defaults to the same
+                as 'query'. If passed on a non-hybrid search, an error is raised.
+
+        Returns:
+            The list of (Document, score, id), the most similar to the query.
+        """
+        if self.hybrid_search:
+            warnings.warn(WARNING_HYBRID_SEARCH_WITH_SCORES, stacklevel=2)
+        return await self._asimilarity_search_with_score_id_impl(
+            query=query,
+            k=k,
+            filter=filter,
+            lexical_query=lexical_query,
         )
 
     @override
@@ -2926,7 +3079,7 @@ class AstraDBVectorStore(VectorStore):
         )
         # doc is a Document and sim is a float:
         return [
-            cast(tuple[Document, float, str], (doc, sim, did))
+            cast("tuple[Document, float, str]", (doc, sim, did))
             async for doc, did, _, sim in hits_ite
         ]
 
@@ -2954,7 +3107,7 @@ class AstraDBVectorStore(VectorStore):
         )
         return [
             cast(
-                tuple[Document, float, str],
+                "tuple[Document, float, str]",
                 (
                     decoded_tuple.document,
                     decoded_tuple.similarity,
@@ -3129,7 +3282,7 @@ class AstraDBVectorStore(VectorStore):
         return (
             sort_vec,
             [
-                cast(tuple[Document, list[float]], (doc, emb))
+                cast("tuple[Document, list[float]]", (doc, emb))
                 for doc, _, emb, _ in hits_ite
             ],
         )
@@ -3159,7 +3312,7 @@ class AstraDBVectorStore(VectorStore):
         return (
             sort_vec,
             [
-                cast(tuple[Document, list[float]], (doc, emb))
+                cast("tuple[Document, list[float]]", (doc, emb))
                 async for doc, _, emb, _ in hits_ite
             ],
         )
@@ -3181,7 +3334,7 @@ class AstraDBVectorStore(VectorStore):
         )
         # this is list[tuple[Document, list[float]]]:
         prefetch_hit_pairs = cast(
-            list[tuple[Document, list[float]]],
+            "list[tuple[Document, list[float]]]",
             [(doc, emb) for doc, _, emb, _ in hits_ite],
         )
         if sort_vec is None:
@@ -3211,7 +3364,7 @@ class AstraDBVectorStore(VectorStore):
         )
         # this is list[tuple[Document, list[float]]]:
         prefetch_hit_pairs = cast(
-            list[tuple[Document, list[float]]],
+            "list[tuple[Document, list[float]]]",
             [(doc, emb) async for doc, _, emb, _ in hits_ite],
         )
         if sort_vec is None:
@@ -3231,9 +3384,9 @@ class AstraDBVectorStore(VectorStore):
         lambda_mult: float,
         prefetch_hit_pairs: list[tuple[Document, list[float]]],
     ) -> list[Document]:
-        mmr_chosen_indices = maximal_marginal_relevance(
+        mmr_chosen_indices = _maximal_marginal_relevance(
             np.array(embedding, dtype=np.float32),
-            [hit_pair[1] for hit_pair in prefetch_hit_pairs],
+            [embedding for _, embedding in prefetch_hit_pairs],
             k=k,
             lambda_mult=lambda_mult,
         )
@@ -3444,9 +3597,9 @@ class AstraDBVectorStore(VectorStore):
         cls: type[AstraDBVectorStore],
         **kwargs: Any,
     ) -> AstraDBVectorStore:
-        _args = inspect.getfullargspec(AstraDBVectorStore.__init__).args
-        _kwargs = inspect.getfullargspec(AstraDBVectorStore.__init__).kwonlyargs
-        known_kwarg_keys = (set(_args) | set(_kwargs)) - {"self"}
+        args = inspect.getfullargspec(AstraDBVectorStore.__init__).args
+        kwargs_ = inspect.getfullargspec(AstraDBVectorStore.__init__).kwonlyargs
+        known_kwarg_keys = (set(args) | set(kwargs_)) - {"self"}
         if kwargs:
             unknown_kwarg_keys = set(kwargs.keys()) - known_kwarg_keys
             if unknown_kwarg_keys:
@@ -3490,22 +3643,21 @@ class AstraDBVectorStore(VectorStore):
         Returns:
             an ``AstraDBVectorStore`` vectorstore.
         """
-        _add_texts_inspection = inspect.getfullargspec(AstraDBVectorStore.add_texts)
-        _method_args = (
-            set(_add_texts_inspection.kwonlyargs)
-            | set(_add_texts_inspection.kwonlyargs)
+        add_texts_inspection = inspect.getfullargspec(AstraDBVectorStore.add_texts)
+        method_args = (
+            set(add_texts_inspection.kwonlyargs) | set(add_texts_inspection.kwonlyargs)
         ) - {"self", "texts", "metadatas", "ids"}
-        _init_kwargs = {k: v for k, v in kwargs.items() if k not in _method_args}
-        _method_kwargs = {k: v for k, v in kwargs.items() if k in _method_args}
+        init_kwargs = {k: v for k, v in kwargs.items() if k not in method_args}
+        method_kwargs = {k: v for k, v in kwargs.items() if k in method_args}
         astra_db_store = AstraDBVectorStore._from_kwargs(
             embedding=embedding,
-            **_init_kwargs,
+            **init_kwargs,
         )
         astra_db_store.add_texts(
             texts=texts,
             metadatas=metadatas,
             ids=ids,
-            **_method_kwargs,
+            **method_kwargs,
         )
         return astra_db_store
 
@@ -3534,22 +3686,22 @@ class AstraDBVectorStore(VectorStore):
         Returns:
             an ``AstraDBVectorStore`` vectorstore.
         """
-        _aadd_texts_inspection = inspect.getfullargspec(AstraDBVectorStore.aadd_texts)
-        _method_args = (
-            set(_aadd_texts_inspection.kwonlyargs)
-            | set(_aadd_texts_inspection.kwonlyargs)
+        aadd_texts_inspection = inspect.getfullargspec(AstraDBVectorStore.aadd_texts)
+        method_args = (
+            set(aadd_texts_inspection.kwonlyargs)
+            | set(aadd_texts_inspection.kwonlyargs)
         ) - {"self", "texts", "metadatas", "ids"}
-        _init_kwargs = {k: v for k, v in kwargs.items() if k not in _method_args}
-        _method_kwargs = {k: v for k, v in kwargs.items() if k in _method_args}
+        init_kwargs = {k: v for k, v in kwargs.items() if k not in method_args}
+        method_kwargs = {k: v for k, v in kwargs.items() if k in method_args}
         astra_db_store = AstraDBVectorStore._from_kwargs(
             embedding=embedding,
-            **_init_kwargs,
+            **init_kwargs,
         )
         await astra_db_store.aadd_texts(
             texts=texts,
             metadatas=metadatas,
             ids=ids,
-            **_method_kwargs,
+            **method_kwargs,
         )
         return astra_db_store
 
@@ -3594,8 +3746,8 @@ class AstraDBVectorStore(VectorStore):
             )
             ids = kwargs.pop("ids")
         else:
-            _ids = [doc.id for doc in documents]
-            ids = _ids if any(the_id is not None for the_id in _ids) else None
+            ids_ = [doc.id for doc in documents]
+            ids = ids_ if any(the_id is not None for the_id in ids_) else None
         return cls.from_texts(
             texts,
             embedding=embedding,
@@ -3637,8 +3789,8 @@ class AstraDBVectorStore(VectorStore):
             )
             ids = kwargs.pop("ids")
         else:
-            _ids = [doc.id for doc in documents]
-            ids = _ids if any(the_id is not None for the_id in _ids) else None
+            ids_ = [doc.id for doc in documents]
+            ids = ids_ if any(the_id is not None for the_id in ids_) else None
         return await cls.afrom_texts(
             texts,
             embedding=embedding,

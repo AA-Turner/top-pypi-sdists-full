@@ -4,52 +4,21 @@
 //! API wise to the original dbgen tool, as in we use the same command line flags
 //! and arguments.
 //!
-//! ```
-//! USAGE:
-//!     tpchgen-cli [OPTIONS]
-//!
-//! OPTIONS:
-//!     -h, --help                    Prints help information
-//!     -V, --version                 Prints version information
-//!     -s, --scale-factor <FACTOR>  Scale factor for the data generation (default: 1)
-//!     -T, --tables <TABLES>        Comma-separated list of tables to generate (default: all)
-//!     -f, --format <FORMAT>        Output format: tbl, csv, or parquet (default: tbl)
-//!     -o, --output-dir <DIR>       Output directory (default: current directory)
-//!     -p, --parts <N>              Number of parts to split generation into (default: 1)
-//!         --part <N>               Which part to generate (1-based, default: 1)
-//!     -n, --num-threads <N>        Number of threads to use (default: number of CPUs)
-//!     -c, --parquet-compression <C> Parquet compression codec, e.g., SNAPPY, ZSTD(1), UNCOMPRESSED (default: SNAPPY)
-//!     -v, --verbose                Verbose output
-//!         --stdout                 Write output to stdout instead of files
-//!```
-//!
-//! # Logging:
-//! Use the `-v` flag or `RUST_LOG` environment variable to control logging output.
-//!
-//! `-v` sets the log level to `info` and ignores the `RUST_LOG` environment variable.
-//!
-//! # Examples
-//! ```
-//! # see all info output
-//! tpchgen-cli -s 1 -v
-//!
-//! # same thing using RUST_LOG
-//! RUST_LOG=info tpchgen-cli -s 1
-//!
-//! # see all debug output
-//! RUST_LOG=debug tpchgen -s 1
-//! ```
+//! See the documentation on [`Cli`] for more information on the command line
 mod csv;
 mod generate;
+mod output_plan;
 mod parquet;
+mod plan;
+mod runner;
 mod statistics;
 mod tbl;
 
-use crate::csv::*;
-use crate::generate::{generate_in_chunks, Sink, Source};
+use crate::generate::Sink;
+use crate::output_plan::OutputPlanGenerator;
 use crate::parquet::*;
+use crate::plan::{GenerationPlan, DEFAULT_PARQUET_ROW_GROUP_BYTES};
 use crate::statistics::WriteStatistics;
-use crate::tbl::*;
 use ::parquet::basic::Compression;
 use clap::builder::TypedValueParser;
 use clap::{Parser, ValueEnum};
@@ -61,22 +30,41 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
 use tpchgen::distribution::Distributions;
-use tpchgen::generators::{
-    CustomerGenerator, LineItemGenerator, NationGenerator, OrderGenerator, PartGenerator,
-    PartSuppGenerator, RegionGenerator, SupplierGenerator,
-};
 use tpchgen::text::TextPool;
-use tpchgen_arrow::{
-    CustomerArrow, LineItemArrow, NationArrow, OrderArrow, PartArrow, PartSuppArrow,
-    RecordBatchIterator, RegionArrow, SupplierArrow,
-};
 
 #[derive(Parser)]
 #[command(name = "tpchgen")]
 #[command(version)]
-#[command(about = "TPC-H Data Generator", long_about = None)]
+#[command(
+    // -h output
+    about = "TPC-H Data Generator",
+    // --help output
+    long_about = r#"
+TPCH Data Generator (https://github.com/clflushopt/tpchgen-rs)
+
+By default each table is written to a single file named <output_dir>/<table>.<format>
+
+If `--part` option is specified, each table is written to a subdirectory in
+multiple files named <output_dir>/<table>/<table>.<part>.<format>
+
+Examples
+
+# Generate all tables at scale factor 1 (1GB) in TBL format to /tmp/tpch directory:
+
+tpchgen-cli -s 1 --output-dir=/tmp/tpch
+
+# Generate the lineitem table at scale factor 100 in 10 Apache Parquet files to
+# /tmp/tpch/lineitem
+
+tpchgen-cli -s 100 --tables=lineitem --format=parquet --parts=10 --output-dir=/tmp/tpch
+
+# Generate scale factor one in current directory, seeing debug output
+
+RUST_LOG=debug tpchgen -s 1
+"#
+)]
 struct Cli {
-    /// Scale factor to address (default: 1)
+    /// Scale factor to create
     #[arg(short, long, default_value_t = 1.)]
     scale_factor: f64,
 
@@ -88,15 +76,15 @@ struct Cli {
     #[arg(short = 'T', long = "tables", value_delimiter = ',', value_parser = TableValueParser)]
     tables: Option<Vec<Table>>,
 
-    /// Number of parts to generate (manual parallel generation)
-    #[arg(short, long, default_value_t = 1)]
-    parts: i32,
+    /// Number of part(itions) to generate. If not specified creates a single file per table
+    #[arg(short, long)]
+    parts: Option<i32>,
 
-    /// Which part to generate (1-based, only relevant if parts > 1)
-    #[arg(long, default_value_t = 1)]
-    part: i32,
+    /// Which part(ition) to generate (1-based). If not specified, generates all parts
+    #[arg(long)]
+    part: Option<i32>,
 
-    /// Output format: tbl, csv, parquet (default: tbl)
+    /// Output format: tbl, csv, parquet
     #[arg(short, long, default_value = "tbl")]
     format: OutputFormat,
 
@@ -104,7 +92,7 @@ struct Cli {
     #[arg(short, long, default_value_t = num_cpus::get())]
     num_threads: usize,
 
-    /// Parquet block compression format. Default is SNAPPY
+    /// Parquet block compression format.
     ///
     /// Supported values: UNCOMPRESSED, ZSTD(N), SNAPPY, GZIP, LZO, BROTLI, LZ4
     ///
@@ -120,13 +108,31 @@ struct Cli {
     #[arg(short = 'c', long, default_value = "SNAPPY")]
     parquet_compression: Compression,
 
-    /// Verbose output (default: false)
+    /// Verbose output
+    ///
+    /// When specified, sets the log level to `info` and ignores the `RUST_LOG`
+    /// environment variable. When not specified, uses `RUST_LOG`
     #[arg(short, long, default_value_t = false)]
     verbose: bool,
 
     /// Write the output to stdout instead of a file.
     #[arg(long, default_value_t = false)]
     stdout: bool,
+
+    /// Target size in row group bytes in Parquet files
+    ///
+    /// Row groups are the typical unit of parallel processing and compression
+    /// with many query engines. Therfore, smaller row groups enable better
+    /// parallelism and lower peak memory use but may reduce compression
+    /// efficiency.
+    ///
+    /// Note: Parquet files are limited to 32k row groups, so at high scale
+    /// factors, the row group size may be increased to keep the number of row
+    /// groups under this limit.
+    ///
+    /// Typical values range from 10MB to 100MB.
+    #[arg(long, default_value_t = DEFAULT_PARQUET_ROW_GROUP_BYTES)]
+    parquet_row_group_bytes: i64,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -239,39 +245,8 @@ async fn main() -> io::Result<()> {
     cli.main().await
 }
 
-/// macro to create a Cli function for generating a table
-///
-/// Arguments:
-/// $FUN_NAME: name of the function to create
-/// $TABLE: The [`Table`] to generate
-/// $GENERATOR: The generator type to use
-/// $TBL_SOURCE: The [`Source`] type to use for TBL format
-/// $CSV_SOURCE: The [`Source`] type to use for CSV format
-/// $PARQUET_SOURCE: The [`RecordBatchIterator`] type to use for Parquet format
-macro_rules! define_generate {
-    ($FUN_NAME:ident,  $TABLE:expr, $GENERATOR:ident, $TBL_SOURCE:ty, $CSV_SOURCE:ty, $PARQUET_SOURCE:ty) => {
-        async fn $FUN_NAME(&self) -> io::Result<()> {
-            let filename = self.output_filename($TABLE);
-            let (num_parts, parts) = self.parallel_target_part_count(&$TABLE);
-            let scale_factor = self.scale_factor;
-            info!("Writing table {} (SF={scale_factor}) to {filename}", $TABLE);
-            debug!("Generating {num_parts} parts in total");
-            let gens = parts
-                .into_iter()
-                .map(move |part| $GENERATOR::new(scale_factor, part, num_parts));
-            match self.format {
-                OutputFormat::Tbl => self.go(&filename, gens.map(<$TBL_SOURCE>::new)).await,
-                OutputFormat::Csv => self.go(&filename, gens.map(<$CSV_SOURCE>::new)).await,
-                OutputFormat::Parquet => {
-                    self.go_parquet(&filename, gens.map(<$PARQUET_SOURCE>::new))
-                        .await
-                }
-            }
-        }
-    };
-}
-
 impl Cli {
+    /// Main function to run the generation
     async fn main(self) -> io::Result<()> {
         if self.verbose {
             // explicitly set logging to info / stdout
@@ -303,6 +278,35 @@ impl Cli {
             ]
         };
 
+        // Warn if parquet specific options are set but not generating parquet
+        if self.format != OutputFormat::Parquet {
+            if self.parquet_compression != Compression::SNAPPY {
+                eprintln!(
+                    "Warning: Parquet compression option set but not generating Parquet files"
+                );
+            }
+            if self.parquet_row_group_bytes != DEFAULT_PARQUET_ROW_GROUP_BYTES {
+                eprintln!(
+                    "Warning: Parquet row group size option set but not generating Parquet files"
+                );
+            }
+        }
+
+        // Determine what files to generate
+        let mut output_plan_generator = OutputPlanGenerator::new(
+            self.format,
+            self.scale_factor,
+            self.parquet_compression,
+            self.parquet_row_group_bytes,
+            self.stdout,
+            self.output_dir.clone(),
+        );
+
+        for table in tables {
+            output_plan_generator.generate_plans(table, self.part, self.parts)?;
+        }
+        let output_plans = output_plan_generator.build();
+
         // force the creation of the distributions and text pool to so it doesn't
         // get charged to the first table
         let start = Instant::now();
@@ -312,198 +316,11 @@ impl Cli {
         let elapsed = start.elapsed();
         info!("Created static distributions and text pools in {elapsed:?}");
 
-        // Generate each table
-        for table in tables {
-            match table {
-                Table::Nation => self.generate_nation().await?,
-                Table::Region => self.generate_region().await?,
-                Table::Part => self.generate_part().await?,
-                Table::Supplier => self.generate_supplier().await?,
-                Table::Partsupp => self.generate_partsupp().await?,
-                Table::Customer => self.generate_customer().await?,
-                Table::Orders => self.generate_orders().await?,
-                Table::Lineitem => self.generate_lineitem().await?,
-            }
-        }
-
+        // Run
+        let runner = runner::PlanRunner::new(output_plans, self.num_threads);
+        runner.run().await?;
         info!("Generation complete!");
         Ok(())
-    }
-
-    define_generate!(
-        generate_nation,
-        Table::Nation,
-        NationGenerator,
-        NationTblSource,
-        NationCsvSource,
-        NationArrow
-    );
-    define_generate!(
-        generate_region,
-        Table::Region,
-        RegionGenerator,
-        RegionTblSource,
-        RegionCsvSource,
-        RegionArrow
-    );
-    define_generate!(
-        generate_part,
-        Table::Part,
-        PartGenerator,
-        PartTblSource,
-        PartCsvSource,
-        PartArrow
-    );
-    define_generate!(
-        generate_supplier,
-        Table::Supplier,
-        SupplierGenerator,
-        SupplierTblSource,
-        SupplierCsvSource,
-        SupplierArrow
-    );
-    define_generate!(
-        generate_partsupp,
-        Table::Partsupp,
-        PartSuppGenerator,
-        PartSuppTblSource,
-        PartSuppCsvSource,
-        PartSuppArrow
-    );
-    define_generate!(
-        generate_customer,
-        Table::Customer,
-        CustomerGenerator,
-        CustomerTblSource,
-        CustomerCsvSource,
-        CustomerArrow
-    );
-    define_generate!(
-        generate_orders,
-        Table::Orders,
-        OrderGenerator,
-        OrderTblSource,
-        OrderCsvSource,
-        OrderArrow
-    );
-    define_generate!(
-        generate_lineitem,
-        Table::Lineitem,
-        LineItemGenerator,
-        LineItemTblSource,
-        LineItemCsvSource,
-        LineItemArrow
-    );
-
-    /// return the output filename for the given table
-    fn output_filename(&self, table: Table) -> String {
-        let extension = match self.format {
-            OutputFormat::Tbl => "tbl",
-            OutputFormat::Csv => "csv",
-            OutputFormat::Parquet => "parquet",
-        };
-        format!("{}.{extension}", table.name())
-    }
-
-    /// return a file for writing the given filename in the output directory
-    fn new_output_file(&self, filename: &str) -> io::Result<File> {
-        let path = self.output_dir.join(filename);
-        File::create(path)
-    }
-
-    /// Returns a list of "parts" (data generator chunks, not TPCH parts) to create
-    ///
-    /// Tuple returned is `(num_parts, part_list)`:
-    /// - num_parts is the total number of parts to generate
-    /// - part_list is the list of parts to generate (1 based)
-    fn parallel_target_part_count(&self, table: &Table) -> (i32, Vec<i32>) {
-        // parallel generation disabled if user specifies a part explicitly
-        if self.part != 1 || self.parts != 1 {
-            return (self.parts, vec![self.part]);
-        }
-
-        // Note use part=1, part_count=1 to calculate the total row count
-        // for the table
-        //
-        // Avg row size is an estimate of the average row size in bytes from the first 100 rows
-        // of the table in tbl format
-        let (avg_row_size_bytes, row_count) = match table {
-            Table::Nation => (88, 1),
-            Table::Region => (77, 1),
-            Table::Part => (
-                115,
-                PartGenerator::calculate_row_count(self.scale_factor, 1, 1),
-            ),
-            Table::Supplier => (
-                140,
-                SupplierGenerator::calculate_row_count(self.scale_factor, 1, 1),
-            ),
-            Table::Partsupp => (
-                148,
-                PartSuppGenerator::calculate_row_count(self.scale_factor, 1, 1),
-            ),
-            Table::Customer => (
-                160,
-                CustomerGenerator::calculate_row_count(self.scale_factor, 1, 1),
-            ),
-            Table::Orders => (
-                114,
-                OrderGenerator::calculate_row_count(self.scale_factor, 1, 1),
-            ),
-            Table::Lineitem => {
-                // there are on average 4 line items per order.
-                // For example, in SF=10,
-                // * orders has 15,000,000 rows
-                // * lineitem has around 60,000,000 rows
-                let row_count = 4 * OrderGenerator::calculate_row_count(self.scale_factor, 1, 1);
-                (128, row_count)
-            }
-        };
-        // target chunks of about 16MB (use 15MB to ensure we don't exceed the target size)
-        let target_chunk_size_bytes = 15 * 1024 * 1024;
-        let mut num_parts = ((row_count * avg_row_size_bytes) / target_chunk_size_bytes) + 1;
-
-        // parquet files can have at most 32767 row groups so cap the number of parts at that number
-        if self.format == OutputFormat::Parquet {
-            num_parts = num_parts.min(32767);
-        }
-
-        // convert to i32
-        let num_parts = num_parts.try_into().unwrap();
-        // generating all the parts
-        (num_parts, (1..=num_parts).collect())
-    }
-
-    /// Generates the output file from the sources
-    async fn go<I>(&self, filename: &str, sources: I) -> Result<(), io::Error>
-    where
-        I: Iterator<Item: Source> + 'static,
-    {
-        // Since generate_in_chunks already buffers, there is no need to buffer again
-        if self.stdout {
-            let sink = WriterSink::new(io::stdout());
-            generate_in_chunks(sink, sources, self.num_threads).await
-        } else {
-            let sink = WriterSink::new(self.new_output_file(filename)?);
-            generate_in_chunks(sink, sources, self.num_threads).await
-        }
-    }
-
-    /// Generates an output parquet file from the sources
-    async fn go_parquet<I>(&self, filename: &str, sources: I) -> Result<(), io::Error>
-    where
-        I: Iterator<Item: RecordBatchIterator> + 'static,
-    {
-        if self.stdout {
-            // write to stdout
-            let writer = BufWriter::with_capacity(32 * 1024 * 1024, io::stdout()); // 32MB buffer
-            generate_parquet(writer, sources, self.num_threads, self.parquet_compression).await
-        } else {
-            // write to a file
-            let file = self.new_output_file(filename)?;
-            let writer = BufWriter::with_capacity(32 * 1024 * 1024, file); // 32MB buffer
-            generate_parquet(writer, sources, self.num_threads, self.parquet_compression).await
-        }
     }
 }
 

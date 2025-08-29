@@ -37,7 +37,6 @@ html_theme_options = {
     "light_logo": "marshmallow-logo-with-title.png",
     "dark_logo": "marshmallow-logo-with-title-for-dark-theme.png",
     "source_repository": "https://github.com/marshmallow-code/marshmallow",
-    "announcement": 'This is the documentation for the unreleased 4.0 version. The latest v3 docs are <a href="https://marshmallow.readthedocs.io/en/3.x-line/">here</a>.',
     "source_branch": "dev",
     "source_directory": "docs/",
     "sidebar_hide_name": True,
@@ -45,7 +44,7 @@ html_theme_options = {
         # Serif system font stack: https://systemfontstack.com/
         "font-stack": "Iowan Old Style, Apple Garamond, Baskerville, Times New Roman, Droid Serif, Times, Source Serif Pro, serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;",
     },
-    "top_of_page_buttons": ["view"],
+    "top_of_page_buttons": ["view", "edit"],
 }
 pygments_dark_style = "lightbulb"
 html_favicon = "_static/favicon.ico"

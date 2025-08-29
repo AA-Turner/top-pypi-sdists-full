@@ -14,21 +14,27 @@ class GetPremiumInfoResponse200:
     Attributes:
         premium (bool):
         owner (str):
+        is_past_due (bool):
         usage (Union[Unset, float]):
         status (Union[Unset, str]):
+        max_tolerated_executions (Union[Unset, float]):
     """
 
     premium: bool
     owner: str
+    is_past_due: bool
     usage: Union[Unset, float] = UNSET
     status: Union[Unset, str] = UNSET
+    max_tolerated_executions: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         premium = self.premium
         owner = self.owner
+        is_past_due = self.is_past_due
         usage = self.usage
         status = self.status
+        max_tolerated_executions = self.max_tolerated_executions
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,12 +42,15 @@ class GetPremiumInfoResponse200:
             {
                 "premium": premium,
                 "owner": owner,
+                "is_past_due": is_past_due,
             }
         )
         if usage is not UNSET:
             field_dict["usage"] = usage
         if status is not UNSET:
             field_dict["status"] = status
+        if max_tolerated_executions is not UNSET:
+            field_dict["max_tolerated_executions"] = max_tolerated_executions
 
         return field_dict
 
@@ -52,15 +61,21 @@ class GetPremiumInfoResponse200:
 
         owner = d.pop("owner")
 
+        is_past_due = d.pop("is_past_due")
+
         usage = d.pop("usage", UNSET)
 
         status = d.pop("status", UNSET)
 
+        max_tolerated_executions = d.pop("max_tolerated_executions", UNSET)
+
         get_premium_info_response_200 = cls(
             premium=premium,
             owner=owner,
+            is_past_due=is_past_due,
             usage=usage,
             status=status,
+            max_tolerated_executions=max_tolerated_executions,
         )
 
         get_premium_info_response_200.additional_properties = d

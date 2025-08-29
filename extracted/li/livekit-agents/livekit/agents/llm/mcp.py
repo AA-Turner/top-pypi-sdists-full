@@ -114,15 +114,15 @@ class MCPServer(ABC):
                 "This might indicate an issue with internal processing."
             )
 
-        raw_schema = {
-            "name": name,
-            "description": description,
-            "parameters": input_schema,
-        }
-        if meta:
-            raw_schema["meta"] = meta
-
-        return function_tool(_tool_called, raw_schema=raw_schema)
+        return function_tool(
+            _tool_called,
+            raw_schema={
+                "name": name,
+                "description": description,
+                "parameters": input_schema,
+                "meta": meta,
+            },
+        )
 
     async def aclose(self) -> None:
         try:

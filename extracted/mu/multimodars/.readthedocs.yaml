@@ -4,15 +4,16 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.12"
-    rust: latest
+    rust: "latest"
   apt_packages:
     - libssl-dev
     - pkg-config
 
   jobs:
     post_create_environment:
-      - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
+      - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.87.0"
       - ". \"$HOME/.cargo/env\""
+      - "rustup default 1.87.0 || true"
       - "echo \"Rust installed: $(rustc --version)\""
       - ". \"$READTHEDOCS_VIRTUALENV_PATH/bin/activate\""
       - "echo \"Activated venv: $VIRTUAL_ENV\""

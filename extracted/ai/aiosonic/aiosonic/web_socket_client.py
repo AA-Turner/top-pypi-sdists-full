@@ -9,15 +9,25 @@ and graceful closing) and a WebSocketClient class for performing the HTTP
 upgrade handshake and connecting to a WebSocket server.
 
 Classes:
-    Message: Represents a WebSocket message.
-    ProtocolHandler: Base class for custom protocol encoding/decoding.
-    WebSocketConnection: Manages a WebSocket connection, including an async
-                         iterator to receive normal messages.
-    WebSocketClient: Establishes a WebSocket connection.
+    Message
+        Represents a WebSocket message.
+    
+    ProtocolHandler
+        Base class for custom protocol encoding/decoding.
+    
+    WebSocketConnection
+        Manages a WebSocket connection, including an async iterator to
+        receive normal messages.
+    
+    WebSocketClient
+        Establishes a WebSocket connection.
 
 Exceptions:
-    ConnectionDisconnected: Raised when the connection is unexpectedly closed.
-    ReadTimeout: Raised when a read operation times out.
+    ConnectionDisconnected
+        Raised when the connection is unexpectedly closed.
+    
+    ReadTimeout
+        Raised when a read operation times out.
 """
 
 import asyncio
@@ -120,21 +130,22 @@ class WebSocketConnection:
         subprotocol (Optional[str]): The negotiated subprotocol if any
 
     Example:
-        ```python
-        async with WebSocketClient() as client:
-            # Connect to a WebSocket server
-            conn = await client.connect('ws://example.com/ws')
 
-            # Start reading messages in a loop
-            async for msg in conn:
-                if msg.type == MessageType.TEXT:
-                    print(f"Received text: {msg.data}")
-                elif msg.type == MessageType.BINARY:
-                    print(f"Received binary data of length: {len(msg.data)}")
+        .. code-block:: python
 
-                # Connection will auto-close after loop ends or when
-                # server disconnects
-        ```
+          async with WebSocketClient() as client:
+              # Connect to a WebSocket server
+              conn = await client.connect('ws://example.com/ws')
+
+              # Start reading messages in a loop
+              async for msg in conn:
+                  if msg.type == MessageType.TEXT:
+                      print(f"Received text: {msg.data}")
+                  elif msg.type == MessageType.BINARY:
+                      print(f"Received binary data of length: {len(msg.data)}")
+
+                  # Connection will auto-close after loop ends or when
+                  # server disconnects
     """
 
     OPCODE_TEXT = 0x1

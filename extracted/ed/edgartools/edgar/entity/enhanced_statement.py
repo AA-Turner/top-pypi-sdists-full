@@ -20,6 +20,26 @@ from rich.text import Text
 
 from edgar.entity.mappings_loader import load_learned_mappings, load_virtual_trees
 from edgar.entity.models import FinancialFact
+
+try:
+    from edgar.entity.terminal_styles import get_current_scheme
+except ImportError:
+    # Fallback if terminal_styles not available - use professional scheme
+    def get_current_scheme():
+        return {
+            "abstract_item": "bold blue",
+            "total_item": "bold bright_white",
+            "regular_item": "",
+            "low_confidence_item": "italic",
+            "positive_value": "green",
+            "negative_value": "red",
+            "total_value_prefix": "bold",
+            "separator": "blue",
+            "company_name": "bold bright_white",
+            "statement_type": "bold blue",
+            "panel_border": "white",
+            "empty_value": "bright_black",
+        }
 from edgar.richtools import repr_rich
 
 
@@ -50,6 +70,9 @@ class MultiPeriodStatement:
     
     def __rich__(self):
         """Create a rich representation with multiple periods."""
+        # Get color scheme at the start
+        colors = get_current_scheme()
+        
         # Statement type mapping
         statement_names = {
             'IncomeStatement': 'Income Statement',
@@ -60,9 +83,9 @@ class MultiPeriodStatement:
         # Title
         title_parts = []
         if self.company_name:
-            title_parts.append((self.company_name, "bold green"))
+            title_parts.append((self.company_name, colors["company_name"]))
         else:
-            title_parts.append(("Financial Statement", "bold"))
+            title_parts.append(("Financial Statement", colors["total_item"]))
         
         title = Text.assemble(*title_parts)
         
@@ -95,12 +118,31 @@ class MultiPeriodStatement:
             
             # Concept label
             if item.is_abstract:
-                row.append(Text(f"{indent}{item.label}", style="bold cyan"))
+                row.append(Text(f"{indent}{item.label}", style=colors["abstract_item"]))
             elif item.is_total:
-                row.append(Text(f"{indent}{item.label}", style="bold"))
+                row.append(Text(f"{indent}{item.label}", style=colors["total_item"]))
             else:
-                style = "dim" if item.confidence < 0.8 else ""
-                confidence_marker = " ◦" if item.confidence < 0.8 else ""
+                # Check if this is a key financial item that should always be prominent
+                important_labels = [
+                    'Total Revenue', 'Revenue', 'Net Sales', 'Total Net Sales',
+                    'Operating Income', 'Operating Income (Loss)', 'Operating Profit',
+                    'Net Income', 'Net Income (Loss)', 'Net Earnings',
+                    'Gross Profit', 'Gross Margin',
+                    'Cost of Revenue', 'Cost of Goods Sold',
+                    'Operating Expenses', 'Total Operating Expenses',
+                    'Earnings Per Share', 'EPS'
+                ]
+                
+                is_important = any(label in item.label for label in important_labels)
+                
+                # Don't mark important items as low confidence even if score is low
+                if is_important:
+                    style = colors["total_item"]  # Use bold styling for important items
+                    confidence_marker = ""
+                else:
+                    style = colors["low_confidence_item"] if item.confidence < 0.8 else colors["regular_item"]
+                    confidence_marker = " ◦" if item.confidence < 0.8 else ""
+                
                 row.append(Text(f"{indent}{item.label}{confidence_marker}", style=style))
             
             # Period values
@@ -110,12 +152,16 @@ class MultiPeriodStatement:
                     # Color code values
                     value = item.values.get(period)
                     if value and isinstance(value, (int, float)):
-                        value_style = "red" if value < 0 else "green"
+                        value_style = colors["negative_value"] if value < 0 else colors["positive_value"]
                     else:
                         value_style = ""
                     
                     if item.is_total:
-                        row.append(Text(value_str, style=f"bold yellow {value_style}"))
+                        # Combine total style with value color if present
+                        total_style = colors["total_value_prefix"]
+                        if value_style:
+                            total_style = f"{total_style} {value_style}"
+                        row.append(Text(value_str, style=total_style))
                     else:
                         row.append(Text(value_str, style=value_style))
                 else:
@@ -125,9 +171,9 @@ class MultiPeriodStatement:
             
             # Add separator line after totals
             if item.is_total and depth == 0:
-                separator_row = [Text("─" * 40, style="dim")]
+                separator_row = [Text("─" * 40, style=colors["separator"])]
                 for _ in self.periods:
-                    separator_row.append(Text("─" * 15, style="dim"))
+                    separator_row.append(Text("─" * 15, style=colors["separator"]))
                 stmt_table.add_row(*separator_row)
             
             # Add children
@@ -152,7 +198,7 @@ class MultiPeriodStatement:
             content,
             title=title,
             subtitle=subtitle,
-            border_style="blue",
+            border_style=colors["panel_border"],
             expand=True
         )
     
@@ -943,17 +989,17 @@ class EnhancedStatementBuilder:
         
         # Use the same logic as FactQuery.latest_periods for consistency
         # Group facts by unique periods and calculate period info
+        # FIX: Use period_end as part of the key to keep all variations
         period_info = {}
         period_facts = defaultdict(list)
         
         for fact in stmt_facts:
-            period_key = (fact.fiscal_year, fact.fiscal_period)
+            # Include period_end in the key to avoid losing different period_end variations
+            period_key = (fact.fiscal_year, fact.fiscal_period, fact.period_end)
+            # Make period label unique by including period_end when there are duplicates
             period_label = f"{fact.fiscal_period} {fact.fiscal_year}"
             
-            # Store facts by period label
-            period_facts[period_label].append(fact)
-            
-            # Store period metadata
+            # Store period metadata for each unique combination
             if period_key not in period_info:
                 period_info[period_key] = {
                     'label': period_label,
@@ -963,6 +1009,9 @@ class EnhancedStatementBuilder:
                     'fiscal_year': fact.fiscal_year,
                     'fiscal_period': fact.fiscal_period
                 }
+            
+            # Store facts by the unique period key instead of label
+            period_facts[period_key].append(fact)
         
         # Create list of periods with their metadata
         period_list = []
@@ -970,21 +1019,98 @@ class EnhancedStatementBuilder:
             period_list.append((period_key, info))
         
         if annual:
-            # When annual=True, only use annual periods - no backfilling with interim periods
-            annual_periods = [(pk, info) for pk, info in period_list if info['is_annual']]
+            # When annual=True, filter for TRUE annual periods using duration
+            # Some facts are marked as FY but are actually quarterly (90 days vs 363+ days)
+            true_annual_periods = []
             
-            # Sort annual periods by fiscal year (newest first)
-            annual_periods.sort(key=lambda x: x[0][0] if x[0][0] else 0, reverse=True)
+            for pk, info in period_list:
+                if not info['is_annual']:
+                    continue
+                    
+                # pk is now (fiscal_year, fiscal_period, period_end)
+                fiscal_year = pk[0]
+                period_end_date = pk[2]
+                
+                # Allow fiscal_year to be within 0-3 years of period_end.year
+                # This handles current year data and comparative periods
+                if not period_end_date:
+                    continue
+                year_diff = fiscal_year - period_end_date.year
+                if year_diff < -1 or year_diff > 3:
+                    continue  # Too far off to be valid
+                
+                # Get a fact from this period to check duration
+                period_fact_list = period_facts.get(pk, [])
+                if period_fact_list:
+                    # Check if this is truly annual by looking at period duration
+                    sample_fact = period_fact_list[0]
+                    if sample_fact.period_start and sample_fact.period_end:
+                        duration = (sample_fact.period_end - sample_fact.period_start).days
+                        # Annual periods are typically 360-370 days, quarterly are ~90 days
+                        if duration > 300:  # This is truly annual
+                            true_annual_periods.append((pk, info))
+                    elif not sample_fact.period_start:
+                        # If no period_start, assume it's annual if marked as FY
+                        # (this handles instant facts like balance sheet items)
+                        true_annual_periods.append((pk, info))
             
-            # Select only annual periods, up to n
-            selected_period_info = annual_periods[:periods]
+            # Group by actual period year (not fiscal year) and deduplicate
+            # Keep the one with the latest filing_date for each period year
+            annual_by_period_year = {}
+            for pk, info in true_annual_periods:
+                period_end_date = pk[2]
+                period_year = period_end_date.year if period_end_date else None
+                
+                if period_year:
+                    # If we have multiple facts for the same period year,
+                    # keep the one with the latest filing date (most recent filing)
+                    if period_year not in annual_by_period_year or \
+                       (info.get('filing_date') and 
+                        annual_by_period_year[period_year][1].get('filing_date') and
+                        info['filing_date'] > annual_by_period_year[period_year][1]['filing_date']):
+                        annual_by_period_year[period_year] = (pk, info)
+            
+            # Sort by period year (descending) and select
+            sorted_periods = sorted(annual_by_period_year.items(), key=lambda x: x[0], reverse=True)
+            selected_period_info = [period_info for year, period_info in sorted_periods[:periods]]
         else:
             # Sort all periods by end date (newest first)
             period_list.sort(key=lambda x: x[1]['end_date'], reverse=True)
             selected_period_info = period_list[:periods]
         
-        # Extract period labels for selected periods
-        selected_periods = [info['label'] for _, info in selected_period_info]
+        # Extract period labels and build a mapping for the selected periods
+        # For annual periods, use the actual period end year in the label
+        selected_periods = []
+        for pk, info in selected_period_info:
+            if annual and info.get('is_annual') and pk[2]:  # pk[2] is period_end
+                # Use the actual period year instead of fiscal year in the label
+                label = f"FY {pk[2].year}"
+            else:
+                label = info['label']
+            selected_periods.append(label)
+        
+        # Create a new period_facts dict with labels as keys for the selected periods
+        # CRITICAL: For annual periods, filter facts to only include those with duration > 300 days
+        period_facts_by_label = defaultdict(list)
+        for i, (period_key, info) in enumerate(selected_period_info):
+            label = selected_periods[i]  # Use the corrected label
+            facts_for_period = period_facts.get(period_key, [])
+            
+            # If this is an annual period, filter to only include annual facts
+            if annual and info.get('is_annual'):
+                filtered_facts = []
+                for fact in facts_for_period:
+                    # Keep facts with annual duration (>300 days) or instant facts (no period_start)
+                    if fact.period_start and fact.period_end:
+                        duration = (fact.period_end - fact.period_start).days
+                        if duration > 300:
+                            filtered_facts.append(fact)
+                    else:
+                        # Instant facts (balance sheet items) don't have duration
+                        filtered_facts.append(fact)
+                period_facts_by_label[label] = filtered_facts
+            else:
+                period_facts_by_label[label] = facts_for_period
         
         # Build hierarchical structure using canonical template
         # Handle statement type naming inconsistencies
@@ -1004,10 +1130,10 @@ class EnhancedStatementBuilder:
             virtual_tree_key = statement_type
         
         if virtual_tree_key in self.virtual_trees:
-            items = self._build_with_canonical(period_facts, selected_periods, virtual_tree_key)
+            items = self._build_with_canonical(period_facts_by_label, selected_periods, virtual_tree_key)
             canonical_coverage = self._calculate_coverage(stmt_facts, virtual_tree_key)
         else:
-            items = self._build_from_facts(period_facts, selected_periods)
+            items = self._build_from_facts(period_facts_by_label, selected_periods)
             canonical_coverage = 0.0
         
         return MultiPeriodStatement(
@@ -1069,6 +1195,9 @@ class EnhancedStatementBuilder:
         # Apply smart aggregation to parent nodes
         for item in items:
             self._apply_smart_aggregation(item)
+        
+        # Remove redundant table duplicates for cleaner presentation
+        items = self._deduplicate_table_items(items)
         
         return items
     
@@ -1478,6 +1607,116 @@ class EnhancedStatementBuilder:
                         # Mark as aggregated
                         if not item.label.endswith(' (Aggregated)'):
                             item.label = item.label + ' (Aggregated)'
+    
+    def _deduplicate_table_items(self, items: List[MultiPeriodItem]) -> List[MultiPeriodItem]:
+        """
+        Remove redundant items from Statement [Table] structures when they duplicate primary items.
+        
+        This handles the XBRL quirk where the same concepts appear both:
+        1. At the top level (primary context)
+        2. Under Statement [Table] -> Statement [Line Items] (dimensional context)
+        
+        When there are no actual dimensions, these are pure duplicates.
+        """
+        # First, collect all concepts and their values from non-table contexts
+        primary_concepts = {}
+        
+        def collect_primary_concepts(item: MultiPeriodItem, in_table: bool = False):
+            """Collect concepts that are not in table structures."""
+            # Check if we're entering a table
+            if 'Table' in item.label and 'Statement' in item.label:
+                in_table = True
+            
+            if not in_table and item.concept and item.values:
+                # Store the concept and its values
+                if any(v is not None for v in item.values.values()):
+                    primary_concepts[item.concept] = item.values
+            
+            # Recurse through children
+            for child in item.children:
+                collect_primary_concepts(child, in_table)
+        
+        # Collect all primary (non-table) concepts
+        for item in items:
+            collect_primary_concepts(item)
+        
+        def remove_duplicate_table_items(item: MultiPeriodItem, in_table: bool = False) -> Optional[MultiPeriodItem]:
+            """Remove items from table structures that duplicate primary items."""
+            # Check if we're entering a table
+            if 'Table' in item.label and 'Statement' in item.label:
+                in_table = True
+                
+                # For table structures, check if ALL children are duplicates
+                # If so, we might want to skip the entire table
+                cleaned_children = []
+                total_children = 0
+                duplicate_children = 0
+                
+                for child in item.children:
+                    total_children += 1
+                    cleaned_child = remove_duplicate_table_items(child, in_table)
+                    if cleaned_child:
+                        cleaned_children.append(cleaned_child)
+                    else:
+                        duplicate_children += 1
+                
+                # If most children are duplicates and we have few remaining items,
+                # consider removing the table entirely
+                if cleaned_children and len(cleaned_children) > 2:
+                    # Keep the table if it has meaningful content
+                    item.children = cleaned_children
+                    return item
+                elif not cleaned_children:
+                    # Table is entirely duplicates, remove it
+                    return None
+                else:
+                    # Table has very little unique content, remove it
+                    return None
+            
+            # For items within tables, check if they're duplicates
+            if in_table and item.concept in primary_concepts:
+                # Check if values match
+                if item.values == primary_concepts[item.concept]:
+                    # This is a duplicate, remove it (but keep exploring children
+                    # in case they have unique dimensional breakdowns)
+                    has_unique_children = False
+                    cleaned_children = []
+                    
+                    for child in item.children:
+                        cleaned_child = remove_duplicate_table_items(child, in_table)
+                        if cleaned_child:
+                            cleaned_children.append(cleaned_child)
+                            # Check if child has different values
+                            if cleaned_child.concept not in primary_concepts or \
+                               cleaned_child.values != primary_concepts.get(cleaned_child.concept):
+                                has_unique_children = True
+                    
+                    if has_unique_children:
+                        # Keep this item as a container for unique children
+                        item.children = cleaned_children
+                        return item
+                    else:
+                        # Pure duplicate with no unique children
+                        return None
+            
+            # For non-duplicate items, clean their children
+            cleaned_children = []
+            for child in item.children:
+                cleaned_child = remove_duplicate_table_items(child, in_table)
+                if cleaned_child:
+                    cleaned_children.append(cleaned_child)
+            
+            item.children = cleaned_children
+            return item
+        
+        # Process all top-level items
+        cleaned_items = []
+        for item in items:
+            cleaned_item = remove_duplicate_table_items(item)
+            if cleaned_item:
+                cleaned_items.append(cleaned_item)
+        
+        return cleaned_items
     
     def _should_aggregate_children(self, item: MultiPeriodItem) -> bool:
         """Determine if children should be aggregated for this parent."""

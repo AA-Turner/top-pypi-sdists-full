@@ -9,11 +9,11 @@ requires = [
 
 [project]
 name = 'selectolax'
-version = '0.3.33'
+version = '0.3.34'
 description = 'Fast HTML5 parser with CSS selectors.'
 readme = 'README.rst'
 requires-python = '>=3.9'
-license = {text = 'MIT'}
+license = 'MIT'
 authors = [
     { name = 'Artem Golubin', email = 'me@rushter.com' }
 ]
@@ -45,13 +45,16 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/rushter/selectolax"
 Documentation = "https://selectolax.readthedocs.io/en/latest/parser.html"
-Changelog = "https://github.com/rushter/selectolax/blob/main/CHANGES.rst"
+Changelog = "https://github.com/rushter/selectolax/blob/main/CHANGES.md"
 
 
 [tool.cibuildwheel]
 build-frontend = "build"
 build-verbosity = 1
 
+
+[tool.cibuildwheel.linux]
+environment = { LDFLAGS="-Wl,--strip-debug" }
 
 skip = [
     "*-manylinux_i686",

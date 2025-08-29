@@ -43,10 +43,7 @@ from comet_ml.testlib.predicates import AlwaysEquals
 from comet_ml.utils import url_join
 
 import multipart
-import requests
-from requests.adapters import HTTPAdapter
 from responses import RequestsMock
-from urllib3.util.retry import Retry
 
 from .mock_http import rest_api_v2_url_prefix
 from .test_constants import (

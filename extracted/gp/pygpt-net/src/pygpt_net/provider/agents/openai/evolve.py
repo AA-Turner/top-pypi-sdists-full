@@ -30,12 +30,12 @@ from pygpt_net.item.ctx import CtxItem
 from pygpt_net.item.model import ModelItem
 from pygpt_net.item.preset import PresetItem
 
-from pygpt_net.provider.gpt.agents.remote_tools import append_tools
-from pygpt_net.provider.gpt.agents.response import StreamHandler
+from pygpt_net.provider.api.openai.agents.remote_tools import append_tools
+from pygpt_net.provider.api.openai.agents.response import StreamHandler
+from pygpt_net.provider.api.openai.agents.experts import get_experts
 from pygpt_net.utils import trans
 
 from ..base import BaseAgent
-from ...gpt.agents.experts import get_experts
 
 
 @dataclass
@@ -340,7 +340,7 @@ class Agent(BaseAgent):
 
                 print("Winner: agent ", choose)
 
-                final_output, last_response_id = window.core.gpt.responses.unpack_agent_response(results[choose], ctx)
+                final_output, last_response_id = window.core.api.openai.responses.unpack_agent_response(results[choose], ctx)
                 input_items = results[choose].to_input_list()
 
                 if bridge.stopped():
@@ -437,7 +437,7 @@ class Agent(BaseAgent):
                     bridge.on_stop(ctx)
                     break
 
-                window.core.gpt.responses.unpack_agent_response(results[choose], ctx)
+                window.core.api.openai.responses.unpack_agent_response(results[choose], ctx)
                 input_items = results[choose].to_input_list()
 
                 evaluator_result = await Runner.run(evaluator, input_items)

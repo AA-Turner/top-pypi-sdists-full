@@ -14,14 +14,15 @@ import logging
 import os.path
 import sys
 import typing
+from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable, Literal, Optional, Sequence, Union
 
 from . import __version__
 from .domain import ConfluenceDocumentOptions, ConfluencePageID
+from .environment import ArgumentError, ConfluenceConnectionProperties, ConfluenceSiteProperties
 from .extra import override
 from .metadata import ConfluenceSiteMetadata
-from .properties import ArgumentError, ConfluenceConnectionProperties, ConfluenceSiteProperties
 
 
 class Arguments(argparse.Namespace):
@@ -68,30 +69,6 @@ class KwargsAppendAction(argparse.Action):
         setattr(namespace, self.dest, d)
 
 
-def unsupported(prefer: str) -> type[argparse.Action]:
-    class UnsupportedAction(argparse.Action):
-        """Display an error for unsupported command-line options."""
-
-        @override
-        def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[None, str, Sequence[Any]],
-            option_string: Optional[str] = None,
-        ) -> None:
-            raise argparse.ArgumentError(
-                self,
-                f"this command-line option is no longer supported, use `--{prefer}`",
-            )
-
-        @override
-        def __repr__(self) -> str:
-            return f"{unsupported.__name__}({repr(prefer)})"
-
-    return UnsupportedAction
-
-
 class PositionalOnlyHelpFormatter(argparse.HelpFormatter):
     def _format_usage(
         self,
@@ -112,7 +89,7 @@ class PositionalOnlyHelpFormatter(argparse.HelpFormatter):
         return usage_str
 
 
-def main() -> None:
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=PositionalOnlyHelpFormatter)
     parser.prog = os.path.basename(os.path.dirname(__file__))
     parser.add_argument("--version", action="version", version=__version__)
@@ -127,7 +104,6 @@ def main() -> None:
     parser.add_argument("-u", "--username", help="Confluence user name.")
     parser.add_argument(
         "-a",
-        "--apikey",
         "--api-key",
         dest="api_key",
         help="Confluence API key. Refer to documentation how to obtain one.",
@@ -229,12 +205,6 @@ def main() -> None:
         help="Format for rendering Mermaid and draw.io diagrams (default: 'png').",
     )
     parser.add_argument(
-        "--render-mermaid-format",
-        action=unsupported("diagram-output-format"),
-        metavar="FORMAT",
-        help="Format for rendering Mermaid diagrams (default: 'png').",
-    )
-    parser.add_argument(
         "--heading-anchors",
         action="store_true",
         default=False,
@@ -272,7 +242,18 @@ def main() -> None:
         default=False,
         help="Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)",
     )
+    return parser
 
+
+def get_help() -> str:
+    parser = get_parser()
+    with StringIO() as buf:
+        parser.print_help(file=buf)
+        return buf.getvalue()
+
+
+def main() -> None:
+    parser = get_parser()
     args = Arguments()
     parser.parse_args(namespace=args)
 
@@ -316,7 +297,7 @@ def main() -> None:
         from requests import HTTPError, JSONDecodeError
 
         from .api import ConfluenceAPI
-        from .application import Application
+        from .publisher import Publisher
 
         try:
             properties = ConfluenceConnectionProperties(
@@ -332,7 +313,7 @@ def main() -> None:
             parser.error(str(e))
         try:
             with ConfluenceAPI(properties) as api:
-                Application(
+                Publisher(
                     api,
                     options,
                 ).process(args.mdpath)

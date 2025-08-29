@@ -222,7 +222,7 @@ def test_parsing_a_span() -> None:
 
     friendly = ry.TimeSpan.parse("5 years, 1 week, 10 days, 5 hours, 59 minutes")
     assert iso == friendly
-    assert friendly.string(human=True) == "5y 1w 10d 5h 59m"
+    assert friendly.string(friendly=True) == "5y 1w 10d 5h 59m"
     assert str(friendly) == "P5Y1W10DT5H59M"
 
 
@@ -264,7 +264,8 @@ def test_using_strftime_and_strptime() -> None:
     ```
     """
     zdt = ry.ZonedDateTime.strptime(
-        "%A, %B %d, %Y at %I:%M%p %Q", "Monday, July 15, 2024 at 5:30pm US/Eastern"
+        "Monday, July 15, 2024 at 5:30pm US/Eastern",
+        "%A, %B %d, %Y at %I:%M%p %Q",
     )
     assert zdt.string() == "2024-07-15T17:30:00-04:00[US/Eastern]"
 

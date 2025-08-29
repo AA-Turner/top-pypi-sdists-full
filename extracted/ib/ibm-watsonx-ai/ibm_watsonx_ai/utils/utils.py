@@ -18,6 +18,7 @@ import re
 import shutil
 import sys
 import tarfile
+import urllib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -46,6 +47,7 @@ from ibm_watsonx_ai._wrappers.requests import HTTPX_DEFAULT_LIMIT, HTTPX_DEFAULT
 from ibm_watsonx_ai.href_definitions import HrefDefinitions
 from ibm_watsonx_ai.wml_client_error import (
     CannotInstallLibrary,
+    GovCloudEnvironmentConsentError,
     WMLClientError,
 )
 
@@ -1173,3 +1175,44 @@ def get_filename_from_asset_details(asset_details: dict) -> str | None:
         "metadata"
     ].get("attachment_name")
     return filename.split("/")[-1] if filename else None
+
+
+GOV_CLOUD_CONSENT_FORMULA = """
+You are accessing a U.S. Government (USG) Information System (IS) that is provided for USG-authorized use only.
+By using this IS (which includes any device attached to this IS), you consent to the following conditions:
+ - All actions on this system are tracked and recorded
+ - Unauthorized use of this system is prohibited and is subject to criminal and civil penalties
+ - You are prohibited from export, copy, screenshot or print any data.
+ - By using this system you consent to monitoring and recording
+ """
+
+
+def _validate_gov_cloud_env(url: str, logger: logging.Logger) -> None:
+    """Validate GovCloud environment.
+
+    :param url: URL
+    :type url: str
+    :param logger: logger instance
+    :type logger: logging.Logger
+
+    :raises GovCloudEnvironmentConsentError: when url is GovCloud type but env var
+                                            `WATSONX_ACCEPT_GOV_ENV` is not set to "True"
+    """
+    parsed_url = urllib.parse.urlparse(url)
+    hostname = (parsed_url.hostname or "").lower()
+    if hostname.endswith("ibmforusgov.com"):
+        gov_env_var_name = "WATSONX_ACCEPT_GOV_ENV"
+        if os.environ.get(gov_env_var_name) != "True":
+            gov_cloud_error_message = GOV_CLOUD_CONSENT_FORMULA + (
+                "\n"
+                "To confirm your consent, set the environment variable "
+                f"`{gov_env_var_name}` to `“True”`."
+            )
+            raise GovCloudEnvironmentConsentError(gov_cloud_error_message)
+        gov_cloud_warn_msg = (
+            f"\nYou set the environment variable `{gov_env_var_name}` to `'True'`"
+            " which means that you consent to the disclosure of information below."
+            "\n"
+        ) + GOV_CLOUD_CONSENT_FORMULA
+
+        logger.warning(gov_cloud_warn_msg)

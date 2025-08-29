@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xclim
-Version: 0.58.0
+Version: 0.58.1
 Summary: Climate indices computation package based on Xarray.
 Keywords: xclim,xarray,climate,climatology,bias correction,ensemble,indicators,analysis
 Author-email: Travis Logan <logan.travis@ouranos.ca>
@@ -38,7 +38,7 @@ Requires-Dist: pint >=0.24.4
 Requires-Dist: pyarrow >=15.0
 Requires-Dist: pyyaml >=6.0.1
 Requires-Dist: scikit-learn >=1.2.0
-Requires-Dist: scipy >=1.11.0, <1.16.0
+Requires-Dist: scipy >=1.11.0
 Requires-Dist: xarray >=2023.11.0,!=2024.10.0
 Requires-Dist: yamale >=5.0.0
 Requires-Dist: xclim[dev] ; extra == "all"
@@ -95,7 +95,7 @@ Requires-Dist: flox >=0.9 ; extra == "extras"
 Requires-Dist: xsdba >=0.4.0 ; extra == "extras"
 Requires-Dist: numbagg >= 0.8 ; extra == "extras"
 Project-URL: About Ouranos, https://www.ouranos.ca/en/
-Project-URL: Changelog, https://xclim.readthedocs.io/en/stable/history.html
+Project-URL: Changelog, https://xclim.readthedocs.io/en/stable/changelog.html
 Project-URL: Homepage, https://xclim.readthedocs.io/
 Project-URL: Issue tracker, https://github.com/Ouranosinc/xclim/issues
 Project-URL: Mastodon, https://fosstodon.org/@xclim

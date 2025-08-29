@@ -148,6 +148,22 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
         APPROVED = "APPROVED", _("Approved")
         REMOVED = "REMOVED", _("Removed")
 
+    @property
+    def can_update_primary_field(self):
+        return super().can_update_primary_field and self.status in [
+            ClientManagerRelationship.Status.APPROVED,
+            ClientManagerRelationship.Status.PENDINGREMOVE,
+        ]
+
+    def get_related_queryset(self):
+        return ClientManagerRelationship.objects.filter(
+            client=self.client,
+            status__in=[
+                ClientManagerRelationship.Status.APPROVED,
+                ClientManagerRelationship.Status.PENDINGREMOVE,
+            ],
+        )
+
     PRIMARY_ATTR_FIELDS = ["client"]
 
     relationship_manager = models.ForeignKey(
@@ -155,10 +171,6 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
         to="directory.Person",
         verbose_name=_("Relationship Manager"),
         related_name="manager_of",
-    )
-    primary = models.BooleanField(
-        verbose_name=_("Primary"),
-        default=False,
     )
     client = models.ForeignKey(
         on_delete=models.CASCADE,
@@ -209,7 +221,7 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
         },
     )
     def mngapprove(self, by=None, description=None, **kwargs):
-        self._handle_primary_status()
+        pass
 
     @transition(
         field=status,
@@ -251,7 +263,7 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
         },
     )
     def approve(self, by=None, description=None, **kwargs):
-        self._handle_primary_status()
+        pass
 
     @transition(
         field=status,
@@ -372,24 +384,6 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
 
     def delete(self, **kwargs):
         super().delete(no_deletion=False)  # For this model we actually want to delete the object
-
-    def get_related_queryset(self):
-        return (
-            super().get_related_queryset().filter(status=self.Status.APPROVED)
-        )  # only one approved relationship can be primary
-
-    def _handle_primary_status(self):
-        if (
-            self.primary is True
-            and ClientManagerRelationship.objects.filter(client=self.client, primary=True).exists()
-        ):
-            ClientManagerRelationship.objects.filter(client=self.client, primary=True).update(primary=False)
-
-        if (
-            self.primary is False
-            and not ClientManagerRelationship.objects.filter(client=self.client, primary=True).exists()
-        ):
-            self.primary = True
 
     class Meta:
         verbose_name = _("Client Manager Relationship")

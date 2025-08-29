@@ -44,6 +44,7 @@ class AttackObjectVersion:
     minor: int
 
     def __repr__(self):
+        """Return a string representation of the ATT&CK object version."""
         return f"{self.major}.{self.minor}"
 
 
@@ -52,12 +53,12 @@ class AttackObjectVersion:
 class AttackChangesEncoder(json.JSONEncoder):
     """Custom JSON encoder for changes made to ATT&CK between releases."""
 
-    def default(self, obj):
+    def default(self, o):
         """Handle custom object types so they can be serialized to JSON."""
-        if isinstance(obj, AttackObjectVersion):
-            return str(obj)
+        if isinstance(o, AttackObjectVersion):
+            return str(o)
 
-        return json.JSONEncoder.default(self, obj)
+        return json.JSONEncoder.default(self, o)
 
 
 class DiffStix(object):
@@ -65,7 +66,7 @@ class DiffStix(object):
 
     def __init__(
         self,
-        domains: List[str] = ["enterprise-attack", "mobile-attack", "ics-attack"],
+        domains: Optional[List[str]] = None,
         layers: Optional[List[str]] = None,
         unchanged: bool = False,
         old: Optional[str] = "old",
@@ -101,6 +102,8 @@ class DiffStix(object):
         include_contributors : bool, optional
             Include contributor information for new contributors, by default False
         """
+        if domains is None:
+            domains = ["enterprise-attack", "mobile-attack", "ics-attack"]
         self.domains = domains
         self.layers = layers
         self.unchanged = unchanged
@@ -108,7 +111,19 @@ class DiffStix(object):
         self.new = new
         self.show_key = show_key
         self.site_prefix = site_prefix
-        self.types = ["techniques", "software", "groups", "campaigns", "assets", "mitigations", "datasources", "datacomponents"]
+        self.types = [
+            "techniques",
+            "software",
+            "groups",
+            "campaigns",
+            "assets",
+            "mitigations",
+            "datasources",
+            "datacomponents",
+            "detectionstrategies",
+            "analytics",
+            "logsources",
+        ]
         self.use_mitre_cti = use_mitre_cti
         self.verbose = verbose
         self.include_contributors = include_contributors
@@ -127,6 +142,9 @@ class DiffStix(object):
             "mitigations": "Mitigations",
             "datasources": "Data Sources",
             "datacomponents": "Data Components",
+            "detectionstrategies": "Detection Strategies",
+            "analytics": "Analytics",
+            "logsources": "Log Sources",
         }
 
         self.section_descriptions = {
@@ -306,7 +324,7 @@ class DiffStix(object):
                         new_lines_unique = [line for line in new_lines if line not in old_lines]
                         if old_lines_unique or new_lines_unique:
                             html_diff = difflib.HtmlDiff(wrapcolumn=60)
-                            html_diff._legend = ""
+                            html_diff._legend = ""  # type: ignore[attr-defined]
                             delta = html_diff.make_table(old_lines, new_lines, "Old Description", "New Description")
                             new_stix_obj["description_change_table"] = delta
 
@@ -462,45 +480,92 @@ class DiffStix(object):
         stix_id = new_stix_obj["id"]
         all_old_domain_datasources = self.data["old"][domain]["attack_objects"]["datasources"]
         all_old_domain_datacomponents = self.data["old"][domain]["attack_objects"]["datacomponents"]
+        all_old_domain_detectionstrategies = self.data["old"][domain]["attack_objects"]["detectionstrategies"]
         all_new_domain_datasources = self.data["new"][domain]["attack_objects"]["datasources"]
         all_new_domain_datacomponents = self.data["new"][domain]["attack_objects"]["datacomponents"]
-        old_detections = {}
-        new_detections = {}
+        all_new_domain_detectionstrategies = self.data["new"][domain]["attack_objects"]["detectionstrategies"]
+
+        old_datacomponent_detections = {}
+        old_detectionstrategy_detections = {}
+        new_datacomponent_detections = {}
+        new_detectionstrategy_detections = {}
 
         for _, detection_relationship in self.data["old"][domain]["relationships"]["detections"].items():
             if detection_relationship.get("x_mitre_deprecated") or detection_relationship.get("revoked"):
                 continue
             if stix_id == detection_relationship["target_ref"]:
-                old_datacomponent_id = detection_relationship["source_ref"]
-                old_datacomponent = all_old_domain_datacomponents[old_datacomponent_id]
-                old_datasource_id = old_datacomponent["x_mitre_data_source_ref"]
-                old_datasource = all_old_domain_datasources[old_datasource_id]
-                old_datasource_attack_id = get_attack_id(stix_obj=old_datasource)
-                old_detections[
-                    old_datacomponent_id
-                ] = f"{old_datasource_attack_id}: {old_datasource['name']} ({old_datacomponent['name']})"
+                old_sourceref_id = detection_relationship["source_ref"]
+                if old_sourceref_id in all_old_domain_datacomponents:
+                    old_datacomponent = all_old_domain_datacomponents[old_sourceref_id]
+                    old_datasource_id = old_datacomponent["x_mitre_data_source_ref"]
+                    old_datasource = all_old_domain_datasources[old_datasource_id]
+                    old_datasource_attack_id = get_attack_id(stix_obj=old_datasource)
+                    old_datacomponent_detections[old_sourceref_id] = (
+                        f"{old_datasource_attack_id}: {old_datasource['name']} ({old_datacomponent['name']})"
+                    )
+                if old_sourceref_id in all_old_domain_detectionstrategies:
+                    old_detectionstrategy = all_old_domain_detectionstrategies[old_sourceref_id]
+                    old_detectionstrategy_attack_id = get_attack_id(stix_obj=old_detectionstrategy)
+                    old_detectionstrategy_detections[old_sourceref_id] = (
+                        f"{old_detectionstrategy_attack_id}: {old_detectionstrategy['name']}"
+                    )
 
         for _, detection_relationship in self.data["new"][domain]["relationships"]["detections"].items():
             if detection_relationship.get("x_mitre_deprecated") or detection_relationship.get("revoked"):
                 continue
             if stix_id == detection_relationship["target_ref"]:
-                new_datacomponent_id = detection_relationship["source_ref"]
-                new_datacomponent = all_new_domain_datacomponents[new_datacomponent_id]
-                new_datasource_id = new_datacomponent["x_mitre_data_source_ref"]
-                new_datasource = all_new_domain_datasources[new_datasource_id]
-                new_datasource_attack_id = get_attack_id(stix_obj=new_datasource)
-                new_detections[
-                    new_datacomponent_id
-                ] = f"{new_datasource_attack_id}: {new_datasource['name']} ({new_datacomponent['name']})"
+                new_sourceref_id = detection_relationship["source_ref"]
+                if new_sourceref_id in all_new_domain_datacomponents:
+                    new_datacomponent = all_new_domain_datacomponents[new_sourceref_id]
+                    new_datasource_id = new_datacomponent["x_mitre_data_source_ref"]
+                    new_datasource = all_new_domain_datasources[new_datasource_id]
+                    new_datasource_attack_id = get_attack_id(stix_obj=new_datasource)
+                    new_datacomponent_detections[new_sourceref_id] = (
+                        f"{new_datasource_attack_id}: {new_datasource['name']} ({new_datacomponent['name']})"
+                    )
+                if new_sourceref_id in all_new_domain_detectionstrategies:
+                    new_detectionstrategy = all_new_domain_detectionstrategies[new_sourceref_id]
+                    new_detectionstrategy_attack_id = get_attack_id(stix_obj=new_detectionstrategy)
+                    new_detectionstrategy_detections[new_sourceref_id] = (
+                        f"{new_detectionstrategy_attack_id}: {new_detectionstrategy['name']}"
+                    )
 
-        shared_detections = old_detections.keys() & new_detections.keys()
-        brand_new_detections = new_detections.keys() - old_detections.keys()
-        dropped_detections = old_detections.keys() - new_detections.keys()
+        shared_datacomponent_detections = old_datacomponent_detections.keys() & new_datacomponent_detections.keys()
+        brand_new_datacomponent_detections = new_datacomponent_detections.keys() - old_datacomponent_detections.keys()
+        dropped_datacomponent_detections = old_datacomponent_detections.keys() - new_datacomponent_detections.keys()
 
-        new_stix_obj["changelog_detections"] = {
-            "shared": sorted([f"{new_detections[stix_id]}" for stix_id in shared_detections]),
-            "new": sorted([f"{new_detections[stix_id]}" for stix_id in brand_new_detections]),
-            "dropped": sorted([f"{old_detections[stix_id]}" for stix_id in dropped_detections]),
+        new_stix_obj["changelog_datacomponent_detections"] = {
+            "shared": sorted(
+                [f"{new_datacomponent_detections[stix_id]}" for stix_id in shared_datacomponent_detections]
+            ),
+            "new": sorted(
+                [f"{new_datacomponent_detections[stix_id]}" for stix_id in brand_new_datacomponent_detections]
+            ),
+            "dropped": sorted(
+                [f"{old_datacomponent_detections[stix_id]}" for stix_id in dropped_datacomponent_detections]
+            ),
+        }
+
+        shared_detectionstrategy_detections = (
+            old_detectionstrategy_detections.keys() & new_detectionstrategy_detections.keys()
+        )
+        brand_new_detectionstrategy_detections = (
+            new_detectionstrategy_detections.keys() - old_detectionstrategy_detections.keys()
+        )
+        dropped_detectionstrategy_detections = (
+            old_detectionstrategy_detections.keys() - new_detectionstrategy_detections.keys()
+        )
+
+        new_stix_obj["changelog_detectionstrategy_detections"] = {
+            "shared": sorted(
+                [f"{new_detectionstrategy_detections[stix_id]}" for stix_id in shared_detectionstrategy_detections]
+            ),
+            "new": sorted(
+                [f"{new_detectionstrategy_detections[stix_id]}" for stix_id in brand_new_detectionstrategy_detections]
+            ),
+            "dropped": sorted(
+                [f"{old_detectionstrategy_detections[stix_id]}" for stix_id in dropped_detectionstrategy_detections]
+            ),
         }
 
     def load_domain(self, domain: str):
@@ -517,6 +582,10 @@ class DiffStix(object):
                 data_store = self.get_datastore_from_mitre_cti(domain=domain, datastore_version=datastore_version)
             else:
                 directory = self.old if datastore_version == "old" else self.new
+                if directory is None:
+                    raise ValueError(
+                        f"Directory path for {datastore_version} data cannot be None when not using MITRE CTI"
+                    )
                 stix_file = os.path.join(directory, f"{domain}.json")
 
                 attack_version = release_info.get_attack_version(domain=domain, stix_file=stix_file)
@@ -587,6 +656,9 @@ class DiffStix(object):
             "mitigations": [Filter("type", "=", "course-of-action")],
             "datasources": [Filter("type", "=", "x-mitre-data-source")],
             "datacomponents": [Filter("type", "=", "x-mitre-data-component")],
+            "detectionstrategies": [Filter("type", "=", "x-mitre-detection-strategy")],
+            "analytics": [Filter("type", "=", "x-mitre-analytic")],
+            "logsources": [Filter("type", "=", "x-mitre-log-source")],
         }
         for object_type, stix_filters in attack_type_to_stix_filter.items():
             raw_data = []
@@ -849,6 +921,7 @@ class DiffStix(object):
             Final return string to be displayed in the Changelog.
         """
         datastore_version = "old" if section == "deletions" else "new"
+        placard_string = ""
 
         if section == "deletions":
             placard_string = stix_object["name"]
@@ -903,6 +976,7 @@ class DiffStix(object):
     def get_markdown_section_data(self, groupings, section: str, domain: str) -> str:
         """Parse a list of STIX objects in a section and return a string for the whole section."""
         sectionString = ""
+        placard_string = ""
         for grouping in groupings:
             if grouping["parentInSection"]:
                 placard_string = self.placard(stix_object=grouping["parent"], section=section, domain=domain)
@@ -958,11 +1032,11 @@ class DiffStix(object):
 
             for domain in self.data["changes"][object_type]:
                 # e.g "Enterprise"
-                domains += f"### {self.domain_to_domain_label[domain]}\n\n"
+                next_domain = f"### {self.domain_to_domain_label[domain]}\n\n"
                 # Skip mobile section for data sources
                 if domain == "mobile-attack" and object_type == "datasource":
                     logger.debug("Skipping - ATT&CK for Mobile does not support data sources")
-                    domains += "ATT&CK for Mobile does not support data sources\n\n"
+                    next_domain += "ATT&CK for Mobile does not support data sources\n\n"
                     continue
                 domain_sections = ""
                 for section, stix_objects in self.data["changes"][object_type][domain].items():
@@ -980,10 +1054,12 @@ class DiffStix(object):
                         domain_sections += f"{header}\n\n{section_items}\n"
 
                 # add domain sections
-                domains += f"{domain_sections}"
+                if domain_sections != "":
+                    domains += f"{next_domain}{domain_sections}"
 
             # e.g "techniques"
-            content += f"## {self.attack_type_to_title[object_type]}\n\n{domains}"
+            if domains != "":
+                content += f"## {self.attack_type_to_title[object_type]}\n\n{domains}"
 
         # Add contributors if requested by argument
         if self.include_contributors:
@@ -1380,11 +1456,11 @@ def deep_copy_stix(stix_objects: List[dict]) -> List[dict]:
         # more details here: https://github.com/mitre/cti/issues/17#issuecomment-395768815
         stix_object = dict(stix_object)
         if "external_references" in stix_object:
-            for i in range(len(stix_object["external_references"])):
-                stix_object["external_references"][i] = dict(stix_object["external_references"][i])
+            # Create a new list to ensure deep copy
+            stix_object["external_references"] = [dict(ref) for ref in stix_object["external_references"]]
         if "kill_chain_phases" in stix_object:
-            for i in range(len(stix_object["kill_chain_phases"])):
-                stix_object["kill_chain_phases"][i] = dict(stix_object["kill_chain_phases"][i])
+            # Create a new list to ensure deep copy
+            stix_object["kill_chain_phases"] = [dict(phase) for phase in stix_object["kill_chain_phases"]]
 
         if "modified" in stix_object:
             stix_object["modified"] = str(stix_object["modified"])
@@ -1626,7 +1702,9 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
 
                         if change_type in ["additions", "revocations", "deprecations", "deletions"]:
                             if stix_object.get("description"):
-                                lines.append(f"<p><b>Description</b>: {markdown.markdown(stix_object['description'])}</p>")
+                                lines.append(
+                                    f"<p><b>Description</b>: {markdown.markdown(stix_object['description'])}</p>"
+                                )
 
                         if change_type == "revocations":
                             revoked_by_id = get_attack_id(stix_object["revoked_by"])
@@ -1667,17 +1745,36 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
                                     lines.append("</ul>")
 
                             # Detections!
-                            if stix_object.get("changelog_detections"):
-                                new_detections = stix_object["changelog_detections"].get("new")
-                                dropped_detections = stix_object["changelog_detections"].get("dropped")
+                            if stix_object.get("changelog_datacomponent_detections"):
+                                new_detections = stix_object["changelog_datacomponent_detections"].get("new")
+                                dropped_detections = stix_object["changelog_datacomponent_detections"].get("dropped")
                                 if new_detections:
-                                    lines.append("<p><b>New Detections</b>:</p>")
+                                    lines.append("<p><b>New Detections (Data Components -> Technique)</b>:</p>")
                                     lines.append("<ul>")
                                     for detection in new_detections:
                                         lines.append(f"  <li>{detection}</li>")
                                     lines.append("</ul>")
                                 if dropped_detections:
-                                    lines.append("<p><b>Dropped Detections</b>:</p>")
+                                    lines.append("<p><b>Dropped Detections (Data Components -> Technique)</b>:</p>")
+                                    lines.append("<ul>")
+                                    for detection in dropped_detections:
+                                        lines.append(f"  <li>{detection}</li>")
+                                    lines.append("</ul>")
+                            if stix_object.get("changelog_detectionstrategy_detections"):
+                                new_detections = stix_object["changelog_detectionstrategy_detections"].get("new")
+                                dropped_detections = stix_object["changelog_detectionstrategy_detections"].get(
+                                    "dropped"
+                                )
+                                if new_detections:
+                                    lines.append("<p><b>New Detections (Detection Strategies -> Technique)</b>:</p>")
+                                    lines.append("<ul>")
+                                    for detection in new_detections:
+                                        lines.append(f"  <li>{detection}</li>")
+                                    lines.append("</ul>")
+                                if dropped_detections:
+                                    lines.append(
+                                        "<p><b>Dropped Detections (Detection Strategies -> Technique)</b>:</p>"
+                                    )
                                     lines.append("<ul>")
                                     for detection in dropped_detections:
                                         lines.append(f"  <li>{detection}</li>")
@@ -1705,8 +1802,11 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
                                 if detailed_change_type == "values_changed":
                                     for detailed_change, values in detailed_changes.items():
                                         matches = re.search(regex, detailed_change)
-                                        top_stix_key = matches.group("top_stix_key")
-                                        the_rest = matches.group("the_rest")
+                                        if matches:
+                                            top_stix_key = matches.group("top_stix_key")
+                                            the_rest = matches.group("the_rest")
+                                        else:
+                                            continue
                                         stix_field = f"{top_stix_key}{the_rest}"
 
                                         old_value = values["old_value"]
@@ -1719,7 +1819,10 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
 
                                 elif detailed_change_type == "iterable_item_added":
                                     for detailed_change, new_value in detailed_changes.items():
-                                        stix_field = re.search(regex, detailed_change).group("top_stix_key")
+                                        match = re.search(regex, detailed_change)
+                                        if not match:
+                                            continue
+                                        stix_field = match.group("top_stix_key")
                                         lines.append("<tr>")
                                         lines.append(f"<td {table_inline_css}>{stix_field}</td>")
                                         lines.append(f"<td {table_inline_css}></td>")
@@ -1728,7 +1831,10 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
 
                                 elif detailed_change_type == "iterable_item_removed":
                                     for detailed_change, old_value in detailed_changes.items():
-                                        stix_field = re.search(regex, detailed_change).group("top_stix_key")
+                                        match = re.search(regex, detailed_change)
+                                        if not match:
+                                            continue
+                                        stix_field = match.group("top_stix_key")
                                         lines.append("<tr>")
                                         lines.append(f"<td {table_inline_css}>{stix_field}</td>")
                                         lines.append(f"<td {table_inline_css}>{old_value}</td>")
@@ -1737,7 +1843,10 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
 
                                 elif detailed_change_type == "dictionary_item_added":
                                     for detailed_change, new_value in detailed_changes.items():
-                                        stix_field = re.search(regex, detailed_change).group("top_stix_key")
+                                        match = re.search(regex, detailed_change)
+                                        if not match:
+                                            continue
+                                        stix_field = match.group("top_stix_key")
                                         lines.append("<tr>")
                                         lines.append(f"<td {table_inline_css}>{stix_field}</td>")
                                         lines.append(f"<td {table_inline_css}></td>")
@@ -1746,7 +1855,10 @@ def write_detailed_html(html_file_detailed: str, diffStix: DiffStix):
 
                                 elif detailed_change_type == "dictionary_item_removed":
                                     for detailed_change, old_value in detailed_changes.items():
-                                        stix_field = re.search(regex, detailed_change).group("top_stix_key")
+                                        match = re.search(regex, detailed_change)
+                                        if not match:
+                                            continue
+                                        stix_field = match.group("top_stix_key")
                                         lines.append("<tr>")
                                         lines.append(f"<td {table_inline_css}>{stix_field}</td>")
                                         lines.append(f"<td {table_inline_css}>{old_value}</td>")
@@ -1915,7 +2027,7 @@ def get_parsed_args():
 
 
 def get_new_changelog_md(
-    domains: List[str] = ["enterprise-attack", "mobile-attack", "ics-attack"],
+    domains: Optional[List[str]] = None,
     layers: List[str] = layer_defaults,
     unchanged: bool = False,
     old: Optional[str] = None,
@@ -1971,6 +2083,8 @@ def get_new_changelog_md(
         A Markdown string representation of differences between two ATT&CK versions.
     """
     # the default loguru logger logs up to Debug by default
+    if domains is None:
+        domains = ["enterprise-attack", "mobile-attack", "ics-attack"]
     logger.remove()
     if verbose:
         logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -1995,9 +2109,7 @@ def get_new_changelog_md(
         include_contributors=include_contributors,
     )
 
-    md_string = None
-    if markdown_file or html_file:
-        md_string = diffStix.get_markdown_string()
+    md_string = diffStix.get_markdown_string()
 
     if markdown_file:
         logger.info("Writing markdown to file")

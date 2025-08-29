@@ -3,14 +3,15 @@ from __future__ import annotations
 
 import os
 from abc import abstractmethod
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Optional, Union, cast
 
 from marimo import _loggers
 from marimo._config.config import (
     DEFAULT_CONFIG,
     CompletionConfig,
+    ExperimentalConfigType,
     ExportType,
     LanguageServersConfig,
     MarimoConfig,
@@ -107,7 +108,7 @@ class MarimoConfigReader:
         return {}
 
     @property
-    def experimental(self) -> dict[str, Any]:
+    def experimental(self) -> ExperimentalConfigType:
         if "experimental" in self._config:
             return self._config["experimental"]
         return {}
@@ -179,6 +180,10 @@ class ProjectConfigManager(PartialMarimoConfigReader):
     def __init__(self, start_path: str) -> None:
         self.pyproject_path = find_nearest_pyproject_toml(start_path)
 
+    # It is safe to cache this config, as we only read from the pyproject.toml
+    # and never update it. If the user updates the pyproject.toml,
+    # it is ok to expect updates to be reflected after a server restart.
+    @lru_cache(maxsize=2)  # noqa: B019
     def get_config(self, *, hide_secrets: bool = True) -> PartialMarimoConfig:
         try:
             if self.pyproject_path is None:
@@ -301,6 +306,10 @@ class ScriptConfigManager(PartialMarimoConfigReader):
     def __init__(self, filename: Optional[str]) -> None:
         self.filename = filename
 
+    # It is safe to cache this config, as we only read from the script
+    # and never update it. If the user updates the script,
+    # it is ok to expect updates to be reflected after a server restart.
+    @lru_cache(maxsize=2)  # noqa: B019
     def get_config(self, *, hide_secrets: bool = True) -> PartialMarimoConfig:
         if self.filename is None:
             return {}

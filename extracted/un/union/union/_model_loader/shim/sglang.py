@@ -12,7 +12,7 @@ from sglang.srt.utils import kill_process_tree
 
 try:
     from sglang.srt.server import launch_server
-except ModuleNotFoundError:
+except (ModuleNotFoundError, AttributeError, ImportError):
     from sglang.launch_server import launch_server
 
 

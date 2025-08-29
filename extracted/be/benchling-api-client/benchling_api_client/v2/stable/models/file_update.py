@@ -15,6 +15,7 @@ class FileUpdate:
     """  """
 
     _custom_fields: Union[Unset, CustomFields] = UNSET
+    _error_message: Union[Unset, str] = UNSET
     _folder_id: Union[Unset, str] = UNSET
     _upload_status: Union[Unset, FileUpdateUploadStatus] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
@@ -22,6 +23,7 @@ class FileUpdate:
     def __repr__(self):
         fields = []
         fields.append("custom_fields={}".format(repr(self._custom_fields)))
+        fields.append("error_message={}".format(repr(self._error_message)))
         fields.append("folder_id={}".format(repr(self._folder_id)))
         fields.append("upload_status={}".format(repr(self._upload_status)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
@@ -32,6 +34,7 @@ class FileUpdate:
         if not isinstance(self._custom_fields, Unset):
             custom_fields = self._custom_fields.to_dict()
 
+        error_message = self._error_message
         folder_id = self._folder_id
         upload_status: Union[Unset, int] = UNSET
         if not isinstance(self._upload_status, Unset):
@@ -42,6 +45,8 @@ class FileUpdate:
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
         if custom_fields is not UNSET:
             field_dict["customFields"] = custom_fields
+        if error_message is not UNSET:
+            field_dict["errorMessage"] = error_message
         if folder_id is not UNSET:
             field_dict["folderId"] = folder_id
         if upload_status is not UNSET:
@@ -68,6 +73,17 @@ class FileUpdate:
             if strict:
                 raise
             custom_fields = cast(Union[Unset, CustomFields], UNSET)
+
+        def get_error_message() -> Union[Unset, str]:
+            error_message = d.pop("errorMessage")
+            return error_message
+
+        try:
+            error_message = get_error_message()
+        except KeyError:
+            if strict:
+                raise
+            error_message = cast(Union[Unset, str], UNSET)
 
         def get_folder_id() -> Union[Unset, str]:
             folder_id = d.pop("folderId")
@@ -100,6 +116,7 @@ class FileUpdate:
 
         file_update = cls(
             custom_fields=custom_fields,
+            error_message=error_message,
             folder_id=folder_id,
             upload_status=upload_status,
         )
@@ -139,6 +156,21 @@ class FileUpdate:
     @custom_fields.deleter
     def custom_fields(self) -> None:
         self._custom_fields = UNSET
+
+    @property
+    def error_message(self) -> str:
+        """ Error message for the file upload """
+        if isinstance(self._error_message, Unset):
+            raise NotPresentError(self, "error_message")
+        return self._error_message
+
+    @error_message.setter
+    def error_message(self, value: str) -> None:
+        self._error_message = value
+
+    @error_message.deleter
+    def error_message(self) -> None:
+        self._error_message = UNSET
 
     @property
     def folder_id(self) -> str:

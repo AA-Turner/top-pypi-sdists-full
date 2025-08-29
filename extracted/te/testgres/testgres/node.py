@@ -7,8 +7,6 @@ import random
 import signal
 import subprocess
 import threading
-import tempfile
-import platform
 from queue import Queue
 
 import time
@@ -84,14 +82,16 @@ from .exceptions import \
     InvalidOperationException
 
 from .port_manager import PortManager
-from .port_manager import PortManager__ThisHost
-from .port_manager import PortManager__Generic
+from .impl.port_manager__this_host import PortManager__ThisHost
+from .impl.port_manager__generic import PortManager__Generic
 
 from .logger import TestgresLogger
 
 from .pubsub import Publication, Subscription
 
 from .standby import First
+
+from . import utils
 
 from .utils import \
     PgVer, \
@@ -107,7 +107,6 @@ from .backup import NodeBackup
 from .operations.os_ops import ConnectionParams
 from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
-from .operations.remote_ops import RemoteOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -145,13 +144,13 @@ class PostgresNode(object):
     _port: typing.Optional[int]
     _should_free_port: bool
     _os_ops: OsOperations
-    _port_manager: PortManager
+    _port_manager: typing.Optional[PortManager]
 
     def __init__(self,
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 conn_params: ConnectionParams = ConnectionParams(),
+                 conn_params: ConnectionParams = None,
                  bin_dir=None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
@@ -171,11 +170,15 @@ class PostgresNode(object):
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
 
+        if conn_params is not None:
+            assert type(conn_params) == ConnectionParams  # noqa: E721
+
+            raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
+
         # private
         if os_ops is None:
-            self._os_ops = __class__._get_os_ops(conn_params)
+            self._os_ops = __class__._get_os_ops()
         else:
-            assert conn_params is None
             assert isinstance(os_ops, OsOperations)
             self._os_ops = os_ops
             pass
@@ -200,11 +203,14 @@ class PostgresNode(object):
             self._should_free_port = False
             self._port_manager = None
         else:
-            if port_manager is not None:
-                assert isinstance(port_manager, PortManager)
-                self._port_manager = port_manager
-            else:
+            if port_manager is None:
                 self._port_manager = __class__._get_port_manager(self._os_ops)
+            elif os_ops is None:
+                raise InvalidOperationException("When port_manager is not None you have to define os_ops, too.")
+            else:
+                assert isinstance(port_manager, PortManager)
+                assert self._os_ops is os_ops
+                self._port_manager = port_manager
 
             assert self._port_manager is not None
             assert isinstance(self._port_manager, PortManager)
@@ -231,8 +237,6 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.free_port()
-
         # NOTE: Ctrl+C does not count!
         got_exception = type is not None and type != KeyboardInterrupt
 
@@ -246,6 +250,8 @@ class PostgresNode(object):
         else:
             self._try_shutdown(attempts)
 
+        self._release_resources()
+
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
             self.__class__.__name__,
@@ -255,24 +261,22 @@ class PostgresNode(object):
         )
 
     @staticmethod
-    def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
+    def _get_os_ops() -> OsOperations:
         if testgres_config.os_ops:
             return testgres_config.os_ops
 
-        assert type(conn_params) == ConnectionParams  # noqa: E721
-
-        if conn_params.ssh_key:
-            return RemoteOperations(conn_params)
-
-        return LocalOperations(conn_params)
+        return LocalOperations.get_single_instance()
 
     @staticmethod
     def _get_port_manager(os_ops: OsOperations) -> PortManager:
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
-        if isinstance(os_ops, LocalOperations):
-            return PortManager__ThisHost()
+        if os_ops is LocalOperations.get_single_instance():
+            assert utils._old_port_manager is not None
+            assert type(utils._old_port_manager) == PortManager__Generic  # noqa: E721
+            assert utils._old_port_manager._os_ops is os_ops
+            return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic(os_ops)
@@ -294,7 +298,6 @@ class PostgresNode(object):
         node = PostgresNode(
             name=name,
             base_dir=base_dir,
-            conn_params=None,
             bin_dir=self._bin_dir,
             prefix=self._prefix,
             os_ops=self._os_ops,
@@ -307,6 +310,11 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         return self._os_ops
+
+    @property
+    def port_manager(self) -> typing.Optional[PortManager]:
+        assert self._port_manager is None or isinstance(self._port_manager, PortManager)
+        return self._port_manager
 
     @property
     def name(self) -> str:
@@ -563,7 +571,11 @@ class PostgresNode(object):
 
     @property
     def logs_dir(self):
-        path = os.path.join(self.base_dir, LOGS_DIR)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.base_dir, LOGS_DIR)
+        assert type(path) == str  # noqa: E721
 
         # NOTE: it's safe to create a new dir
         if not self.os_ops.path_exists(path):
@@ -573,16 +585,31 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         # NOTE: we can't run initdb without user's args
-        return os.path.join(self.base_dir, DATA_DIR)
+        path = self._os_ops.build_path(self.base_dir, DATA_DIR)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def utils_log_file(self):
-        return os.path.join(self.logs_dir, UTILS_LOG_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.logs_dir, UTILS_LOG_FILE)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def pg_log_file(self):
-        return os.path.join(self.logs_dir, PG_LOG_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.logs_dir, PG_LOG_FILE)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def version(self):
@@ -706,7 +733,11 @@ class PostgresNode(object):
         ).format(options_string(**conninfo))  # yapf: disable
         # Since 12 recovery.conf had disappeared
         if self.version >= PgVer('12'):
-            signal_name = os.path.join(self.data_dir, "standby.signal")
+            assert self._os_ops is not None
+            assert isinstance(self._os_ops, OsOperations)
+
+            signal_name = self._os_ops.build_path(self.data_dir, "standby.signal")
+            assert type(signal_name) == str  # noqa: E721
             self.os_ops.touch(signal_name)
         else:
             line += "standby_mode=on\n"
@@ -755,11 +786,14 @@ class PostgresNode(object):
         result = []
 
         # list of important files + last N lines
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         files = [
-            (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
-            (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, PG_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, PG_AUTO_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, RECOVERY_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, HBA_CONF_FILE), 0),
             (self.pg_log_file, testgres_config.error_log_lines)
         ]  # yapf: disable
 
@@ -773,28 +807,6 @@ class PostgresNode(object):
 
             # fill list
             result.append((f, lines))
-
-        return result
-
-    def _collect_log_files(self):
-        # dictionary of log files + size in bytes
-
-        files = [
-            self.pg_log_file
-        ]  # yapf: disable
-
-        result = {}
-
-        for f in files:
-            # skip missing files
-            if not self.os_ops.path_exists(f):
-                continue
-
-            file_size = self.os_ops.get_file_size(f)
-            assert type(file_size) == int  # noqa: E721
-            assert file_size >= 0
-
-            result[f] = file_size
 
         return result
 
@@ -813,10 +825,13 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         cached_initdb(
             data_dir=self.data_dir,
             logfile=self.utils_log_file,
-            os_ops=self.os_ops,
+            os_ops=self._os_ops,
             params=initdb_params,
             bin_path=self.bin_dir,
             cached=False)
@@ -846,8 +861,11 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
         """
 
-        postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
-        hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
+        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
 
         # filter lines in hba file
         # get rid of comments and blank lines
@@ -962,7 +980,7 @@ class PostgresNode(object):
                 # format a new config line
                 lines.append('{} = {}'.format(option, value))
 
-        config_name = os.path.join(self.data_dir, filename)
+        config_name = self._os_ops.build_path(self.data_dir, filename)
         conf_text = ''
         for line in lines:
             conf_text += text_type(line) + '\n'
@@ -1051,22 +1069,6 @@ class PostgresNode(object):
                                         OperationalError},
                               max_attempts=max_attempts)
 
-    def _detect_port_conflict(self, log_files0, log_files1):
-        assert type(log_files0) == dict  # noqa: E721
-        assert type(log_files1) == dict  # noqa: E721
-
-        for file in log_files1.keys():
-            read_pos = 0
-
-            if file in log_files0.keys():
-                read_pos = log_files0[file]  # the previous size
-
-            file_content = self.os_ops.read_binary(file, read_pos)
-            file_content_s = file_content.decode()
-            if 'Is another postmaster already running on port' in file_content_s:
-                return True
-        return False
-
     def start(self, params=[], wait=True, exec_env=None):
         """
         Starts the PostgreSQL node using pg_ctl if node has not been started.
@@ -1126,8 +1128,7 @@ class PostgresNode(object):
             assert isinstance(self._port_manager, PortManager)
             assert __class__._C_MAX_START_ATEMPTS > 1
 
-            log_files0 = self._collect_log_files()
-            assert type(log_files0) == dict  # noqa: E721
+            log_reader = PostgresNodeLogReader(self, from_beginnig=False)
 
             nAttempt = 0
             timeout = 1
@@ -1143,11 +1144,11 @@ class PostgresNode(object):
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
                         LOCAL__raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
-                    log_files1 = self._collect_log_files()
-                    if not self._detect_port_conflict(log_files0, log_files1):
+                    is_it_port_conflict = PostgresNodeUtils.delect_port_conflict(log_reader)
+
+                    if not is_it_port_conflict:
                         LOCAL__raise_cannot_start_node__std(e)
 
-                    log_files0 = log_files1
                     logging.warning(
                         "Detected a conflict with using the port {0}. Trying another port after a {1}-second sleep...".format(self._port, timeout)
                     )
@@ -1320,27 +1321,20 @@ class PostgresNode(object):
 
         return execute_utility2(self.os_ops, _params, self.utils_log_file)
 
+    def release_resources(self):
+        """
+        Release resorces owned by this node.
+        """
+        return self._release_resources()
+
     def free_port(self):
         """
         Reclaim port owned by this node.
         NOTE: this method does not release manually defined port but reset it.
         """
-        assert type(self._should_free_port) == bool  # noqa: E721
+        return self._free_port()
 
-        if not self._should_free_port:
-            self._port = None
-        else:
-            assert type(self._port) == int  # noqa: E721
-
-            assert self._port_manager is not None
-            assert isinstance(self._port_manager, PortManager)
-
-            port = self._port
-            self._should_free_port = False
-            self._port = None
-            self._port_manager.release_port(port)
-
-    def cleanup(self, max_attempts=3, full=False):
+    def cleanup(self, max_attempts=3, full=False, release_resources=False):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
@@ -1363,6 +1357,9 @@ class PostgresNode(object):
 
         self.os_ops.rmdirs(rm_dir, ignore_errors=False)
 
+        if release_resources:
+            self._release_resources()
+
         return self
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
@@ -1372,6 +1369,8 @@ class PostgresNode(object):
              dbname=None,
              username=None,
              input=None,
+             host: typing.Optional[str] = None,
+             port: typing.Optional[int] = None,
              **variables):
         """
         Execute a query using psql.
@@ -1382,6 +1381,8 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
+            host: an explicit host of server.
+            port: an explicit port of server.
             **variables: vars to be set before execution.
 
         Returns:
@@ -1393,6 +1394,10 @@ class PostgresNode(object):
             >>> psql(query='select 3', ON_ERROR_STOP=1)
         """
 
+        assert host is None or type(host) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
+        assert type(variables) == dict  # noqa: E721
+
         return self._psql(
             ignore_errors=True,
             query=query,
@@ -1400,6 +1405,8 @@ class PostgresNode(object):
             dbname=dbname,
             username=username,
             input=input,
+            host=host,
+            port=port,
             **variables
         )
 
@@ -1411,7 +1418,11 @@ class PostgresNode(object):
             dbname=None,
             username=None,
             input=None,
+            host: typing.Optional[str] = None,
+            port: typing.Optional[int] = None,
             **variables):
+        assert host is None or type(host) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
         assert type(variables) == dict  # noqa: E721
 
         #
@@ -1424,10 +1435,21 @@ class PostgresNode(object):
         else:
             raise Exception("Input data must be None or bytes.")
 
+        if host is None:
+            host = self.host
+
+        if port is None:
+            port = self.port
+
+        assert host is not None
+        assert port is not None
+        assert type(host) == str  # noqa: E721
+        assert type(port) == int  # noqa: E721
+
         psql_params = [
             self._get_bin_path("psql"),
-            "-p", str(self.port),
-            "-h", self.host,
+            "-p", str(port),
+            "-h", host,
             "-U", username or self.os_ops.username,
             "-d", dbname or default_dbname(),
             "-X",  # no .psqlrc
@@ -2035,8 +2057,11 @@ class PostgresNode(object):
             rm_options (set, optional): A set containing the names of the options to remove.
                                          Defaults to an empty set.
         """
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         # parse postgresql.auto.conf
-        path = os.path.join(self.data_dir, config)
+        path = self.os_ops.build_path(self.data_dir, config)
 
         lines = self.os_ops.readlines(path)
         current_options = {}
@@ -2121,9 +2146,31 @@ class PostgresNode(object):
 
         return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
 
+    def _release_resources(self):
+        self._free_port()
+
+    def _free_port(self):
+        assert type(self._should_free_port) == bool  # noqa: E721
+
+        if not self._should_free_port:
+            self._port = None
+        else:
+            assert type(self._port) == int  # noqa: E721
+
+            assert self._port_manager is not None
+            assert isinstance(self._port_manager, PortManager)
+
+            port = self._port
+            self._should_free_port = False
+            self._port = None
+            self._port_manager.release_port(port)
+
     def _get_bin_path(self, filename):
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         if self.bin_dir:
-            bin_path = os.path.join(self.bin_dir, filename)
+            bin_path = self._os_ops.build_path(self.bin_dir, filename)
         else:
             bin_path = get_bin_path2(self.os_ops, filename)
         return bin_path
@@ -2153,156 +2200,162 @@ class PostgresNode(object):
         return result
 
 
-class NodeApp:
+class PostgresNodeLogReader:
+    class LogInfo:
+        position: int
 
-    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=LocalOperations()):
-        if test_path:
-            if os.path.isabs(test_path):
-                self.test_path = test_path
-            else:
-                self.test_path = os.path.join(os_ops.cwd(), test_path)
-        else:
-            self.test_path = os_ops.cwd()
-        self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
-        self.os_ops = os_ops
+        def __init__(self, position: int):
+            self.position = position
 
-    def make_empty(
+    # --------------------------------------------------------------------
+    class LogDataBlock:
+        _file_name: str
+        _position: int
+        _data: str
+
+        def __init__(
             self,
-            base_dir=None,
-            port=None,
-            bin_dir=None):
-        real_base_dir = os.path.join(self.test_path, base_dir)
-        self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
-        self.os_ops.makedirs(real_base_dir)
+            file_name: str,
+            position: int,
+            data: str
+        ):
+            assert type(file_name) == str  # noqa: E721
+            assert type(position) == int  # noqa: E721
+            assert type(data) == str  # noqa: E721
+            assert file_name != ""
+            assert position >= 0
+            self._file_name = file_name
+            self._position = position
+            self._data = data
 
-        node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
-        node.should_rm_dirs = True
-        self.nodes_to_cleanup.append(node)
+        @property
+        def file_name(self) -> str:
+            assert type(self._file_name) == str  # noqa: E721
+            assert self._file_name != ""
+            return self._file_name
 
-        return node
+        @property
+        def position(self) -> int:
+            assert type(self._position) == int  # noqa: E721
+            assert self._position >= 0
+            return self._position
 
-    def make_simple(
-            self,
-            base_dir=None,
-            port=None,
-            set_replication=False,
-            ptrack_enable=False,
-            initdb_params=[],
-            pg_options={},
-            checksum=True,
-            bin_dir=None):
-        assert type(pg_options) == dict  # noqa: E721
+        @property
+        def data(self) -> str:
+            assert type(self._data) == str  # noqa: E721
+            return self._data
 
-        if checksum and '--data-checksums' not in initdb_params:
-            initdb_params.append('--data-checksums')
-        node = self.make_empty(base_dir, port, bin_dir=bin_dir)
-        node.init(
-            initdb_params=initdb_params, allow_streaming=set_replication)
+    # --------------------------------------------------------------------
+    _node: PostgresNode
+    _logs: typing.Dict[str, LogInfo]
 
-        # set major version
-        pg_version_file = self.os_ops.read(os.path.join(node.data_dir, 'PG_VERSION'))
-        node.major_version_str = str(pg_version_file.rstrip())
-        node.major_version = float(node.major_version_str)
+    # --------------------------------------------------------------------
+    def __init__(self, node: PostgresNode, from_beginnig: bool):
+        assert node is not None
+        assert isinstance(node, PostgresNode)
+        assert type(from_beginnig) == bool  # noqa: E721
 
-        # Set default parameters
-        options = {
-            'max_connections': 100,
-            'shared_buffers': '10MB',
-            'fsync': 'off',
-            'wal_level': 'logical',
-            'hot_standby': 'off',
-            'log_line_prefix': '%t [%p]: [%l-1] ',
-            'log_statement': 'none',
-            'log_duration': 'on',
-            'log_min_duration_statement': 0,
-            'log_connections': 'on',
-            'log_disconnections': 'on',
-            'restart_after_crash': 'off',
-            'autovacuum': 'off',
-            # unix_socket_directories will be defined later
-        }
+        self._node = node
 
-        # Allow replication in pg_hba.conf
-        if set_replication:
-            options['max_wal_senders'] = 10
-
-        if ptrack_enable:
-            options['ptrack.map_size'] = '1'
-            options['shared_preload_libraries'] = 'ptrack'
-
-        if node.major_version >= 13:
-            options['wal_keep_size'] = '200MB'
+        if from_beginnig:
+            self._logs = dict()
         else:
-            options['wal_keep_segments'] = '12'
+            self._logs = self._collect_logs()
 
-        # Apply given parameters
-        for option_name, option_value in iteritems(pg_options):
-            options[option_name] = option_value
+        assert type(self._logs) == dict  # noqa: E721
+        return
 
-        # Define delayed propertyes
-        if not ("unix_socket_directories" in options.keys()):
-            options["unix_socket_directories"] = __class__._gettempdir_for_socket()
+    def read(self) -> typing.List[LogDataBlock]:
+        assert self._node is not None
+        assert isinstance(self._node, PostgresNode)
 
-        # Set config values
-        node.set_auto_conf(options)
+        cur_logs: typing.Dict[__class__.LogInfo] = self._collect_logs()
+        assert cur_logs is not None
+        assert type(cur_logs) == dict  # noqa: E721
 
-        # kludge for testgres
-        # https://github.com/postgrespro/testgres/issues/54
-        # for PG >= 13 remove 'wal_keep_segments' parameter
-        if node.major_version >= 13:
-            node.set_auto_conf({}, 'postgresql.conf', ['wal_keep_segments'])
+        assert type(self._logs) == dict  # noqa: E721
 
-        return node
+        result = list()
 
+        for file_name, cur_log_info in cur_logs.items():
+            assert type(file_name) == str  # noqa: E721
+            assert type(cur_log_info) == __class__.LogInfo  # noqa: E721
+
+            read_pos = 0
+
+            if file_name in self._logs.keys():
+                prev_log_info = self._logs[file_name]
+                assert type(prev_log_info) == __class__.LogInfo  # noqa: E721
+                read_pos = prev_log_info.position  # the previous size
+
+            file_content_b = self._node.os_ops.read_binary(file_name, read_pos)
+            assert type(file_content_b) == bytes  # noqa: E721
+
+            #
+            # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
+            #
+            file_content_s = file_content_b.decode()
+            assert type(file_content_s) == str  # noqa: E721
+
+            next_read_pos = read_pos + len(file_content_b)
+
+            # It is a research/paranoja check.
+            # When we will process partial UTF-8 symbol, it must be adjusted.
+            assert cur_log_info.position <= next_read_pos
+
+            cur_log_info.position = next_read_pos
+
+            block = __class__.LogDataBlock(
+                file_name,
+                read_pos,
+                file_content_s
+            )
+
+            result.append(block)
+
+        # A new check point
+        self._logs = cur_logs
+
+        return result
+
+    def _collect_logs(self) -> typing.Dict[LogInfo]:
+        assert self._node is not None
+        assert isinstance(self._node, PostgresNode)
+
+        files = [
+            self._node.pg_log_file
+        ]  # yapf: disable
+
+        result = dict()
+
+        for f in files:
+            assert type(f) == str  # noqa: E721
+
+            # skip missing files
+            if not self._node.os_ops.path_exists(f):
+                continue
+
+            file_size = self._node.os_ops.get_file_size(f)
+            assert type(file_size) == int  # noqa: E721
+            assert file_size >= 0
+
+            result[f] = __class__.LogInfo(file_size)
+
+        return result
+
+
+class PostgresNodeUtils:
     @staticmethod
-    def _gettempdir_for_socket():
-        platform_system_name = platform.system().lower()
+    def delect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
+        assert type(log_reader) == PostgresNodeLogReader  # noqa: E721
 
-        if platform_system_name == "windows":
-            return __class__._gettempdir()
+        blocks = log_reader.read()
+        assert type(blocks) == list  # noqa: E721
 
-        #
-        # [2025-02-17] Hot fix.
-        #
-        # Let's use hard coded path as Postgres likes.
-        #
-        # pg_config_manual.h:
-        #
-        # #ifndef WIN32
-        # #define DEFAULT_PGSOCKET_DIR  "/tmp"
-        # #else
-        # #define DEFAULT_PGSOCKET_DIR ""
-        # #endif
-        #
-        # On the altlinux-10 tempfile.gettempdir() may return
-        # the path to "private" temp directiry - "/temp/.private/<username>/"
-        #
-        # But Postgres want to find a socket file in "/tmp" (see above).
-        #
+        for block in blocks:
+            assert type(block) == PostgresNodeLogReader.LogDataBlock  # noqa: E721
 
-        return "/tmp"
+            if 'Is another postmaster already running on port' in block.data:
+                return True
 
-    @staticmethod
-    def _gettempdir():
-        v = tempfile.gettempdir()
-
-        #
-        # Paranoid checks
-        #
-        if type(v) != str:  # noqa: E721
-            __class__._raise_bugcheck("tempfile.gettempdir returned a value with type {0}.".format(type(v).__name__))
-
-        if v == "":
-            __class__._raise_bugcheck("tempfile.gettempdir returned an empty string.")
-
-        if not os.path.exists(v):
-            __class__._raise_bugcheck("tempfile.gettempdir returned a not exist path [{0}].".format(v))
-
-        # OK
-        return v
-
-    @staticmethod
-    def _raise_bugcheck(msg):
-        assert type(msg) == str  # noqa: E721
-        assert msg != ""
-        raise Exception("[BUG CHECK] " + msg)
+        return False

@@ -9,6 +9,10 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
 
 
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class Cfd(QuantConnect.Securities.Security):
     """CFD Security Object Implementation for CFD Assets"""
 
@@ -64,6 +68,19 @@ class Cfd(QuantConnect.Securities.Security):
         ...
 
 
+class CfdHolding(QuantConnect.Securities.SecurityHolding):
+    """CFD holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Cfd.Cfd, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        CFD Holding Class constructor
+        
+        :param security: The CFD security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+
 class CfdExchange(QuantConnect.Securities.SecurityExchange):
     """CFD exchange class - information and helper tools for CFD exchange properties"""
 
@@ -84,22 +101,5 @@ class CfdExchange(QuantConnect.Securities.SecurityExchange):
 
 class CfdCache(QuantConnect.Securities.SecurityCache):
     """CFD specific caching support"""
-
-
-class CfdHolding(QuantConnect.Securities.SecurityHolding):
-    """CFD holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Cfd.Cfd, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        CFD Holding Class constructor
-        
-        :param security: The CFD security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 

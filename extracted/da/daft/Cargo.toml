@@ -54,6 +54,10 @@ default-features = false
 path = "src/common/version"
 default-features = false
 
+[dependencies.daft-ai]
+path = "src/daft-ai"
+default-features = false
+
 [dependencies.daft-algebra]
 path = "src/daft-algebra"
 default-features = false
@@ -248,7 +252,7 @@ optional = true
 workspace = true
 
 [features]
-python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file/python", "common-file-formats/python", "common-scan-info/python", "common-system-info/python", "daft-catalog/python", "daft-cli/python", "daft-connect/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-ir/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-physical-plan/python", "daft-scan/python", "daft-scheduler/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
+python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file/python", "common-file-formats/python", "common-scan-info/python", "common-system-info/python", "daft-ai/python", "daft-catalog/python", "daft-cli/python", "daft-connect/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-ir/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-physical-plan/python", "daft-scan/python", "daft-scheduler/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -258,7 +262,7 @@ name = "daft"
 edition = "2021"
 name = "daft"
 publish = false
-version = "0.5.21"
+version = "0.5.22"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -397,6 +401,9 @@ path = "src/common/ndarray"
 [workspace.dependencies.common-runtime]
 path = "src/common/runtime"
 default-features = false
+
+[workspace.dependencies.daft-ai]
+path = "src/daft-ai"
 
 [workspace.dependencies.daft-algebra]
 path = "src/daft-algebra"
@@ -597,6 +604,7 @@ missing_const_for_fn = "allow"
 missing_errors_doc = "allow"
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
+mutable_key_type = "allow"
 needless_pass_by_value = "allow"
 needless_return = "allow"
 nonminimal_bool = "allow"
@@ -648,4 +656,4 @@ priority = 1
 
 [workspace.package]
 edition = "2021"
-version = "0.5.21"
+version = "0.5.22"

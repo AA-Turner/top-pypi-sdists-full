@@ -27,6 +27,10 @@ __all__ = (
     "CmkTypeType",
     "DatastoreStatusType",
     "ErrorCategoryType",
+    "FHIRDatastoreActiveWaiterName",
+    "FHIRDatastoreDeletedWaiterName",
+    "FHIRExportJobCompletedWaiterName",
+    "FHIRImportJobCompletedWaiterName",
     "FHIRVersionType",
     "HealthLakeServiceName",
     "JobStatusType",
@@ -34,6 +38,8 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "ValidationLevelType",
+    "WaiterName",
 )
 
 
@@ -41,6 +47,10 @@ AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 DatastoreStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
 ErrorCategoryType = Literal["NON_RETRYABLE_ERROR", "RETRYABLE_ERROR"]
+FHIRDatastoreActiveWaiterName = Literal["fhir_datastore_active"]
+FHIRDatastoreDeletedWaiterName = Literal["fhir_datastore_deleted"]
+FHIRExportJobCompletedWaiterName = Literal["fhir_export_job_completed"]
+FHIRImportJobCompletedWaiterName = Literal["fhir_import_job_completed"]
 FHIRVersionType = Literal["R4"]
 JobStatusType = Literal[
     "CANCEL_COMPLETED",
@@ -55,6 +65,7 @@ JobStatusType = Literal[
     "SUBMITTED",
 ]
 PreloadDataTypeType = Literal["SYNTHEA"]
+ValidationLevelType = Literal["minimal", "strict", "structure-only"]
 HealthLakeServiceName = Literal["healthlake"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -473,6 +484,12 @@ ServiceName = Literal[
 ]
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
+]
+WaiterName = Literal[
+    "fhir_datastore_active",
+    "fhir_datastore_deleted",
+    "fhir_export_job_completed",
+    "fhir_import_job_completed",
 ]
 RegionName = Literal[
     "ap-south-1", "ap-southeast-2", "eu-west-1", "eu-west-2", "us-east-1", "us-east-2", "us-west-2"

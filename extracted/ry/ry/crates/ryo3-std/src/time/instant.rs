@@ -1,9 +1,8 @@
-use crate::PyDuration;
+use crate::time::PyDuration;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyOverflowError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::PyType;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Instant;
 
@@ -25,9 +24,9 @@ impl PyInstant {
         Self(Instant::now())
     }
 
-    #[classmethod]
+    #[staticmethod]
     #[must_use]
-    pub fn now(_cls: &Bound<'_, PyType>) -> Self {
+    pub fn now() -> Self {
         Self(Instant::now())
     }
 
@@ -168,10 +167,4 @@ impl PyInstant {
 pub enum PyInstantSub {
     Instant(PyInstant),
     Duration(PyDuration),
-}
-
-#[pyfunction]
-#[must_use]
-pub fn instant() -> PyInstant {
-    PyInstant::from(Instant::now())
 }

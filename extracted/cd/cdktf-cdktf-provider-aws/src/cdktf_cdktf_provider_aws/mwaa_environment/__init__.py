@@ -1,7 +1,7 @@
 r'''
 # `aws_mwaa_environment`
 
-Refer to the Terraform Registry for docs: [`aws_mwaa_environment`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment).
+Refer to the Terraform Registry for docs: [`aws_mwaa_environment`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MwaaEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mwaaEnvironment.MwaaEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment aws_mwaa_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment aws_mwaa_environment}.'''
 
     def __init__(
         self,
@@ -80,6 +80,7 @@ class MwaaEnvironment(
         timeouts: typing.Optional[typing.Union["MwaaEnvironmentTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         webserver_access_mode: typing.Optional[builtins.str] = None,
         weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+        worker_replacement_strategy: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -88,39 +89,40 @@ class MwaaEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment aws_mwaa_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment aws_mwaa_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dag_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
-        :param source_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.
-        :param airflow_configuration_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.
-        :param airflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.
-        :param endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.
-        :param environment_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.
-        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
-        :param max_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.
-        :param max_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.
-        :param min_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.
-        :param min_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.
-        :param plugins_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.
-        :param plugins_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
-        :param requirements_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.
-        :param requirements_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.
-        :param schedulers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.
-        :param startup_script_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.
-        :param startup_script_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
-        :param webserver_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.
-        :param weekly_maintenance_window_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.
+        :param dag_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
+        :param source_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.
+        :param airflow_configuration_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.
+        :param airflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.
+        :param endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.
+        :param environment_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.
+        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
+        :param max_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.
+        :param max_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.
+        :param min_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.
+        :param min_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.
+        :param plugins_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.
+        :param plugins_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
+        :param requirements_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.
+        :param requirements_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.
+        :param schedulers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.
+        :param startup_script_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.
+        :param startup_script_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
+        :param webserver_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.
+        :param weekly_maintenance_window_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.
+        :param worker_replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_replacement_strategy MwaaEnvironment#worker_replacement_strategy}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,6 +165,7 @@ class MwaaEnvironment(
             timeouts=timeouts,
             webserver_access_mode=webserver_access_mode,
             weekly_maintenance_window_start=weekly_maintenance_window_start,
+            worker_replacement_strategy=worker_replacement_strategy,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -187,7 +190,7 @@ class MwaaEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MwaaEnvironment to import.
-        :param import_from_id: The id of the existing MwaaEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MwaaEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MwaaEnvironment to import is found.
         '''
         if __debug__:
@@ -209,11 +212,11 @@ class MwaaEnvironment(
         worker_logs: typing.Optional[typing.Union["MwaaEnvironmentLoggingConfigurationWorkerLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dag_processing_logs: dag_processing_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
-        :param scheduler_logs: scheduler_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
-        :param task_logs: task_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
-        :param webserver_logs: webserver_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
-        :param worker_logs: worker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
+        :param dag_processing_logs: dag_processing_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
+        :param scheduler_logs: scheduler_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
+        :param task_logs: task_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
+        :param webserver_logs: webserver_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
+        :param worker_logs: worker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
         '''
         value = MwaaEnvironmentLoggingConfiguration(
             dag_processing_logs=dag_processing_logs,
@@ -233,8 +236,8 @@ class MwaaEnvironment(
         subnet_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.
         '''
         value = MwaaEnvironmentNetworkConfiguration(
             security_group_ids=security_group_ids, subnet_ids=subnet_ids
@@ -251,9 +254,9 @@ class MwaaEnvironment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.
         '''
         value = MwaaEnvironmentTimeouts(create=create, delete=delete, update=update)
 
@@ -354,6 +357,10 @@ class MwaaEnvironment(
     @jsii.member(jsii_name="resetWeeklyMaintenanceWindowStart")
     def reset_weekly_maintenance_window_start(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetWeeklyMaintenanceWindowStart", []))
+
+    @jsii.member(jsii_name="resetWorkerReplacementStrategy")
+    def reset_worker_replacement_strategy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetWorkerReplacementStrategy", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -581,6 +588,11 @@ class MwaaEnvironment(
     @jsii.member(jsii_name="weeklyMaintenanceWindowStartInput")
     def weekly_maintenance_window_start_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "weeklyMaintenanceWindowStartInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workerReplacementStrategyInput")
+    def worker_replacement_strategy_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workerReplacementStrategyInput"))
 
     @builtins.property
     @jsii.member(jsii_name="airflowConfigurationOptions")
@@ -899,6 +911,18 @@ class MwaaEnvironment(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "weeklyMaintenanceWindowStart", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="workerReplacementStrategy")
+    def worker_replacement_strategy(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "workerReplacementStrategy"))
+
+    @worker_replacement_strategy.setter
+    def worker_replacement_strategy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74e283a2f2c7b207a724a976a4244ba35959e47bbd2e47d9acde299668d76cfe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workerReplacementStrategy", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.mwaaEnvironment.MwaaEnvironmentConfig",
@@ -940,6 +964,7 @@ class MwaaEnvironment(
         "timeouts": "timeouts",
         "webserver_access_mode": "webserverAccessMode",
         "weekly_maintenance_window_start": "weeklyMaintenanceWindowStart",
+        "worker_replacement_strategy": "workerReplacementStrategy",
     },
 )
 class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -982,6 +1007,7 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         timeouts: typing.Optional[typing.Union["MwaaEnvironmentTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         webserver_access_mode: typing.Optional[builtins.str] = None,
         weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+        worker_replacement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -991,35 +1017,36 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dag_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
-        :param source_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.
-        :param airflow_configuration_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.
-        :param airflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.
-        :param endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.
-        :param environment_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.
-        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
-        :param max_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.
-        :param max_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.
-        :param min_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.
-        :param min_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.
-        :param plugins_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.
-        :param plugins_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
-        :param requirements_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.
-        :param requirements_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.
-        :param schedulers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.
-        :param startup_script_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.
-        :param startup_script_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
-        :param webserver_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.
-        :param weekly_maintenance_window_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.
+        :param dag_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
+        :param source_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.
+        :param airflow_configuration_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.
+        :param airflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.
+        :param endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.
+        :param environment_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.
+        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
+        :param max_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.
+        :param max_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.
+        :param min_webservers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.
+        :param min_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.
+        :param plugins_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.
+        :param plugins_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
+        :param requirements_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.
+        :param requirements_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.
+        :param schedulers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.
+        :param startup_script_s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.
+        :param startup_script_s3_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
+        :param webserver_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.
+        :param weekly_maintenance_window_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.
+        :param worker_replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_replacement_strategy MwaaEnvironment#worker_replacement_strategy}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1067,6 +1094,7 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
             check_type(argname="argument webserver_access_mode", value=webserver_access_mode, expected_type=type_hints["webserver_access_mode"])
             check_type(argname="argument weekly_maintenance_window_start", value=weekly_maintenance_window_start, expected_type=type_hints["weekly_maintenance_window_start"])
+            check_type(argname="argument worker_replacement_strategy", value=worker_replacement_strategy, expected_type=type_hints["worker_replacement_strategy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dag_s3_path": dag_s3_path,
             "execution_role_arn": execution_role_arn,
@@ -1136,6 +1164,8 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["webserver_access_mode"] = webserver_access_mode
         if weekly_maintenance_window_start is not None:
             self._values["weekly_maintenance_window_start"] = weekly_maintenance_window_start
+        if worker_replacement_strategy is not None:
+            self._values["worker_replacement_strategy"] = worker_replacement_strategy
 
     @builtins.property
     def connection(
@@ -1203,21 +1233,21 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def dag_s3_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_s3_path MwaaEnvironment#dag_s3_path}.'''
         result = self._values.get("dag_s3_path")
         assert result is not None, "Required property 'dag_s3_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#execution_role_arn MwaaEnvironment#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#name MwaaEnvironment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1226,7 +1256,7 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_configuration(self) -> "MwaaEnvironmentNetworkConfiguration":
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#network_configuration MwaaEnvironment#network_configuration}
         '''
         result = self._values.get("network_configuration")
         assert result is not None, "Required property 'network_configuration' is missing"
@@ -1234,7 +1264,7 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def source_bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#source_bucket_arn MwaaEnvironment#source_bucket_arn}.'''
         result = self._values.get("source_bucket_arn")
         assert result is not None, "Required property 'source_bucket_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1243,31 +1273,31 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def airflow_configuration_options(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_configuration_options MwaaEnvironment#airflow_configuration_options}.'''
         result = self._values.get("airflow_configuration_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def airflow_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#airflow_version MwaaEnvironment#airflow_version}.'''
         result = self._values.get("airflow_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def endpoint_management(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#endpoint_management MwaaEnvironment#endpoint_management}.'''
         result = self._values.get("endpoint_management")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def environment_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#environment_class MwaaEnvironment#environment_class}.'''
         result = self._values.get("environment_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#id MwaaEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1277,7 +1307,7 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#kms_key MwaaEnvironment#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1287,44 +1317,44 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MwaaEnvironmentLoggingConfiguration"]:
         '''logging_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#logging_configuration MwaaEnvironment#logging_configuration}
         '''
         result = self._values.get("logging_configuration")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfiguration"], result)
 
     @builtins.property
     def max_webservers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_webservers MwaaEnvironment#max_webservers}.'''
         result = self._values.get("max_webservers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_workers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#max_workers MwaaEnvironment#max_workers}.'''
         result = self._values.get("max_workers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_webservers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_webservers MwaaEnvironment#min_webservers}.'''
         result = self._values.get("min_webservers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_workers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#min_workers MwaaEnvironment#min_workers}.'''
         result = self._values.get("min_workers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def plugins_s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_object_version MwaaEnvironment#plugins_s3_object_version}.'''
         result = self._values.get("plugins_s3_object_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def plugins_s3_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#plugins_s3_path MwaaEnvironment#plugins_s3_path}.'''
         result = self._values.get("plugins_s3_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1332,50 +1362,50 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#region MwaaEnvironment#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def requirements_s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_object_version MwaaEnvironment#requirements_s3_object_version}.'''
         result = self._values.get("requirements_s3_object_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def requirements_s3_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#requirements_s3_path MwaaEnvironment#requirements_s3_path}.'''
         result = self._values.get("requirements_s3_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedulers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#schedulers MwaaEnvironment#schedulers}.'''
         result = self._values.get("schedulers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def startup_script_s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_object_version MwaaEnvironment#startup_script_s3_object_version}.'''
         result = self._values.get("startup_script_s3_object_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def startup_script_s3_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#startup_script_s3_path MwaaEnvironment#startup_script_s3_path}.'''
         result = self._values.get("startup_script_s3_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags MwaaEnvironment#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#tags_all MwaaEnvironment#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1383,21 +1413,27 @@ class MwaaEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MwaaEnvironmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#timeouts MwaaEnvironment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MwaaEnvironmentTimeouts"], result)
 
     @builtins.property
     def webserver_access_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_access_mode MwaaEnvironment#webserver_access_mode}.'''
         result = self._values.get("webserver_access_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weekly_maintenance_window_start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#weekly_maintenance_window_start MwaaEnvironment#weekly_maintenance_window_start}.'''
         result = self._values.get("weekly_maintenance_window_start")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def worker_replacement_strategy(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_replacement_strategy MwaaEnvironment#worker_replacement_strategy}.'''
+        result = self._values.get("worker_replacement_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1734,11 +1770,11 @@ class MwaaEnvironmentLoggingConfiguration:
         worker_logs: typing.Optional[typing.Union["MwaaEnvironmentLoggingConfigurationWorkerLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dag_processing_logs: dag_processing_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
-        :param scheduler_logs: scheduler_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
-        :param task_logs: task_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
-        :param webserver_logs: webserver_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
-        :param worker_logs: worker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
+        :param dag_processing_logs: dag_processing_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
+        :param scheduler_logs: scheduler_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
+        :param task_logs: task_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
+        :param webserver_logs: webserver_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
+        :param worker_logs: worker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
         '''
         if isinstance(dag_processing_logs, dict):
             dag_processing_logs = MwaaEnvironmentLoggingConfigurationDagProcessingLogs(**dag_processing_logs)
@@ -1775,7 +1811,7 @@ class MwaaEnvironmentLoggingConfiguration:
     ) -> typing.Optional["MwaaEnvironmentLoggingConfigurationDagProcessingLogs"]:
         '''dag_processing_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#dag_processing_logs MwaaEnvironment#dag_processing_logs}
         '''
         result = self._values.get("dag_processing_logs")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfigurationDagProcessingLogs"], result)
@@ -1786,7 +1822,7 @@ class MwaaEnvironmentLoggingConfiguration:
     ) -> typing.Optional["MwaaEnvironmentLoggingConfigurationSchedulerLogs"]:
         '''scheduler_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#scheduler_logs MwaaEnvironment#scheduler_logs}
         '''
         result = self._values.get("scheduler_logs")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfigurationSchedulerLogs"], result)
@@ -1797,7 +1833,7 @@ class MwaaEnvironmentLoggingConfiguration:
     ) -> typing.Optional["MwaaEnvironmentLoggingConfigurationTaskLogs"]:
         '''task_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#task_logs MwaaEnvironment#task_logs}
         '''
         result = self._values.get("task_logs")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfigurationTaskLogs"], result)
@@ -1808,7 +1844,7 @@ class MwaaEnvironmentLoggingConfiguration:
     ) -> typing.Optional["MwaaEnvironmentLoggingConfigurationWebserverLogs"]:
         '''webserver_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#webserver_logs MwaaEnvironment#webserver_logs}
         '''
         result = self._values.get("webserver_logs")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfigurationWebserverLogs"], result)
@@ -1819,7 +1855,7 @@ class MwaaEnvironmentLoggingConfiguration:
     ) -> typing.Optional["MwaaEnvironmentLoggingConfigurationWorkerLogs"]:
         '''worker_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#worker_logs MwaaEnvironment#worker_logs}
         '''
         result = self._values.get("worker_logs")
         return typing.cast(typing.Optional["MwaaEnvironmentLoggingConfigurationWorkerLogs"], result)
@@ -1849,8 +1885,8 @@ class MwaaEnvironmentLoggingConfigurationDagProcessingLogs:
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__544c80921b3223c37f5dd9fb98d64e74b6c835796306018025160f693acff9d0)
@@ -1866,13 +1902,13 @@ class MwaaEnvironmentLoggingConfigurationDagProcessingLogs:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2006,8 +2042,8 @@ class MwaaEnvironmentLoggingConfigurationOutputReference(
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         value = MwaaEnvironmentLoggingConfigurationDagProcessingLogs(
             enabled=enabled, log_level=log_level
@@ -2023,8 +2059,8 @@ class MwaaEnvironmentLoggingConfigurationOutputReference(
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         value = MwaaEnvironmentLoggingConfigurationSchedulerLogs(
             enabled=enabled, log_level=log_level
@@ -2040,8 +2076,8 @@ class MwaaEnvironmentLoggingConfigurationOutputReference(
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         value = MwaaEnvironmentLoggingConfigurationTaskLogs(
             enabled=enabled, log_level=log_level
@@ -2057,8 +2093,8 @@ class MwaaEnvironmentLoggingConfigurationOutputReference(
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         value = MwaaEnvironmentLoggingConfigurationWebserverLogs(
             enabled=enabled, log_level=log_level
@@ -2074,8 +2110,8 @@ class MwaaEnvironmentLoggingConfigurationOutputReference(
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         value = MwaaEnvironmentLoggingConfigurationWorkerLogs(
             enabled=enabled, log_level=log_level
@@ -2200,8 +2236,8 @@ class MwaaEnvironmentLoggingConfigurationSchedulerLogs:
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e6331e63db2affb36251cbcce3f91d6830fd5aefe56e21d21b8aa8ee98a53e3)
@@ -2217,13 +2253,13 @@ class MwaaEnvironmentLoggingConfigurationSchedulerLogs:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2342,8 +2378,8 @@ class MwaaEnvironmentLoggingConfigurationTaskLogs:
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ec99f6dbefd254899280e03320cf3b42a0c7b16329149833d981dec12d53c95)
@@ -2359,13 +2395,13 @@ class MwaaEnvironmentLoggingConfigurationTaskLogs:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2484,8 +2520,8 @@ class MwaaEnvironmentLoggingConfigurationWebserverLogs:
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60520221f71a43de7540f15e0d35b298189a2eb28ff23acc58845f96302caeb3)
@@ -2501,13 +2537,13 @@ class MwaaEnvironmentLoggingConfigurationWebserverLogs:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2626,8 +2662,8 @@ class MwaaEnvironmentLoggingConfigurationWorkerLogs:
         log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__989b221e72fd99588f3c48ca6936cffe193caed995e51c5c1601015f679dce97)
@@ -2643,13 +2679,13 @@ class MwaaEnvironmentLoggingConfigurationWorkerLogs:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#enabled MwaaEnvironment#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#log_level MwaaEnvironment#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2768,8 +2804,8 @@ class MwaaEnvironmentNetworkConfiguration:
         subnet_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47098fe6b2ecbabc4eb024d0472165fe1ab6c3bf1aa0cfb7c979235bd2622aeb)
@@ -2782,14 +2818,14 @@ class MwaaEnvironmentNetworkConfiguration:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#security_group_ids MwaaEnvironment#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#subnet_ids MwaaEnvironment#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2890,9 +2926,9 @@ class MwaaEnvironmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d3ea5313075b4ceda205e533ecef6bd22099f4d20dd9c60f6797785d5a8a976)
@@ -2909,19 +2945,19 @@ class MwaaEnvironmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#create MwaaEnvironment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#delete MwaaEnvironment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/mwaa_environment#update MwaaEnvironment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3100,6 +3136,7 @@ def _typecheckingstub__5fe337b3c732963b6fdff09544057790967782a6a564fe1b3ac186b1d
     timeouts: typing.Optional[typing.Union[MwaaEnvironmentTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     webserver_access_mode: typing.Optional[builtins.str] = None,
     weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    worker_replacement_strategy: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -3276,6 +3313,12 @@ def _typecheckingstub__0292a99ab7dad0a7a67cb657aa0d9a0afe334ab36eb60f857ee89fd80
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__74e283a2f2c7b207a724a976a4244ba35959e47bbd2e47d9acde299668d76cfe(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66ed6c883f3f44767dfce809cfcacfa57d2382f4cdb3e883fe96f0acc26859d9(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3314,6 +3357,7 @@ def _typecheckingstub__66ed6c883f3f44767dfce809cfcacfa57d2382f4cdb3e883fe96f0acc
     timeouts: typing.Optional[typing.Union[MwaaEnvironmentTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     webserver_access_mode: typing.Optional[builtins.str] = None,
     weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    worker_replacement_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

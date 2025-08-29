@@ -41,12 +41,18 @@ async def test_rename_inconsistent_path(tmpdir, cm):
 
     cm.root_dir = str(tmpdir)
     # Read notebook, and learn about its format
-    await ensure_async(cm.get("notebook_suffix.ipynb"))
-    with pytest.raises(HTTPError):
-        await ensure_async(cm.rename_file("notebook_suffix.ipynb", "new.ipynb"))
+    model = await ensure_async(cm.get("notebook_suffix.ipynb"))
+    assert model["content"]["metadata"]["jupytext"]["formats"] == "_suffix.ipynb"
 
-    assert not os.path.isfile(new_file)
-    assert os.path.isfile(org_file)
+    # Since #1414 the notebook can be moved
+    await ensure_async(cm.rename_file("notebook_suffix.ipynb", "new.ipynb"))
+
+    assert os.path.isfile(new_file)
+    assert not os.path.isfile(org_file)
+
+    # The new notebook is unchanged
+    new_model = await ensure_async(cm.get("new.ipynb"))
+    compare_notebooks(new_model["content"], model["content"])
 
 
 async def test_pair_unpair_notebook(tmpdir, cm):
@@ -1839,6 +1845,105 @@ async def test_move_paired_notebook_to_subdir_1059(tmp_path, cm, python_notebook
     compare_notebooks(nb, python_notebook, fmt="py:percent")
 
 
+def list_folder_contents(tmp_path):
+    return [
+        str(file_path.relative_to(tmp_path))
+        for file_path in (tmp_path).rglob("*")
+        if file_path.is_file() and ".ipynb_checkpoints" not in file_path.parts
+    ]
+
+
+@pytest.mark.parametrize("copy", [False, True])
+@pytest.mark.parametrize("config_file", [False, True])
+async def test_move_paired_notebook_outside_of_notebook_dir_1414(
+    tmp_path, cm, python_notebook, copy: bool, config_file: bool
+):
+    cm.root_dir = str(tmp_path)
+    nb = python_notebook
+    if config_file:
+        (tmp_path / "jupytext.toml").write_text(
+            'formats = "notebooks///ipynb,scripts///py:percent"\n'
+        )
+    else:
+        nb.metadata["jupytext"] = {
+            "formats": ["notebooks///ipynb", "scripts///py:percent"]
+        }
+
+    # create paired notebook
+    (tmp_path / "notebooks").mkdir()
+    await ensure_async(
+        cm.save(notebook_model(python_notebook), path="notebooks/my_notebook.ipynb")
+    )
+    assert (tmp_path / "notebooks" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "scripts" / "my_notebook.py").exists()
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 2 + config_file, folder_contents
+
+    # move notebook still within the config reach, but outside the notebooks folder
+    if copy:
+        await ensure_async(cm.copy("notebooks/my_notebook.ipynb", "my_notebook.ipynb"))
+    else:
+        await ensure_async(
+            cm.rename_file("notebooks/my_notebook.ipynb", "my_notebook.ipynb")
+        )
+    assert (tmp_path / "notebooks" / "my_notebook.ipynb").exists() == copy
+    assert (tmp_path / "scripts" / "my_notebook.py").exists()
+    assert (tmp_path / "my_notebook.ipynb").exists()
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 2 + copy + config_file, folder_contents
+
+    # Open and save the notebook - this should create no additional file
+    model = await ensure_async(cm.get("my_notebook.ipynb"))
+    await ensure_async(cm.save(model=model, path="my_notebook.ipynb"))
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 2 + copy + config_file, folder_contents
+
+
+async def test_move_paired_notebook_outside_of_pairing_config_1414(
+    tmp_path, cm, python_notebook
+):
+    (tmp_path / "within_config").mkdir()
+    (tmp_path / "within_config" / "jupytext.toml").write_text(
+        'formats = "notebooks///ipynb,scripts///py:percent"\n'
+    )
+    cm.root_dir = str(tmp_path)
+
+    # create paired notebook
+    (tmp_path / "within_config" / "notebooks").mkdir()
+    await ensure_async(
+        cm.save(
+            notebook_model(python_notebook),
+            path="within_config/notebooks/my_notebook.ipynb",
+        )
+    )
+    assert (tmp_path / "within_config" / "notebooks" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "within_config" / "scripts" / "my_notebook.py").exists()
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 3, folder_contents
+
+    # move notebook still within the config reach, but outside the notebooks folder
+    (tmp_path / "other").mkdir()
+    await ensure_async(
+        cm.rename_file(
+            "within_config/notebooks/my_notebook.ipynb", "other/my_notebook.ipynb"
+        )
+    )
+    assert not (tmp_path / "within_config" / "notebooks" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "other" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "within_config" / "scripts" / "my_notebook.py").exists()
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 3, folder_contents
+
+    # Open and save the notebook - this should create no additional file
+    model = await ensure_async(cm.get("other/my_notebook.ipynb"))
+    await ensure_async(cm.save(model=model, path="other/my_notebook.ipynb"))
+    assert not (tmp_path / "within_config" / "notebooks" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "other" / "my_notebook.ipynb").exists()
+    assert (tmp_path / "within_config" / "scripts" / "my_notebook.py").exists()
+    folder_contents = list_folder_contents(tmp_path)
+    assert len(folder_contents) == 3, folder_contents
+
+
 async def test_hash_changes_if_paired_file_is_edited(tmp_path, cm, python_notebook):
     # 1. write py ipynb
 
@@ -1955,3 +2060,54 @@ A markdown cell
 
     cm.save(model=model, path="nb.md")
     compare((tmp_path / "nb.md").read_text(), md)
+
+
+@pytest.mark.parametrize("with_config", [False, True])
+async def test_load_save_keeps_simple_python_file_unchanged(
+    tmp_path, cm, with_config: bool
+):
+    """Test that jupytext --sync on a simple Python file leaves it unchanged,
+    even if a Jupytext configuration has formats=ipynb,py:percent
+    """
+    cm.root_dir = str(tmp_path)
+
+    if with_config:
+        config_file = tmp_path / "jupytext.toml"
+        config_file.write_text('formats = "ipynb,py:percent"')
+
+    # Create a simple Python file without jupytext metadata
+    py_file = tmp_path / "simple.py"
+    py_content = '''#!/usr/bin/env python3
+"""A simple Python script"""
+
+def hello():
+    print("Hello, world!")
+
+if __name__ == "__main__":
+    hello()
+'''
+    py_file.write_text(py_content)
+
+    # Record original content
+    original_content = py_file.read_text()
+
+    # Open and save the file using our contents manager
+    model = await ensure_async(cm.get(path="simple.py"))
+    await ensure_async(cm.save(model=model, path="simple.py"))
+
+    # Verify file is unchanged
+    final_content = py_file.read_text()
+    assert final_content == original_content, "File content should be unchanged"
+
+    # Verify no additional files were created
+    files_in_dir = list(tmp_path.iterdir())
+    if with_config:
+        assert (
+            len(files_in_dir) == 2
+        ), f"Expected only 2 files, found: {[f.name for f in files_in_dir]}"
+        assert set(files_in_dir) == {py_file, config_file}
+    else:
+        assert (
+            len(files_in_dir) == 1
+        ), f"Expected only 1 file, found: {[f.name for f in files_in_dir]}"
+        assert files_in_dir[0] == py_file

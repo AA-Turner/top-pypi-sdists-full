@@ -13,110 +13,6 @@ QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_Callable = typing.Type
 QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_ReturnType")
 
 
-class LevelOneServiceManager(System.Object, System.IDisposable):
-    """
-    Manages subscriptions and real-time updates for multiple LevelOneMarketData instances.
-    Facilitates routing of quote and trade data to a shared IDataAggregator in a thread-safe manner.
-    """
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets whether there are no active subscriptions."""
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of currently subscribed symbols."""
-        ...
-
-    def __init__(self, data_aggregator: QuantConnect.Data.IDataAggregator, subscribe_callback: typing.Callable[[typing.List[QuantConnect.Symbol], QuantConnect.TickType], bool], unsubscribe_callback: typing.Callable[[typing.List[QuantConnect.Symbol], QuantConnect.TickType], bool]) -> None:
-        """
-        Initializes a new instance of the LevelOneServiceManager class.
-        
-        :param data_aggregator: The aggregator to which all tick data will be published.
-        :param subscribe_callback: Delegate used to perform symbol subscription logic.
-        :param unsubscribe_callback: Delegate used to perform symbol unsubscription logic.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Releases all resources used by the LevelOneServiceManager."""
-        ...
-
-    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Returns subscribed symbols
-        
-        :returns: list of Symbol currently subscribed.
-        """
-        ...
-
-    def handle_last_trade(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], trade_date_time_utc: typing.Optional[datetime.datetime], last_quantity: typing.Optional[float], last_price: typing.Optional[float], sale_condition: str = ..., exchange: str = ...) -> None:
-        """
-        Handles incoming last trade data for a symbol and routes it to the corresponding LevelOneMarketData instance.
-        
-        :param symbol: The symbol for which trade data is received.
-        :param trade_date_time_utc: The UTC timestamp of the trade.
-        :param last_quantity: The trade size.
-        :param last_price: The trade price.
-        :param sale_condition: Optional sale condition string.
-        :param exchange: Optional exchange identifier.
-        """
-        ...
-
-    def handle_open_interest(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open_interest_date_time_utc: typing.Optional[datetime.datetime], open_interest: typing.Optional[float]) -> None:
-        """
-        Handles open interest updates for the specified symbol.
-        If the symbol is subscribed, forwards the open interest data to the corresponding
-        LevelOneMarketData instance for publishing.
-        
-        :param symbol: The trading symbol associated with the open interest update.
-        :param open_interest_date_time_utc: The UTC timestamp when the open interest value was observed.
-        :param open_interest: The reported open interest value.
-        """
-        ...
-
-    def handle_quote(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quote_date_time_utc: typing.Optional[datetime.datetime], bid_price: typing.Optional[float], bid_size: typing.Optional[float], ask_price: typing.Optional[float], ask_size: typing.Optional[float]) -> None:
-        """
-        Handles incoming quote data for a symbol.
-        Deduplicates updates and routes changes to the relevant LevelOneMarketData instance.
-        
-        :param symbol: The symbol for which quote data is received.
-        :param quote_date_time_utc: The UTC timestamp of the quote.
-        :param bid_price: The bid price.
-        :param bid_size: The size at the bid price.
-        :param ask_price: The ask price.
-        :param ask_size: The size at the ask price.
-        """
-        ...
-
-    def set_ignore_zero_size_updates(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ignore_zero_size_updates: bool) -> None:
-        """
-        Sets the LevelOneMarketData.IgnoreZeroSizeUpdates flag for the specified symbol,
-        controlling how zero-sized quote updates are handled for that symbol's market data stream.
-        
-        :param symbol: The symbol whose quote update behavior should be configured.
-        :param ignore_zero_size_updates: If true, zero-sized bid or ask updates will be ignored for the given symbol, preserving existing book values. If false, zero sizes will be applied as valid updates.
-        """
-        ...
-
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """
-        Subscribes to the specified symbol based on the given SubscriptionDataConfig.
-        
-        :param data_config: The subscription configuration containing symbol and type information.
-        """
-        ...
-
-    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """
-        Unsubscribes from the specified symbol and removes its associated service instance.
-        
-        :param data_config: The subscription configuration used for unsubscription.
-        """
-        ...
-
-
 class BaseDataEventArgs(System.EventArgs):
     """Provides data for an event that is triggered when a new BaseData is received."""
 
@@ -255,6 +151,110 @@ class LevelOneMarketData(System.Object):
         :param bid_size: The size available at the best bid.
         :param ask_price: The best ask price.
         :param ask_size: The size available at the best ask.
+        """
+        ...
+
+
+class LevelOneServiceManager(System.Object, System.IDisposable):
+    """
+    Manages subscriptions and real-time updates for multiple LevelOneMarketData instances.
+    Facilitates routing of quote and trade data to a shared IDataAggregator in a thread-safe manner.
+    """
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets whether there are no active subscriptions."""
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of currently subscribed symbols."""
+        ...
+
+    def __init__(self, data_aggregator: QuantConnect.Data.IDataAggregator, subscribe_callback: typing.Callable[[typing.List[QuantConnect.Symbol], QuantConnect.TickType], bool], unsubscribe_callback: typing.Callable[[typing.List[QuantConnect.Symbol], QuantConnect.TickType], bool]) -> None:
+        """
+        Initializes a new instance of the LevelOneServiceManager class.
+        
+        :param data_aggregator: The aggregator to which all tick data will be published.
+        :param subscribe_callback: Delegate used to perform symbol subscription logic.
+        :param unsubscribe_callback: Delegate used to perform symbol unsubscription logic.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Releases all resources used by the LevelOneServiceManager."""
+        ...
+
+    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Returns subscribed symbols
+        
+        :returns: list of Symbol currently subscribed.
+        """
+        ...
+
+    def handle_last_trade(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], trade_date_time_utc: typing.Optional[datetime.datetime], last_quantity: typing.Optional[float], last_price: typing.Optional[float], sale_condition: str = ..., exchange: str = ...) -> None:
+        """
+        Handles incoming last trade data for a symbol and routes it to the corresponding LevelOneMarketData instance.
+        
+        :param symbol: The symbol for which trade data is received.
+        :param trade_date_time_utc: The UTC timestamp of the trade.
+        :param last_quantity: The trade size.
+        :param last_price: The trade price.
+        :param sale_condition: Optional sale condition string.
+        :param exchange: Optional exchange identifier.
+        """
+        ...
+
+    def handle_open_interest(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open_interest_date_time_utc: typing.Optional[datetime.datetime], open_interest: typing.Optional[float]) -> None:
+        """
+        Handles open interest updates for the specified symbol.
+        If the symbol is subscribed, forwards the open interest data to the corresponding
+        LevelOneMarketData instance for publishing.
+        
+        :param symbol: The trading symbol associated with the open interest update.
+        :param open_interest_date_time_utc: The UTC timestamp when the open interest value was observed.
+        :param open_interest: The reported open interest value.
+        """
+        ...
+
+    def handle_quote(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quote_date_time_utc: typing.Optional[datetime.datetime], bid_price: typing.Optional[float], bid_size: typing.Optional[float], ask_price: typing.Optional[float], ask_size: typing.Optional[float]) -> None:
+        """
+        Handles incoming quote data for a symbol.
+        Deduplicates updates and routes changes to the relevant LevelOneMarketData instance.
+        
+        :param symbol: The symbol for which quote data is received.
+        :param quote_date_time_utc: The UTC timestamp of the quote.
+        :param bid_price: The bid price.
+        :param bid_size: The size at the bid price.
+        :param ask_price: The ask price.
+        :param ask_size: The size at the ask price.
+        """
+        ...
+
+    def set_ignore_zero_size_updates(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ignore_zero_size_updates: bool) -> None:
+        """
+        Sets the LevelOneMarketData.IgnoreZeroSizeUpdates flag for the specified symbol,
+        controlling how zero-sized quote updates are handled for that symbol's market data stream.
+        
+        :param symbol: The symbol whose quote update behavior should be configured.
+        :param ignore_zero_size_updates: If true, zero-sized bid or ask updates will be ignored for the given symbol, preserving existing book values. If false, zero sizes will be applied as valid updates.
+        """
+        ...
+
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """
+        Subscribes to the specified symbol based on the given SubscriptionDataConfig.
+        
+        :param data_config: The subscription configuration containing symbol and type information.
+        """
+        ...
+
+    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """
+        Unsubscribes from the specified symbol and removes its associated service instance.
+        
+        :param data_config: The subscription configuration used for unsubscription.
         """
         ...
 

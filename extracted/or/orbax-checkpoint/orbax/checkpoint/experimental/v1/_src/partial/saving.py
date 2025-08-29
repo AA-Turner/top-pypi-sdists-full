@@ -20,30 +20,12 @@ from etils import epath
 from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
+from orbax.checkpoint.experimental.v1._src.partial import path as partial_path_lib
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import saving as saving_lib
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
-
-
-PYTREE_CHECKPOINTABLE_KEY = saving_lib.PYTREE_CHECKPOINTABLE_KEY
-PARTIAL_SAVE_SUFFIX = '.partial_save'
-
-
-def _is_partial_save_path(path: path_types.PathLike) -> bool:
-  path = epath.Path(path)
-  return path.name.endswith(PARTIAL_SAVE_SUFFIX)
-
-
-def _add_partial_save_suffix(path: path_types.PathLike) -> path_types.Path:
-  path = epath.Path(path)
-  return path.parent / (path.name + PARTIAL_SAVE_SUFFIX)
-
-
-def _remove_partial_save_suffix(path: path_types.PathLike) -> path_types.Path:
-  path = epath.Path(path)
-  return path.parent / path.name.removesuffix(PARTIAL_SAVE_SUFFIX)
 
 
 def save_pytree(
@@ -248,14 +230,21 @@ def finalize(path: path_types.PathLike) -> None:
   context = context_lib.get_context()
 
   path = epath.Path(path)
-  if _is_partial_save_path(path):
-    final_path = _remove_partial_save_suffix(path)
+  if partial_path_lib.is_partial_save_path(path):
+    final_path = partial_path_lib.remove_partial_save_suffix(path)
     partial_path = path
   else:
     final_path = path
-    partial_path = _add_partial_save_suffix(path)
+    partial_path = partial_path_lib.add_partial_save_suffix(path)
 
   async def _finalize_impl():
+    await multihost.sync_global_processes(
+        multihost.unique_barrier_key(
+            'OcpPartialSaving:finalize_path_existence_start',
+            prefix=context.multiprocessing_options.barrier_sync_key_prefix,
+        ),
+        processes=context.multiprocessing_options.active_processes,
+    )
     if await async_path.exists(final_path):
       raise FileExistsError(
           f'Finalized checkpoint already exists at {final_path}.'
@@ -267,7 +256,7 @@ def finalize(path: path_types.PathLike) -> None:
 
     await multihost.sync_global_processes(
         multihost.unique_barrier_key(
-            'OcpPartialSaving:finalize_error',
+            'OcpPartialSaving:finalize_path_rename_start',
             prefix=context.multiprocessing_options.barrier_sync_key_prefix,
         ),
         processes=context.multiprocessing_options.active_processes,
@@ -287,6 +276,14 @@ def finalize(path: path_types.PathLike) -> None:
         is_source=multihost.is_primary_host(
             context.multiprocessing_options.primary_host
         ),
+    )
+
+    await multihost.sync_global_processes(
+        multihost.unique_barrier_key(
+            'OcpPartialSaving:finalize_rename_complete',
+            prefix=context.multiprocessing_options.barrier_sync_key_prefix,
+        ),
+        processes=context.multiprocessing_options.active_processes,
     )
 
     if rename_failed:

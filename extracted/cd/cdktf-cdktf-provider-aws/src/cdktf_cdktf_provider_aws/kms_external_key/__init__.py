@@ -1,7 +1,7 @@
 r'''
 # `aws_kms_external_key`
 
-Refer to the Terraform Registry for docs: [`aws_kms_external_key`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key).
+Refer to the Terraform Registry for docs: [`aws_kms_external_key`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsExternalKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kmsExternalKey.KmsExternalKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key aws_kms_external_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key aws_kms_external_key}.'''
 
     def __init__(
         self,
@@ -57,6 +57,8 @@ class KmsExternalKey(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         key_material_base64: typing.Optional[builtins.str] = None,
+        key_spec: typing.Optional[builtins.str] = None,
+        key_usage: typing.Optional[builtins.str] = None,
         multi_region: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         policy: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -71,22 +73,24 @@ class KmsExternalKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key aws_kms_external_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key aws_kms_external_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bypass_policy_lockout_safety_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.
-        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#description KmsExternalKey#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#id KmsExternalKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_material_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.
-        :param multi_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#region KmsExternalKey#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.
-        :param valid_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.
+        :param bypass_policy_lockout_safety_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.
+        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#description KmsExternalKey#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#id KmsExternalKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_material_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.
+        :param key_spec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_spec KmsExternalKey#key_spec}.
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_usage KmsExternalKey#key_usage}.
+        :param multi_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#region KmsExternalKey#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.
+        :param valid_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,6 +110,8 @@ class KmsExternalKey(
             enabled=enabled,
             id=id,
             key_material_base64=key_material_base64,
+            key_spec=key_spec,
+            key_usage=key_usage,
             multi_region=multi_region,
             policy=policy,
             region=region,
@@ -136,7 +142,7 @@ class KmsExternalKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsExternalKey to import.
-        :param import_from_id: The id of the existing KmsExternalKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsExternalKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsExternalKey to import is found.
         '''
         if __debug__:
@@ -170,6 +176,14 @@ class KmsExternalKey(
     @jsii.member(jsii_name="resetKeyMaterialBase64")
     def reset_key_material_base64(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKeyMaterialBase64", []))
+
+    @jsii.member(jsii_name="resetKeySpec")
+    def reset_key_spec(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKeySpec", []))
+
+    @jsii.member(jsii_name="resetKeyUsage")
+    def reset_key_usage(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKeyUsage", []))
 
     @jsii.member(jsii_name="resetMultiRegion")
     def reset_multi_region(self) -> None:
@@ -224,11 +238,6 @@ class KmsExternalKey(
         return typing.cast(builtins.str, jsii.get(self, "keyState"))
 
     @builtins.property
-    @jsii.member(jsii_name="keyUsage")
-    def key_usage(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "keyUsage"))
-
-    @builtins.property
     @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheckInput")
     def bypass_policy_lockout_safety_check_input(
         self,
@@ -261,6 +270,16 @@ class KmsExternalKey(
     @jsii.member(jsii_name="keyMaterialBase64Input")
     def key_material_base64_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyMaterialBase64Input"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keySpecInput")
+    def key_spec_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keySpecInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyUsageInput")
+    def key_usage_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyUsageInput"))
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionInput")
@@ -377,6 +396,30 @@ class KmsExternalKey(
         jsii.set(self, "keyMaterialBase64", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="keySpec")
+    def key_spec(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "keySpec"))
+
+    @key_spec.setter
+    def key_spec(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f63bfce4eb9fd17666893abcb1495093bd00e028003588478221d0ea41214ee2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keySpec", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyUsage")
+    def key_usage(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "keyUsage"))
+
+    @key_usage.setter
+    def key_usage(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8db45d85a21ec133c6a464a244c94284fe2cd7588a56fe661985b760bef81b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyUsage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="multiRegion")
     def multi_region(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "multiRegion"))
@@ -469,6 +512,8 @@ class KmsExternalKey(
         "enabled": "enabled",
         "id": "id",
         "key_material_base64": "keyMaterialBase64",
+        "key_spec": "keySpec",
+        "key_usage": "keyUsage",
         "multi_region": "multiRegion",
         "policy": "policy",
         "region": "region",
@@ -494,6 +539,8 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         key_material_base64: typing.Optional[builtins.str] = None,
+        key_spec: typing.Optional[builtins.str] = None,
+        key_usage: typing.Optional[builtins.str] = None,
         multi_region: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         policy: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -509,18 +556,20 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bypass_policy_lockout_safety_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.
-        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#description KmsExternalKey#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#id KmsExternalKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_material_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.
-        :param multi_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#region KmsExternalKey#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.
-        :param valid_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.
+        :param bypass_policy_lockout_safety_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.
+        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#description KmsExternalKey#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#id KmsExternalKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_material_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.
+        :param key_spec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_spec KmsExternalKey#key_spec}.
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_usage KmsExternalKey#key_usage}.
+        :param multi_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#region KmsExternalKey#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.
+        :param valid_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -539,6 +588,8 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_material_base64", value=key_material_base64, expected_type=type_hints["key_material_base64"])
+            check_type(argname="argument key_spec", value=key_spec, expected_type=type_hints["key_spec"])
+            check_type(argname="argument key_usage", value=key_usage, expected_type=type_hints["key_usage"])
             check_type(argname="argument multi_region", value=multi_region, expected_type=type_hints["multi_region"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -572,6 +623,10 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if key_material_base64 is not None:
             self._values["key_material_base64"] = key_material_base64
+        if key_spec is not None:
+            self._values["key_spec"] = key_spec
+        if key_usage is not None:
+            self._values["key_usage"] = key_usage
         if multi_region is not None:
             self._values["multi_region"] = multi_region
         if policy is not None:
@@ -653,19 +708,19 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bypass_policy_lockout_safety_check(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#bypass_policy_lockout_safety_check KmsExternalKey#bypass_policy_lockout_safety_check}.'''
         result = self._values.get("bypass_policy_lockout_safety_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def deletion_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#deletion_window_in_days KmsExternalKey#deletion_window_in_days}.'''
         result = self._values.get("deletion_window_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#description KmsExternalKey#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#description KmsExternalKey#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -673,13 +728,13 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#enabled KmsExternalKey#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#id KmsExternalKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#id KmsExternalKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -689,21 +744,33 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key_material_base64(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_material_base64 KmsExternalKey#key_material_base64}.'''
         result = self._values.get("key_material_base64")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key_spec(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_spec KmsExternalKey#key_spec}.'''
+        result = self._values.get("key_spec")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key_usage(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#key_usage KmsExternalKey#key_usage}.'''
+        result = self._values.get("key_usage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def multi_region(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#multi_region KmsExternalKey#multi_region}.'''
         result = self._values.get("multi_region")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#policy KmsExternalKey#policy}.'''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -711,26 +778,26 @@ class KmsExternalKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#region KmsExternalKey#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#region KmsExternalKey#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags KmsExternalKey#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#tags_all KmsExternalKey#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def valid_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/kms_external_key#valid_to KmsExternalKey#valid_to}.'''
         result = self._values.get("valid_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -763,6 +830,8 @@ def _typecheckingstub__1d15a4364cb1c6f52c31cca6902b35037667523f0ceeb6593616d1eae
     enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     key_material_base64: typing.Optional[builtins.str] = None,
+    key_spec: typing.Optional[builtins.str] = None,
+    key_usage: typing.Optional[builtins.str] = None,
     multi_region: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     policy: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
@@ -825,6 +894,18 @@ def _typecheckingstub__d3900b7403e10648931e299accd15034581ad2fc7e8b09f87cc0b93d0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f63bfce4eb9fd17666893abcb1495093bd00e028003588478221d0ea41214ee2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8db45d85a21ec133c6a464a244c94284fe2cd7588a56fe661985b760bef81b2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9ac217d1169f2f0e53018045fb58ebb5de6f8a6d6aa59dd567d6de0855233469(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
@@ -876,6 +957,8 @@ def _typecheckingstub__58a7433f0565ca29fbb49dde8f7888c047ff853a5490e02d8b66d7a42
     enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     key_material_base64: typing.Optional[builtins.str] = None,
+    key_spec: typing.Optional[builtins.str] = None,
+    key_usage: typing.Optional[builtins.str] = None,
     multi_region: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     policy: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,

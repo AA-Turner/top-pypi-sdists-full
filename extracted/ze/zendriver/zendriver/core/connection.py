@@ -44,7 +44,7 @@ logger = logging.getLogger("uc.connection")
 
 
 class ProtocolException(Exception):
-    def __init__(self, *args, **kwargs):  # real signature unknown
+    def __init__(self, *args: Any):
         self.message = None
         self.code = None
         self.args = args
@@ -54,7 +54,7 @@ class ProtocolException(Exception):
 
         elif hasattr(args[0], "to_json"):
 
-            def serialize(obj, _d=0):
+            def serialize(obj: Any, _d: int = 0) -> str:
                 res = "\n"
                 for k, v in obj.items():
                     space = "\t" * _d
@@ -70,7 +70,7 @@ class ProtocolException(Exception):
         else:
             self.message = "| ".join(str(x) for x in args)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.message} [code: {self.code}]" if self.code else f"{self.message}"
 
 
@@ -78,7 +78,7 @@ class SettingClassVarNotAllowedException(PermissionError):
     pass
 
 
-class Transaction(asyncio.Future):
+class Transaction(asyncio.Future[Any]):
     def __init__(self, cdp_obj: Generator[dict[str, Any], dict[str, Any], Any]):
         """
         :param cdp_obj:
@@ -94,11 +94,11 @@ class Transaction(asyncio.Future):
         self.params = params
 
     @property
-    def message(self):
+    def message(self) -> str:
         return json.dumps({"method": self.method, "params": self.params, "id": self.id})
 
     @property
-    def has_exception(self):
+    def has_exception(self) -> bool:
         try:
             if self.exception():
                 return True
@@ -106,7 +106,7 @@ class Transaction(asyncio.Future):
             return True
         return False
 
-    def __call__(self, **response: dict):
+    def __call__(self, **response: dict[str, Any]) -> None:
         """
         parsed the response message and marks the future
         complete
@@ -126,7 +126,7 @@ class Transaction(asyncio.Future):
             return self.set_result(e.value)
         raise ProtocolException("could not parse the cdp response:\n%s" % response)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         success = False if (self.done() and self.has_exception) else True
         if self.done():
             status = "finished"
@@ -145,7 +145,7 @@ class EventTransaction(Transaction):
     event = None
     value = None
 
-    def __init__(self, event_object):
+    def __init__(self, event_object: Any):
         try:
             super().__init__(None)  # type: ignore
         except Exception:
@@ -153,7 +153,7 @@ class EventTransaction(Transaction):
         self.set_result(event_object)
         self.event = self.value = self.result()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         status = "finished"
         success = False if self.exception() else True
         event_object = self.result()
@@ -167,7 +167,7 @@ class EventTransaction(Transaction):
 
 
 class CantTouchThis(type):
-    def __setattr__(cls, attr, value):
+    def __setattr__(cls, attr: str, value: Any) -> None:
         """
         :meta private:
         """
@@ -196,7 +196,7 @@ class Connection(metaclass=CantTouchThis):
         websocket_url: str,
         target: cdp.target.TargetInfo | None = None,
         _owner: Browser | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__()
         self._target = target
@@ -205,7 +205,7 @@ class Connection(metaclass=CantTouchThis):
         self.websocket_url: str = websocket_url
         self.websocket = None
         self.mapper: dict[int, Transaction] = {}
-        self.handlers: dict[Any, list[Union[Callable, Awaitable]]] = (
+        self.handlers: dict[Any, list[Union[Callable, Awaitable]]] = (  # type: ignore
             collections.defaultdict(list)
         )
         self.recv_task = None
@@ -219,7 +219,7 @@ class Connection(metaclass=CantTouchThis):
         return self._target
 
     @target.setter
-    def target(self, target: cdp.target.TargetInfo):
+    def target(self, target: cdp.target.TargetInfo) -> None:
         if not isinstance(target, cdp.target.TargetInfo):
             raise TypeError(
                 "target must be set to a '%s' but got '%s"
@@ -328,14 +328,14 @@ class Connection(metaclass=CantTouchThis):
         return None
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.websocket is None
 
     def add_handler(
         self,
         event_type_or_domain: Union[type, types.ModuleType],
-        handler: Union[Callable, Awaitable],
-    ):
+        handler: Union[Callable, Awaitable],  # type: ignore
+    ) -> None:
         """
         add a handler for given event
 
@@ -378,8 +378,8 @@ class Connection(metaclass=CantTouchThis):
     def remove_handlers(
         self,
         event_type: Optional[type] = None,
-        handler: Optional[Union[Callable, Awaitable]] = None,
-    ):
+        handler: Optional[Union[Callable, Awaitable]] = None,  # type: ignore
+    ) -> None:
         """
         remove handlers for given event
 
@@ -414,7 +414,7 @@ class Connection(metaclass=CantTouchThis):
         if handler in self.handlers[event_type]:
             self.handlers[event_type].remove(handler)
 
-    async def aopen(self, **kw):
+    async def aopen(self) -> None:
         """
         opens the websocket connection. should not be called manually by users
         :param kw:
@@ -443,7 +443,7 @@ class Connection(metaclass=CantTouchThis):
         # registered again, so the browser sends those events
         await self._register_handlers()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """
         closes the websocket connection. should not be called manually by users.
         """
@@ -455,11 +455,11 @@ class Connection(metaclass=CantTouchThis):
             self.websocket = None
             logger.debug("\n❌ closed websocket connection to %s", self.websocket_url)
 
-    async def sleep(self, t: Union[int, float] = 0.25):
+    async def sleep(self, t: Union[int, float] = 0.25) -> None:
         await self.update_target()
         await asyncio.sleep(t)
 
-    def feed_cdp(self, cdp_obj):
+    def feed_cdp(self, cdp_obj: Generator[dict[str, Any], dict[str, Any], T]) -> None:
         """
         used in specific cases, mostly during cdp.fetch.RequestPaused events,
         in which the browser literally blocks. using feed_cdp you can issue
@@ -475,7 +475,7 @@ class Connection(metaclass=CantTouchThis):
         """
         asyncio.ensure_future(self.send(cdp_obj))
 
-    async def wait(self, t: int | float | None = None):
+    async def wait(self, t: int | float | None = None) -> None:
         """
         waits until the event listener reports idle (no new events received in certain timespan).
         when `t` is provided, ensures waiting for `t` seconds, no matter what.
@@ -507,17 +507,19 @@ class Connection(metaclass=CantTouchThis):
             # no listener created yet
             pass
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Connection":
         """:meta private:"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: type[BaseException], exc_val: Any, exc_tb: Any
+    ) -> None:
         """:meta private:"""
         await self.aclose()
         if exc_type and exc_val:
             raise exc_type(exc_val)
 
-    def __await__(self):
+    def __await__(self) -> Any:
         """
         updates targets and wait for event listener to report idle.
         idle is reported when no new events are received for the duration of 1 second
@@ -526,14 +528,16 @@ class Connection(metaclass=CantTouchThis):
         """
         return self.wait().__await__()
 
-    async def update_target(self):
+    async def update_target(self) -> None:
         target_info: cdp.target.TargetInfo = await self.send(
             cdp.target.get_target_info(self.target_id), _is_update=True
         )
         self.target = target_info
 
     async def send(
-        self, cdp_obj: Generator[dict[str, Any], dict[str, Any], T], _is_update=False
+        self,
+        cdp_obj: Generator[dict[str, Any], dict[str, Any], T],
+        _is_update: bool = False,
     ) -> T:
         """
         send a protocol command. the commands are made using any of the cdp.<domain>.<method>()'s
@@ -570,14 +574,14 @@ class Connection(metaclass=CantTouchThis):
             await self._register_handlers()
         await self.websocket.send(tx.message)
         try:
-            return await tx
+            return await tx  # type: ignore
         except ProtocolException as e:
             e.message = e.message or ""
             e.message += f"\ncommand:{tx.method}\nparams:{tx.params}"
             raise e
 
     #
-    async def _register_handlers(self):
+    async def _register_handlers(self) -> None:
         """
         ensure that for current (event) handlers, the corresponding
         domain is enabled in the protocol.
@@ -629,7 +633,7 @@ class Connection(metaclass=CantTouchThis):
             # items still present at this point are unused and need removal
             self.enabled_domains.remove(ed)
 
-    async def _prepare_headless(self):
+    async def _prepare_headless(self) -> None:
         if getattr(self, "_prep_headless_done", None):
             return
         response = await self._send_oneshot(
@@ -650,7 +654,7 @@ class Connection(metaclass=CantTouchThis):
             )
         setattr(self, "_prep_headless_done", True)
 
-    async def _prepare_expert(self):
+    async def _prepare_expert(self) -> None:
         if getattr(self, "_prep_expert_done", None):
             return
         if self._owner:
@@ -668,7 +672,7 @@ class Connection(metaclass=CantTouchThis):
             await self._send_oneshot(cdp.page.enable())
         setattr(self, "_prep_expert_done", True)
 
-    async def _send_oneshot(self, cdp_obj):
+    async def _send_oneshot(self, cdp_obj: Any) -> Any:
         if self.websocket is None:
             raise ValueError("no websocket connection")
 
@@ -687,9 +691,9 @@ class Connection(metaclass=CantTouchThis):
 class Listener:
     def __init__(self, connection: Connection):
         self.connection = connection
-        self.history: collections.deque = collections.deque()
+        self.history: collections.deque[Any] = collections.deque()
         self.max_history = 1000
-        self.task: asyncio.Future | None = None
+        self.task: asyncio.Future[None] | None = None
 
         # when in interactive mode, the loop is paused after each return
         # and when the next call is made, it might still have to process some events
@@ -708,30 +712,30 @@ class Listener:
         self.idle = asyncio.Event()
         self.run()
 
-    def run(self):
+    def run(self) -> None:
         self.task = asyncio.create_task(self.listener_loop())
 
     @property
-    def time_before_considered_idle(self):
+    def time_before_considered_idle(self) -> float:
         return self._time_before_considered_idle
 
     @time_before_considered_idle.setter
-    def time_before_considered_idle(self, seconds: Union[int, float]):
+    def time_before_considered_idle(self, seconds: Union[int, float]) -> None:
         self._time_before_considered_idle = seconds
 
-    def cancel(self):
+    def cancel(self) -> None:
         if self.task and not self.task.cancelled():
             self.task.cancel()
 
     @property
-    def running(self):
+    def running(self) -> bool:
         if not self.task:
             return False
         if self.task.done():
             return False
         return True
 
-    async def listener_loop(self):
+    async def listener_loop(self) -> None:
         while True:
             if self.connection.websocket is None:
                 raise ValueError("no websocket connection")
@@ -822,9 +826,9 @@ class Listener:
                                 except TypeError:
                                     asyncio.create_task(callback(event))
                             else:
-                                callback = typing.cast(Callable, callback)
+                                callback = typing.cast(Callable, callback)  # type: ignore
 
-                                def run_callback():
+                                def run_callback() -> None:
                                     try:
                                         callback(event, self.connection)
                                     except TypeError:
@@ -846,7 +850,7 @@ class Listener:
                     raise
                 continue
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s_idle = "[idle]" if self.idle.is_set() else "[busy]"
         s_cache_length = f"[cache size: {len(self.history)}]"
         s_running = f"[running: {self.running}]"

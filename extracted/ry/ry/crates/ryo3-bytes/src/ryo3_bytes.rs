@@ -8,7 +8,7 @@ use bytes::{Bytes, BytesMut};
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PySlice, PyString, PyTuple, PyType};
+use pyo3::types::{PyDict, PySlice, PyString, PyTuple};
 use pyo3::{IntoPyObjectExt, ffi};
 
 use crate::python_bytes_methods::PythonBytesMethods;
@@ -214,7 +214,7 @@ impl PyBytes {
                 }
                 self.0
                     .get(index as usize)
-                    .ok_or(PyIndexError::new_err("Index out of range"))?
+                    .ok_or_else(|| PyIndexError::new_err("Index out of range"))?
                     .into_bound_py_any(py)
             }
             BytesGetItemKey::Slice(slice) => {
@@ -438,9 +438,9 @@ impl PyBytes {
     /// ```python
     /// (string, /)
     /// ```
-    #[classmethod]
-    fn fromhex(cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
-        Self::py_fromhex(cls, s)
+    #[staticmethod]
+    fn fromhex(s: &str) -> PyResult<Self> {
+        Self::py_fromhex(s)
     }
 
     /// Return True if B is a titlecased string and there is at least one
@@ -621,9 +621,14 @@ fn validate_buffer(buf: &PyBuffer<u8>) -> PyResult<()> {
 
 impl<'py> FromPyObject<'py> for PyBytesWrapper {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let buffer = ob.extract::<PyBuffer<u8>>()?;
-        validate_buffer(&buffer)?;
-        Ok(Self(Some(buffer)))
+        if ob.is_instance_of::<pyo3::types::PyBytes>() {
+            let buffer = ob.extract::<PyBuffer<u8>>()?;
+            Ok(Self(Some(buffer)))
+        } else {
+            let buffer = ob.extract::<PyBuffer<u8>>()?;
+            validate_buffer(&buffer)?;
+            Ok(Self(Some(buffer)))
+        }
     }
 }
 

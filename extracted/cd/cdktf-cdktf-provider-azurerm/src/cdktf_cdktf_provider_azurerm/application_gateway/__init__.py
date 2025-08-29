@@ -1,7 +1,7 @@
 r'''
 # `azurerm_application_gateway`
 
-Refer to the Terraform Registry for docs: [`azurerm_application_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway).
+Refer to the Terraform Registry for docs: [`azurerm_application_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationGateway(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.applicationGateway.ApplicationGateway",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway azurerm_application_gateway}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway azurerm_application_gateway}.'''
 
     def __init__(
         self,
@@ -94,45 +94,45 @@ class ApplicationGateway(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway azurerm_application_gateway} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway azurerm_application_gateway} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backend_address_pool: backend_address_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
-        :param backend_http_settings: backend_http_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
-        :param frontend_ip_configuration: frontend_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
-        :param frontend_port: frontend_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
-        :param gateway_ip_configuration: gateway_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
-        :param http_listener: http_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#location ApplicationGateway#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param request_routing_rule: request_routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
-        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
-        :param autoscale_configuration: autoscale_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
-        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
-        :param enable_http2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.
-        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.
-        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
-        :param force_firewall_policy_association: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.
-        :param global_: global block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#global ApplicationGateway#global}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#id ApplicationGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
-        :param private_link_configuration: private_link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
-        :param probe: probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
-        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
-        :param rewrite_rule_set: rewrite_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
-        :param ssl_certificate: ssl_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
-        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
-        :param ssl_profile: ssl_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
-        :param trusted_client_certificate: trusted_client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
-        :param trusted_root_certificate: trusted_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
-        :param url_path_map: url_path_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
-        :param waf_configuration: waf_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.
+        :param backend_address_pool: backend_address_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
+        :param backend_http_settings: backend_http_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
+        :param frontend_ip_configuration: frontend_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
+        :param frontend_port: frontend_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
+        :param gateway_ip_configuration: gateway_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
+        :param http_listener: http_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#location ApplicationGateway#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param request_routing_rule: request_routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
+        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
+        :param autoscale_configuration: autoscale_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
+        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
+        :param enable_http2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.
+        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.
+        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
+        :param force_firewall_policy_association: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.
+        :param global_: global block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#global ApplicationGateway#global}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#id ApplicationGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
+        :param private_link_configuration: private_link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
+        :param probe: probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
+        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
+        :param rewrite_rule_set: rewrite_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
+        :param ssl_certificate: ssl_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
+        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
+        :param ssl_profile: ssl_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
+        :param trusted_client_certificate: trusted_client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
+        :param trusted_root_certificate: trusted_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
+        :param url_path_map: url_path_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
+        :param waf_configuration: waf_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -205,7 +205,7 @@ class ApplicationGateway(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationGateway to import.
-        :param import_from_id: The id of the existing ApplicationGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationGateway to import is found.
         '''
         if __debug__:
@@ -237,8 +237,8 @@ class ApplicationGateway(
         max_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.
+        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.
         '''
         value = ApplicationGatewayAutoscaleConfiguration(
             min_capacity=min_capacity, max_capacity=max_capacity
@@ -332,8 +332,8 @@ class ApplicationGateway(
         response_buffering_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param request_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.
-        :param response_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.
+        :param request_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.
+        :param response_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.
         '''
         value = ApplicationGatewayGlobal(
             request_buffering_enabled=request_buffering_enabled,
@@ -363,8 +363,8 @@ class ApplicationGateway(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#type ApplicationGateway#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#type ApplicationGateway#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.
         '''
         value = ApplicationGatewayIdentity(type=type, identity_ids=identity_ids)
 
@@ -444,9 +444,9 @@ class ApplicationGateway(
         capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.
         '''
         value = ApplicationGatewaySku(name=name, tier=tier, capacity=capacity)
 
@@ -476,11 +476,11 @@ class ApplicationGateway(
         policy_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
-        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
-        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
+        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
+        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
+        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
         '''
         value = ApplicationGatewaySslPolicy(
             cipher_suites=cipher_suites,
@@ -515,10 +515,10 @@ class ApplicationGateway(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#create ApplicationGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#read ApplicationGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#update ApplicationGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#create ApplicationGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#read ApplicationGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#update ApplicationGateway#update}.
         '''
         value = ApplicationGatewayTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -580,15 +580,15 @@ class ApplicationGateway(
         rule_set_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
-        :param firewall_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.
-        :param rule_set_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.
-        :param disabled_rule_group: disabled_rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
-        :param file_upload_limit_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.
-        :param max_request_body_size_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.
-        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.
-        :param rule_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
+        :param firewall_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.
+        :param rule_set_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.
+        :param disabled_rule_group: disabled_rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
+        :param file_upload_limit_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.
+        :param max_request_body_size_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.
+        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.
+        :param rule_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.
         '''
         value = ApplicationGatewayWafConfiguration(
             enabled=enabled,
@@ -1224,8 +1224,8 @@ class ApplicationGateway(
 class ApplicationGatewayAuthenticationCertificate:
     def __init__(self, *, data: builtins.str, name: builtins.str) -> None:
         '''
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05c03dc2364969cfcc4fe706e17c021b5bccd93cab50e313207bf6538aa7e062)
@@ -1238,14 +1238,14 @@ class ApplicationGatewayAuthenticationCertificate:
 
     @builtins.property
     def data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1451,8 +1451,8 @@ class ApplicationGatewayAutoscaleConfiguration:
         max_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.
+        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4e91ec2068e22998214b74eb5a0fd7e56617f78b27f18216e97b97add995765)
@@ -1466,14 +1466,14 @@ class ApplicationGatewayAutoscaleConfiguration:
 
     @builtins.property
     def min_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_capacity ApplicationGateway#min_capacity}.'''
         result = self._values.get("min_capacity")
         assert result is not None, "Required property 'min_capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_capacity ApplicationGateway#max_capacity}.'''
         result = self._values.get("max_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1579,9 +1579,9 @@ class ApplicationGatewayBackendAddressPool:
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#fqdns ApplicationGateway#fqdns}.
-        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ip_addresses ApplicationGateway#ip_addresses}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#fqdns ApplicationGateway#fqdns}.
+        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ip_addresses ApplicationGateway#ip_addresses}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96c3ce0810ace6665387dcd6c4932786b9e9bbd27b37c93e602fbfa8561805b3)
@@ -1598,20 +1598,20 @@ class ApplicationGatewayBackendAddressPool:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def fqdns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#fqdns ApplicationGateway#fqdns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#fqdns ApplicationGateway#fqdns}.'''
         result = self._values.get("fqdns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ip_addresses ApplicationGateway#ip_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ip_addresses ApplicationGateway#ip_addresses}.'''
         result = self._values.get("ip_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1866,19 +1866,19 @@ class ApplicationGatewayBackendHttpSettings:
         trusted_root_certificate_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cookie_based_affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cookie_based_affinity ApplicationGateway#cookie_based_affinity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
-        :param affinity_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#affinity_cookie_name ApplicationGateway#affinity_cookie_name}.
-        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
-        :param connection_draining: connection_draining block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#connection_draining ApplicationGateway#connection_draining}
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.
-        :param pick_host_name_from_backend_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pick_host_name_from_backend_address ApplicationGateway#pick_host_name_from_backend_address}.
-        :param probe_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#probe_name ApplicationGateway#probe_name}.
-        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_timeout ApplicationGateway#request_timeout}.
-        :param trusted_root_certificate_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_root_certificate_names ApplicationGateway#trusted_root_certificate_names}.
+        :param cookie_based_affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cookie_based_affinity ApplicationGateway#cookie_based_affinity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
+        :param affinity_cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#affinity_cookie_name ApplicationGateway#affinity_cookie_name}.
+        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
+        :param connection_draining: connection_draining block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#connection_draining ApplicationGateway#connection_draining}
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.
+        :param pick_host_name_from_backend_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pick_host_name_from_backend_address ApplicationGateway#pick_host_name_from_backend_address}.
+        :param probe_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#probe_name ApplicationGateway#probe_name}.
+        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_timeout ApplicationGateway#request_timeout}.
+        :param trusted_root_certificate_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_root_certificate_names ApplicationGateway#trusted_root_certificate_names}.
         '''
         if isinstance(connection_draining, dict):
             connection_draining = ApplicationGatewayBackendHttpSettingsConnectionDraining(**connection_draining)
@@ -1924,35 +1924,35 @@ class ApplicationGatewayBackendHttpSettings:
 
     @builtins.property
     def cookie_based_affinity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cookie_based_affinity ApplicationGateway#cookie_based_affinity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cookie_based_affinity ApplicationGateway#cookie_based_affinity}.'''
         result = self._values.get("cookie_based_affinity")
         assert result is not None, "Required property 'cookie_based_affinity' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def affinity_cookie_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#affinity_cookie_name ApplicationGateway#affinity_cookie_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#affinity_cookie_name ApplicationGateway#affinity_cookie_name}.'''
         result = self._values.get("affinity_cookie_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1962,7 +1962,7 @@ class ApplicationGatewayBackendHttpSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayBackendHttpSettingsAuthenticationCertificate"]]]:
         '''authentication_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
         '''
         result = self._values.get("authentication_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayBackendHttpSettingsAuthenticationCertificate"]]], result)
@@ -1973,20 +1973,20 @@ class ApplicationGatewayBackendHttpSettings:
     ) -> typing.Optional["ApplicationGatewayBackendHttpSettingsConnectionDraining"]:
         '''connection_draining block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#connection_draining ApplicationGateway#connection_draining}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#connection_draining ApplicationGateway#connection_draining}
         '''
         result = self._values.get("connection_draining")
         return typing.cast(typing.Optional["ApplicationGatewayBackendHttpSettingsConnectionDraining"], result)
 
     @builtins.property
     def host_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.'''
         result = self._values.get("host_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1994,19 +1994,19 @@ class ApplicationGatewayBackendHttpSettings:
     def pick_host_name_from_backend_address(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pick_host_name_from_backend_address ApplicationGateway#pick_host_name_from_backend_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pick_host_name_from_backend_address ApplicationGateway#pick_host_name_from_backend_address}.'''
         result = self._values.get("pick_host_name_from_backend_address")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def probe_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#probe_name ApplicationGateway#probe_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#probe_name ApplicationGateway#probe_name}.'''
         result = self._values.get("probe_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def request_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_timeout ApplicationGateway#request_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_timeout ApplicationGateway#request_timeout}.'''
         result = self._values.get("request_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2014,7 +2014,7 @@ class ApplicationGatewayBackendHttpSettings:
     def trusted_root_certificate_names(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_root_certificate_names ApplicationGateway#trusted_root_certificate_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_root_certificate_names ApplicationGateway#trusted_root_certificate_names}.'''
         result = self._values.get("trusted_root_certificate_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2038,7 +2038,7 @@ class ApplicationGatewayBackendHttpSettings:
 class ApplicationGatewayBackendHttpSettingsAuthenticationCertificate:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e454512442b4889147cebbff43af59389c1193a8428520e6f26b08d887dac88)
@@ -2049,7 +2049,7 @@ class ApplicationGatewayBackendHttpSettingsAuthenticationCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2238,8 +2238,8 @@ class ApplicationGatewayBackendHttpSettingsConnectionDraining:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param drain_timeout_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
+        :param drain_timeout_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0011910b9a8ef2dfb486b1801bfe7b27b54594ad1a1725a93d89b2470e0f401)
@@ -2252,14 +2252,14 @@ class ApplicationGatewayBackendHttpSettingsConnectionDraining:
 
     @builtins.property
     def drain_timeout_sec(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.'''
         result = self._values.get("drain_timeout_sec")
         assert result is not None, "Required property 'drain_timeout_sec' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -2493,8 +2493,8 @@ class ApplicationGatewayBackendHttpSettingsOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param drain_timeout_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
+        :param drain_timeout_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#drain_timeout_sec ApplicationGateway#drain_timeout_sec}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
         '''
         value = ApplicationGatewayBackendHttpSettingsConnectionDraining(
             drain_timeout_sec=drain_timeout_sec, enabled=enabled
@@ -2893,41 +2893,41 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backend_address_pool: backend_address_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
-        :param backend_http_settings: backend_http_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
-        :param frontend_ip_configuration: frontend_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
-        :param frontend_port: frontend_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
-        :param gateway_ip_configuration: gateway_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
-        :param http_listener: http_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#location ApplicationGateway#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param request_routing_rule: request_routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
-        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
-        :param autoscale_configuration: autoscale_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
-        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
-        :param enable_http2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.
-        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.
-        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
-        :param force_firewall_policy_association: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.
-        :param global_: global block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#global ApplicationGateway#global}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#id ApplicationGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
-        :param private_link_configuration: private_link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
-        :param probe: probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
-        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
-        :param rewrite_rule_set: rewrite_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
-        :param ssl_certificate: ssl_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
-        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
-        :param ssl_profile: ssl_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
-        :param trusted_client_certificate: trusted_client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
-        :param trusted_root_certificate: trusted_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
-        :param url_path_map: url_path_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
-        :param waf_configuration: waf_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.
+        :param backend_address_pool: backend_address_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
+        :param backend_http_settings: backend_http_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
+        :param frontend_ip_configuration: frontend_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
+        :param frontend_port: frontend_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
+        :param gateway_ip_configuration: gateway_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
+        :param http_listener: http_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#location ApplicationGateway#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param request_routing_rule: request_routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
+        :param authentication_certificate: authentication_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
+        :param autoscale_configuration: autoscale_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
+        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
+        :param enable_http2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.
+        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.
+        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
+        :param force_firewall_policy_association: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.
+        :param global_: global block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#global ApplicationGateway#global}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#id ApplicationGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
+        :param private_link_configuration: private_link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
+        :param probe: probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
+        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
+        :param rewrite_rule_set: rewrite_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
+        :param ssl_certificate: ssl_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
+        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
+        :param ssl_profile: ssl_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
+        :param trusted_client_certificate: trusted_client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
+        :param trusted_root_certificate: trusted_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
+        :param url_path_map: url_path_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
+        :param waf_configuration: waf_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3135,7 +3135,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationGatewayBackendAddressPool]]:
         '''backend_address_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool ApplicationGateway#backend_address_pool}
         '''
         result = self._values.get("backend_address_pool")
         assert result is not None, "Required property 'backend_address_pool' is missing"
@@ -3147,7 +3147,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationGatewayBackendHttpSettings]]:
         '''backend_http_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings ApplicationGateway#backend_http_settings}
         '''
         result = self._values.get("backend_http_settings")
         assert result is not None, "Required property 'backend_http_settings' is missing"
@@ -3159,7 +3159,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayFrontendIpConfiguration"]]:
         '''frontend_ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_ip_configuration ApplicationGateway#frontend_ip_configuration}
         '''
         result = self._values.get("frontend_ip_configuration")
         assert result is not None, "Required property 'frontend_ip_configuration' is missing"
@@ -3171,7 +3171,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayFrontendPort"]]:
         '''frontend_port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_port ApplicationGateway#frontend_port}
         '''
         result = self._values.get("frontend_port")
         assert result is not None, "Required property 'frontend_port' is missing"
@@ -3183,7 +3183,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayGatewayIpConfiguration"]]:
         '''gateway_ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#gateway_ip_configuration ApplicationGateway#gateway_ip_configuration}
         '''
         result = self._values.get("gateway_ip_configuration")
         assert result is not None, "Required property 'gateway_ip_configuration' is missing"
@@ -3195,7 +3195,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayHttpListener"]]:
         '''http_listener block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#http_listener ApplicationGateway#http_listener}
         '''
         result = self._values.get("http_listener")
         assert result is not None, "Required property 'http_listener' is missing"
@@ -3203,14 +3203,14 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#location ApplicationGateway#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#location ApplicationGateway#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3221,7 +3221,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRequestRoutingRule"]]:
         '''request_routing_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_routing_rule ApplicationGateway#request_routing_rule}
         '''
         result = self._values.get("request_routing_rule")
         assert result is not None, "Required property 'request_routing_rule' is missing"
@@ -3229,7 +3229,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#resource_group_name ApplicationGateway#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3238,7 +3238,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sku(self) -> "ApplicationGatewaySku":
         '''sku block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#sku ApplicationGateway#sku}
         '''
         result = self._values.get("sku")
         assert result is not None, "Required property 'sku' is missing"
@@ -3250,7 +3250,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationGatewayAuthenticationCertificate]]]:
         '''authentication_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#authentication_certificate ApplicationGateway#authentication_certificate}
         '''
         result = self._values.get("authentication_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationGatewayAuthenticationCertificate]]], result)
@@ -3261,7 +3261,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ApplicationGatewayAutoscaleConfiguration]:
         '''autoscale_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#autoscale_configuration ApplicationGateway#autoscale_configuration}
         '''
         result = self._values.get("autoscale_configuration")
         return typing.cast(typing.Optional[ApplicationGatewayAutoscaleConfiguration], result)
@@ -3272,7 +3272,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayCustomErrorConfiguration"]]]:
         '''custom_error_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
         '''
         result = self._values.get("custom_error_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayCustomErrorConfiguration"]]], result)
@@ -3281,7 +3281,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_http2(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enable_http2 ApplicationGateway#enable_http2}.'''
         result = self._values.get("enable_http2")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3289,13 +3289,13 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fips_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#fips_enabled ApplicationGateway#fips_enabled}.'''
         result = self._values.get("fips_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def firewall_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
         result = self._values.get("firewall_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3303,7 +3303,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_firewall_policy_association(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#force_firewall_policy_association ApplicationGateway#force_firewall_policy_association}.'''
         result = self._values.get("force_firewall_policy_association")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3311,14 +3311,14 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def global_(self) -> typing.Optional["ApplicationGatewayGlobal"]:
         '''global block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#global ApplicationGateway#global}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#global ApplicationGateway#global}
         '''
         result = self._values.get("global_")
         return typing.cast(typing.Optional["ApplicationGatewayGlobal"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#id ApplicationGateway#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#id ApplicationGateway#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3330,7 +3330,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ApplicationGatewayIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity ApplicationGateway#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ApplicationGatewayIdentity"], result)
@@ -3341,7 +3341,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayPrivateLinkConfiguration"]]]:
         '''private_link_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_link_configuration ApplicationGateway#private_link_configuration}
         '''
         result = self._values.get("private_link_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayPrivateLinkConfiguration"]]], result)
@@ -3352,7 +3352,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayProbe"]]]:
         '''probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#probe ApplicationGateway#probe}
         '''
         result = self._values.get("probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayProbe"]]], result)
@@ -3363,7 +3363,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRedirectConfiguration"]]]:
         '''redirect_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration ApplicationGateway#redirect_configuration}
         '''
         result = self._values.get("redirect_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRedirectConfiguration"]]], result)
@@ -3374,7 +3374,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSet"]]]:
         '''rewrite_rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set ApplicationGateway#rewrite_rule_set}
         '''
         result = self._values.get("rewrite_rule_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSet"]]], result)
@@ -3385,7 +3385,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewaySslCertificate"]]]:
         '''ssl_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_certificate ApplicationGateway#ssl_certificate}
         '''
         result = self._values.get("ssl_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewaySslCertificate"]]], result)
@@ -3394,7 +3394,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ssl_policy(self) -> typing.Optional["ApplicationGatewaySslPolicy"]:
         '''ssl_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
         '''
         result = self._values.get("ssl_policy")
         return typing.cast(typing.Optional["ApplicationGatewaySslPolicy"], result)
@@ -3405,14 +3405,14 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewaySslProfile"]]]:
         '''ssl_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_profile ApplicationGateway#ssl_profile}
         '''
         result = self._values.get("ssl_profile")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewaySslProfile"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tags ApplicationGateway#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3420,7 +3420,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationGatewayTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#timeouts ApplicationGateway#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationGatewayTimeouts"], result)
@@ -3431,7 +3431,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayTrustedClientCertificate"]]]:
         '''trusted_client_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_client_certificate ApplicationGateway#trusted_client_certificate}
         '''
         result = self._values.get("trusted_client_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayTrustedClientCertificate"]]], result)
@@ -3442,7 +3442,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayTrustedRootCertificate"]]]:
         '''trusted_root_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_root_certificate ApplicationGateway#trusted_root_certificate}
         '''
         result = self._values.get("trusted_root_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayTrustedRootCertificate"]]], result)
@@ -3453,7 +3453,7 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayUrlPathMap"]]]:
         '''url_path_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url_path_map ApplicationGateway#url_path_map}
         '''
         result = self._values.get("url_path_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayUrlPathMap"]]], result)
@@ -3464,14 +3464,14 @@ class ApplicationGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApplicationGatewayWafConfiguration"]:
         '''waf_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#waf_configuration ApplicationGateway#waf_configuration}
         '''
         result = self._values.get("waf_configuration")
         return typing.cast(typing.Optional["ApplicationGatewayWafConfiguration"], result)
 
     @builtins.property
     def zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#zones ApplicationGateway#zones}.'''
         result = self._values.get("zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3503,8 +3503,8 @@ class ApplicationGatewayCustomErrorConfiguration:
         status_code: builtins.str,
     ) -> None:
         '''
-        :param custom_error_page_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
+        :param custom_error_page_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef0e06fbde9147bdd144723eebf5c530da1e2391b7cdd8479fc00cf7e2ceb031)
@@ -3517,14 +3517,14 @@ class ApplicationGatewayCustomErrorConfiguration:
 
     @builtins.property
     def custom_error_page_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.'''
         result = self._values.get("custom_error_page_url")
         assert result is not None, "Required property 'custom_error_page_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def status_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(builtins.str, result)
@@ -3741,12 +3741,12 @@ class ApplicationGatewayFrontendIpConfiguration:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.
-        :param private_ip_address_allocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.
-        :param private_link_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_link_configuration_name ApplicationGateway#private_link_configuration_name}.
-        :param public_ip_address_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#public_ip_address_id ApplicationGateway#public_ip_address_id}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.
+        :param private_ip_address_allocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.
+        :param private_link_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_link_configuration_name ApplicationGateway#private_link_configuration_name}.
+        :param public_ip_address_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#public_ip_address_id ApplicationGateway#public_ip_address_id}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b42ddd2f40acaf4fd04c0dfb442b055c6da5575e6f4afa0331acfbf5a879dcd)
@@ -3772,38 +3772,38 @@ class ApplicationGatewayFrontendIpConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.'''
         result = self._values.get("private_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ip_address_allocation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.'''
         result = self._values.get("private_ip_address_allocation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_link_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_link_configuration_name ApplicationGateway#private_link_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_link_configuration_name ApplicationGateway#private_link_configuration_name}.'''
         result = self._values.get("private_link_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_ip_address_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#public_ip_address_id ApplicationGateway#public_ip_address_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#public_ip_address_id ApplicationGateway#public_ip_address_id}.'''
         result = self._values.get("public_ip_address_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4096,8 +4096,8 @@ class ApplicationGatewayFrontendIpConfigurationOutputReference(
 class ApplicationGatewayFrontendPort:
     def __init__(self, *, name: builtins.str, port: jsii.Number) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dcbbf343e81eb87ae42892a4ff70c2ce43e25b0003eb0446ad52673ed4177be1)
@@ -4110,14 +4110,14 @@ class ApplicationGatewayFrontendPort:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -4318,8 +4318,8 @@ class ApplicationGatewayFrontendPortOutputReference(
 class ApplicationGatewayGatewayIpConfiguration:
     def __init__(self, *, name: builtins.str, subnet_id: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb626635909190b08d09b7c3dceb7c69dd2a077bfb6a3b0d83d3a7736d24509c)
@@ -4332,14 +4332,14 @@ class ApplicationGatewayGatewayIpConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
@@ -4548,8 +4548,8 @@ class ApplicationGatewayGlobal:
         response_buffering_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param request_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.
-        :param response_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.
+        :param request_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.
+        :param response_buffering_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06bed0450829d0ab40571ea14d5f3d95cc2d0f49ecccef150e46d3b520b0efe8)
@@ -4564,7 +4564,7 @@ class ApplicationGatewayGlobal:
     def request_buffering_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_buffering_enabled ApplicationGateway#request_buffering_enabled}.'''
         result = self._values.get("request_buffering_enabled")
         assert result is not None, "Required property 'request_buffering_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4573,7 +4573,7 @@ class ApplicationGatewayGlobal:
     def response_buffering_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#response_buffering_enabled ApplicationGateway#response_buffering_enabled}.'''
         result = self._values.get("response_buffering_enabled")
         assert result is not None, "Required property 'response_buffering_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4705,17 +4705,17 @@ class ApplicationGatewayHttpListener:
         ssl_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_ip_configuration_name ApplicationGateway#frontend_ip_configuration_name}.
-        :param frontend_port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_port_name ApplicationGateway#frontend_port_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
-        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
-        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.
-        :param host_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_names ApplicationGateway#host_names}.
-        :param require_sni: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#require_sni ApplicationGateway#require_sni}.
-        :param ssl_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_certificate_name ApplicationGateway#ssl_certificate_name}.
-        :param ssl_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_profile_name ApplicationGateway#ssl_profile_name}.
+        :param frontend_ip_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_ip_configuration_name ApplicationGateway#frontend_ip_configuration_name}.
+        :param frontend_port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_port_name ApplicationGateway#frontend_port_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
+        :param custom_error_configuration: custom_error_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
+        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.
+        :param host_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_names ApplicationGateway#host_names}.
+        :param require_sni: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#require_sni ApplicationGateway#require_sni}.
+        :param ssl_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_certificate_name ApplicationGateway#ssl_certificate_name}.
+        :param ssl_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_profile_name ApplicationGateway#ssl_profile_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4493cf1c9d9ff39967bd03e148a940036ea0a62bce26e313b379203c6680e419)
@@ -4753,28 +4753,28 @@ class ApplicationGatewayHttpListener:
 
     @builtins.property
     def frontend_ip_configuration_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_ip_configuration_name ApplicationGateway#frontend_ip_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_ip_configuration_name ApplicationGateway#frontend_ip_configuration_name}.'''
         result = self._values.get("frontend_ip_configuration_name")
         assert result is not None, "Required property 'frontend_ip_configuration_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def frontend_port_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#frontend_port_name ApplicationGateway#frontend_port_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#frontend_port_name ApplicationGateway#frontend_port_name}.'''
         result = self._values.get("frontend_port_name")
         assert result is not None, "Required property 'frontend_port_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
@@ -4785,26 +4785,26 @@ class ApplicationGatewayHttpListener:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayHttpListenerCustomErrorConfiguration"]]]:
         '''custom_error_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_configuration ApplicationGateway#custom_error_configuration}
         '''
         result = self._values.get("custom_error_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayHttpListenerCustomErrorConfiguration"]]], result)
 
     @builtins.property
     def firewall_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
         result = self._values.get("firewall_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_name ApplicationGateway#host_name}.'''
         result = self._values.get("host_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host_names ApplicationGateway#host_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host_names ApplicationGateway#host_names}.'''
         result = self._values.get("host_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4812,19 +4812,19 @@ class ApplicationGatewayHttpListener:
     def require_sni(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#require_sni ApplicationGateway#require_sni}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#require_sni ApplicationGateway#require_sni}.'''
         result = self._values.get("require_sni")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ssl_certificate_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_certificate_name ApplicationGateway#ssl_certificate_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_certificate_name ApplicationGateway#ssl_certificate_name}.'''
         result = self._values.get("ssl_certificate_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_profile_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_profile_name ApplicationGateway#ssl_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_profile_name ApplicationGateway#ssl_profile_name}.'''
         result = self._values.get("ssl_profile_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4856,8 +4856,8 @@ class ApplicationGatewayHttpListenerCustomErrorConfiguration:
         status_code: builtins.str,
     ) -> None:
         '''
-        :param custom_error_page_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
+        :param custom_error_page_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f308de883db20092eb238fc1d37c1ba602e5695f25f27d5de65711371a1cdb88)
@@ -4870,14 +4870,14 @@ class ApplicationGatewayHttpListenerCustomErrorConfiguration:
 
     @builtins.property
     def custom_error_page_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#custom_error_page_url ApplicationGateway#custom_error_page_url}.'''
         result = self._values.get("custom_error_page_url")
         assert result is not None, "Required property 'custom_error_page_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def status_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(builtins.str, result)
@@ -5475,8 +5475,8 @@ class ApplicationGatewayIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#type ApplicationGateway#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#type ApplicationGateway#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00060493fa92e4c69f27b912c6c8961df09126b764804ef03398d76386a4a5f8)
@@ -5490,14 +5490,14 @@ class ApplicationGatewayIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#type ApplicationGateway#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#type ApplicationGateway#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#identity_ids ApplicationGateway#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5761,8 +5761,8 @@ class ApplicationGatewayPrivateLinkConfiguration:
         name: builtins.str,
     ) -> None:
         '''
-        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ip_configuration ApplicationGateway#ip_configuration}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ip_configuration ApplicationGateway#ip_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__936360ceffca64082e8feae55b720a29bc30d159f22064a3890071b303b51131)
@@ -5779,7 +5779,7 @@ class ApplicationGatewayPrivateLinkConfiguration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayPrivateLinkConfigurationIpConfiguration"]]:
         '''ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ip_configuration ApplicationGateway#ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ip_configuration ApplicationGateway#ip_configuration}
         '''
         result = self._values.get("ip_configuration")
         assert result is not None, "Required property 'ip_configuration' is missing"
@@ -5787,7 +5787,7 @@ class ApplicationGatewayPrivateLinkConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5826,11 +5826,11 @@ class ApplicationGatewayPrivateLinkConfigurationIpConfiguration:
         private_ip_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#primary ApplicationGateway#primary}.
-        :param private_ip_address_allocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
-        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#primary ApplicationGateway#primary}.
+        :param private_ip_address_allocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.
+        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fba20740bdc1f1f740fd7a3fa4e6d3685d7bf1f9500cb0622d1cb5d05a4b164)
@@ -5850,35 +5850,35 @@ class ApplicationGatewayPrivateLinkConfigurationIpConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def primary(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#primary ApplicationGateway#primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#primary ApplicationGateway#primary}.'''
         result = self._values.get("primary")
         assert result is not None, "Required property 'primary' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def private_ip_address_allocation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address_allocation ApplicationGateway#private_ip_address_allocation}.'''
         result = self._values.get("private_ip_address_allocation")
         assert result is not None, "Required property 'private_ip_address_allocation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#subnet_id ApplicationGateway#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#private_ip_address ApplicationGateway#private_ip_address}.'''
         result = self._values.get("private_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6345,17 +6345,17 @@ class ApplicationGatewayProbe:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#interval ApplicationGateway#interval}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#timeout ApplicationGateway#timeout}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#unhealthy_threshold ApplicationGateway#unhealthy_threshold}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host ApplicationGateway#host}.
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#match ApplicationGateway#match}
-        :param minimum_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#minimum_servers ApplicationGateway#minimum_servers}.
-        :param pick_host_name_from_backend_http_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pick_host_name_from_backend_http_settings ApplicationGateway#pick_host_name_from_backend_http_settings}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#interval ApplicationGateway#interval}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#timeout ApplicationGateway#timeout}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#unhealthy_threshold ApplicationGateway#unhealthy_threshold}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host ApplicationGateway#host}.
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#match ApplicationGateway#match}
+        :param minimum_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#minimum_servers ApplicationGateway#minimum_servers}.
+        :param pick_host_name_from_backend_http_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pick_host_name_from_backend_http_settings ApplicationGateway#pick_host_name_from_backend_http_settings}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.
         '''
         if isinstance(match, dict):
             match = ApplicationGatewayProbeMatch(**match)
@@ -6393,49 +6393,49 @@ class ApplicationGatewayProbe:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#interval ApplicationGateway#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#interval ApplicationGateway#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#protocol ApplicationGateway#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#timeout ApplicationGateway#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#timeout ApplicationGateway#timeout}.'''
         result = self._values.get("timeout")
         assert result is not None, "Required property 'timeout' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def unhealthy_threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#unhealthy_threshold ApplicationGateway#unhealthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#unhealthy_threshold ApplicationGateway#unhealthy_threshold}.'''
         result = self._values.get("unhealthy_threshold")
         assert result is not None, "Required property 'unhealthy_threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#host ApplicationGateway#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#host ApplicationGateway#host}.'''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6443,14 +6443,14 @@ class ApplicationGatewayProbe:
     def match(self) -> typing.Optional["ApplicationGatewayProbeMatch"]:
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#match ApplicationGateway#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#match ApplicationGateway#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional["ApplicationGatewayProbeMatch"], result)
 
     @builtins.property
     def minimum_servers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#minimum_servers ApplicationGateway#minimum_servers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#minimum_servers ApplicationGateway#minimum_servers}.'''
         result = self._values.get("minimum_servers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6458,13 +6458,13 @@ class ApplicationGatewayProbe:
     def pick_host_name_from_backend_http_settings(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pick_host_name_from_backend_http_settings ApplicationGateway#pick_host_name_from_backend_http_settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pick_host_name_from_backend_http_settings ApplicationGateway#pick_host_name_from_backend_http_settings}.'''
         result = self._values.get("pick_host_name_from_backend_http_settings")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#port ApplicationGateway#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6583,8 +6583,8 @@ class ApplicationGatewayProbeMatch:
         body: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#body ApplicationGateway#body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#body ApplicationGateway#body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15d98d0a77a223da60a34da6783b5fa876307ebf27340c953c893ddd253ddf28)
@@ -6598,14 +6598,14 @@ class ApplicationGatewayProbeMatch:
 
     @builtins.property
     def status_code(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def body(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#body ApplicationGateway#body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#body ApplicationGateway#body}.'''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6729,8 +6729,8 @@ class ApplicationGatewayProbeOutputReference(
         body: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#body ApplicationGateway#body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#status_code ApplicationGateway#status_code}.
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#body ApplicationGateway#body}.
         '''
         value = ApplicationGatewayProbeMatch(status_code=status_code, body=body)
 
@@ -6990,12 +6990,12 @@ class ApplicationGatewayRedirectConfiguration:
         target_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_type ApplicationGateway#redirect_type}.
-        :param include_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#include_path ApplicationGateway#include_path}.
-        :param include_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#include_query_string ApplicationGateway#include_query_string}.
-        :param target_listener_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#target_listener_name ApplicationGateway#target_listener_name}.
-        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#target_url ApplicationGateway#target_url}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_type ApplicationGateway#redirect_type}.
+        :param include_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#include_path ApplicationGateway#include_path}.
+        :param include_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#include_query_string ApplicationGateway#include_query_string}.
+        :param target_listener_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#target_listener_name ApplicationGateway#target_listener_name}.
+        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#target_url ApplicationGateway#target_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0efaad215a85925ab5ef0cb38081f5daf5be4bac57adb499665d5ac71eb5729b)
@@ -7020,14 +7020,14 @@ class ApplicationGatewayRedirectConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def redirect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_type ApplicationGateway#redirect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_type ApplicationGateway#redirect_type}.'''
         result = self._values.get("redirect_type")
         assert result is not None, "Required property 'redirect_type' is missing"
         return typing.cast(builtins.str, result)
@@ -7036,7 +7036,7 @@ class ApplicationGatewayRedirectConfiguration:
     def include_path(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#include_path ApplicationGateway#include_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#include_path ApplicationGateway#include_path}.'''
         result = self._values.get("include_path")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7044,19 +7044,19 @@ class ApplicationGatewayRedirectConfiguration:
     def include_query_string(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#include_query_string ApplicationGateway#include_query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#include_query_string ApplicationGateway#include_query_string}.'''
         result = self._values.get("include_query_string")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def target_listener_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#target_listener_name ApplicationGateway#target_listener_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#target_listener_name ApplicationGateway#target_listener_name}.'''
         result = self._values.get("target_listener_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#target_url ApplicationGateway#target_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#target_url ApplicationGateway#target_url}.'''
         result = self._values.get("target_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7379,15 +7379,15 @@ class ApplicationGatewayRequestRoutingRule:
         url_path_map_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_listener_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#http_listener_name ApplicationGateway#http_listener_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_type ApplicationGateway#rule_type}.
-        :param backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.
-        :param backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#priority ApplicationGateway#priority}.
-        :param redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.
-        :param rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.
-        :param url_path_map_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url_path_map_name ApplicationGateway#url_path_map_name}.
+        :param http_listener_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#http_listener_name ApplicationGateway#http_listener_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_type ApplicationGateway#rule_type}.
+        :param backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.
+        :param backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#priority ApplicationGateway#priority}.
+        :param redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.
+        :param rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.
+        :param url_path_map_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url_path_map_name ApplicationGateway#url_path_map_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f8a623d873df6cb0e5e3eaeb9a1ba1c45cf2d3f2c557a5a3a54c1a799573abc)
@@ -7420,58 +7420,58 @@ class ApplicationGatewayRequestRoutingRule:
 
     @builtins.property
     def http_listener_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#http_listener_name ApplicationGateway#http_listener_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#http_listener_name ApplicationGateway#http_listener_name}.'''
         result = self._values.get("http_listener_name")
         assert result is not None, "Required property 'http_listener_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_type ApplicationGateway#rule_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_type ApplicationGateway#rule_type}.'''
         result = self._values.get("rule_type")
         assert result is not None, "Required property 'rule_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backend_address_pool_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.'''
         result = self._values.get("backend_address_pool_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def backend_http_settings_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.'''
         result = self._values.get("backend_http_settings_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#priority ApplicationGateway#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#priority ApplicationGateway#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def redirect_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.'''
         result = self._values.get("redirect_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def rewrite_rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.'''
         result = self._values.get("rewrite_rule_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def url_path_map_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url_path_map_name ApplicationGateway#url_path_map_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url_path_map_name ApplicationGateway#url_path_map_name}.'''
         result = self._values.get("url_path_map_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7849,8 +7849,8 @@ class ApplicationGatewayRewriteRuleSet:
         rewrite_rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApplicationGatewayRewriteRuleSetRewriteRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param rewrite_rule: rewrite_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule ApplicationGateway#rewrite_rule}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param rewrite_rule: rewrite_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule ApplicationGateway#rewrite_rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38e93603d4b0b53808969d3f24f519271829f0b3e5f106445f297a229481402c)
@@ -7864,7 +7864,7 @@ class ApplicationGatewayRewriteRuleSet:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -7875,7 +7875,7 @@ class ApplicationGatewayRewriteRuleSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRule"]]]:
         '''rewrite_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule ApplicationGateway#rewrite_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule ApplicationGateway#rewrite_rule}
         '''
         result = self._values.get("rewrite_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRule"]]], result)
@@ -8104,12 +8104,12 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
         url: typing.Optional[typing.Union["ApplicationGatewayRewriteRuleSetRewriteRuleUrl", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param rule_sequence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_sequence ApplicationGateway#rule_sequence}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#condition ApplicationGateway#condition}
-        :param request_header_configuration: request_header_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_header_configuration ApplicationGateway#request_header_configuration}
-        :param response_header_configuration: response_header_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#response_header_configuration ApplicationGateway#response_header_configuration}
-        :param url: url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url ApplicationGateway#url}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param rule_sequence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_sequence ApplicationGateway#rule_sequence}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#condition ApplicationGateway#condition}
+        :param request_header_configuration: request_header_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_header_configuration ApplicationGateway#request_header_configuration}
+        :param response_header_configuration: response_header_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#response_header_configuration ApplicationGateway#response_header_configuration}
+        :param url: url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url ApplicationGateway#url}
         '''
         if isinstance(url, dict):
             url = ApplicationGatewayRewriteRuleSetRewriteRuleUrl(**url)
@@ -8136,14 +8136,14 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_sequence(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_sequence ApplicationGateway#rule_sequence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_sequence ApplicationGateway#rule_sequence}.'''
         result = self._values.get("rule_sequence")
         assert result is not None, "Required property 'rule_sequence' is missing"
         return typing.cast(jsii.Number, result)
@@ -8154,7 +8154,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleCondition"]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#condition ApplicationGateway#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#condition ApplicationGateway#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleCondition"]]], result)
@@ -8165,7 +8165,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleRequestHeaderConfiguration"]]]:
         '''request_header_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_header_configuration ApplicationGateway#request_header_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_header_configuration ApplicationGateway#request_header_configuration}
         '''
         result = self._values.get("request_header_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleRequestHeaderConfiguration"]]], result)
@@ -8176,7 +8176,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleResponseHeaderConfiguration"]]]:
         '''response_header_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#response_header_configuration ApplicationGateway#response_header_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#response_header_configuration ApplicationGateway#response_header_configuration}
         '''
         result = self._values.get("response_header_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayRewriteRuleSetRewriteRuleResponseHeaderConfiguration"]]], result)
@@ -8185,7 +8185,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRule:
     def url(self) -> typing.Optional["ApplicationGatewayRewriteRuleSetRewriteRuleUrl"]:
         '''url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#url ApplicationGateway#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#url ApplicationGateway#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional["ApplicationGatewayRewriteRuleSetRewriteRuleUrl"], result)
@@ -8222,10 +8222,10 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleCondition:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pattern ApplicationGateway#pattern}.
-        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#variable ApplicationGateway#variable}.
-        :param ignore_case: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ignore_case ApplicationGateway#ignore_case}.
-        :param negate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#negate ApplicationGateway#negate}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pattern ApplicationGateway#pattern}.
+        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#variable ApplicationGateway#variable}.
+        :param ignore_case: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ignore_case ApplicationGateway#ignore_case}.
+        :param negate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#negate ApplicationGateway#negate}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__403c168f7b330cea50a9b9db99473b3368967d07f2c4ec0e913e5299e3e266af)
@@ -8244,14 +8244,14 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleCondition:
 
     @builtins.property
     def pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#pattern ApplicationGateway#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#pattern ApplicationGateway#pattern}.'''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def variable(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#variable ApplicationGateway#variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#variable ApplicationGateway#variable}.'''
         result = self._values.get("variable")
         assert result is not None, "Required property 'variable' is missing"
         return typing.cast(builtins.str, result)
@@ -8260,7 +8260,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleCondition:
     def ignore_case(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ignore_case ApplicationGateway#ignore_case}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ignore_case ApplicationGateway#ignore_case}.'''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8268,7 +8268,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleCondition:
     def negate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#negate ApplicationGateway#negate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#negate ApplicationGateway#negate}.'''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8675,10 +8675,10 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleOutputReference(
         reroute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#components ApplicationGateway#components}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.
-        :param reroute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.
+        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#components ApplicationGateway#components}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.
+        :param reroute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.
         '''
         value = ApplicationGatewayRewriteRuleSetRewriteRuleUrl(
             components=components,
@@ -8822,8 +8822,8 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleRequestHeaderConfiguration:
         header_value: builtins.str,
     ) -> None:
         '''
-        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.
-        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.
+        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.
+        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98f307075d0539f78381eeaad65bd4ab1064d11435c084915cbaef94b9730e02)
@@ -8836,14 +8836,14 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleRequestHeaderConfiguration:
 
     @builtins.property
     def header_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.'''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def header_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.'''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
         return typing.cast(builtins.str, result)
@@ -9044,8 +9044,8 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleResponseHeaderConfiguration:
         header_value: builtins.str,
     ) -> None:
         '''
-        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.
-        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.
+        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.
+        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5eb59694b2d4809fe6690311b3d45401d7ec4a340bfdec660285c17f15fd2c05)
@@ -9058,14 +9058,14 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleResponseHeaderConfiguration:
 
     @builtins.property
     def header_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_name ApplicationGateway#header_name}.'''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def header_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#header_value ApplicationGateway#header_value}.'''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
         return typing.cast(builtins.str, result)
@@ -9273,10 +9273,10 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleUrl:
         reroute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#components ApplicationGateway#components}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.
-        :param reroute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.
+        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#components ApplicationGateway#components}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.
+        :param reroute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af1cb7ab010869ba25ed7d8846f27e4f54253424a8c07c749769e09f7b49ca4b)
@@ -9296,19 +9296,19 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleUrl:
 
     @builtins.property
     def components(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#components ApplicationGateway#components}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#components ApplicationGateway#components}.'''
         result = self._values.get("components")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path ApplicationGateway#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def query_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#query_string ApplicationGateway#query_string}.'''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9316,7 +9316,7 @@ class ApplicationGatewayRewriteRuleSetRewriteRuleUrl:
     def reroute(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#reroute ApplicationGateway#reroute}.'''
         result = self._values.get("reroute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -9473,9 +9473,9 @@ class ApplicationGatewaySku:
         capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebda84c61b3a52c067a899ef24c74d54270a4cc58c955017d9b2c4d98d7504b3)
@@ -9491,21 +9491,21 @@ class ApplicationGatewaySku:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#tier ApplicationGateway#tier}.'''
         result = self._values.get("tier")
         assert result is not None, "Required property 'tier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#capacity ApplicationGateway#capacity}.'''
         result = self._values.get("capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -9629,10 +9629,10 @@ class ApplicationGatewaySslCertificate:
         password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.
-        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#password ApplicationGateway#password}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.
+        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#password ApplicationGateway#password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd1c4d6819bd00a3d15aa0819b49a10016aec4dfd0c0b6e2f3815a529a1c8c5e)
@@ -9652,26 +9652,26 @@ class ApplicationGatewaySslCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_vault_secret_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.'''
         result = self._values.get("key_vault_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#password ApplicationGateway#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#password ApplicationGateway#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9936,11 +9936,11 @@ class ApplicationGatewaySslPolicy:
         policy_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
-        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
-        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
+        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
+        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
+        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d087d5be39410dc3919d40341b96b43874aa3dc35cf9633081191936b30711e)
@@ -9963,31 +9963,31 @@ class ApplicationGatewaySslPolicy:
 
     @builtins.property
     def cipher_suites(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.'''
         result = self._values.get("cipher_suites")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def disabled_protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.'''
         result = self._values.get("disabled_protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def min_protocol_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.'''
         result = self._values.get("min_protocol_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.'''
         result = self._values.get("policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.'''
         result = self._values.get("policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10166,11 +10166,11 @@ class ApplicationGatewaySslProfile:
         verify_client_cert_issuer_dn: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
-        :param trusted_client_certificate_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_client_certificate_names ApplicationGateway#trusted_client_certificate_names}.
-        :param verify_client_certificate_revocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#verify_client_certificate_revocation ApplicationGateway#verify_client_certificate_revocation}.
-        :param verify_client_cert_issuer_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#verify_client_cert_issuer_dn ApplicationGateway#verify_client_cert_issuer_dn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param ssl_policy: ssl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
+        :param trusted_client_certificate_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_client_certificate_names ApplicationGateway#trusted_client_certificate_names}.
+        :param verify_client_certificate_revocation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#verify_client_certificate_revocation ApplicationGateway#verify_client_certificate_revocation}.
+        :param verify_client_cert_issuer_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#verify_client_cert_issuer_dn ApplicationGateway#verify_client_cert_issuer_dn}.
         '''
         if isinstance(ssl_policy, dict):
             ssl_policy = ApplicationGatewaySslProfileSslPolicy(**ssl_policy)
@@ -10195,7 +10195,7 @@ class ApplicationGatewaySslProfile:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -10204,7 +10204,7 @@ class ApplicationGatewaySslProfile:
     def ssl_policy(self) -> typing.Optional["ApplicationGatewaySslProfileSslPolicy"]:
         '''ssl_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#ssl_policy ApplicationGateway#ssl_policy}
         '''
         result = self._values.get("ssl_policy")
         return typing.cast(typing.Optional["ApplicationGatewaySslProfileSslPolicy"], result)
@@ -10213,13 +10213,13 @@ class ApplicationGatewaySslProfile:
     def trusted_client_certificate_names(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#trusted_client_certificate_names ApplicationGateway#trusted_client_certificate_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#trusted_client_certificate_names ApplicationGateway#trusted_client_certificate_names}.'''
         result = self._values.get("trusted_client_certificate_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def verify_client_certificate_revocation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#verify_client_certificate_revocation ApplicationGateway#verify_client_certificate_revocation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#verify_client_certificate_revocation ApplicationGateway#verify_client_certificate_revocation}.'''
         result = self._values.get("verify_client_certificate_revocation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10227,7 +10227,7 @@ class ApplicationGatewaySslProfile:
     def verify_client_cert_issuer_dn(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#verify_client_cert_issuer_dn ApplicationGateway#verify_client_cert_issuer_dn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#verify_client_cert_issuer_dn ApplicationGateway#verify_client_cert_issuer_dn}.'''
         result = self._values.get("verify_client_cert_issuer_dn")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10370,11 +10370,11 @@ class ApplicationGatewaySslProfileOutputReference(
         policy_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
-        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
-        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
+        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
+        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
+        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
         '''
         value = ApplicationGatewaySslProfileSslPolicy(
             cipher_suites=cipher_suites,
@@ -10541,11 +10541,11 @@ class ApplicationGatewaySslProfileSslPolicy:
         policy_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
-        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
-        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
+        :param cipher_suites: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.
+        :param disabled_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.
+        :param min_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf2cdf3f24a829f952dcdb774cfe2a763d388b60675ea9c2262cf0df93180c30)
@@ -10568,31 +10568,31 @@ class ApplicationGatewaySslProfileSslPolicy:
 
     @builtins.property
     def cipher_suites(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#cipher_suites ApplicationGateway#cipher_suites}.'''
         result = self._values.get("cipher_suites")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def disabled_protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_protocols ApplicationGateway#disabled_protocols}.'''
         result = self._values.get("disabled_protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def min_protocol_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#min_protocol_version ApplicationGateway#min_protocol_version}.'''
         result = self._values.get("min_protocol_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_name ApplicationGateway#policy_name}.'''
         result = self._values.get("policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#policy_type ApplicationGateway#policy_type}.'''
         result = self._values.get("policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10769,10 +10769,10 @@ class ApplicationGatewayTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#create ApplicationGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#read ApplicationGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#update ApplicationGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#create ApplicationGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#read ApplicationGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#update ApplicationGateway#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3b4c8c749f2ea506c397a33eb582e83dfb58db0720746e13f360076750142be)
@@ -10792,25 +10792,25 @@ class ApplicationGatewayTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#create ApplicationGateway#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#create ApplicationGateway#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#delete ApplicationGateway#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#read ApplicationGateway#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#read ApplicationGateway#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#update ApplicationGateway#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#update ApplicationGateway#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10956,8 +10956,8 @@ class ApplicationGatewayTimeoutsOutputReference(
 class ApplicationGatewayTrustedClientCertificate:
     def __init__(self, *, data: builtins.str, name: builtins.str) -> None:
         '''
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b257997626dd239fd897f91e2a04881213d3fb82c98859392e722dbdf0f5b41)
@@ -10970,14 +10970,14 @@ class ApplicationGatewayTrustedClientCertificate:
 
     @builtins.property
     def data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -11188,9 +11188,9 @@ class ApplicationGatewayTrustedRootCertificate:
         key_vault_secret_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.
-        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.
+        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8985a3d01c984d29f2646c3ac56a15ffa0750a63b2ef9464454c2891fc43efd)
@@ -11207,20 +11207,20 @@ class ApplicationGatewayTrustedRootCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#data ApplicationGateway#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_vault_secret_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#key_vault_secret_id ApplicationGateway#key_vault_secret_id}.'''
         result = self._values.get("key_vault_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11461,12 +11461,12 @@ class ApplicationGatewayUrlPathMap:
         default_rewrite_rule_set_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param path_rule: path_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path_rule ApplicationGateway#path_rule}
-        :param default_backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_backend_address_pool_name ApplicationGateway#default_backend_address_pool_name}.
-        :param default_backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_backend_http_settings_name ApplicationGateway#default_backend_http_settings_name}.
-        :param default_redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_redirect_configuration_name ApplicationGateway#default_redirect_configuration_name}.
-        :param default_rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_rewrite_rule_set_name ApplicationGateway#default_rewrite_rule_set_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param path_rule: path_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path_rule ApplicationGateway#path_rule}
+        :param default_backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_backend_address_pool_name ApplicationGateway#default_backend_address_pool_name}.
+        :param default_backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_backend_http_settings_name ApplicationGateway#default_backend_http_settings_name}.
+        :param default_redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_redirect_configuration_name ApplicationGateway#default_redirect_configuration_name}.
+        :param default_rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_rewrite_rule_set_name ApplicationGateway#default_rewrite_rule_set_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2052ff898c831ab7f8d0466a21cf0a0ae5e20ad0a97b9941219e3dd31242f922)
@@ -11491,7 +11491,7 @@ class ApplicationGatewayUrlPathMap:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -11502,7 +11502,7 @@ class ApplicationGatewayUrlPathMap:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayUrlPathMapPathRule"]]:
         '''path_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#path_rule ApplicationGateway#path_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#path_rule ApplicationGateway#path_rule}
         '''
         result = self._values.get("path_rule")
         assert result is not None, "Required property 'path_rule' is missing"
@@ -11510,25 +11510,25 @@ class ApplicationGatewayUrlPathMap:
 
     @builtins.property
     def default_backend_address_pool_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_backend_address_pool_name ApplicationGateway#default_backend_address_pool_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_backend_address_pool_name ApplicationGateway#default_backend_address_pool_name}.'''
         result = self._values.get("default_backend_address_pool_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_backend_http_settings_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_backend_http_settings_name ApplicationGateway#default_backend_http_settings_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_backend_http_settings_name ApplicationGateway#default_backend_http_settings_name}.'''
         result = self._values.get("default_backend_http_settings_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_redirect_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_redirect_configuration_name ApplicationGateway#default_redirect_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_redirect_configuration_name ApplicationGateway#default_redirect_configuration_name}.'''
         result = self._values.get("default_redirect_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_rewrite_rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#default_rewrite_rule_set_name ApplicationGateway#default_rewrite_rule_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#default_rewrite_rule_set_name ApplicationGateway#default_rewrite_rule_set_name}.'''
         result = self._values.get("default_rewrite_rule_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11857,13 +11857,13 @@ class ApplicationGatewayUrlPathMapPathRule:
         rewrite_rule_set_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#paths ApplicationGateway#paths}.
-        :param backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.
-        :param backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.
-        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
-        :param redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.
-        :param rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#paths ApplicationGateway#paths}.
+        :param backend_address_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.
+        :param backend_http_settings_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.
+        :param firewall_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.
+        :param redirect_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.
+        :param rewrite_rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b427fbef40482ced6598a230f08325787a80212d3846e5fb8e684ccbbd44258d)
@@ -11891,45 +11891,45 @@ class ApplicationGatewayUrlPathMapPathRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#name ApplicationGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def paths(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#paths ApplicationGateway#paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#paths ApplicationGateway#paths}.'''
         result = self._values.get("paths")
         assert result is not None, "Required property 'paths' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def backend_address_pool_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_address_pool_name ApplicationGateway#backend_address_pool_name}.'''
         result = self._values.get("backend_address_pool_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def backend_http_settings_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#backend_http_settings_name ApplicationGateway#backend_http_settings_name}.'''
         result = self._values.get("backend_http_settings_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firewall_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_policy_id ApplicationGateway#firewall_policy_id}.'''
         result = self._values.get("firewall_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#redirect_configuration_name ApplicationGateway#redirect_configuration_name}.'''
         result = self._values.get("redirect_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def rewrite_rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rewrite_rule_set_name ApplicationGateway#rewrite_rule_set_name}.'''
         result = self._values.get("rewrite_rule_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12276,15 +12276,15 @@ class ApplicationGatewayWafConfiguration:
         rule_set_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
-        :param firewall_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.
-        :param rule_set_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.
-        :param disabled_rule_group: disabled_rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
-        :param file_upload_limit_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.
-        :param max_request_body_size_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.
-        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.
-        :param rule_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.
+        :param firewall_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.
+        :param rule_set_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.
+        :param disabled_rule_group: disabled_rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
+        :param file_upload_limit_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.
+        :param max_request_body_size_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.
+        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.
+        :param rule_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ea565dca3bdf049c8577e0fdc9ac97bcb1231d96fa2133643955799d892bc5c)
@@ -12317,21 +12317,21 @@ class ApplicationGatewayWafConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#enabled ApplicationGateway#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def firewall_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#firewall_mode ApplicationGateway#firewall_mode}.'''
         result = self._values.get("firewall_mode")
         assert result is not None, "Required property 'firewall_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_set_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_version ApplicationGateway#rule_set_version}.'''
         result = self._values.get("rule_set_version")
         assert result is not None, "Required property 'rule_set_version' is missing"
         return typing.cast(builtins.str, result)
@@ -12342,7 +12342,7 @@ class ApplicationGatewayWafConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayWafConfigurationDisabledRuleGroup"]]]:
         '''disabled_rule_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#disabled_rule_group ApplicationGateway#disabled_rule_group}
         '''
         result = self._values.get("disabled_rule_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayWafConfigurationDisabledRuleGroup"]]], result)
@@ -12353,20 +12353,20 @@ class ApplicationGatewayWafConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayWafConfigurationExclusion"]]]:
         '''exclusion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#exclusion ApplicationGateway#exclusion}
         '''
         result = self._values.get("exclusion")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationGatewayWafConfigurationExclusion"]]], result)
 
     @builtins.property
     def file_upload_limit_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#file_upload_limit_mb ApplicationGateway#file_upload_limit_mb}.'''
         result = self._values.get("file_upload_limit_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_request_body_size_kb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#max_request_body_size_kb ApplicationGateway#max_request_body_size_kb}.'''
         result = self._values.get("max_request_body_size_kb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -12374,13 +12374,13 @@ class ApplicationGatewayWafConfiguration:
     def request_body_check(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#request_body_check ApplicationGateway#request_body_check}.'''
         result = self._values.get("request_body_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def rule_set_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_set_type ApplicationGateway#rule_set_type}.'''
         result = self._values.get("rule_set_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12409,8 +12409,8 @@ class ApplicationGatewayWafConfigurationDisabledRuleGroup:
         rules: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_group_name ApplicationGateway#rule_group_name}.
-        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rules ApplicationGateway#rules}.
+        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_group_name ApplicationGateway#rule_group_name}.
+        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rules ApplicationGateway#rules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a6d5b56a8ca7e5d30e4bfe477d91398f4602c93e0b31c163c1499a1ac159ae9)
@@ -12424,14 +12424,14 @@ class ApplicationGatewayWafConfigurationDisabledRuleGroup:
 
     @builtins.property
     def rule_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rule_group_name ApplicationGateway#rule_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rule_group_name ApplicationGateway#rule_group_name}.'''
         result = self._values.get("rule_group_name")
         assert result is not None, "Required property 'rule_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rules(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#rules ApplicationGateway#rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#rules ApplicationGateway#rules}.'''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -12640,9 +12640,9 @@ class ApplicationGatewayWafConfigurationExclusion:
         selector_match_operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#match_variable ApplicationGateway#match_variable}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#selector ApplicationGateway#selector}.
-        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#selector_match_operator ApplicationGateway#selector_match_operator}.
+        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#match_variable ApplicationGateway#match_variable}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#selector ApplicationGateway#selector}.
+        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#selector_match_operator ApplicationGateway#selector_match_operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5516339317c98ce268f2b07fb4011495fb52426021c9da8ccdd0c30632b54a40)
@@ -12659,20 +12659,20 @@ class ApplicationGatewayWafConfigurationExclusion:
 
     @builtins.property
     def match_variable(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#match_variable ApplicationGateway#match_variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#match_variable ApplicationGateway#match_variable}.'''
         result = self._values.get("match_variable")
         assert result is not None, "Required property 'match_variable' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#selector ApplicationGateway#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#selector ApplicationGateway#selector}.'''
         result = self._values.get("selector")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def selector_match_operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/application_gateway#selector_match_operator ApplicationGateway#selector_match_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.42.0/docs/resources/application_gateway#selector_match_operator ApplicationGateway#selector_match_operator}.'''
         result = self._values.get("selector_match_operator")
         return typing.cast(typing.Optional[builtins.str], result)
 

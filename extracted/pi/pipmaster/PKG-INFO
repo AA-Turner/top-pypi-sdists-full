@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipmaster
-Version: 1.0.2
+Version: 1.0.3
 Summary: A versatile Python package manager utility for simplifying package installation, updates, checks, and environment management.
 Author-email: ParisNeo <parisneoai@gmail.com>
 License-Expression: Apache-2.0

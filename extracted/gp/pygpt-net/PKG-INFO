@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.29
+Version: 2.6.30
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -117,7 +117,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.29** | build: **2025-08-27** | Python: **>=3.10, <3.14**
+Release: **2.6.30** | build: **2025-08-29** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -157,7 +157,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 
 - Desktop AI Assistant for `Linux`, `Windows` and `Mac`, written in Python.
 - Works similarly to `ChatGPT`, but locally (on a desktop computer).
-- 12 modes of operation: Chat, Chat with Files, Chat with Audio, Research (Perplexity), Completion, Image generation, Vision, Assistants, Experts, Computer use, Agents and Autonomous Mode.
+- 11 modes of operation: Chat, Chat with Files, Chat with Audio, Research (Perplexity), Completion, Image generation, Assistants, Experts, Computer use, Agents and Autonomous Mode.
 - Supports multiple models like `OpenAI GPT-5`, `GPT-4`, `o1`, `o3`, `o4`, `Google Gemini`, `Anthropic Claude`, `xAI Grok`, `DeepSeek V3/R1`, `Perplexity / Sonar`, and any model accessible through `LlamaIndex` and `Ollama` such as `DeepSeek`, `gpt-oss`, `Llama 3`, `Mistral`, `Bielik`, etc.
 - Chat with your own Files: integrated `LlamaIndex` support: chat with data such as: `txt`, `pdf`, `csv`, `html`, `md`, `docx`, `json`, `epub`, `xlsx`, `xml`, webpages, `Google`, `GitHub`, video/audio, images and other data types, or use conversation history as additional context provided to the model.
 - Built-in vector databases support and automated files and data embedding.
@@ -181,7 +181,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 - Includes simple painter / drawing tool.
 - Supports multiple languages.
 - Requires no previous knowledge of using AI models.
-- Simplifies image generation using `DALL-E`.
+- Simplifies image generation using image models like `DALL-E` and `Imagen`.
 - Fully configurable.
 - Themes support.
 - Real-time code syntax highlighting.
@@ -439,9 +439,9 @@ Alternatively, you can try removing snap and reinstalling it:
 `sudo snap install pygpt`
 
 
-**Access to microphone and audio in Windows version:**
+**Access to a microphone and audio in Windows version:**
 
-If you have a problems with audio or microphone in the non-binary PIP/Python version on Windows, check to see if FFmpeg is installed. If it's not, install it and add it to the PATH. You can find a tutorial on how to do this here: https://phoenixnap.com/kb/ffmpeg-windows. The binary version already includes FFmpeg.
+If you have a problems with audio or a microphone in the non-binary PIP/Python version on Windows, check to see if FFmpeg is installed. If it's not, install it and add it to the PATH. You can find a tutorial on how to do this here: https://phoenixnap.com/kb/ffmpeg-windows. The binary version already includes FFmpeg.
 
 **Windows and VC++ Redistributable**
 
@@ -519,9 +519,16 @@ Here, you can add or manage API keys for any supported provider.
 
 **+ Inline Vision and Image generation**
 
-This mode in **PyGPT** mirrors `ChatGPT`, allowing you to chat with models such as `GPT-5`, `GPT-4`, `o1`, `o3`, and`Claude`, `Gemini`, `Grok`, `Perplexity (sonar)`, `Deepseek`, and others. It works by using the `Responses` and `ChatCompletions` OpenAI API (or compatible). You can select the API endpoint to use in: `Config -> Settings -> API Keys`.
+In **PyGPT**, this mode mirrors `ChatGPT`, allowing you to chat with models like `GPT-5`, `GPT-4`, `o1`, `o3`, `Claude`, `Gemini`, `Grok`, `Perplexity (Sonar)`, `Deepseek`, and more. It works using the OpenAI API `Responses` and `ChatCompletions`, or the `Google GenAI SDK` if the Google native client is enabled. You can choose the API endpoint for `ChatCompletions` in `Config -> Settings -> API Keys`.
 
-**Tip: This mode directly uses the OpenAI SDK. Other models, such as Gemini, Claude, Grok, Sonar, or Llama3, are supported in Chat mode via LlamaIndex or OpenAI API compatible endpoints (if available), which the application switches to in the background when working with models other than OpenAI.**
+**Tip:** This mode uses the provider SDK directly. If there's no native client built into the app, models like Gemini, Claude, Grok, Sonar, or Llama3 are supported in Chat mode via LlamaIndex or compatible OpenAI API endpoints. The app automatically switches to these endpoints when using non-OpenAI models.
+
+Currently built-in native clients:
+
+- OpenAI SDK
+- Google GenAI SDK
+
+Support for Anthropic and xAI native clients is coming soon.
 
 The main part of the interface is a chat window where you see your conversations. Below it is a message box for typing. On the right side, you can set up or change the model and system prompt. You can also save these settings as presets to easily switch between models or tasks.
 
@@ -683,17 +690,16 @@ From version `2.0.107` the `davinci` models are deprecated and has been replaced
 
 ## Image generation
 
-### DALL-E 3
+### OpenAI DALL-E 3 / Google Imagen 3 and 4
 
-**PyGPT** enables quick and easy image creation with `DALL-E 3` or `gpt-image-1`. 
-The older model version, `DALL-E 2`, is also accessible. Generating images is akin to a chat conversation  -  a user's prompt triggers the generation, followed by downloading, saving to the computer, 
-and displaying the image onscreen. You can send raw prompt to `DALL-E` in `Image generation` mode or ask the model for the best prompt.
+**PyGPT** enables quick and easy image creation with image models like `DALL-E 3`, `gpt-image-1` or `Google Imagen`. 
+Generating images is akin to a chat conversation  -  a user's prompt triggers the generation, followed by downloading, saving to the computer, and displaying the image onscreen. You can send raw prompt to the model in `Image generation` mode or ask the model for the best prompt.
 
 ![v3_img](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_img.png)
 
-Image generation using DALL-E is available in every mode via plugin `Image Generation (inline)`. Just ask any model, in any mode, like e.g. GPT-4 to generate an image and it will do it inline, without need to mode change.
+Image generation using image models is also available in every mode via plugin `Image Generation (inline)`. Just ask any model, in any mode, like e.g. GPT or Gemini to generate an image and it will do it inline, without need to mode change.
 
-If you want to generate images (using DALL-E) directly in chat you must enable plugin **Image generation (inline)** in the Plugins menu.
+If you want to generate images directly in chat you must enable plugin **Image generation (inline)** in the Plugins menu.
 Plugin allows you to generate images in Chat mode:
 
 ![v3_img_chat](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_img_chat.png)
@@ -708,7 +714,7 @@ the bottom of the screen. This replaces the conversation temperature slider when
 
 There is an option for switching prompt generation mode.
 
-If **Raw Mode** is enabled, DALL-E will receive the prompt exactly as you have provided it.
+If **Raw Mode** is enabled, a model will receive the prompt exactly as you have provided it.
 If **Raw Mode** is disabled, a model will generate the best prompt for you based on your instructions.
 
 ### Image storage
@@ -723,31 +729,6 @@ The app keeps a history of all your prompts, allowing you to revisit any session
 prompts for creating new images.
 
 Images are stored in ``img`` directory in **PyGPT** user data folder.
-
-
-## Vision
-
-This mode enables image analysis using the `GPT-5`, `GPT-4o` and other vision (multimodal) models. Functioning much like the chat mode, 
-it also allows you to upload images or provide URLs to images. The vision feature can analyze both local 
-images and those found online. 
-
-Vision is also integrated into any chat mode via plugin `Vision (inline)`. Just enable the plugin and use Vision in other work modes, such as Chat or Chat with Files.
-
-Vision mode also includes real-time video capture from camera. To capture image from camera and append it to chat just click on video at left side. You can also enable `Auto capture` - image will be captured and appended to chat message every time you send message.
-
-**1) Video camera real-time image capture**
-
-![v3_vision_chat](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_vision_chat.png)
-
-**2) you can also provide an image URL**
-
-![v2_mode_vision](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v2_mode_vision.png)
-
-**3) or you can just upload your local images or use the inline Vision in the standard chat mode:**
-
-![v2_mode_vision_upload](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v2_mode_vision_upload.png)
-
-**Tip:** When using `Vision (inline)` by utilizing a plugin in standard mode, such as `Chat` (not `Vision` mode), the `+ Vision` label will appear at the bottom of the Chat window.
 
 ## Assistants
 
@@ -2637,9 +2618,11 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 - `Check for updates in background`: Enables checking for updates in background (checking every 5 minutes). Default: True.
 
-**Developer**
+**Debug**
 
 - `Show debug menu`: Enables debug (developer) menu.
+
+- `Log level`: toggle log level (ERROR|WARNING|INFO|DEBUG)
 
 - `Log and debug context`: Enables logging of context input/output.
 
@@ -2656,8 +2639,6 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 - `Log LlamaIndex usage to console`: Enables logging of LlamaIndex usage to console.
 
 - `Log Assistants usage to console`: Enables logging of Assistants API usage to console.
-
-- `Log level`: toggle log level (ERROR|WARNING|INFO|DEBUG)
 
 
 ## JSON files
@@ -3363,7 +3344,7 @@ These wrappers are loaded into the application during startup using `launcher.ad
 ```python
 # app.py
 
-from pygpt_net.provider.llms.openai import OpenAILLM
+from pygpt_net.provider.api.openai import OpenAILLM
 from pygpt_net.provider.llms.azure_openai import AzureOpenAILLM
 from pygpt_net.provider.llms.anthropic import AnthropicLLM
 from pygpt_net.provider.llms.hugging_face import HuggingFaceLLM
@@ -3574,6 +3555,13 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.30 (2025-08-29)**
+
+- Added native Google GenAI API support (beta); live audio is not supported yet (#132).
+- Added new predefined models for image generation: Google Imagen3 and Imagen4.
+- Optimized token usage in the Responses API.
+- Removed Vision mode (it is now integrated into Chat).
 
 **2.6.29 (2025-08-28)**
 

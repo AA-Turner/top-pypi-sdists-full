@@ -2,7 +2,8 @@ import sys
 import os
 import json
 import logging
-from typing import Optional
+from typing import Optional, Any
+
 try:
     import optuna
     from optuna.trial import create_trial
@@ -52,7 +53,7 @@ def tpe_suggest_point(trial: optuna.Trial, parameters: dict) -> dict:
                 if pvaltype == 'INT':
                     point[param_name] = trial.suggest_int(param_name, rmin, rmax)
                 elif pvaltype == 'FLOAT':
-                    point[param_name] = trial.suggest_float(param_name, rmin, rmax)
+                    point[param_name] = trial.suggest_float(param_name, rmin, rmax) # type: ignore[assignment]
                 else:
                     raise ValueError(f"Unsupported type {pvaltype} for RANGE")
 
@@ -162,7 +163,7 @@ def add_existing_trial_to_study(study: optuna.study.study.Study, trial_entry: li
     )
 
 @beartype
-def get_best_or_new_point(study: optuna.study.study.Study, parameters: dict, direction: str) -> dict:
+def get_best_or_new_point(study: Any, parameters: dict, direction: str) -> dict:
     best_trial_value = study.best_trial.value
     if best_trial_value is not None:
         if (direction == "minimize" and best_trial_value < 1e6) or \

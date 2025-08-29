@@ -3,13 +3,13 @@
 from stix2 import Filter
 
 from mitreattack.constants import MITRE_ATTACK_DOMAIN_STRINGS
-from mitreattack.navlayers.exporters.matrix_gen import MatrixGen
-from mitreattack.navlayers.core.exceptions import BadInput, typeChecker, categoryChecker
+from mitreattack.navlayers.core.exceptions import BadInput, categoryChecker, typeChecker
 from mitreattack.navlayers.core.layer import Layer
+from mitreattack.navlayers.exporters.matrix_gen import MatrixGen
 from mitreattack.navlayers.generators.gen_helpers import (
-    remove_revoked_depreciated,
-    construct_relationship_mapping,
     build_data_strings,
+    construct_relationship_mapping,
+    remove_revoked_depreciated,
 )
 
 
@@ -33,9 +33,9 @@ class OverviewLayerGenerator:
         self.domain = domain
         try:
             self.source_handle = self.matrix_handle.collections[domain]
-        except KeyError:
+        except KeyError as err:
             print(f"[UsageGenerator] - unable to load collection {domain} (current source = {source}).")
-            raise BadInput
+            raise BadInput from err
         tl = remove_revoked_depreciated(self.source_handle.query([Filter("type", "=", "attack-pattern")]))
         self.mitigation_objects = self.source_handle.query([Filter("type", "=", "course-of-action")])
         complete_relationships = self.source_handle.query(
@@ -142,7 +142,7 @@ class OverviewLayerGenerator:
         """
         names = [self.source_mapping[x.source_ref] for x in relationships]
         return len(names), names
-    
+
     def get_campaigns(self, relationships):
         """Sort campaigns out of relationships.
 
@@ -193,8 +193,8 @@ class OverviewLayerGenerator:
             pass  # didn't find a specific match for that combo, let's drop the tactic and see what we get
         try:
             return self.tech_no_tactic_listing[techniqueID]
-        except KeyError:
-            raise UnableToFindTechnique
+        except KeyError as err:
+            raise UnableToFindTechnique from err
 
     def update_template(self, obj_type, complete_tech_listing):
         """Update an existing dictionary of layer techniques with the appropriate matching objects.
@@ -255,7 +255,12 @@ class OverviewLayerGenerator:
         :return: layer object with annotated techniques
         """
         typeChecker(type(self).__name__, obj_type, str, "type")
-        categoryChecker(type(self).__name__, obj_type, ["group", "software", "mitigation", "datasource", "campaign", "asset"], "type")
+        categoryChecker(
+            type(self).__name__,
+            obj_type,
+            ["group", "software", "mitigation", "datasource", "campaign", "asset"],
+            "type",
+        )
         initial_list = self.get_matrix_template()
         updated_list = self.update_template(obj_type, initial_list)
         if obj_type == "group":

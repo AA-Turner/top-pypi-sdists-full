@@ -68,19 +68,19 @@ class CollectionToIndex:
                 ]
                 sets = uset
             for potentially_valid_bundle in sets:
-                if potentially_valid_bundle["objects"] is not [[]]:  # Catch case where MemoryStore didn't have a match
+                if potentially_valid_bundle["objects"] != [[]]:  # Catch case where MemoryStore didn't have a match
                     if any(x["type"] == "x-mitre-collection" for x in potentially_valid_bundle["objects"]):
                         potentially_valid_bundle["objects"] = filter(
                             lambda x: x["type"] == "x-mitre-collection", potentially_valid_bundle["objects"]
                         )
                         cleaned_bundles.append(potentially_valid_bundle)
                     else:
-                        print(f"cannot use bundle {potentially_valid_bundle.id} due to lack of collection object")
+                        print(f"cannot use bundle {potentially_valid_bundle['id']} due to lack of collection object")
                 else:
-                    print(f"cannot use bundle {potentially_valid_bundle.id} due to lack of collection object")
+                    print(f"cannot use bundle {potentially_valid_bundle['id']} due to lack of collection object")
 
-        index_created = None
-        index_modified = None
+        index_created = isoparse("9999-12-31T23:59:59.999Z")
+        index_modified = isoparse("9999-12-31T23:59:59.999Z")
         collections = {}  # STIX ID -> collection object
 
         if files:

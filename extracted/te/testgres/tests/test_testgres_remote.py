@@ -7,16 +7,16 @@ import logging
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 
-from .. import testgres
+import testgres
 
-from ..testgres.exceptions import InitNodeException
-from ..testgres.exceptions import ExecUtilException
+from testgres.exceptions import InitNodeException
+from testgres.exceptions import ExecUtilException
 
-from ..testgres.config import scoped_config
-from ..testgres.config import testgres_config
+from testgres.config import scoped_config
+from testgres.config import testgres_config
 
-from ..testgres import get_bin_path
-from ..testgres import get_pg_config
+from testgres import get_bin_path
+from testgres import get_pg_config
 
 # NOTE: those are ugly imports
 
@@ -173,7 +173,6 @@ class TestTestgresRemote:
 
         return testgres.PostgresNode(
             name,
-            conn_params=None,
             os_ops=svc.os_ops,
             port_manager=svc.port_manager)
 

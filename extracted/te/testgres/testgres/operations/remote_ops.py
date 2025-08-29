@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import getpass
 import os
+import posixpath
 import platform
 import subprocess
 import tempfile
 import io
 import logging
 import typing
+import copy
+import re
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -41,11 +46,29 @@ class PsUtilProcessProxy:
 
 
 class RemoteOperations(OsOperations):
+    sm_dummy_conn_params = ConnectionParams()
+
+    conn_params: ConnectionParams
+    host: str
+    port: int
+    ssh_key: str
+    ssh_args: list
+    remote: bool
+    username: str
+    ssh_dest: str
+
     def __init__(self, conn_params: ConnectionParams):
         if not platform.system().lower() == "linux":
             raise EnvironmentError("Remote operations are supported only on Linux!")
 
-        super().__init__(conn_params.username)
+        if conn_params is None:
+            raise ValueError("Argument 'conn_params' is None.")
+
+        super().__init__()
+
+        if conn_params is __class__.sm_dummy_conn_params:
+            return
+
         self.conn_params = conn_params
         self.host = conn_params.host
         self.port = conn_params.port
@@ -62,10 +85,25 @@ class RemoteOperations(OsOperations):
     def __enter__(self):
         return self
 
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
-                     encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
-                     stderr=None, get_process=None, timeout=None, ignore_errors=False,
-                     exec_env=None):
+    def create_clone(self) -> RemoteOperations:
+        clone = __class__(__class__.sm_dummy_conn_params)
+        clone.conn_params = copy.copy(self.conn_params)
+        clone.host = self.host
+        clone.port = self.port
+        clone.ssh_key = self.ssh_key
+        clone.ssh_args = copy.copy(self.ssh_args)
+        clone.remote = self.remote
+        clone.username = self.username
+        clone.ssh_dest = self.ssh_dest
+        return clone
+
+    def exec_command(
+        self, cmd, wait_exit=False, verbose=False, expect_error=False,
+        encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
+        stderr=None, get_process=None, timeout=None, ignore_errors=False,
+        exec_env: typing.Optional[dict] = None,
+        cwd: typing.Optional[str] = None
+    ):
         """
         Execute a command in the SSH session.
         Args:
@@ -74,6 +112,7 @@ class RemoteOperations(OsOperations):
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
         input_prepared = None
         if not get_process:
@@ -81,21 +120,21 @@ class RemoteOperations(OsOperations):
 
         assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
 
-        if type(cmd) == str:  # noqa: E721
-            cmd_s = cmd
-        elif type(cmd) == list:  # noqa: E721
-            cmd_s = subprocess.list2cmdline(cmd)
-        else:
-            raise ValueError("Invalid 'cmd' argument type - {0}".format(type(cmd).__name__))
+        cmds = []
 
-        assert type(cmd_s) == str  # noqa: E721
+        if cwd is not None:
+            assert type(cwd) == str  # noqa: E721
+            cmds.append(__class__._build_cmdline(["cd", cwd]))
 
-        cmd_items = __class__._make_exec_env_list(exec_env=exec_env)
-        cmd_items.append(cmd_s)
+        cmds.append(__class__._build_cmdline(cmd, exec_env))
 
-        env_cmd_s = ';'.join(cmd_items)
+        assert len(cmds) >= 1
 
-        ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [env_cmd_s]
+        cmdline = ";".join(cmds)
+        assert type(cmdline) == str  # noqa: E721
+        assert cmdline != ""
+
+        ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmdline]
 
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert not (process is None)
@@ -138,6 +177,13 @@ class RemoteOperations(OsOperations):
 
         return output
 
+    def build_path(self, a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        return __class__._build_path(a, *parts)
+
     # Environment setup
     def environ(self, var_name: str) -> str:
         """
@@ -159,7 +205,7 @@ class RemoteOperations(OsOperations):
 
         search_paths = search_paths.split(self.pathsep)
         for path in search_paths:
-            remote_file = os.path.join(path, executable)
+            remote_file = __class__._build_path(path, executable)
             if self.isfile(remote_file):
                 return remote_file
 
@@ -225,6 +271,11 @@ class RemoteOperations(OsOperations):
             raise Exception("Couldn't create dir {} because of error {}".format(path, error))
         return result
 
+    def makedir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        cmd = ["mkdir", path]
+        self.exec_command(cmd)
+
     def rmdirs(self, path, ignore_errors=True):
         """
         Remove a directory in the remote server.
@@ -264,6 +315,11 @@ class RemoteOperations(OsOperations):
             logging.warning(errMsg)
             return False
         return True
+
+    def rmdir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        cmd = ["rmdir", path]
+        self.exec_command(cmd)
 
     def listdir(self, path):
         """
@@ -373,7 +429,7 @@ class RemoteOperations(OsOperations):
 
     def copytree(self, src, dst):
         if not os.path.isabs(dst):
-            dst = os.path.join('~', dst)
+            dst = __class__._build_path('~', dst)
         if self.isdir(dst):
             raise FileExistsError("Directory {} already exists.".format(dst))
         return self.exec_command("cp -r {} {}".format(src, dst))
@@ -625,29 +681,79 @@ class RemoteOperations(OsOperations):
 
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535  # OK?
 
-        cmd = ["nc", "-w", "5", "-z", "-v", "localhost", str(number)]
+        # grep -q returns 0 if a listening socket on that port is found
+        port_hex = format(number, '04X')
 
-        exit_status, output, error = self.exec_command(cmd=cmd, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+        #   sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt ...
+        #  137: 0A01A8C0:EC08 1DA2A959:01BB 01 00000000:00000000 02:00000000 00000000 ...
+        C_REGEXP = r"^\s*[0-9]+:\s*[0-9a-fA-F]{8}:" + re.escape(port_hex) + r"\s+[0-9a-fA-F]{8}:[0-9a-fA-F]{4}\s+"
 
-        assert type(output) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        # Search /proc/net/tcp for any entry with this port
+        # NOTE: grep requires quote string with regular expression
+        # TODO: added a support for tcp/ip v6
+        grep_cmd_s = "grep -q -E \"" + C_REGEXP + "\" /proc/net/tcp"
 
+        cmd = [
+            "/bin/bash",
+            "-c",
+            grep_cmd_s,
+        ]
+
+        exit_status, output, error = self.exec_command(
+            cmd=cmd,
+            encoding=get_default_encoding(),
+            ignore_errors=True,
+            verbose=True
+        )
+
+        # grep exit 0 -> port is busy
         if exit_status == 0:
-            return __class__._is_port_free__process_0(error)
+            return False
 
+        # grep exit 1 -> port is free
         if exit_status == 1:
-            return __class__._is_port_free__process_1(error)
+            return True
 
-        errMsg = "nc returns an unknown result code: {0}".format(exit_status)
-
-        RaiseError.CommandExecutionError(
+        # any other code is an unexpected error
+        errMsg = f"grep returned unexpected exit code: {exit_status}"
+        raise RaiseError.CommandExecutionError(
             cmd=cmd,
             exit_code=exit_status,
             message=errMsg,
             error=error,
             out=output
         )
+
+    def get_tempdir(self) -> str:
+        command = ["mktemp", "-u", "-d"]
+
+        exec_exitcode, exec_output, exec_error = self.exec_command(
+            command,
+            verbose=True,
+            encoding=get_default_encoding(),
+            ignore_errors=True
+        )
+
+        assert type(exec_exitcode) == int  # noqa: E721
+        assert type(exec_output) == str  # noqa: E721
+        assert type(exec_error) == str  # noqa: E721
+
+        if exec_exitcode != 0:
+            RaiseError.CommandExecutionError(
+                cmd=command,
+                exit_code=exec_exitcode,
+                message="Could not detect a temporary directory.",
+                error=exec_error,
+                out=exec_output)
+
+        temp_subdir = exec_output.strip()
+        assert type(temp_subdir) == str  # noqa: E721
+        temp_dir = os.path.dirname(temp_subdir)
+        assert type(temp_dir) == str  # noqa: E721
+        return temp_dir
 
     @staticmethod
     def _is_port_free__process_0(error: str) -> bool:
@@ -663,16 +769,35 @@ class RemoteOperations(OsOperations):
     @staticmethod
     def _is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        #
-        # Example of error text:
-        #  "nc: connect to localhost (127.0.0.1) port 1024 (tcp) failed: Connection refused\n"
-        #
         # May be here is needed to check error message?
-        #
         return True
 
     @staticmethod
-    def _make_exec_env_list(exec_env: typing.Dict) -> typing.List[str]:
+    def _build_cmdline(cmd, exec_env: typing.Dict = None) -> str:
+        cmd_items = __class__._create_exec_env_list(exec_env)
+
+        assert type(cmd_items) == list  # noqa: E721
+
+        cmd_items.append(__class__._ensure_cmdline(cmd))
+
+        cmdline = ';'.join(cmd_items)
+        assert type(cmdline) == str  # noqa: E721
+        return cmdline
+
+    @staticmethod
+    def _ensure_cmdline(cmd) -> typing.List[str]:
+        if type(cmd) == str:  # noqa: E721
+            cmd_s = cmd
+        elif type(cmd) == list:  # noqa: E721
+            cmd_s = subprocess.list2cmdline(cmd)
+        else:
+            raise ValueError("Invalid 'cmd' argument type - {0}".format(type(cmd).__name__))
+
+        assert type(cmd_s) == str  # noqa: E721
+        return cmd_s
+
+    @staticmethod
+    def _create_exec_env_list(exec_env: typing.Dict) -> typing.List[str]:
         env: typing.Dict[str, str] = dict()
 
         # ---------------------------------- SYSTEM ENV
@@ -733,6 +858,14 @@ class RemoteOperations(OsOperations):
                 result += ch
         result += "\""
         return result
+
+    @staticmethod
+    def _build_path(a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        return posixpath.join(a, *parts)
 
 
 def normalize_error(error):

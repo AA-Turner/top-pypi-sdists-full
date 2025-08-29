@@ -1,7 +1,7 @@
 r'''
 # `aws_notifications_channel_association`
 
-Refer to the Terraform Registry for docs: [`aws_notifications_channel_association`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association).
+Refer to the Terraform Registry for docs: [`aws_notifications_channel_association`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotificationsChannelAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.notificationsChannelAssociation.NotificationsChannelAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association aws_notifications_channel_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association aws_notifications_channel_association}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class NotificationsChannelAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association aws_notifications_channel_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association aws_notifications_channel_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.
-        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.
+        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class NotificationsChannelAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotificationsChannelAssociation to import.
-        :param import_from_id: The id of the existing NotificationsChannelAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotificationsChannelAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotificationsChannelAssociation to import is found.
         '''
         if __debug__:
@@ -202,8 +202,8 @@ class NotificationsChannelAssociationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.
-        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.
+        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -303,14 +303,14 @@ class NotificationsChannelAssociationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#arn NotificationsChannelAssociation#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notification_configuration_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/notifications_channel_association#notification_configuration_arn NotificationsChannelAssociation#notification_configuration_arn}.'''
         result = self._values.get("notification_configuration_arn")
         assert result is not None, "Required property 'notification_configuration_arn' is missing"
         return typing.cast(builtins.str, result)

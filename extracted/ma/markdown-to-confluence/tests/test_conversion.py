@@ -84,10 +84,8 @@ class TestConversion(TypedTestCase):
         self.page_metadata = ConfluencePageCollection()
 
     def test_markdown(self) -> None:
-        if not os.path.exists(self.source_dir / "emoji.md"):
-            emoji.generate_source(self.source_dir / "emoji.md")
-        if not os.path.exists(self.target_dir / "emoji.xml"):
-            emoji.generate_target(self.target_dir / "emoji.xml")
+        emoji.generate_source(self.source_dir / "emoji.md")
+        emoji.generate_target(self.target_dir / "emoji.xml")
 
         matcher = Matcher(MatcherOptions(source=".mdignore", extension="md"), self.source_dir)
 
@@ -133,7 +131,7 @@ class TestConversion(TypedTestCase):
             actual = standardize(doc.xhtml())
 
         # check if 2 broken links have been found (anchor `href` & image `src`)
-        self.assertEqual(len(cm.records), 2)
+        self.assertEqual(len(cm.records), 5)
 
         with open(self.target_dir / "missing.xml", "r", encoding="utf-8") as f:
             expected = substitute(self.target_dir, f.read())

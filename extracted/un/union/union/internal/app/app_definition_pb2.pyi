@@ -140,7 +140,7 @@ class Ingress(_message.Message):
     def __init__(self, public_url: _Optional[str] = ..., cname_url: _Optional[str] = ..., vpc_url: _Optional[str] = ...) -> None: ...
 
 class Spec(_message.Message):
-    __slots__ = ["container", "pod", "autoscaling", "ingress", "desired_state", "cluster_pool", "images", "security_context", "extended_resources", "runtime_metadata", "profile", "creator", "inputs", "links"]
+    __slots__ = ["container", "pod", "autoscaling", "ingress", "desired_state", "cluster_pool", "images", "security_context", "extended_resources", "runtime_metadata", "profile", "creator", "inputs", "links", "timeouts"]
     class DesiredState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
         DESIRED_STATE_UNSPECIFIED: _ClassVar[Spec.DesiredState]
@@ -165,6 +165,7 @@ class Spec(_message.Message):
     CREATOR_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     LINKS_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUTS_FIELD_NUMBER: _ClassVar[int]
     container: _tasks_pb2.Container
     pod: _tasks_pb2.K8sPod
     autoscaling: AutoscalingConfig
@@ -179,7 +180,8 @@ class Spec(_message.Message):
     creator: _identity_pb2.EnrichedIdentity
     inputs: InputList
     links: _containers.RepeatedCompositeFieldContainer[Link]
-    def __init__(self, container: _Optional[_Union[_tasks_pb2.Container, _Mapping]] = ..., pod: _Optional[_Union[_tasks_pb2.K8sPod, _Mapping]] = ..., autoscaling: _Optional[_Union[AutoscalingConfig, _Mapping]] = ..., ingress: _Optional[_Union[IngressConfig, _Mapping]] = ..., desired_state: _Optional[_Union[Spec.DesiredState, str]] = ..., cluster_pool: _Optional[str] = ..., images: _Optional[_Union[ImageSpecSet, _Mapping]] = ..., security_context: _Optional[_Union[SecurityContext, _Mapping]] = ..., extended_resources: _Optional[_Union[_tasks_pb2.ExtendedResources, _Mapping]] = ..., runtime_metadata: _Optional[_Union[_runtime_version_pb2.RuntimeMetadata, _Mapping]] = ..., profile: _Optional[_Union[Profile, _Mapping]] = ..., creator: _Optional[_Union[_identity_pb2.EnrichedIdentity, _Mapping]] = ..., inputs: _Optional[_Union[InputList, _Mapping]] = ..., links: _Optional[_Iterable[_Union[Link, _Mapping]]] = ...) -> None: ...
+    timeouts: TimeoutConfig
+    def __init__(self, container: _Optional[_Union[_tasks_pb2.Container, _Mapping]] = ..., pod: _Optional[_Union[_tasks_pb2.K8sPod, _Mapping]] = ..., autoscaling: _Optional[_Union[AutoscalingConfig, _Mapping]] = ..., ingress: _Optional[_Union[IngressConfig, _Mapping]] = ..., desired_state: _Optional[_Union[Spec.DesiredState, str]] = ..., cluster_pool: _Optional[str] = ..., images: _Optional[_Union[ImageSpecSet, _Mapping]] = ..., security_context: _Optional[_Union[SecurityContext, _Mapping]] = ..., extended_resources: _Optional[_Union[_tasks_pb2.ExtendedResources, _Mapping]] = ..., runtime_metadata: _Optional[_Union[_runtime_version_pb2.RuntimeMetadata, _Mapping]] = ..., profile: _Optional[_Union[Profile, _Mapping]] = ..., creator: _Optional[_Union[_identity_pb2.EnrichedIdentity, _Mapping]] = ..., inputs: _Optional[_Union[InputList, _Mapping]] = ..., links: _Optional[_Iterable[_Union[Link, _Mapping]]] = ..., timeouts: _Optional[_Union[TimeoutConfig, _Mapping]] = ...) -> None: ...
 
 class Link(_message.Message):
     __slots__ = ["path", "title", "is_relative"]
@@ -310,3 +312,9 @@ class Replicas(_message.Message):
     min: int
     max: int
     def __init__(self, min: _Optional[int] = ..., max: _Optional[int] = ...) -> None: ...
+
+class TimeoutConfig(_message.Message):
+    __slots__ = ["request_timeout"]
+    REQUEST_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    request_timeout: _duration_pb2.Duration
+    def __init__(self, request_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...

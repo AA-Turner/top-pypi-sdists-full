@@ -1,7 +1,7 @@
 r'''
 # `aws_dlm_lifecycle_policy`
 
-Refer to the Terraform Registry for docs: [`aws_dlm_lifecycle_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy).
+Refer to the Terraform Registry for docs: [`aws_dlm_lifecycle_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DlmLifecyclePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy aws_dlm_lifecycle_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy aws_dlm_lifecycle_policy}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DlmLifecyclePolicy(
         description: builtins.str,
         execution_role_arn: builtins.str,
         policy_details: typing.Union["DlmLifecyclePolicyPolicyDetails", typing.Dict[builtins.str, typing.Any]],
+        default_policy: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
@@ -67,18 +68,19 @@ class DlmLifecyclePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy aws_dlm_lifecycle_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy aws_dlm_lifecycle_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.
-        :param policy_details: policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.
+        :param policy_details: policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
+        :param default_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#default_policy DlmLifecyclePolicy#default_policy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -95,6 +97,7 @@ class DlmLifecyclePolicy(
             description=description,
             execution_role_arn=execution_role_arn,
             policy_details=policy_details,
+            default_policy=default_policy,
             id=id,
             region=region,
             state=state,
@@ -124,7 +127,7 @@ class DlmLifecyclePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DlmLifecyclePolicy to import.
-        :param import_from_id: The id of the existing DlmLifecyclePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DlmLifecyclePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DlmLifecyclePolicy to import is found.
         '''
         if __debug__:
@@ -140,36 +143,61 @@ class DlmLifecyclePolicy(
         self,
         *,
         action: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsAction", typing.Dict[builtins.str, typing.Any]]] = None,
+        copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        create_interval: typing.Optional[jsii.Number] = None,
         event_source: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsEventSource", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclusions: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsExclusions", typing.Dict[builtins.str, typing.Any]]] = None,
+        extend_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         parameters: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsParameters", typing.Dict[builtins.str, typing.Any]]] = None,
+        policy_language: typing.Optional[builtins.str] = None,
         policy_type: typing.Optional[builtins.str] = None,
         resource_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_type: typing.Optional[builtins.str] = None,
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        retain_interval: typing.Optional[jsii.Number] = None,
         schedule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DlmLifecyclePolicyPolicyDetailsSchedule", typing.Dict[builtins.str, typing.Any]]]]] = None,
         target_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
-        :param event_source: event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.
-        :param resource_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
-        :param target_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
+        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
+        :param create_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#create_interval DlmLifecyclePolicy#create_interval}.
+        :param event_source: event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
+        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclusions DlmLifecyclePolicy#exclusions}
+        :param extend_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#extend_deletion DlmLifecyclePolicy#extend_deletion}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        :param policy_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_language DlmLifecyclePolicy#policy_language}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.
+        :param resource_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_type DlmLifecyclePolicy#resource_type}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.
+        :param retain_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_interval DlmLifecyclePolicy#retain_interval}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
+        :param target_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.
         '''
         value = DlmLifecyclePolicyPolicyDetails(
             action=action,
+            copy_tags=copy_tags,
+            create_interval=create_interval,
             event_source=event_source,
+            exclusions=exclusions,
+            extend_deletion=extend_deletion,
             parameters=parameters,
+            policy_language=policy_language,
             policy_type=policy_type,
             resource_locations=resource_locations,
+            resource_type=resource_type,
             resource_types=resource_types,
+            retain_interval=retain_interval,
             schedule=schedule,
             target_tags=target_tags,
         )
 
         return typing.cast(None, jsii.invoke(self, "putPolicyDetails", [value]))
+
+    @jsii.member(jsii_name="resetDefaultPolicy")
+    def reset_default_policy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDefaultPolicy", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -215,6 +243,11 @@ class DlmLifecyclePolicy(
         return typing.cast("DlmLifecyclePolicyPolicyDetailsOutputReference", jsii.get(self, "policyDetails"))
 
     @builtins.property
+    @jsii.member(jsii_name="defaultPolicyInput")
+    def default_policy_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultPolicyInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="descriptionInput")
     def description_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
@@ -257,6 +290,18 @@ class DlmLifecyclePolicy(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultPolicy")
+    def default_policy(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "defaultPolicy"))
+
+    @default_policy.setter
+    def default_policy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de24a90124610e3e0c2a0aaa3aa601f62c715198ebac8f45498c39dc2d3f112a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -357,6 +402,7 @@ class DlmLifecyclePolicy(
         "description": "description",
         "execution_role_arn": "executionRoleArn",
         "policy_details": "policyDetails",
+        "default_policy": "defaultPolicy",
         "id": "id",
         "region": "region",
         "state": "state",
@@ -378,6 +424,7 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         description: builtins.str,
         execution_role_arn: builtins.str,
         policy_details: typing.Union["DlmLifecyclePolicyPolicyDetails", typing.Dict[builtins.str, typing.Any]],
+        default_policy: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
@@ -392,14 +439,15 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.
-        :param policy_details: policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.
+        :param policy_details: policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
+        :param default_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#default_policy DlmLifecyclePolicy#default_policy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -417,6 +465,7 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument policy_details", value=policy_details, expected_type=type_hints["policy_details"])
+            check_type(argname="argument default_policy", value=default_policy, expected_type=type_hints["default_policy"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
@@ -441,6 +490,8 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if default_policy is not None:
+            self._values["default_policy"] = default_policy
         if id is not None:
             self._values["id"] = id
         if region is not None:
@@ -518,14 +569,14 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description DlmLifecyclePolicy#description}.'''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_role_arn DlmLifecyclePolicy#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -534,15 +585,21 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_details(self) -> "DlmLifecyclePolicyPolicyDetails":
         '''policy_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_details DlmLifecyclePolicy#policy_details}
         '''
         result = self._values.get("policy_details")
         assert result is not None, "Required property 'policy_details' is missing"
         return typing.cast("DlmLifecyclePolicyPolicyDetails", result)
 
     @builtins.property
+    def default_policy(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#default_policy DlmLifecyclePolicy#default_policy}.'''
+        result = self._values.get("default_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#id DlmLifecyclePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -554,26 +611,26 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#region DlmLifecyclePolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#state DlmLifecyclePolicy#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags DlmLifecyclePolicy#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags_all DlmLifecyclePolicy#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -594,11 +651,18 @@ class DlmLifecyclePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     jsii_struct_bases=[],
     name_mapping={
         "action": "action",
+        "copy_tags": "copyTags",
+        "create_interval": "createInterval",
         "event_source": "eventSource",
+        "exclusions": "exclusions",
+        "extend_deletion": "extendDeletion",
         "parameters": "parameters",
+        "policy_language": "policyLanguage",
         "policy_type": "policyType",
         "resource_locations": "resourceLocations",
+        "resource_type": "resourceType",
         "resource_types": "resourceTypes",
+        "retain_interval": "retainInterval",
         "schedule": "schedule",
         "target_tags": "targetTags",
     },
@@ -608,53 +672,90 @@ class DlmLifecyclePolicyPolicyDetails:
         self,
         *,
         action: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsAction", typing.Dict[builtins.str, typing.Any]]] = None,
+        copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        create_interval: typing.Optional[jsii.Number] = None,
         event_source: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsEventSource", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclusions: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsExclusions", typing.Dict[builtins.str, typing.Any]]] = None,
+        extend_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         parameters: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsParameters", typing.Dict[builtins.str, typing.Any]]] = None,
+        policy_language: typing.Optional[builtins.str] = None,
         policy_type: typing.Optional[builtins.str] = None,
         resource_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_type: typing.Optional[builtins.str] = None,
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        retain_interval: typing.Optional[jsii.Number] = None,
         schedule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DlmLifecyclePolicyPolicyDetailsSchedule", typing.Dict[builtins.str, typing.Any]]]]] = None,
         target_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
-        :param event_source: event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.
-        :param resource_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
-        :param target_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
+        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
+        :param create_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#create_interval DlmLifecyclePolicy#create_interval}.
+        :param event_source: event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
+        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclusions DlmLifecyclePolicy#exclusions}
+        :param extend_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#extend_deletion DlmLifecyclePolicy#extend_deletion}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        :param policy_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_language DlmLifecyclePolicy#policy_language}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.
+        :param resource_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_type DlmLifecyclePolicy#resource_type}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.
+        :param retain_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_interval DlmLifecyclePolicy#retain_interval}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
+        :param target_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.
         '''
         if isinstance(action, dict):
             action = DlmLifecyclePolicyPolicyDetailsAction(**action)
         if isinstance(event_source, dict):
             event_source = DlmLifecyclePolicyPolicyDetailsEventSource(**event_source)
+        if isinstance(exclusions, dict):
+            exclusions = DlmLifecyclePolicyPolicyDetailsExclusions(**exclusions)
         if isinstance(parameters, dict):
             parameters = DlmLifecyclePolicyPolicyDetailsParameters(**parameters)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c98f504d834e3e13eac910a982cc05b656c2435ccbc1970b89affef5bce57932)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument copy_tags", value=copy_tags, expected_type=type_hints["copy_tags"])
+            check_type(argname="argument create_interval", value=create_interval, expected_type=type_hints["create_interval"])
             check_type(argname="argument event_source", value=event_source, expected_type=type_hints["event_source"])
+            check_type(argname="argument exclusions", value=exclusions, expected_type=type_hints["exclusions"])
+            check_type(argname="argument extend_deletion", value=extend_deletion, expected_type=type_hints["extend_deletion"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument policy_language", value=policy_language, expected_type=type_hints["policy_language"])
             check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
             check_type(argname="argument resource_locations", value=resource_locations, expected_type=type_hints["resource_locations"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
             check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
+            check_type(argname="argument retain_interval", value=retain_interval, expected_type=type_hints["retain_interval"])
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument target_tags", value=target_tags, expected_type=type_hints["target_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if action is not None:
             self._values["action"] = action
+        if copy_tags is not None:
+            self._values["copy_tags"] = copy_tags
+        if create_interval is not None:
+            self._values["create_interval"] = create_interval
         if event_source is not None:
             self._values["event_source"] = event_source
+        if exclusions is not None:
+            self._values["exclusions"] = exclusions
+        if extend_deletion is not None:
+            self._values["extend_deletion"] = extend_deletion
         if parameters is not None:
             self._values["parameters"] = parameters
+        if policy_language is not None:
+            self._values["policy_language"] = policy_language
         if policy_type is not None:
             self._values["policy_type"] = policy_type
         if resource_locations is not None:
             self._values["resource_locations"] = resource_locations
+        if resource_type is not None:
+            self._values["resource_type"] = resource_type
         if resource_types is not None:
             self._values["resource_types"] = resource_types
+        if retain_interval is not None:
+            self._values["retain_interval"] = retain_interval
         if schedule is not None:
             self._values["schedule"] = schedule
         if target_tags is not None:
@@ -664,10 +765,24 @@ class DlmLifecyclePolicyPolicyDetails:
     def action(self) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#action DlmLifecyclePolicy#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsAction"], result)
+
+    @builtins.property
+    def copy_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.'''
+        result = self._values.get("copy_tags")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def create_interval(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#create_interval DlmLifecyclePolicy#create_interval}.'''
+        result = self._values.get("create_interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def event_source(
@@ -675,10 +790,29 @@ class DlmLifecyclePolicyPolicyDetails:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsEventSource"]:
         '''event_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_source DlmLifecyclePolicy#event_source}
         '''
         result = self._values.get("event_source")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsEventSource"], result)
+
+    @builtins.property
+    def exclusions(
+        self,
+    ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsExclusions"]:
+        '''exclusions block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclusions DlmLifecyclePolicy#exclusions}
+        '''
+        result = self._values.get("exclusions")
+        return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsExclusions"], result)
+
+    @builtins.property
+    def extend_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#extend_deletion DlmLifecyclePolicy#extend_deletion}.'''
+        result = self._values.get("extend_deletion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def parameters(
@@ -686,28 +820,46 @@ class DlmLifecyclePolicyPolicyDetails:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsParameters"]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsParameters"], result)
 
     @builtins.property
+    def policy_language(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_language DlmLifecyclePolicy#policy_language}.'''
+        result = self._values.get("policy_language")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#policy_type DlmLifecyclePolicy#policy_type}.'''
         result = self._values.get("policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_locations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_locations DlmLifecyclePolicy#resource_locations}.'''
         result = self._values.get("resource_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def resource_type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_type DlmLifecyclePolicy#resource_type}.'''
+        result = self._values.get("resource_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#resource_types DlmLifecyclePolicy#resource_types}.'''
         result = self._values.get("resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def retain_interval(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_interval DlmLifecyclePolicy#retain_interval}.'''
+        result = self._values.get("retain_interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def schedule(
@@ -715,7 +867,7 @@ class DlmLifecyclePolicyPolicyDetails:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DlmLifecyclePolicyPolicyDetailsSchedule"]]]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#schedule DlmLifecyclePolicy#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DlmLifecyclePolicyPolicyDetailsSchedule"]]], result)
@@ -724,7 +876,7 @@ class DlmLifecyclePolicyPolicyDetails:
     def target_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_tags DlmLifecyclePolicy#target_tags}.'''
         result = self._values.get("target_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -753,8 +905,8 @@ class DlmLifecyclePolicyPolicyDetailsAction:
         name: builtins.str,
     ) -> None:
         '''
-        :param cross_region_copy: cross_region_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
+        :param cross_region_copy: cross_region_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26890b6671d92d7545572f5b301e0d1969c65150415651162857a73ae3e275d0)
@@ -771,7 +923,7 @@ class DlmLifecyclePolicyPolicyDetailsAction:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopy"]]:
         '''cross_region_copy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
         '''
         result = self._values.get("cross_region_copy")
         assert result is not None, "Required property 'cross_region_copy' is missing"
@@ -779,7 +931,7 @@ class DlmLifecyclePolicyPolicyDetailsAction:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -814,9 +966,9 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopy:
         retain_rule: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encryption_configuration DlmLifecyclePolicy#encryption_configuration}
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.
-        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encryption_configuration DlmLifecyclePolicy#encryption_configuration}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.
+        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
         '''
         if isinstance(encryption_configuration, dict):
             encryption_configuration = DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguration(**encryption_configuration)
@@ -840,7 +992,7 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopy:
     ) -> "DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguration":
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encryption_configuration DlmLifecyclePolicy#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encryption_configuration DlmLifecyclePolicy#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         assert result is not None, "Required property 'encryption_configuration' is missing"
@@ -848,7 +1000,7 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopy:
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
@@ -859,7 +1011,7 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopy:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule"]:
         '''retain_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
         '''
         result = self._values.get("retain_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule"], result)
@@ -889,8 +1041,8 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguratio
         encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
+        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b7bf1f3bd21089904639984d3d181b0b20299ddb51dbd2da3599ff99768d49f)
@@ -904,7 +1056,7 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguratio
 
     @builtins.property
     def cmk_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.'''
         result = self._values.get("cmk_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -912,7 +1064,7 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguratio
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1140,8 +1292,8 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyOutputReference(
         encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
+        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyEncryptionConfiguration(
             cmk_arn=cmk_arn, encrypted=encrypted
@@ -1157,8 +1309,8 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyOutputReference(
         interval_unit: builtins.str,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule(
             interval=interval, interval_unit=interval_unit
@@ -1241,8 +1393,8 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyOutputReference(
 class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule:
     def __init__(self, *, interval: jsii.Number, interval_unit: builtins.str) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d60ced79f5e22dc19d5e35e55067572fcecb6397075f459098ab8d4a727c720)
@@ -1255,14 +1407,14 @@ class DlmLifecyclePolicyPolicyDetailsActionCrossRegionCopyRetainRule:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def interval_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         assert result is not None, "Required property 'interval_unit' is missing"
         return typing.cast(builtins.str, result)
@@ -1444,8 +1596,8 @@ class DlmLifecyclePolicyPolicyDetailsEventSource:
         type: builtins.str,
     ) -> None:
         '''
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.
         '''
         if isinstance(parameters, dict):
             parameters = DlmLifecyclePolicyPolicyDetailsEventSourceParameters(**parameters)
@@ -1462,7 +1614,7 @@ class DlmLifecyclePolicyPolicyDetailsEventSource:
     def parameters(self) -> "DlmLifecyclePolicyPolicyDetailsEventSourceParameters":
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
         '''
         result = self._values.get("parameters")
         assert result is not None, "Required property 'parameters' is missing"
@@ -1470,7 +1622,7 @@ class DlmLifecyclePolicyPolicyDetailsEventSource:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1516,9 +1668,9 @@ class DlmLifecyclePolicyPolicyDetailsEventSourceOutputReference(
         snapshot_owner: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param description_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.
-        :param snapshot_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.
+        :param description_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.
+        :param snapshot_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsEventSourceParameters(
             description_regex=description_regex,
@@ -1595,9 +1747,9 @@ class DlmLifecyclePolicyPolicyDetailsEventSourceParameters:
         snapshot_owner: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param description_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.
-        :param snapshot_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.
+        :param description_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.
+        :param snapshot_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b34c057aec859d97ae058fcf0b43befaf4b2d85f43298be44c69aeb6a67788e)
@@ -1612,21 +1764,21 @@ class DlmLifecyclePolicyPolicyDetailsEventSourceParameters:
 
     @builtins.property
     def description_regex(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#description_regex DlmLifecyclePolicy#description_regex}.'''
         result = self._values.get("description_regex")
         assert result is not None, "Required property 'description_regex' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#event_type DlmLifecyclePolicy#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def snapshot_owner(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#snapshot_owner DlmLifecyclePolicy#snapshot_owner}.'''
         result = self._values.get("snapshot_owner")
         assert result is not None, "Required property 'snapshot_owner' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1732,6 +1884,185 @@ class DlmLifecyclePolicyPolicyDetailsEventSourceParametersOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsExclusions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "exclude_boot_volumes": "excludeBootVolumes",
+        "exclude_tags": "excludeTags",
+        "exclude_volume_types": "excludeVolumeTypes",
+    },
+)
+class DlmLifecyclePolicyPolicyDetailsExclusions:
+    def __init__(
+        self,
+        *,
+        exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        exclude_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        exclude_volume_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param exclude_boot_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volumes DlmLifecyclePolicy#exclude_boot_volumes}.
+        :param exclude_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_tags DlmLifecyclePolicy#exclude_tags}.
+        :param exclude_volume_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_volume_types DlmLifecyclePolicy#exclude_volume_types}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6188c4d66ecb1310b7be3567ace24f9a3d4f15e0f1e0cd7745fac4d2c9a2b74f)
+            check_type(argname="argument exclude_boot_volumes", value=exclude_boot_volumes, expected_type=type_hints["exclude_boot_volumes"])
+            check_type(argname="argument exclude_tags", value=exclude_tags, expected_type=type_hints["exclude_tags"])
+            check_type(argname="argument exclude_volume_types", value=exclude_volume_types, expected_type=type_hints["exclude_volume_types"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if exclude_boot_volumes is not None:
+            self._values["exclude_boot_volumes"] = exclude_boot_volumes
+        if exclude_tags is not None:
+            self._values["exclude_tags"] = exclude_tags
+        if exclude_volume_types is not None:
+            self._values["exclude_volume_types"] = exclude_volume_types
+
+    @builtins.property
+    def exclude_boot_volumes(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volumes DlmLifecyclePolicy#exclude_boot_volumes}.'''
+        result = self._values.get("exclude_boot_volumes")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def exclude_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_tags DlmLifecyclePolicy#exclude_tags}.'''
+        result = self._values.get("exclude_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def exclude_volume_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_volume_types DlmLifecyclePolicy#exclude_volume_types}.'''
+        result = self._values.get("exclude_volume_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DlmLifecyclePolicyPolicyDetailsExclusions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DlmLifecyclePolicyPolicyDetailsExclusionsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsExclusionsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__230bcade77a41b989f5c9dfd19ef730d6b3c6623fb87bc5164f3da9bb13d54d9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetExcludeBootVolumes")
+    def reset_exclude_boot_volumes(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExcludeBootVolumes", []))
+
+    @jsii.member(jsii_name="resetExcludeTags")
+    def reset_exclude_tags(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExcludeTags", []))
+
+    @jsii.member(jsii_name="resetExcludeVolumeTypes")
+    def reset_exclude_volume_types(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExcludeVolumeTypes", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeBootVolumesInput")
+    def exclude_boot_volumes_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "excludeBootVolumesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeTagsInput")
+    def exclude_tags_input(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "excludeTagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeVolumeTypesInput")
+    def exclude_volume_types_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "excludeVolumeTypesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeBootVolumes")
+    def exclude_boot_volumes(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "excludeBootVolumes"))
+
+    @exclude_boot_volumes.setter
+    def exclude_boot_volumes(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5f5b471eb848b6d23628a7587ac03d96621747fa951f918b5d1fb043b0436f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeBootVolumes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeTags")
+    def exclude_tags(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "excludeTags"))
+
+    @exclude_tags.setter
+    def exclude_tags(self, value: typing.Mapping[builtins.str, builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad12df39b8795cdee3b5cd250cfe848a5307c8107019577f9c6aaa9867026647)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeVolumeTypes")
+    def exclude_volume_types(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "excludeVolumeTypes"))
+
+    @exclude_volume_types.setter
+    def exclude_volume_types(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f659c9c90f6b29823582b0150b3028a2fe141f172899a48d0f39ef1ae773287)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeVolumeTypes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57e5e7895019dd941c0ece77497b57945d552620f3db64776d279cb2fcc75067)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class DlmLifecyclePolicyPolicyDetailsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -1760,8 +2091,8 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param cross_region_copy: cross_region_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
+        :param cross_region_copy: cross_region_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cross_region_copy DlmLifecyclePolicy#cross_region_copy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsAction(
             cross_region_copy=cross_region_copy, name=name
@@ -1777,14 +2108,35 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         type: builtins.str,
     ) -> None:
         '''
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#parameters DlmLifecyclePolicy#parameters}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#type DlmLifecyclePolicy#type}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsEventSource(
             parameters=parameters, type=type
         )
 
         return typing.cast(None, jsii.invoke(self, "putEventSource", [value]))
+
+    @jsii.member(jsii_name="putExclusions")
+    def put_exclusions(
+        self,
+        *,
+        exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        exclude_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        exclude_volume_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param exclude_boot_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volumes DlmLifecyclePolicy#exclude_boot_volumes}.
+        :param exclude_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_tags DlmLifecyclePolicy#exclude_tags}.
+        :param exclude_volume_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_volume_types DlmLifecyclePolicy#exclude_volume_types}.
+        '''
+        value = DlmLifecyclePolicyPolicyDetailsExclusions(
+            exclude_boot_volumes=exclude_boot_volumes,
+            exclude_tags=exclude_tags,
+            exclude_volume_types=exclude_volume_types,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putExclusions", [value]))
 
     @jsii.member(jsii_name="putParameters")
     def put_parameters(
@@ -1794,8 +2146,8 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         no_reboot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param exclude_boot_volume: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.
-        :param no_reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.
+        :param exclude_boot_volume: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.
+        :param no_reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsParameters(
             exclude_boot_volume=exclude_boot_volume, no_reboot=no_reboot
@@ -1820,13 +2172,33 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
     def reset_action(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAction", []))
 
+    @jsii.member(jsii_name="resetCopyTags")
+    def reset_copy_tags(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCopyTags", []))
+
+    @jsii.member(jsii_name="resetCreateInterval")
+    def reset_create_interval(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCreateInterval", []))
+
     @jsii.member(jsii_name="resetEventSource")
     def reset_event_source(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEventSource", []))
 
+    @jsii.member(jsii_name="resetExclusions")
+    def reset_exclusions(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExclusions", []))
+
+    @jsii.member(jsii_name="resetExtendDeletion")
+    def reset_extend_deletion(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExtendDeletion", []))
+
     @jsii.member(jsii_name="resetParameters")
     def reset_parameters(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetParameters", []))
+
+    @jsii.member(jsii_name="resetPolicyLanguage")
+    def reset_policy_language(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPolicyLanguage", []))
 
     @jsii.member(jsii_name="resetPolicyType")
     def reset_policy_type(self) -> None:
@@ -1836,9 +2208,17 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
     def reset_resource_locations(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetResourceLocations", []))
 
+    @jsii.member(jsii_name="resetResourceType")
+    def reset_resource_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetResourceType", []))
+
     @jsii.member(jsii_name="resetResourceTypes")
     def reset_resource_types(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetResourceTypes", []))
+
+    @jsii.member(jsii_name="resetRetainInterval")
+    def reset_retain_interval(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRetainInterval", []))
 
     @jsii.member(jsii_name="resetSchedule")
     def reset_schedule(self) -> None:
@@ -1859,6 +2239,11 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         return typing.cast(DlmLifecyclePolicyPolicyDetailsEventSourceOutputReference, jsii.get(self, "eventSource"))
 
     @builtins.property
+    @jsii.member(jsii_name="exclusions")
+    def exclusions(self) -> DlmLifecyclePolicyPolicyDetailsExclusionsOutputReference:
+        return typing.cast(DlmLifecyclePolicyPolicyDetailsExclusionsOutputReference, jsii.get(self, "exclusions"))
+
+    @builtins.property
     @jsii.member(jsii_name="parameters")
     def parameters(self) -> "DlmLifecyclePolicyPolicyDetailsParametersOutputReference":
         return typing.cast("DlmLifecyclePolicyPolicyDetailsParametersOutputReference", jsii.get(self, "parameters"))
@@ -1874,6 +2259,18 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsAction], jsii.get(self, "actionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="copyTagsInput")
+    def copy_tags_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "copyTagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createIntervalInput")
+    def create_interval_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "createIntervalInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="eventSourceInput")
     def event_source_input(
         self,
@@ -1881,11 +2278,30 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsEventSource], jsii.get(self, "eventSourceInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="exclusionsInput")
+    def exclusions_input(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions], jsii.get(self, "exclusionsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="extendDeletionInput")
+    def extend_deletion_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "extendDeletionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="parametersInput")
     def parameters_input(
         self,
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsParameters"]:
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsParameters"], jsii.get(self, "parametersInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyLanguageInput")
+    def policy_language_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "policyLanguageInput"))
 
     @builtins.property
     @jsii.member(jsii_name="policyTypeInput")
@@ -1898,9 +2314,19 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceLocationsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourceTypeInput")
+    def resource_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceTypeInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="resourceTypesInput")
     def resource_types_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceTypesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="retainIntervalInput")
+    def retain_interval_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retainIntervalInput"))
 
     @builtins.property
     @jsii.member(jsii_name="scheduleInput")
@@ -1915,6 +2341,62 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "targetTagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="copyTags")
+    def copy_tags(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "copyTags"))
+
+    @copy_tags.setter
+    def copy_tags(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd7522efbdd96f1e589045221191d0f4555aec26c723c961541cead6d3fdb06f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "copyTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="createInterval")
+    def create_interval(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "createInterval"))
+
+    @create_interval.setter
+    def create_interval(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a05d6c5885e15a3c7a09df7edefb363eb00e24b12e0274d0975570653d4c031)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createInterval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="extendDeletion")
+    def extend_deletion(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "extendDeletion"))
+
+    @extend_deletion.setter
+    def extend_deletion(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4f6a0e869d858f2d87b9a54a004276bdd1cf6acfbe1f37cdadb8186d5b2dd50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extendDeletion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyLanguage")
+    def policy_language(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "policyLanguage"))
+
+    @policy_language.setter
+    def policy_language(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d57a37b003fe4cf9da0705b5dae2eee6630bd38d081adc89f0545e72d341da0b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyLanguage", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="policyType")
@@ -1941,6 +2423,18 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
         jsii.set(self, "resourceLocations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceType")
+    def resource_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "resourceType"))
+
+    @resource_type.setter
+    def resource_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8aa511b7b46db524f48795bccd1cd6e7e5f68cab79eca1559c95a17c9d2de331)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="resourceTypes")
     def resource_types(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "resourceTypes"))
@@ -1951,6 +2445,18 @@ class DlmLifecyclePolicyPolicyDetailsOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__aeca2438878be6f2620d641f54e1fb82d4ac8e168e42adc3a194da951ae2d5a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTypes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retainInterval")
+    def retain_interval(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "retainInterval"))
+
+    @retain_interval.setter
+    def retain_interval(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__edba55eb00cf93373dcafa3d77cc963192a909fcb981f4db5c6726dccad93689)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retainInterval", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targetTags")
@@ -1993,8 +2499,8 @@ class DlmLifecyclePolicyPolicyDetailsParameters:
         no_reboot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param exclude_boot_volume: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.
-        :param no_reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.
+        :param exclude_boot_volume: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.
+        :param no_reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b38768870d44ac053c7f97df700cbfd05081b7c1077f1b9b8dbd7bf4bb5e6ea)
@@ -2010,7 +2516,7 @@ class DlmLifecyclePolicyPolicyDetailsParameters:
     def exclude_boot_volume(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#exclude_boot_volume DlmLifecyclePolicy#exclude_boot_volume}.'''
         result = self._values.get("exclude_boot_volume")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2018,7 +2524,7 @@ class DlmLifecyclePolicyPolicyDetailsParameters:
     def no_reboot(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#no_reboot DlmLifecyclePolicy#no_reboot}.'''
         result = self._values.get("no_reboot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2133,6 +2639,7 @@ class DlmLifecyclePolicyPolicyDetailsParametersOutputReference(
         "create_rule": "createRule",
         "name": "name",
         "retain_rule": "retainRule",
+        "archive_rule": "archiveRule",
         "copy_tags": "copyTags",
         "cross_region_copy_rule": "crossRegionCopyRule",
         "deprecate_rule": "deprecateRule",
@@ -2149,6 +2656,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
         create_rule: typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleCreateRule", typing.Dict[builtins.str, typing.Any]],
         name: builtins.str,
         retain_rule: typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleRetainRule", typing.Dict[builtins.str, typing.Any]],
+        archive_rule: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule", typing.Dict[builtins.str, typing.Any]]] = None,
         copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         cross_region_copy_rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
         deprecate_rule: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2158,21 +2666,24 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
         variable_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param create_rule: create_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#create_rule DlmLifecyclePolicy#create_rule}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
-        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
-        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
-        :param cross_region_copy_rule: cross_region_copy_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cross_region_copy_rule DlmLifecyclePolicy#cross_region_copy_rule}
-        :param deprecate_rule: deprecate_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
-        :param fast_restore_rule: fast_restore_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#fast_restore_rule DlmLifecyclePolicy#fast_restore_rule}
-        :param share_rule: share_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#share_rule DlmLifecyclePolicy#share_rule}
-        :param tags_to_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags_to_add DlmLifecyclePolicy#tags_to_add}.
-        :param variable_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#variable_tags DlmLifecyclePolicy#variable_tags}.
+        :param create_rule: create_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#create_rule DlmLifecyclePolicy#create_rule}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.
+        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        :param archive_rule: archive_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#archive_rule DlmLifecyclePolicy#archive_rule}
+        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
+        :param cross_region_copy_rule: cross_region_copy_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cross_region_copy_rule DlmLifecyclePolicy#cross_region_copy_rule}
+        :param deprecate_rule: deprecate_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
+        :param fast_restore_rule: fast_restore_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#fast_restore_rule DlmLifecyclePolicy#fast_restore_rule}
+        :param share_rule: share_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#share_rule DlmLifecyclePolicy#share_rule}
+        :param tags_to_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags_to_add DlmLifecyclePolicy#tags_to_add}.
+        :param variable_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#variable_tags DlmLifecyclePolicy#variable_tags}.
         '''
         if isinstance(create_rule, dict):
             create_rule = DlmLifecyclePolicyPolicyDetailsScheduleCreateRule(**create_rule)
         if isinstance(retain_rule, dict):
             retain_rule = DlmLifecyclePolicyPolicyDetailsScheduleRetainRule(**retain_rule)
+        if isinstance(archive_rule, dict):
+            archive_rule = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule(**archive_rule)
         if isinstance(deprecate_rule, dict):
             deprecate_rule = DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule(**deprecate_rule)
         if isinstance(fast_restore_rule, dict):
@@ -2184,6 +2695,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
             check_type(argname="argument create_rule", value=create_rule, expected_type=type_hints["create_rule"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument retain_rule", value=retain_rule, expected_type=type_hints["retain_rule"])
+            check_type(argname="argument archive_rule", value=archive_rule, expected_type=type_hints["archive_rule"])
             check_type(argname="argument copy_tags", value=copy_tags, expected_type=type_hints["copy_tags"])
             check_type(argname="argument cross_region_copy_rule", value=cross_region_copy_rule, expected_type=type_hints["cross_region_copy_rule"])
             check_type(argname="argument deprecate_rule", value=deprecate_rule, expected_type=type_hints["deprecate_rule"])
@@ -2196,6 +2708,8 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
             "name": name,
             "retain_rule": retain_rule,
         }
+        if archive_rule is not None:
+            self._values["archive_rule"] = archive_rule
         if copy_tags is not None:
             self._values["copy_tags"] = copy_tags
         if cross_region_copy_rule is not None:
@@ -2215,7 +2729,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     def create_rule(self) -> "DlmLifecyclePolicyPolicyDetailsScheduleCreateRule":
         '''create_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#create_rule DlmLifecyclePolicy#create_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#create_rule DlmLifecyclePolicy#create_rule}
         '''
         result = self._values.get("create_rule")
         assert result is not None, "Required property 'create_rule' is missing"
@@ -2223,7 +2737,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#name DlmLifecyclePolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2232,17 +2746,28 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     def retain_rule(self) -> "DlmLifecyclePolicyPolicyDetailsScheduleRetainRule":
         '''retain_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
         '''
         result = self._values.get("retain_rule")
         assert result is not None, "Required property 'retain_rule' is missing"
         return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleRetainRule", result)
 
     @builtins.property
+    def archive_rule(
+        self,
+    ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule"]:
+        '''archive_rule block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#archive_rule DlmLifecyclePolicy#archive_rule}
+        '''
+        result = self._values.get("archive_rule")
+        return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule"], result)
+
+    @builtins.property
     def copy_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.'''
         result = self._values.get("copy_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2252,7 +2777,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule"]]]:
         '''cross_region_copy_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cross_region_copy_rule DlmLifecyclePolicy#cross_region_copy_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cross_region_copy_rule DlmLifecyclePolicy#cross_region_copy_rule}
         '''
         result = self._values.get("cross_region_copy_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule"]]], result)
@@ -2263,7 +2788,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule"]:
         '''deprecate_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
         '''
         result = self._values.get("deprecate_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule"], result)
@@ -2274,7 +2799,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleFastRestoreRule"]:
         '''fast_restore_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#fast_restore_rule DlmLifecyclePolicy#fast_restore_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#fast_restore_rule DlmLifecyclePolicy#fast_restore_rule}
         '''
         result = self._values.get("fast_restore_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleFastRestoreRule"], result)
@@ -2285,7 +2810,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleShareRule"]:
         '''share_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#share_rule DlmLifecyclePolicy#share_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#share_rule DlmLifecyclePolicy#share_rule}
         '''
         result = self._values.get("share_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleShareRule"], result)
@@ -2294,7 +2819,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     def tags_to_add(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#tags_to_add DlmLifecyclePolicy#tags_to_add}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#tags_to_add DlmLifecyclePolicy#tags_to_add}.'''
         result = self._values.get("tags_to_add")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2302,7 +2827,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
     def variable_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#variable_tags DlmLifecyclePolicy#variable_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#variable_tags DlmLifecyclePolicy#variable_tags}.'''
         result = self._values.get("variable_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2319,6 +2844,404 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule",
+    jsii_struct_bases=[],
+    name_mapping={"archive_retain_rule": "archiveRetainRule"},
+)
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule:
+    def __init__(
+        self,
+        *,
+        archive_retain_rule: typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param archive_retain_rule: archive_retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#archive_retain_rule DlmLifecyclePolicy#archive_retain_rule}
+        '''
+        if isinstance(archive_retain_rule, dict):
+            archive_retain_rule = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule(**archive_retain_rule)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57f24cbff243e7d7b082a095c14f7a02d27465ed4871d7068ab32f86520bdc75)
+            check_type(argname="argument archive_retain_rule", value=archive_retain_rule, expected_type=type_hints["archive_retain_rule"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "archive_retain_rule": archive_retain_rule,
+        }
+
+    @builtins.property
+    def archive_retain_rule(
+        self,
+    ) -> "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule":
+        '''archive_retain_rule block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#archive_retain_rule DlmLifecyclePolicy#archive_retain_rule}
+        '''
+        result = self._values.get("archive_retain_rule")
+        assert result is not None, "Required property 'archive_retain_rule' is missing"
+        return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule",
+    jsii_struct_bases=[],
+    name_mapping={"retention_archive_tier": "retentionArchiveTier"},
+)
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule:
+    def __init__(
+        self,
+        *,
+        retention_archive_tier: typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param retention_archive_tier: retention_archive_tier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retention_archive_tier DlmLifecyclePolicy#retention_archive_tier}
+        '''
+        if isinstance(retention_archive_tier, dict):
+            retention_archive_tier = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier(**retention_archive_tier)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b837c9324b04e029e4cfda0be85001922816a6d1d7d5c613fa531f22d37343a9)
+            check_type(argname="argument retention_archive_tier", value=retention_archive_tier, expected_type=type_hints["retention_archive_tier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "retention_archive_tier": retention_archive_tier,
+        }
+
+    @builtins.property
+    def retention_archive_tier(
+        self,
+    ) -> "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier":
+        '''retention_archive_tier block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retention_archive_tier DlmLifecyclePolicy#retention_archive_tier}
+        '''
+        result = self._values.get("retention_archive_tier")
+        assert result is not None, "Required property 'retention_archive_tier' is missing"
+        return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32cbf2bfedcb40e9af12f900b69eef7c5c763b3830e7315d382c1f1b65a4eba9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putRetentionArchiveTier")
+    def put_retention_archive_tier(
+        self,
+        *,
+        count: typing.Optional[jsii.Number] = None,
+        interval: typing.Optional[jsii.Number] = None,
+        interval_unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        '''
+        value = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier(
+            count=count, interval=interval, interval_unit=interval_unit
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putRetentionArchiveTier", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionArchiveTier")
+    def retention_archive_tier(
+        self,
+    ) -> "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTierOutputReference":
+        return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTierOutputReference", jsii.get(self, "retentionArchiveTier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionArchiveTierInput")
+    def retention_archive_tier_input(
+        self,
+    ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier"]:
+        return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier"], jsii.get(self, "retentionArchiveTierInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18ab78402ba8b41c3231debc9252faa2819b2cb724b36f9494acef48ed36dae4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier",
+    jsii_struct_bases=[],
+    name_mapping={
+        "count": "count",
+        "interval": "interval",
+        "interval_unit": "intervalUnit",
+    },
+)
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier:
+    def __init__(
+        self,
+        *,
+        count: typing.Optional[jsii.Number] = None,
+        interval: typing.Optional[jsii.Number] = None,
+        interval_unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__920f250c863be29c548545898b0014ad4aead27a33c72585866bf6e33c31b69f)
+            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+            check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if count is not None:
+            self._values["count"] = count
+        if interval is not None:
+            self._values["interval"] = interval
+        if interval_unit is not None:
+            self._values["interval_unit"] = interval_unit
+
+    @builtins.property
+    def count(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
+        result = self._values.get("count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def interval(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        result = self._values.get("interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def interval_unit(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        result = self._values.get("interval_unit")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTierOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTierOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33545afb6262d5b464b73579371e981d085ca27f84dd744d16955de130fd9cce)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetCount")
+    def reset_count(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCount", []))
+
+    @jsii.member(jsii_name="resetInterval")
+    def reset_interval(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInterval", []))
+
+    @jsii.member(jsii_name="resetIntervalUnit")
+    def reset_interval_unit(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIntervalUnit", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="countInput")
+    def count_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "countInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="intervalInput")
+    def interval_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "intervalInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="intervalUnitInput")
+    def interval_unit_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "intervalUnitInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="count")
+    def count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "count"))
+
+    @count.setter
+    def count(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa54e20516757dee23a5cfa25b18667c0382e92c299720cc5be71894849d6c99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "count", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="interval")
+    def interval(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "interval"))
+
+    @interval.setter
+    def interval(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64274b9cca7b9696d1e10afa9b82d632558fe7d97b12736f03836d250b94e7f9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "interval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="intervalUnit")
+    def interval_unit(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "intervalUnit"))
+
+    @interval_unit.setter
+    def interval_unit(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4858ef838e55aea3f8c9c20ae192cbd141beea5a02f11d473db6af9bd77c0ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "intervalUnit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d00774205dfb61276a3525af657ec752f950a594aed16ec97f0ba86fff199016)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed8e46da36a9c64fe6dfdfa3ed9833982177da33a31dbd9ab3cc4ed441e8f75a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putArchiveRetainRule")
+    def put_archive_retain_rule(
+        self,
+        *,
+        retention_archive_tier: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier, typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param retention_archive_tier: retention_archive_tier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retention_archive_tier DlmLifecyclePolicy#retention_archive_tier}
+        '''
+        value = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule(
+            retention_archive_tier=retention_archive_tier
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putArchiveRetainRule", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRetainRule")
+    def archive_retain_rule(
+        self,
+    ) -> DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleOutputReference:
+        return typing.cast(DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleOutputReference, jsii.get(self, "archiveRetainRule"))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRetainRuleInput")
+    def archive_retain_rule_input(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule], jsii.get(self, "archiveRetainRuleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5e6119de975dfe0e1555a2f7b315b8a651c6dc6ee7e535be40b47d38bf8691d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleCreateRule",
     jsii_struct_bases=[],
     name_mapping={
@@ -2326,6 +3249,7 @@ class DlmLifecyclePolicyPolicyDetailsSchedule:
         "interval": "interval",
         "interval_unit": "intervalUnit",
         "location": "location",
+        "scripts": "scripts",
         "times": "times",
     },
 )
@@ -2337,21 +3261,26 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRule:
         interval: typing.Optional[jsii.Number] = None,
         interval_unit: typing.Optional[builtins.str] = None,
         location: typing.Optional[builtins.str] = None,
+        scripts: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts", typing.Dict[builtins.str, typing.Any]]] = None,
         times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.
-        :param times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.
+        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.
+        :param scripts: scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#scripts DlmLifecyclePolicy#scripts}
+        :param times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.
         '''
+        if isinstance(scripts, dict):
+            scripts = DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts(**scripts)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6c77d5cb3d264940bf656d1f240c79411aad70a46c630bcd8a94dbbb68c5d13)
             check_type(argname="argument cron_expression", value=cron_expression, expected_type=type_hints["cron_expression"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument times", value=times, expected_type=type_hints["times"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if cron_expression is not None:
@@ -2362,36 +3291,49 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRule:
             self._values["interval_unit"] = interval_unit
         if location is not None:
             self._values["location"] = location
+        if scripts is not None:
+            self._values["scripts"] = scripts
         if times is not None:
             self._values["times"] = times
 
     @builtins.property
     def cron_expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.'''
         result = self._values.get("cron_expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def scripts(
+        self,
+    ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts"]:
+        '''scripts block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#scripts DlmLifecyclePolicy#scripts}
+        '''
+        result = self._values.get("scripts")
+        return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts"], result)
+
+    @builtins.property
     def times(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.'''
         result = self._values.get("times")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2427,6 +3369,36 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putScripts")
+    def put_scripts(
+        self,
+        *,
+        execution_handler: builtins.str,
+        execute_operation_on_script_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        execution_handler_service: typing.Optional[builtins.str] = None,
+        execution_timeout: typing.Optional[jsii.Number] = None,
+        maximum_retry_count: typing.Optional[jsii.Number] = None,
+        stages: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param execution_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler DlmLifecyclePolicy#execution_handler}.
+        :param execute_operation_on_script_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execute_operation_on_script_failure DlmLifecyclePolicy#execute_operation_on_script_failure}.
+        :param execution_handler_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler_service DlmLifecyclePolicy#execution_handler_service}.
+        :param execution_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_timeout DlmLifecyclePolicy#execution_timeout}.
+        :param maximum_retry_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#maximum_retry_count DlmLifecyclePolicy#maximum_retry_count}.
+        :param stages: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#stages DlmLifecyclePolicy#stages}.
+        '''
+        value = DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts(
+            execution_handler=execution_handler,
+            execute_operation_on_script_failure=execute_operation_on_script_failure,
+            execution_handler_service=execution_handler_service,
+            execution_timeout=execution_timeout,
+            maximum_retry_count=maximum_retry_count,
+            stages=stages,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putScripts", [value]))
+
     @jsii.member(jsii_name="resetCronExpression")
     def reset_cron_expression(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetCronExpression", []))
@@ -2443,9 +3415,20 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleOutputReference(
     def reset_location(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLocation", []))
 
+    @jsii.member(jsii_name="resetScripts")
+    def reset_scripts(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetScripts", []))
+
     @jsii.member(jsii_name="resetTimes")
     def reset_times(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimes", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="scripts")
+    def scripts(
+        self,
+    ) -> "DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScriptsOutputReference":
+        return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScriptsOutputReference", jsii.get(self, "scripts"))
 
     @builtins.property
     @jsii.member(jsii_name="cronExpressionInput")
@@ -2466,6 +3449,13 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleOutputReference(
     @jsii.member(jsii_name="locationInput")
     def location_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scriptsInput")
+    def scripts_input(
+        self,
+    ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts"]:
+        return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts"], jsii.get(self, "scriptsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="timesInput")
@@ -2551,15 +3541,287 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_handler": "executionHandler",
+        "execute_operation_on_script_failure": "executeOperationOnScriptFailure",
+        "execution_handler_service": "executionHandlerService",
+        "execution_timeout": "executionTimeout",
+        "maximum_retry_count": "maximumRetryCount",
+        "stages": "stages",
+    },
+)
+class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts:
+    def __init__(
+        self,
+        *,
+        execution_handler: builtins.str,
+        execute_operation_on_script_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        execution_handler_service: typing.Optional[builtins.str] = None,
+        execution_timeout: typing.Optional[jsii.Number] = None,
+        maximum_retry_count: typing.Optional[jsii.Number] = None,
+        stages: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param execution_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler DlmLifecyclePolicy#execution_handler}.
+        :param execute_operation_on_script_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execute_operation_on_script_failure DlmLifecyclePolicy#execute_operation_on_script_failure}.
+        :param execution_handler_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler_service DlmLifecyclePolicy#execution_handler_service}.
+        :param execution_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_timeout DlmLifecyclePolicy#execution_timeout}.
+        :param maximum_retry_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#maximum_retry_count DlmLifecyclePolicy#maximum_retry_count}.
+        :param stages: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#stages DlmLifecyclePolicy#stages}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be160b3b90a1b9818c261381285218586b218aa0fd48271161defa2dd04a62ac)
+            check_type(argname="argument execution_handler", value=execution_handler, expected_type=type_hints["execution_handler"])
+            check_type(argname="argument execute_operation_on_script_failure", value=execute_operation_on_script_failure, expected_type=type_hints["execute_operation_on_script_failure"])
+            check_type(argname="argument execution_handler_service", value=execution_handler_service, expected_type=type_hints["execution_handler_service"])
+            check_type(argname="argument execution_timeout", value=execution_timeout, expected_type=type_hints["execution_timeout"])
+            check_type(argname="argument maximum_retry_count", value=maximum_retry_count, expected_type=type_hints["maximum_retry_count"])
+            check_type(argname="argument stages", value=stages, expected_type=type_hints["stages"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_handler": execution_handler,
+        }
+        if execute_operation_on_script_failure is not None:
+            self._values["execute_operation_on_script_failure"] = execute_operation_on_script_failure
+        if execution_handler_service is not None:
+            self._values["execution_handler_service"] = execution_handler_service
+        if execution_timeout is not None:
+            self._values["execution_timeout"] = execution_timeout
+        if maximum_retry_count is not None:
+            self._values["maximum_retry_count"] = maximum_retry_count
+        if stages is not None:
+            self._values["stages"] = stages
+
+    @builtins.property
+    def execution_handler(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler DlmLifecyclePolicy#execution_handler}.'''
+        result = self._values.get("execution_handler")
+        assert result is not None, "Required property 'execution_handler' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execute_operation_on_script_failure(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execute_operation_on_script_failure DlmLifecyclePolicy#execute_operation_on_script_failure}.'''
+        result = self._values.get("execute_operation_on_script_failure")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def execution_handler_service(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_handler_service DlmLifecyclePolicy#execution_handler_service}.'''
+        result = self._values.get("execution_handler_service")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_timeout(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#execution_timeout DlmLifecyclePolicy#execution_timeout}.'''
+        result = self._values.get("execution_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def maximum_retry_count(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#maximum_retry_count DlmLifecyclePolicy#maximum_retry_count}.'''
+        result = self._values.get("maximum_retry_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def stages(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#stages DlmLifecyclePolicy#stages}.'''
+        result = self._values.get("stages")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScriptsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScriptsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60f513ba34bf1ce0d9a5390e660df293a249bf1efa44af499ed12b74546c78bd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetExecuteOperationOnScriptFailure")
+    def reset_execute_operation_on_script_failure(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExecuteOperationOnScriptFailure", []))
+
+    @jsii.member(jsii_name="resetExecutionHandlerService")
+    def reset_execution_handler_service(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExecutionHandlerService", []))
+
+    @jsii.member(jsii_name="resetExecutionTimeout")
+    def reset_execution_timeout(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExecutionTimeout", []))
+
+    @jsii.member(jsii_name="resetMaximumRetryCount")
+    def reset_maximum_retry_count(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaximumRetryCount", []))
+
+    @jsii.member(jsii_name="resetStages")
+    def reset_stages(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetStages", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="executeOperationOnScriptFailureInput")
+    def execute_operation_on_script_failure_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "executeOperationOnScriptFailureInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionHandlerInput")
+    def execution_handler_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionHandlerInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionHandlerServiceInput")
+    def execution_handler_service_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionHandlerServiceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionTimeoutInput")
+    def execution_timeout_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "executionTimeoutInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumRetryCountInput")
+    def maximum_retry_count_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumRetryCountInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stagesInput")
+    def stages_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "stagesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executeOperationOnScriptFailure")
+    def execute_operation_on_script_failure(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "executeOperationOnScriptFailure"))
+
+    @execute_operation_on_script_failure.setter
+    def execute_operation_on_script_failure(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae528c62bb4306839eacc3ecfdbb7c89fd71e8c88358e907372341551f6becf8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executeOperationOnScriptFailure", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionHandler")
+    def execution_handler(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "executionHandler"))
+
+    @execution_handler.setter
+    def execution_handler(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad36fc50a8acd42e1f78b0006796e0e9b55624a281b681a3e90fba8191e18ee8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionHandler", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionHandlerService")
+    def execution_handler_service(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "executionHandlerService"))
+
+    @execution_handler_service.setter
+    def execution_handler_service(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bef9a785904a86de44ded125359c204ba078545878fd5d9959d67512f96fbb20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionHandlerService", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionTimeout")
+    def execution_timeout(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "executionTimeout"))
+
+    @execution_timeout.setter
+    def execution_timeout(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cab3cf9dc33cc38d6d71ee6356bb018ba331b41eb565720b269820057be809ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionTimeout", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumRetryCount")
+    def maximum_retry_count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maximumRetryCount"))
+
+    @maximum_retry_count.setter
+    def maximum_retry_count(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec2f40e31db58e9d9ed5cb5689be063033f1a746f80625e63dd34fdfd810b9af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumRetryCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stages")
+    def stages(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "stages"))
+
+    @stages.setter
+    def stages(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d8b3de6999b06624c87820e4ca9a9c1194a682d85562d6f9885fbbef01eba50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stages", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1411213ae5ac0f54dcd3abb9df0b8fbc879aea7d675c10747a49dfd9c73f2f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.dlmLifecyclePolicy.DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule",
     jsii_struct_bases=[],
     name_mapping={
         "encrypted": "encrypted",
-        "target": "target",
         "cmk_arn": "cmkArn",
         "copy_tags": "copyTags",
         "deprecate_rule": "deprecateRule",
         "retain_rule": "retainRule",
+        "target": "target",
+        "target_region": "targetRegion",
     },
 )
 class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
@@ -2567,19 +3829,21 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
         self,
         *,
         encrypted: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-        target: builtins.str,
         cmk_arn: typing.Optional[builtins.str] = None,
         copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         deprecate_rule: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule", typing.Dict[builtins.str, typing.Any]]] = None,
         retain_rule: typing.Optional[typing.Union["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule", typing.Dict[builtins.str, typing.Any]]] = None,
+        target: typing.Optional[builtins.str] = None,
+        target_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.
-        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
-        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
-        :param deprecate_rule: deprecate_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
-        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.
+        :param cmk_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.
+        :param copy_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.
+        :param deprecate_rule: deprecate_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
+        :param retain_rule: retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.
+        :param target_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_region DlmLifecyclePolicy#target_region}.
         '''
         if isinstance(deprecate_rule, dict):
             deprecate_rule = DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule(**deprecate_rule)
@@ -2588,14 +3852,14 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e2862e2fe9889b8004d4ac4a41843c4082162ab35a06ed075943b670747ed12)
             check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument cmk_arn", value=cmk_arn, expected_type=type_hints["cmk_arn"])
             check_type(argname="argument copy_tags", value=copy_tags, expected_type=type_hints["copy_tags"])
             check_type(argname="argument deprecate_rule", value=deprecate_rule, expected_type=type_hints["deprecate_rule"])
             check_type(argname="argument retain_rule", value=retain_rule, expected_type=type_hints["retain_rule"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument target_region", value=target_region, expected_type=type_hints["target_region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "encrypted": encrypted,
-            "target": target,
         }
         if cmk_arn is not None:
             self._values["cmk_arn"] = cmk_arn
@@ -2605,24 +3869,21 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
             self._values["deprecate_rule"] = deprecate_rule
         if retain_rule is not None:
             self._values["retain_rule"] = retain_rule
+        if target is not None:
+            self._values["target"] = target
+        if target_region is not None:
+            self._values["target_region"] = target_region
 
     @builtins.property
     def encrypted(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#encrypted DlmLifecyclePolicy#encrypted}.'''
         result = self._values.get("encrypted")
         assert result is not None, "Required property 'encrypted' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
-    def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.'''
-        result = self._values.get("target")
-        assert result is not None, "Required property 'target' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def cmk_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cmk_arn DlmLifecyclePolicy#cmk_arn}.'''
         result = self._values.get("cmk_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2630,7 +3891,7 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
     def copy_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#copy_tags DlmLifecyclePolicy#copy_tags}.'''
         result = self._values.get("copy_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2640,7 +3901,7 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule"]:
         '''deprecate_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#deprecate_rule DlmLifecyclePolicy#deprecate_rule}
         '''
         result = self._values.get("deprecate_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule"], result)
@@ -2651,10 +3912,22 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
     ) -> typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule"]:
         '''retain_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#retain_rule DlmLifecyclePolicy#retain_rule}
         '''
         result = self._values.get("retain_rule")
         return typing.cast(typing.Optional["DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule"], result)
+
+    @builtins.property
+    def target(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target DlmLifecyclePolicy#target}.'''
+        result = self._values.get("target")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_region(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_region DlmLifecyclePolicy#target_region}.'''
+        result = self._values.get("target_region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2676,8 +3949,8 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule:
 class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule:
     def __init__(self, *, interval: jsii.Number, interval_unit: builtins.str) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__045732adf3e07d8ff890172ebe09a0501d6890984ca8087227c0d598dfb9bfc9)
@@ -2690,14 +3963,14 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def interval_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         assert result is not None, "Required property 'interval_unit' is missing"
         return typing.cast(builtins.str, result)
@@ -2913,8 +4186,8 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
         interval_unit: builtins.str,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule(
             interval=interval, interval_unit=interval_unit
@@ -2930,8 +4203,8 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
         interval_unit: builtins.str,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule(
             interval=interval, interval_unit=interval_unit
@@ -2954,6 +4227,14 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
     @jsii.member(jsii_name="resetRetainRule")
     def reset_retain_rule(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRetainRule", []))
+
+    @jsii.member(jsii_name="resetTarget")
+    def reset_target(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTarget", []))
+
+    @jsii.member(jsii_name="resetTargetRegion")
+    def reset_target_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTargetRegion", []))
 
     @builtins.property
     @jsii.member(jsii_name="deprecateRule")
@@ -3006,6 +4287,11 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
     @jsii.member(jsii_name="targetInput")
     def target_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="targetRegionInput")
+    def target_region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetRegionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="cmkArn")
@@ -3062,6 +4348,18 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
         jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="targetRegion")
+    def target_region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "targetRegion"))
+
+    @target_region.setter
+    def target_region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c16a2e012c26c692a388091898995399bbaafd0c6bc71dd7d16bb93284360fbe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
@@ -3087,8 +4385,8 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleOutputReference(
 class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule:
     def __init__(self, *, interval: jsii.Number, interval_unit: builtins.str) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b147090f2f5eca7d6cf20b1a8effaf05174d2d40008a04242a277707d2a5c3bd)
@@ -3101,14 +4399,14 @@ class DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def interval_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         assert result is not None, "Required property 'interval_unit' is missing"
         return typing.cast(builtins.str, result)
@@ -3215,9 +4513,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule:
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c85aabba8090b710237f91635ce85109ade2ada20b796663cafe29e8f6244e60)
@@ -3234,19 +4532,19 @@ class DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule:
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3383,10 +4681,10 @@ class DlmLifecyclePolicyPolicyDetailsScheduleFastRestoreRule:
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e8987489509f9b881bc6e17c03af53022403d7d318fd1eb21e721bc37435ca3)
@@ -3406,26 +4704,26 @@ class DlmLifecyclePolicyPolicyDetailsScheduleFastRestoreRule:
 
     @builtins.property
     def availability_zones(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.'''
         result = self._values.get("availability_zones")
         assert result is not None, "Required property 'availability_zones' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3678,6 +4976,21 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="putArchiveRule")
+    def put_archive_rule(
+        self,
+        *,
+        archive_retain_rule: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule, typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param archive_retain_rule: archive_retain_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#archive_retain_rule DlmLifecyclePolicy#archive_retain_rule}
+        '''
+        value = DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule(
+            archive_retain_rule=archive_retain_rule
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putArchiveRule", [value]))
+
     @jsii.member(jsii_name="putCreateRule")
     def put_create_rule(
         self,
@@ -3686,20 +4999,23 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         interval: typing.Optional[jsii.Number] = None,
         interval_unit: typing.Optional[builtins.str] = None,
         location: typing.Optional[builtins.str] = None,
+        scripts: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts, typing.Dict[builtins.str, typing.Any]]] = None,
         times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.
-        :param times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.
+        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#cron_expression DlmLifecyclePolicy#cron_expression}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#location DlmLifecyclePolicy#location}.
+        :param scripts: scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#scripts DlmLifecyclePolicy#scripts}
+        :param times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#times DlmLifecyclePolicy#times}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleCreateRule(
             cron_expression=cron_expression,
             interval=interval,
             interval_unit=interval_unit,
             location=location,
+            scripts=scripts,
             times=times,
         )
 
@@ -3727,9 +5043,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule(
             count=count, interval=interval, interval_unit=interval_unit
@@ -3747,10 +5063,10 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#availability_zones DlmLifecyclePolicy#availability_zones}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleFastRestoreRule(
             availability_zones=availability_zones,
@@ -3770,9 +5086,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleRetainRule(
             count=count, interval=interval, interval_unit=interval_unit
@@ -3789,9 +5105,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         unshare_interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.
-        :param unshare_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.
-        :param unshare_interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.
+        :param target_accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.
+        :param unshare_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.
+        :param unshare_interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.
         '''
         value = DlmLifecyclePolicyPolicyDetailsScheduleShareRule(
             target_accounts=target_accounts,
@@ -3800,6 +5116,10 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         )
 
         return typing.cast(None, jsii.invoke(self, "putShareRule", [value]))
+
+    @jsii.member(jsii_name="resetArchiveRule")
+    def reset_archive_rule(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetArchiveRule", []))
 
     @jsii.member(jsii_name="resetCopyTags")
     def reset_copy_tags(self) -> None:
@@ -3828,6 +5148,13 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
     @jsii.member(jsii_name="resetVariableTags")
     def reset_variable_tags(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetVariableTags", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRule")
+    def archive_rule(
+        self,
+    ) -> DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleOutputReference:
+        return typing.cast(DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleOutputReference, jsii.get(self, "archiveRule"))
 
     @builtins.property
     @jsii.member(jsii_name="createRule")
@@ -3870,6 +5197,13 @@ class DlmLifecyclePolicyPolicyDetailsScheduleOutputReference(
         self,
     ) -> "DlmLifecyclePolicyPolicyDetailsScheduleShareRuleOutputReference":
         return typing.cast("DlmLifecyclePolicyPolicyDetailsScheduleShareRuleOutputReference", jsii.get(self, "shareRule"))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRuleInput")
+    def archive_rule_input(
+        self,
+    ) -> typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule]:
+        return typing.cast(typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule], jsii.get(self, "archiveRuleInput"))
 
     @builtins.property
     @jsii.member(jsii_name="copyTagsInput")
@@ -4026,9 +5360,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleRetainRule:
         interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
-        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.
+        :param interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23bb58b1099de4d20b36167b8518b6312a5dd3d905413b00b6f0afd581501cf6)
@@ -4045,19 +5379,19 @@ class DlmLifecyclePolicyPolicyDetailsScheduleRetainRule:
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#count DlmLifecyclePolicy#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval DlmLifecyclePolicy#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#interval_unit DlmLifecyclePolicy#interval_unit}.'''
         result = self._values.get("interval_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4192,9 +5526,9 @@ class DlmLifecyclePolicyPolicyDetailsScheduleShareRule:
         unshare_interval_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.
-        :param unshare_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.
-        :param unshare_interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.
+        :param target_accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.
+        :param unshare_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.
+        :param unshare_interval_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f5e97ddaa87974f7e53c47f77e9bdad0f392ce052257539b013b6dc77a8d146)
@@ -4211,20 +5545,20 @@ class DlmLifecyclePolicyPolicyDetailsScheduleShareRule:
 
     @builtins.property
     def target_accounts(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#target_accounts DlmLifecyclePolicy#target_accounts}.'''
         result = self._values.get("target_accounts")
         assert result is not None, "Required property 'target_accounts' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def unshare_interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval DlmLifecyclePolicy#unshare_interval}.'''
         result = self._values.get("unshare_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unshare_interval_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dlm_lifecycle_policy#unshare_interval_unit DlmLifecyclePolicy#unshare_interval_unit}.'''
         result = self._values.get("unshare_interval_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4354,12 +5688,22 @@ __all__ = [
     "DlmLifecyclePolicyPolicyDetailsEventSourceOutputReference",
     "DlmLifecyclePolicyPolicyDetailsEventSourceParameters",
     "DlmLifecyclePolicyPolicyDetailsEventSourceParametersOutputReference",
+    "DlmLifecyclePolicyPolicyDetailsExclusions",
+    "DlmLifecyclePolicyPolicyDetailsExclusionsOutputReference",
     "DlmLifecyclePolicyPolicyDetailsOutputReference",
     "DlmLifecyclePolicyPolicyDetailsParameters",
     "DlmLifecyclePolicyPolicyDetailsParametersOutputReference",
     "DlmLifecyclePolicyPolicyDetailsSchedule",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleOutputReference",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTierOutputReference",
+    "DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleOutputReference",
     "DlmLifecyclePolicyPolicyDetailsScheduleCreateRule",
     "DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleOutputReference",
+    "DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts",
+    "DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScriptsOutputReference",
     "DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule",
     "DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule",
     "DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRuleOutputReference",
@@ -4388,6 +5732,7 @@ def _typecheckingstub__7fbe156837bcecb09c52e230c31e44e5177ca8a14e81e40acf163c4c7
     description: builtins.str,
     execution_role_arn: builtins.str,
     policy_details: typing.Union[DlmLifecyclePolicyPolicyDetails, typing.Dict[builtins.str, typing.Any]],
+    default_policy: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
@@ -4409,6 +5754,12 @@ def _typecheckingstub__b3ddbfcdc4c93323295b5cbc301f0a29527d1c58cece393f95c8c1d3f
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de24a90124610e3e0c2a0aaa3aa601f62c715198ebac8f45498c39dc2d3f112a(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4467,6 +5818,7 @@ def _typecheckingstub__3dda0c7b3666c9c69624b0c7130cc0fa2ababc41631b0cbf85be40de7
     description: builtins.str,
     execution_role_arn: builtins.str,
     policy_details: typing.Union[DlmLifecyclePolicyPolicyDetails, typing.Dict[builtins.str, typing.Any]],
+    default_policy: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
@@ -4479,11 +5831,18 @@ def _typecheckingstub__3dda0c7b3666c9c69624b0c7130cc0fa2ababc41631b0cbf85be40de7
 def _typecheckingstub__c98f504d834e3e13eac910a982cc05b656c2435ccbc1970b89affef5bce57932(
     *,
     action: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsAction, typing.Dict[builtins.str, typing.Any]]] = None,
+    copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    create_interval: typing.Optional[jsii.Number] = None,
     event_source: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsEventSource, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclusions: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsExclusions, typing.Dict[builtins.str, typing.Any]]] = None,
+    extend_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     parameters: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsParameters, typing.Dict[builtins.str, typing.Any]]] = None,
+    policy_language: typing.Optional[builtins.str] = None,
     policy_type: typing.Optional[builtins.str] = None,
     resource_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_type: typing.Optional[builtins.str] = None,
     resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    retain_interval: typing.Optional[jsii.Number] = None,
     schedule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DlmLifecyclePolicyPolicyDetailsSchedule, typing.Dict[builtins.str, typing.Any]]]]] = None,
     target_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -4724,6 +6083,46 @@ def _typecheckingstub__96e3467b8e0ea7f7d6cbd3442c309f3fea7838854a23ca5b718ef52c0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6188c4d66ecb1310b7be3567ace24f9a3d4f15e0f1e0cd7745fac4d2c9a2b74f(
+    *,
+    exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    exclude_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    exclude_volume_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__230bcade77a41b989f5c9dfd19ef730d6b3c6623fb87bc5164f3da9bb13d54d9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5f5b471eb848b6d23628a7587ac03d96621747fa951f918b5d1fb043b0436f4(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad12df39b8795cdee3b5cd250cfe848a5307c8107019577f9c6aaa9867026647(
+    value: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f659c9c90f6b29823582b0150b3028a2fe141f172899a48d0f39ef1ae773287(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57e5e7895019dd941c0ece77497b57945d552620f3db64776d279cb2fcc75067(
+    value: typing.Optional[DlmLifecyclePolicyPolicyDetailsExclusions],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c847fc5dd9ba2a22a44e7efcb3dcd18b34992c503746b199957f505608d2140d(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -4733,6 +6132,30 @@ def _typecheckingstub__c847fc5dd9ba2a22a44e7efcb3dcd18b34992c503746b199957f50560
 
 def _typecheckingstub__7af32f46a0a0640385c6a433dd75fdca1bb9c4fce9f3da41b6845036bcf639bc(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DlmLifecyclePolicyPolicyDetailsSchedule, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd7522efbdd96f1e589045221191d0f4555aec26c723c961541cead6d3fdb06f(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a05d6c5885e15a3c7a09df7edefb363eb00e24b12e0274d0975570653d4c031(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4f6a0e869d858f2d87b9a54a004276bdd1cf6acfbe1f37cdadb8186d5b2dd50(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d57a37b003fe4cf9da0705b5dae2eee6630bd38d081adc89f0545e72d341da0b(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4749,8 +6172,20 @@ def _typecheckingstub__30a371da97eec332d4846ff5eb0b3aa412bb41c5ead25980d285fe7f6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8aa511b7b46db524f48795bccd1cd6e7e5f68cab79eca1559c95a17c9d2de331(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__aeca2438878be6f2620d641f54e1fb82d4ac8e168e42adc3a194da951ae2d5a6(
     value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__edba55eb00cf93373dcafa3d77cc963192a909fcb981f4db5c6726dccad93689(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4805,6 +6240,7 @@ def _typecheckingstub__6c2a8090c5d82e4e0885339a185710eaa19cdcecd03b0f8bba8af6c96
     create_rule: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCreateRule, typing.Dict[builtins.str, typing.Any]],
     name: builtins.str,
     retain_rule: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleRetainRule, typing.Dict[builtins.str, typing.Any]],
+    archive_rule: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule, typing.Dict[builtins.str, typing.Any]]] = None,
     copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     cross_region_copy_rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRule, typing.Dict[builtins.str, typing.Any]]]]] = None,
     deprecate_rule: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleDeprecateRule, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4816,12 +6252,93 @@ def _typecheckingstub__6c2a8090c5d82e4e0885339a185710eaa19cdcecd03b0f8bba8af6c96
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__57f24cbff243e7d7b082a095c14f7a02d27465ed4871d7068ab32f86520bdc75(
+    *,
+    archive_retain_rule: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule, typing.Dict[builtins.str, typing.Any]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b837c9324b04e029e4cfda0be85001922816a6d1d7d5c613fa531f22d37343a9(
+    *,
+    retention_archive_tier: typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier, typing.Dict[builtins.str, typing.Any]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32cbf2bfedcb40e9af12f900b69eef7c5c763b3830e7315d382c1f1b65a4eba9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18ab78402ba8b41c3231debc9252faa2819b2cb724b36f9494acef48ed36dae4(
+    value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRule],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__920f250c863be29c548545898b0014ad4aead27a33c72585866bf6e33c31b69f(
+    *,
+    count: typing.Optional[jsii.Number] = None,
+    interval: typing.Optional[jsii.Number] = None,
+    interval_unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33545afb6262d5b464b73579371e981d085ca27f84dd744d16955de130fd9cce(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa54e20516757dee23a5cfa25b18667c0382e92c299720cc5be71894849d6c99(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64274b9cca7b9696d1e10afa9b82d632558fe7d97b12736f03836d250b94e7f9(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4858ef838e55aea3f8c9c20ae192cbd141beea5a02f11d473db6af9bd77c0ce(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d00774205dfb61276a3525af657ec752f950a594aed16ec97f0ba86fff199016(
+    value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRuleArchiveRetainRuleRetentionArchiveTier],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed8e46da36a9c64fe6dfdfa3ed9833982177da33a31dbd9ab3cc4ed441e8f75a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5e6119de975dfe0e1555a2f7b315b8a651c6dc6ee7e535be40b47d38bf8691d(
+    value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleArchiveRule],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f6c77d5cb3d264940bf656d1f240c79411aad70a46c630bcd8a94dbbb68c5d13(
     *,
     cron_expression: typing.Optional[builtins.str] = None,
     interval: typing.Optional[jsii.Number] = None,
     interval_unit: typing.Optional[builtins.str] = None,
     location: typing.Optional[builtins.str] = None,
+    scripts: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts, typing.Dict[builtins.str, typing.Any]]] = None,
     times: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4870,14 +6387,76 @@ def _typecheckingstub__a70a019a87b668f6b73b9547fd6fbed5c5176e2d00f3ddab8fa1640e7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be160b3b90a1b9818c261381285218586b218aa0fd48271161defa2dd04a62ac(
+    *,
+    execution_handler: builtins.str,
+    execute_operation_on_script_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    execution_handler_service: typing.Optional[builtins.str] = None,
+    execution_timeout: typing.Optional[jsii.Number] = None,
+    maximum_retry_count: typing.Optional[jsii.Number] = None,
+    stages: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60f513ba34bf1ce0d9a5390e660df293a249bf1efa44af499ed12b74546c78bd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae528c62bb4306839eacc3ecfdbb7c89fd71e8c88358e907372341551f6becf8(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad36fc50a8acd42e1f78b0006796e0e9b55624a281b681a3e90fba8191e18ee8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bef9a785904a86de44ded125359c204ba078545878fd5d9959d67512f96fbb20(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cab3cf9dc33cc38d6d71ee6356bb018ba331b41eb565720b269820057be809ad(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec2f40e31db58e9d9ed5cb5689be063033f1a746f80625e63dd34fdfd810b9af(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d8b3de6999b06624c87820e4ca9a9c1194a682d85562d6f9885fbbef01eba50(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1411213ae5ac0f54dcd3abb9df0b8fbc879aea7d675c10747a49dfd9c73f2f4(
+    value: typing.Optional[DlmLifecyclePolicyPolicyDetailsScheduleCreateRuleScripts],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1e2862e2fe9889b8004d4ac4a41843c4082162ab35a06ed075943b670747ed12(
     *,
     encrypted: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    target: builtins.str,
     cmk_arn: typing.Optional[builtins.str] = None,
     copy_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     deprecate_rule: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleDeprecateRule, typing.Dict[builtins.str, typing.Any]]] = None,
     retain_rule: typing.Optional[typing.Union[DlmLifecyclePolicyPolicyDetailsScheduleCrossRegionCopyRuleRetainRule, typing.Dict[builtins.str, typing.Any]]] = None,
+    target: typing.Optional[builtins.str] = None,
+    target_region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4981,6 +6560,12 @@ def _typecheckingstub__b7ee1550815b5b0a997cc7ba6c81ebb72643391c293bef3fcbe5edc28
     pass
 
 def _typecheckingstub__faae971fced1d095e8ce70e119507a4b5d32ed6f21d988607a1ff40533c79e90(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c16a2e012c26c692a388091898995399bbaafd0c6bc71dd7d16bb93284360fbe(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""

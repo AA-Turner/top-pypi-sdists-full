@@ -4,6 +4,7 @@ from ._interactor import _Interactor
 
 DATA_FABRIC_URI_PATH = "/suite/rest/a/applications/latest/app/process-hq"
 DATA_FABRIC_DASHBOARD_URI_PATH = "/suite/rest/a/applications/latest/app/process-hq/dashboard/"
+DATA_FABRIC_REPORT_URI_PATH = "/suite/rest/a/applications/latest/app/process-hq/report/"
 
 
 class _DataFabric:
@@ -23,6 +24,15 @@ class _DataFabric:
         headers['X-Client-Mode'] = 'DESIGN'
         label = locust_request_label or "DataFabricDashboard.Ui"
         response = self.interactor.get_page(f"{DATA_FABRIC_DASHBOARD_URI_PATH}{encoded_uri_stub}", headers=headers,
+                                            label=label)
+        response.raise_for_status()
+        return response.json()
+
+    def fetch_data_fabric_report_json(self, encoded_uri_stub: str = "new", locust_request_label: Optional[str] = None) -> Dict[str, Any]:
+        headers = self.interactor.setup_sail_headers()
+        headers['X-Client-Mode'] = 'DESIGN'
+        label = locust_request_label or "DataFabricReport.Ui"
+        response = self.interactor.get_page(f"{DATA_FABRIC_REPORT_URI_PATH}{encoded_uri_stub}", headers=headers,
                                             label=label)
         response.raise_for_status()
         return response.json()

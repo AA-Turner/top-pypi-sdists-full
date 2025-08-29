@@ -1,11 +1,11 @@
-from ...testgres.operations.os_ops import OsOperations
-from ...testgres.operations.os_ops import ConnectionParams
-from ...testgres.operations.local_ops import LocalOperations
-from ...testgres.operations.remote_ops import RemoteOperations
+from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import ConnectionParams
+from testgres.operations.local_ops import LocalOperations
+from testgres.operations.remote_ops import RemoteOperations
 
-from ...testgres.node import PortManager
-from ...testgres.node import PortManager__ThisHost
-from ...testgres.node import PortManager__Generic
+from testgres.node import PortManager
+from testgres.node import PortManager__ThisHost
+from testgres.node import PortManager__Generic
 
 import os
 
@@ -31,7 +31,7 @@ class OsOpsDescrs:
 
     sm_remote_os_ops_descr = OsOpsDescr("remote_ops", sm_remote_os_ops)
 
-    sm_local_os_ops = LocalOperations()
+    sm_local_os_ops = LocalOperations.get_single_instance()
 
     sm_local_os_ops_descr = OsOpsDescr("local_ops", sm_local_os_ops)
 
@@ -39,7 +39,7 @@ class OsOpsDescrs:
 class PortManagers:
     sm_remote_port_manager = PortManager__Generic(OsOpsDescrs.sm_remote_os_ops)
 
-    sm_local_port_manager = PortManager__ThisHost()
+    sm_local_port_manager = PortManager__ThisHost.get_single_instance()
 
     sm_local2_port_manager = PortManager__Generic(OsOpsDescrs.sm_local_os_ops)
 

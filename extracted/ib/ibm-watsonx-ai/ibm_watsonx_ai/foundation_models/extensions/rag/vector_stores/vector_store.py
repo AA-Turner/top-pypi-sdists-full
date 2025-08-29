@@ -23,6 +23,7 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vec
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
     VectorStoreConnector,
     VectorStoreDataSourceType,
+    _convert_str_to_vs_datasource_type_enum,
 )
 from ibm_watsonx_ai.wml_client_error import VectorStoreSerializationError
 
@@ -148,7 +149,11 @@ class VectorStore(BaseVectorStore):
         self._connection_id = connection_id
         self._embeddings = embeddings
         self._index_name = index_name
-        self._datasource_type = datasource_type
+        self._datasource_type = (
+            _convert_str_to_vs_datasource_type_enum(datasource_type)
+            if datasource_type is not None
+            else None
+        )
         self._distance_metric = distance_metric
         self._vector_store: BaseVectorStore
         self._index_properties = kwargs
@@ -162,7 +167,7 @@ class VectorStore(BaseVectorStore):
                     self._connection_id
                 )
                 logger.info(
-                    f"Initializing vector store of type: {self._datasource_type}"
+                    "Initializing vector store of type: %s", self._datasource_type
                 )
                 properties = {
                     **connection_properties,

@@ -59,7 +59,8 @@ impl SqliteBookmarkRepository {
     /// Create a new SQLite repository with the provided database URL
     #[instrument(skip_all, level = "debug")]
     pub fn from_url(database_url: &str) -> SqliteResult<Self> {
-        let pool = super::connection::init_pool(database_url)?;
+        let pool = super::connection::init_pool(database_url)
+            .map_err(|e| e.context("initializing database connection pool"))?;
         Ok(Self { pool })
     }
 
@@ -69,6 +70,7 @@ impl SqliteBookmarkRepository {
         self.pool
             .get()
             .map_err(|e| SqliteRepositoryError::ConnectionPoolError(e.to_string()))
+            .map_err(|e| e.context("getting database connection from pool"))
     }
 
     /// Cleans the table by deleting all bookmarks except ID 1
@@ -79,7 +81,8 @@ impl SqliteBookmarkRepository {
         // sql_query("DELETE FROM bookmarks WHERE id != 1;")
         sql_query("DELETE FROM bookmarks;")
             .execute(&mut conn)
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| e.context("executing table cleanup query"))?;
 
         debug!("Cleaned table.");
         Ok(())
@@ -152,17 +155,23 @@ impl SqliteBookmarkRepository {
 impl BookmarkRepository for SqliteBookmarkRepository {
     #[instrument(skip_all, level = "debug")]
     fn get_by_id(&self, id: i32) -> Result<Option<Bookmark>, DomainError> {
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for bookmark lookup"))?;
 
         let result = dsl::bookmarks
             .filter(dsl::id.eq(id))
             .first::<DbBookmark>(&mut conn)
             .optional()
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context(format!("querying bookmark by ID {}", id)))?;
 
         match result {
             Some(db_bookmark) => {
-                let bookmark = self.to_domain_model(db_bookmark)?;
+                let bookmark = self.to_domain_model(db_bookmark)
+                    .map_err(|e| DomainError::RepositoryError(e.into()))
+                    .map_err(|e| e.context(format!("converting database model to domain model for bookmark ID {}", id)))?;
                 Ok(Some(bookmark))
             }
             None => Ok(None),
@@ -171,7 +180,9 @@ impl BookmarkRepository for SqliteBookmarkRepository {
 
     #[instrument(skip_all, level = "debug")]
     fn get_by_url(&self, url: &str) -> Result<Option<Bookmark>, DomainError> {
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for URL lookup"))?;
 
         // Escape special characters in URL for SQLite query
         let escaped_url = url.replace('\'', "''");
@@ -180,11 +191,15 @@ impl BookmarkRepository for SqliteBookmarkRepository {
             .filter(dsl::URL.eq(escaped_url))
             .first::<DbBookmark>(&mut conn)
             .optional()
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context(format!("querying bookmark by URL: {}", url)))?;
 
         match result {
             Some(db_bookmark) => {
-                let bookmark = self.to_domain_model(db_bookmark)?;
+                let bookmark = self.to_domain_model(db_bookmark)
+                    .map_err(|e| DomainError::RepositoryError(e.into()))
+                    .map_err(|e| e.context(format!("converting database model to domain model for URL: {}", url)))?;
                 Ok(Some(bookmark))
             }
             None => Ok(None),
@@ -193,23 +208,30 @@ impl BookmarkRepository for SqliteBookmarkRepository {
 
     #[instrument(skip_all, level = "debug")]
     fn search(&self, query: &BookmarkQuery) -> Result<Vec<Bookmark>, DomainError> {
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for bookmark search"))?;
 
         // First, handle text query with FTS if present
         let bookmark_ids = if let Some(text_query) = &query.text_query {
             if !text_query.is_empty() {
                 // Use FTS to get matching bookmark IDs
                 debug!("Using FTS search for query: {}", text_query);
-                self.get_bookmarks_fts(text_query)?
+                self.get_bookmarks_fts(text_query)
+                    .map_err(|e| e.context(format!("performing FTS search for query: {}", text_query)))?
             } else {
                 // Empty text query, get all IDs
                 debug!("Empty text query, retrieving all bookmark IDs");
-                self.get_all_bookmark_ids(&mut conn)?
+                self.get_all_bookmark_ids(&mut conn)
+                    .map_err(|e| DomainError::RepositoryError(e.into()))
+                    .map_err(|e| e.context("retrieving all bookmark IDs for empty text query"))?
             }
         } else {
             // No text query, get all IDs
             debug!("No text query, retrieving all bookmark IDs");
-            self.get_all_bookmark_ids(&mut conn)?
+            self.get_all_bookmark_ids(&mut conn)
+                .map_err(|e| DomainError::RepositoryError(e.into()))
+                .map_err(|e| e.context("retrieving all bookmark IDs for no text query"))?
         };
 
         // If we have no IDs after FTS, return empty result quickly
@@ -219,7 +241,8 @@ impl BookmarkRepository for SqliteBookmarkRepository {
         }
 
         // Fetch the complete bookmark objects for the matching IDs
-        let bookmarks = self.get_bookmarks_by_ids(&bookmark_ids)?;
+        let bookmarks = self.get_bookmarks_by_ids(&bookmark_ids)
+            .map_err(|e| e.context("fetching complete bookmark objects by IDs"))?;
 
         // Apply all other filters from the query
         let filtered_bookmarks = query.apply_non_text_filters(&bookmarks);
@@ -239,7 +262,8 @@ impl BookmarkRepository for SqliteBookmarkRepository {
         let ids = dsl::bookmarks
             .select(dsl::id)
             .load::<i32>(conn)
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| e.context("loading all bookmark IDs from database"))?;
 
         Ok(ids)
     }
@@ -250,12 +274,16 @@ impl BookmarkRepository for SqliteBookmarkRepository {
             return Ok(Vec::new());
         }
 
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for bulk bookmark retrieval"))?;
 
         let db_bookmarks = dsl::bookmarks
             .filter(dsl::id.eq_any(ids))
             .load::<DbBookmark>(&mut conn)
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context(format!("querying bookmarks by IDs: {:?}", ids)))?;
 
         let bookmarks = db_bookmarks
             .into_iter()
@@ -273,11 +301,15 @@ impl BookmarkRepository for SqliteBookmarkRepository {
 
     #[instrument(skip_all, level = "debug")]
     fn get_all(&self) -> Result<Vec<Bookmark>, DomainError> {
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for retrieving all bookmarks"))?;
 
         let db_bookmarks = dsl::bookmarks
             .load::<DbBookmark>(&mut conn)
-            .map_err(SqliteRepositoryError::DatabaseError)?;
+            .map_err(SqliteRepositoryError::DatabaseError)
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("loading all bookmarks from database"))?;
 
         let mut bookmarks = Vec::new();
         for db_bookmark in db_bookmarks {
@@ -292,7 +324,9 @@ impl BookmarkRepository for SqliteBookmarkRepository {
 
     #[instrument(skip_all, level = "debug")]
     fn add(&self, bookmark: &mut Bookmark) -> Result<(), DomainError> {
-        let mut conn = self.get_connection()?;
+        let mut conn = self.get_connection()
+            .map_err(|e| DomainError::RepositoryError(e.into()))
+            .map_err(|e| e.context("getting database connection for adding bookmark"))?;
 
         // Begin transaction
         conn.transaction::<_, diesel::result::Error, _>(|conn| {
@@ -696,7 +730,6 @@ impl BookmarkRepository for SqliteBookmarkRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_state::AppState;
     use crate::domain::repositories::query::TextSearchSpecification;
     use crate::util::testing::{init_test_env, setup_test_db};
     use std::collections::HashSet;
@@ -711,13 +744,12 @@ mod tests {
             .map(Tag::new)
             .collect::<Result<HashSet<_>, _>>()?;
 
-        let app_state = AppState::read_global();
-        let embedder = &*app_state.context.embedder;
-        Bookmark::new(url, title, "Test description", tag_set, embedder)
+        let embedder = crate::infrastructure::embeddings::DummyEmbedding;
+        Bookmark::new(url, title, "Test description", tag_set, &embedder)
     }
 
     #[test]
-    fn test_add_and_get_by_id() -> Result<(), DomainError> {
+    fn given_new_bookmark_when_add_and_get_by_id_then_retrieves_successfully() -> Result<(), DomainError> {
         let repo = setup_test_db();
 
         let mut bookmark = create_test_bookmark(
@@ -749,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_by_url() -> Result<(), DomainError> {
+    fn given_bookmark_with_url_when_get_by_url_then_finds_bookmark() -> Result<(), DomainError> {
         let repo = setup_test_db();
 
         // Create and add a bookmark
@@ -774,7 +806,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update() -> Result<(), DomainError> {
+    fn given_existing_bookmark_when_update_then_changes_persist() -> Result<(), DomainError> {
         let repo = setup_test_db();
 
         // Create and add a bookmark
@@ -811,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_and_reindex() -> Result<(), DomainError> {
+    fn given_existing_bookmark_when_delete_then_removes_and_reindexes() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -854,7 +886,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search() -> Result<(), DomainError> {
+    fn given_search_query_when_search_then_returns_matching_bookmarks() -> Result<(), DomainError> {
         let repo = setup_test_db();
 
         // Add test bookmarks
@@ -897,7 +929,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_all_tags() -> Result<(), DomainError> {
+    fn given_bookmarks_with_tags_when_get_all_tags_then_returns_unique_tags() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -935,7 +967,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_related_tags() -> Result<(), DomainError> {
+    fn given_tag_query_when_get_related_tags_then_returns_cooccurring_tags() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -973,7 +1005,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_random() -> Result<(), DomainError> {
+    fn given_bookmarks_exist_when_get_random_then_returns_random_selection() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1003,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_without_embeddings() -> Result<(), DomainError> {
+    fn given_bookmarks_without_embeddings_when_get_then_returns_filtered_list() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1027,7 +1059,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exists_by_url() -> Result<(), DomainError> {
+    fn given_url_when_exists_by_url_then_returns_existence_status() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1086,7 +1118,7 @@ mod tests {
     // }
 
     #[test]
-    fn test_get_by_invalid_id() -> Result<(), DomainError> {
+    fn given_invalid_id_when_get_by_id_then_returns_none() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1100,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_all_tags_as_vector() -> Result<(), DomainError> {
+    fn given_tagged_bookmarks_when_get_all_tags_as_vector_then_returns_sorted_tags() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1143,7 +1175,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_schema_migrations_exists() -> Result<(), DomainError> {
+    fn given_database_when_check_schema_migrations_then_verifies_existence() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1180,7 +1212,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_embedding_column_exists() -> Result<(), DomainError> {
+    fn given_database_when_check_embedding_column_then_verifies_existence() -> Result<(), DomainError> {
         let repo = setup_test_db();
         repo.empty_bookmark_table()?;
 
@@ -1208,7 +1240,7 @@ mod tests {
     }
 
     #[test]
-    fn test_setup_test_db() {
+    fn given_test_environment_when_setup_test_db_then_creates_database() {
         let _ = init_test_env();
         let repo = setup_test_db();
         assert!(repo.get_connection().is_ok());
@@ -1216,7 +1248,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_all_bookmark_ids() -> Result<(), DomainError> {
+    fn given_bookmarks_exist_when_get_all_ids_then_returns_id_list() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
         let mut conn = repo.get_connection()?;
@@ -1239,7 +1271,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bookmarks_by_ids_with_valid_ids() -> Result<(), DomainError> {
+    fn given_valid_ids_when_get_bookmarks_by_ids_then_returns_bookmarks() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
         let mut conn = repo.get_connection()?;
@@ -1262,7 +1294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bookmarks_by_ids_with_empty_ids() -> Result<(), DomainError> {
+    fn given_empty_id_list_when_get_bookmarks_by_ids_then_returns_empty() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
         let empty_ids: Vec<i32> = Vec::new();
@@ -1280,7 +1312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bookmarks_by_ids_with_nonexistent_ids() -> Result<(), DomainError> {
+    fn given_nonexistent_ids_when_get_bookmarks_by_ids_then_returns_empty() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
         let nonexistent_ids = vec![99999, 99998, 99997]; // IDs that shouldn't exist
@@ -1298,7 +1330,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bookmarks_by_ids_with_mixed_ids() -> Result<(), DomainError> {
+    fn given_mixed_valid_invalid_ids_when_get_bookmarks_then_returns_valid_only() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
         let mut conn = repo.get_connection()?;
@@ -1336,7 +1368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_text_query_only() -> Result<(), DomainError> {
+    fn given_text_query_only_when_search_then_returns_matching_results() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 
@@ -1367,7 +1399,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_empty_text_query() -> Result<(), DomainError> {
+    fn given_empty_text_query_when_search_then_returns_all_results() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 
@@ -1395,7 +1427,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_no_text_query() -> Result<(), DomainError> {
+    fn given_no_text_query_when_search_then_returns_all_results() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 
@@ -1423,7 +1455,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_text_and_tag_filters() -> Result<(), DomainError> {
+    fn given_text_and_tag_filters_when_search_then_returns_filtered_results() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 
@@ -1462,7 +1494,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_nonmatching_text_query() -> Result<(), DomainError> {
+    fn given_nonmatching_text_query_when_search_then_returns_empty() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 
@@ -1483,7 +1515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_with_mixed_filters() -> Result<(), DomainError> {
+    fn given_mixed_filters_when_search_then_applies_all_criteria() -> Result<(), DomainError> {
         // Arrange
         let repo = setup_test_db();
 

@@ -7,6 +7,7 @@ from ..extensions import Enums
 
 class FileUpdateUploadStatus(Enums.KnownString):
     SUCCEEDED = "SUCCEEDED"
+    FAILED_VALIDATION = "FAILED_VALIDATION"
 
     def __str__(self) -> str:
         return str(self.value)

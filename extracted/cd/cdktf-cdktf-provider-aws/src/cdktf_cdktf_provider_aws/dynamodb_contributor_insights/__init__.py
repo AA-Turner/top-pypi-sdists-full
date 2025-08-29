@@ -1,7 +1,7 @@
 r'''
 # `aws_dynamodb_contributor_insights`
 
-Refer to the Terraform Registry for docs: [`aws_dynamodb_contributor_insights`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights).
+Refer to the Terraform Registry for docs: [`aws_dynamodb_contributor_insights`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DynamodbContributorInsights(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dynamodbContributorInsights.DynamodbContributorInsights",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights aws_dynamodb_contributor_insights}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights aws_dynamodb_contributor_insights}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DynamodbContributorInsights(
         table_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         index_name: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DynamodbContributorInsightsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -64,15 +65,16 @@ class DynamodbContributorInsights(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights aws_dynamodb_contributor_insights} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights aws_dynamodb_contributor_insights} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#mode DynamodbContributorInsights#mode}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -89,6 +91,7 @@ class DynamodbContributorInsights(
             table_name=table_name,
             id=id,
             index_name=index_name,
+            mode=mode,
             region=region,
             timeouts=timeouts,
             connection=connection,
@@ -115,7 +118,7 @@ class DynamodbContributorInsights(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DynamodbContributorInsights to import.
-        :param import_from_id: The id of the existing DynamodbContributorInsights that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DynamodbContributorInsights that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DynamodbContributorInsights to import is found.
         '''
         if __debug__:
@@ -134,8 +137,8 @@ class DynamodbContributorInsights(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.
         '''
         value = DynamodbContributorInsightsTimeouts(create=create, delete=delete)
 
@@ -148,6 +151,10 @@ class DynamodbContributorInsights(
     @jsii.member(jsii_name="resetIndexName")
     def reset_index_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIndexName", []))
+
+    @jsii.member(jsii_name="resetMode")
+    def reset_mode(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMode", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -184,6 +191,11 @@ class DynamodbContributorInsights(
     @jsii.member(jsii_name="indexNameInput")
     def index_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "indexNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modeInput")
+    def mode_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="regionInput")
@@ -227,6 +239,18 @@ class DynamodbContributorInsights(
         jsii.set(self, "indexName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+    @mode.setter
+    def mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2353827a729db79b1909b0a8083e8caa8cd04cc9492caf3b5a95fc19020a0c63)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "region"))
@@ -265,6 +289,7 @@ class DynamodbContributorInsights(
         "table_name": "tableName",
         "id": "id",
         "index_name": "indexName",
+        "mode": "mode",
         "region": "region",
         "timeouts": "timeouts",
     },
@@ -283,6 +308,7 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         table_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         index_name: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DynamodbContributorInsightsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -294,11 +320,12 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#mode DynamodbContributorInsights#mode}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -316,6 +343,7 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -339,6 +367,8 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if index_name is not None:
             self._values["index_name"] = index_name
+        if mode is not None:
+            self._values["mode"] = mode
         if region is not None:
             self._values["region"] = region
         if timeouts is not None:
@@ -410,14 +440,14 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#table_name DynamodbContributorInsights#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#id DynamodbContributorInsights#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -427,15 +457,21 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def index_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#index_name DynamodbContributorInsights#index_name}.'''
         result = self._values.get("index_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#mode DynamodbContributorInsights#mode}.'''
+        result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#region DynamodbContributorInsights#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -444,7 +480,7 @@ class DynamodbContributorInsightsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DynamodbContributorInsightsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#timeouts DynamodbContributorInsights#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DynamodbContributorInsightsTimeouts"], result)
@@ -474,8 +510,8 @@ class DynamodbContributorInsightsTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__641f47cf6078ff1c65fcb75985e0d007dd55f8d8ad9b62ada009b31aac70501a)
@@ -489,13 +525,13 @@ class DynamodbContributorInsightsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#create DynamodbContributorInsights#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/dynamodb_contributor_insights#delete DynamodbContributorInsights#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -607,6 +643,7 @@ def _typecheckingstub__3e400fa53c5b2e926f998eb2ac9c75492eb8b578c7c60da06fd4ca566
     table_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     index_name: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DynamodbContributorInsightsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -641,6 +678,12 @@ def _typecheckingstub__750206c0de53ae80dbeb78ef9c306c3c5b35b14f1e4c12468e61a3b37
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2353827a729db79b1909b0a8083e8caa8cd04cc9492caf3b5a95fc19020a0c63(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c8be91211d9d2b7ed2ecde7349b4f43e39a647cc2f14324e4233cac908af69da(
     value: builtins.str,
 ) -> None:
@@ -665,6 +708,7 @@ def _typecheckingstub__a836d041aa6a17cc8a4747da93c44daaa9df436ef122d7fce4cd3d522
     table_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     index_name: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DynamodbContributorInsightsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

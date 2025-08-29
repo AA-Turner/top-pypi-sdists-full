@@ -217,6 +217,31 @@ MACRO(GET_MODULE_DEPENDENCIES pname module result)
     unset(pname_upper)
 ENDMACRO()
 
+FUNCTION(GET_MODULE_DEPENDENCIES_RECURSIVE pname module)
+    INCLUDE_MODULE_CONFIG("${pname}" "${module}" "${LEXBOR_SOURCE_LEXBOR}/${module}")
+    GET_MODULE_DEPENDENCIES("${pname}" "${module}" deps)
+
+    IF(deps)
+        string(REPLACE " " ";" deps ${deps})
+
+        FOREACH(dep ${deps})
+            set(TEMP_LIST ${RESULT})
+            list(FIND TEMP_LIST "${dep}" out_var)
+
+            IF(out_var EQUAL -1)
+                list(APPEND TEMP_LIST "${dep}")
+                set(RESULT "${TEMP_LIST}" PARENT_SCOPE)
+
+                set(RESULT "${TEMP_LIST}")
+
+                GET_MODULE_DEPENDENCIES_RECURSIVE("${pname}" "${dep}" result)
+
+                set(RESULT "${RESULT}" PARENT_SCOPE)
+            ENDIF()
+        ENDFOREACH()
+    ENDIF()
+ENDFUNCTION()
+
 MACRO(GET_MODULE_INCLUDED pname module result)
     string(TOUPPER ${module} module_upper)
     string(TOUPPER ${pname} pname_upper)
@@ -291,18 +316,31 @@ MACRO(GET_LEXBOR_VERSION major minor patch vstr)
     set(${vstr} "${AV}.${BV}.${CV}")
 ENDMACRO()
 
-MACRO(SET_MODULE_LIB_DEPENDENCIES libname deps postfix)
+function(SET_MODULE_LIB_DEPENDENCIES libname deps postfix)
     IF(NOT ${deps} EQUAL "")
         string(REGEX REPLACE " +" ";" dep_list ${deps})
 
         FOREACH(dep ${dep_list})
             set(dep_libname "${PROJECT_NAME}-${dep}${postfix}")
 
-            add_dependencies(${libname} "${dep_libname}")
-            target_link_libraries(${libname} "${dep_libname}")
+            list(FIND duplicates "${dep}" out_var)
+            IF(out_var EQUAL -1)
+                list(APPEND duplicates "${dep}")
+
+                GET_MODULE_DEPENDENCIES(${PROJECT_NAME} ${dep} module_deps)
+                SET_MODULE_LIB_DEPENDENCIES(${libname} "${module_deps}" "${postfix}")
+            ENDIF()
+
+            get_target_property(link_result ${libname} LINK_LIBRARIES)
+            list(FIND link_result "${dep_libname}" out_var)
+
+            IF(out_var EQUAL -1)
+                add_dependencies(${libname} "${dep_libname}")
+                target_link_libraries(${libname} "${dep_libname}")
+            ENDIF()
         ENDFOREACH()
     ENDIF()
-ENDMACRO()
+endfunction()
 
 MACRO(ADD_MODULE_LIBRARY type libname version_string major)
     target_link_libraries(${libname} ${CMAKE_THREAD_LIBS_INIT})
@@ -446,14 +484,13 @@ MACRO(MAKE_RPM_SPEC module libname out_result)
 
     GET_MODULE_VERSION(major minor patch version_string
                        "${LEXBOR_SOURCE}" "${PROJECT_NAME}" ${module})
-    GET_MODULE_DEPENDENCIES(${PROJECT_NAME} ${module} deps)
+    set(RESULT "")
+    GET_MODULE_DEPENDENCIES_RECURSIVE(${PROJECT_NAME} ${module})
+    set(deps "${RESULT}")
+    unset(RESULT)
 
     set(requires "")
     set(requires_devel "")
-
-    IF(NOT ${deps} STREQUAL "")
-        string(REPLACE " " ";" deps ${deps})
-    ENDIF()
 
     FOREACH(dep ${deps})
         IF(${dep} STREQUAL "")
@@ -577,7 +614,10 @@ MACRO(PACKAGE_DEB_CREATE_MAKEFILES)
 
         GET_MODULE_VERSION(major minor patch version_string
                            "${LEXBOR_SOURCE}" ${PROJECT_NAME} ${module})
-        GET_MODULE_DEPENDENCIES(${PROJECT_NAME} ${module} deps)
+        set(RESULT "")
+        GET_MODULE_DEPENDENCIES_RECURSIVE(${PROJECT_NAME} ${module})
+        set(deps "${RESULT}")
+        unset(RESULT)
 
         LIST(APPEND mkdeps "lib${libname}")
         LIST(APPEND deps_cp "source/${PROJECT_NAME}/${module}")
@@ -589,9 +629,7 @@ MACRO(PACKAGE_DEB_CREATE_MAKEFILES)
             LIST(APPEND deps_cp "${port_path}")
         ENDIF()
 
-        IF(NOT ${deps} STREQUAL "")
-            string(REPLACE " " ";" deps ${deps})
-
+        IF(deps)
             FOREACH(dep ${deps})
                 LIST(APPEND deps_cp "source/${PROJECT_NAME}/${dep}")
 

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from flax.core.spmd import logical_axis_rules as logical_axis_rules
 from flax.linen.pooling import avg_pool as avg_pool
 from flax.linen.pooling import max_pool as max_pool
 from flax.linen.pooling import min_pool as min_pool
@@ -52,6 +53,7 @@ from .graph import pop as pop
 from .graph import state as state
 from .graph import graphdef as graphdef
 from .graph import iter_graph as iter_graph
+from .graph import find_duplicates as find_duplicates
 from .graph import call as call
 from .graph import SplitContext as SplitContext
 from .graph import split_context as split_context
@@ -80,6 +82,7 @@ from .nn.activations import relu as relu
 from .nn.activations import relu6 as relu6
 from .nn.activations import selu as selu
 from .nn.activations import sigmoid as sigmoid
+from .nn.activations import identity as identity
 from .nn.activations import silu as silu
 from .nn.activations import soft_sign as soft_sign
 from .nn.activations import softmax as softmax
@@ -126,7 +129,7 @@ from .spmd import PARTITION_NAME as PARTITION_NAME
 from .spmd import get_partition_spec as get_partition_spec
 from .spmd import get_named_sharding as get_named_sharding
 from .spmd import with_partitioning as with_partitioning
-from .spmd import with_sharding_constraint as with_sharding_constraint
+from .spmd import get_abstract_model as get_abstract_model
 from .statelib import State as State
 from .statelib import to_flat_state as to_flat_state
 from .statelib import from_flat_state as from_flat_state
@@ -205,7 +208,4 @@ if not _tp.TYPE_CHECKING:
           DeprecationWarning,
           stacklevel=2,
       )
-    if name not in globals():
-      raise AttributeError(f"Module {__name__} has no attribute '{name}'")
-
-    return globals()[name]
+    raise AttributeError(f"Module {__name__} has no attribute '{name}'")

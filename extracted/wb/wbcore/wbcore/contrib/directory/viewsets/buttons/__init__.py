@@ -4,4 +4,4 @@ from .entries import (
     EntryModelButtonConfig,
     PersonModelButtonConfig,
 )
-from .relationships import EmployerEmployeeRelationshipButtonConfig
+from .relationships import EmployerEmployeeRelationshipButtonConfig, ClientManagerRelationshipButtonConfig

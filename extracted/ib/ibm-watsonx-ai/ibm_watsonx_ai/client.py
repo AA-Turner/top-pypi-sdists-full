@@ -17,6 +17,7 @@ import copy
 import json
 import logging
 import os
+from types import MappingProxyType
 from typing import Any, TypeAlias, cast
 from warnings import warn
 
@@ -61,16 +62,20 @@ from ibm_watsonx_ai.task_credentials import TaskCredentials
 from ibm_watsonx_ai.training import Training
 from ibm_watsonx_ai.trashed_assets import TrashedAssets
 from ibm_watsonx_ai.utils import CPDVersion, get_user_agent_header
-from ibm_watsonx_ai.utils.auth import get_auth_method
+from ibm_watsonx_ai.utils.auth import TokenAuth, TrustedProfileAuth, get_auth_method
 from ibm_watsonx_ai.utils.auth.base_auth import TokenRemovedDuringClientCopyPlaceholder
 from ibm_watsonx_ai.utils.utils import (
     DEFAULT_HTTP_CLIENT_CONFIG,
     HttpClientConfig,
     _APIClientSession,
     _create_href_definitions,
+    _validate_gov_cloud_env,
 )
 from ibm_watsonx_ai.volumes import Volume
-from ibm_watsonx_ai.wml_client_error import NoWMLCredentialsProvided, WMLClientError
+from ibm_watsonx_ai.wml_client_error import (
+    NoWMLCredentialsProvided,
+    WMLClientError,
+)
 
 # requests module or requests.Session
 RequestsLikeType: TypeAlias = Any
@@ -175,6 +180,66 @@ class APIClient:
 
     version: str | None = None
     _internal: bool = False
+    PLATFORM_URLS_MAP = MappingProxyType(
+        {
+            # Dallas
+            "https://us-south.ml.cloud.ibm.com": "https://api.dataplatform.cloud.ibm.com",
+            "https://private.us-south.ml.cloud.ibm.com": "https://private.api.dataplatform.cloud.ibm.com",
+            # Frankfurt
+            "https://eu-de.ml.cloud.ibm.com": "https://api.eu-de.dataplatform.cloud.ibm.com",
+            "https://private.eu-de.ml.cloud.ibm.com": "https://private.api.eu-de.dataplatform.cloud.ibm.com",
+            # London
+            "https://eu-gb.ml.cloud.ibm.com": "https://api.eu-gb.dataplatform.cloud.ibm.com",
+            "https://private.eu-gb.ml.cloud.ibm.com": "https://private.api.eu-gb.dataplatform.cloud.ibm.com",
+            # Tokio
+            "https://jp-tok.ml.cloud.ibm.com": "https://api.jp-tok.dataplatform.cloud.ibm.com",
+            "https://private.jp-tok.ml.cloud.ibm.com": "https://private.api.jp-tok.dataplatform.cloud.ibm.com",
+            # Sydney
+            "https://au-syd.ml.cloud.ibm.com": "https://api.au-syd.dai.cloud.ibm.com",
+            "https://private.au-syd.ml.cloud.ibm.com": "https://private.api.au-syd.dai.cloud.ibm.com",
+            # Toronto
+            "https://ca-tor.ml.cloud.ibm.com": "https://api.ca-tor.dai.cloud.ibm.com",
+            "https://private.ca-tor.ml.cloud.ibm.com": "https://private.api.ca-tor.dai.cloud.ibm.com",
+            # Mumbai (AWS)
+            "https://ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
+            "https://private.ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # AWS GovCloud
+            "https://wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
+            "https://private.wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # PreProd AWS GovCloud
+            "https://wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
+            "https://private.wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # YPCR
+            "https://yp-cr.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
+            "https://private.yp-cr.ml.cloud.ibm.com": "https://private.api.dataplatform.test.cloud.ibm.com",
+            # MCSP QA
+            "https://wxai-qa.ml.cloud.ibm.com": "https://api.dai.test.cloud.ibm.com",
+            "https://private.wxai-qa.ml.cloud.ibm.com": "https://private.api.dai.test.cloud.ibm.com",
+            # YPQA
+            "https://yp-qa.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
+            "https://private.yp-qa.ml.cloud.ibm.com": "https://private.api.dataplatform.test.cloud.ibm.com",
+            # MCSP DEV
+            "https://wml-mcsp-dev.ml.test.cloud.ibm.com": "https://api.dai.dev.cloud.ibm.com",
+            "https://private.wml-mcsp-dev.ml.test.cloud.ibm.com": "https://private.api.dai.dev.cloud.ibm.com",
+            # FVT
+            "https://wml-fvt.ml.test.cloud.ibm.com": "https://api.dataplatform.dev.cloud.ibm.com",
+            "https://private.wml-fvt.ml.test.cloud.ibm.com": "https://private.api.dataplatform.dev.cloud.ibm.com",
+            # YS1Prod
+            "https://us-south.ml.test.cloud.ibm.com": "https://api.dataplatform.dev.cloud.ibm.com",
+            "https://private.us-south.ml.test.cloud.ibm.com": "https://private.api.dataplatform.dev.cloud.ibm.com",
+            # AWS DEV
+            "https://dev.aws.wxai.ibm.com": "https://api.dev.aws.data.ibm.com",
+            "https://private.dev.aws.wxai.ibm.com": "https://api.dev.aws.data.ibm.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # AWS TEST
+            "https://test.aws.wxai.ibm.com": "https://api.test.aws.data.ibm.com",
+            "https://private.test.aws.wxai.ibm.com": "https://api.test.aws.data.ibm.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+        }
+    )
 
     def __init__(
         self,
@@ -234,8 +299,9 @@ class APIClient:
         elif requests.additional_settings.get("proxies") is not None:
             del requests.additional_settings["proxies"]
 
-        # At this stage `credentials` has type Dict[str, str]
+        # At this stage `credentials` has type ibm_watsonx_ai.credentials.Credentials
         credentials = cast(Credentials, credentials)
+
         self.credentials = copy.deepcopy(credentials)
         self.default_space_id = None
         self.default_project_id = None
@@ -252,68 +318,10 @@ class APIClient:
         self._user_headers: dict | None = None  # Used in set_headers() method
         self.__session = None
 
-        self.PLATFORM_URLS_MAP = {
-            # Dallas
-            "https://us-south.ml.cloud.ibm.com": "https://api.dataplatform.cloud.ibm.com",
-            "https://private.us-south.ml.cloud.ibm.com": "https://private.api.dataplatform.cloud.ibm.com",
-            # Frankfurt
-            "https://eu-de.ml.cloud.ibm.com": "https://api.eu-de.dataplatform.cloud.ibm.com",
-            "https://private.eu-de.ml.cloud.ibm.com": "https://private.api.eu-de.dataplatform.cloud.ibm.com",
-            # London
-            "https://eu-gb.ml.cloud.ibm.com": "https://api.eu-gb.dataplatform.cloud.ibm.com",
-            "https://private.eu-gb.ml.cloud.ibm.com": "https://private.api.eu-gb.dataplatform.cloud.ibm.com",
-            # Tokio
-            "https://jp-tok.ml.cloud.ibm.com": "https://api.jp-tok.dataplatform.cloud.ibm.com",
-            "https://private.jp-tok.ml.cloud.ibm.com": "https://private.api.jp-tok.dataplatform.cloud.ibm.com",
-            # Sydney
-            "https://au-syd.ml.cloud.ibm.com": "https://api.au-syd.dai.cloud.ibm.com",
-            "https://private.au-syd.ml.cloud.ibm.com": "https://private.api.au-syd.dai.cloud.ibm.com",
-            # Toronto
-            "https://ca-tor.ml.cloud.ibm.com": "https://api.ca-tor.dai.cloud.ibm.com",
-            "https://private.ca-tor.ml.cloud.ibm.com": "https://private.api.ca-tor.dai.cloud.ibm.com",
-            # Mumbai (AWS)
-            "https://ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
-            "https://private.ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
-            # AWS GovCloud
-            "https://wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
-            "https://private.wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
-            # PreProd AWS GovCloud
-            "https://wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
-            "https://private.wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
-            # YPCR
-            "https://yp-cr.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
-            "https://private.yp-cr.ml.cloud.ibm.com": "https://private.api.dataplatform.test.cloud.ibm.com",
-            # MCSP QA
-            "https://wxai-qa.ml.cloud.ibm.com": "https://api.dai.test.cloud.ibm.com",
-            "https://private.wxai-qa.ml.cloud.ibm.com": "https://private.api.dai.test.cloud.ibm.com",
-            # YPQA
-            "https://yp-qa.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
-            "https://private.yp-qa.ml.cloud.ibm.com": "https://private.api.dataplatform.test.cloud.ibm.com",
-            # MCSP DEV
-            "https://wml-mcsp-dev.ml.test.cloud.ibm.com": "https://api.dai.dev.cloud.ibm.com",
-            "https://private.wml-mcsp-dev.ml.test.cloud.ibm.com": "https://private.api.dai.dev.cloud.ibm.com",
-            # FVT
-            "https://wml-fvt.ml.test.cloud.ibm.com": "https://api.dataplatform.dev.cloud.ibm.com",
-            "https://private.wml-fvt.ml.test.cloud.ibm.com": "https://private.api.dataplatform.dev.cloud.ibm.com",
-            # YS1Prod
-            "https://us-south.ml.test.cloud.ibm.com": "https://api.dataplatform.dev.cloud.ibm.com",
-            "https://private.us-south.ml.test.cloud.ibm.com": "https://private.api.dataplatform.dev.cloud.ibm.com",
-            # AWS DEV
-            "https://dev.aws.wxai.ibm.com": "https://api.dev.aws.data.ibm.com",
-            "https://private.dev.aws.wxai.ibm.com": "https://api.dev.aws.data.ibm.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
-            # AWS TEST
-            "https://test.aws.wxai.ibm.com": "https://api.test.aws.data.ibm.com",
-            "https://private.test.aws.wxai.ibm.com": "https://api.test.aws.data.ibm.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
-        }
+        self.PLATFORM_URLS_MAP = dict(APIClient.PLATFORM_URLS_MAP)
 
         requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
 
-        self.__predefined_instance_type_list = ["icp", "openshift"]
         if credentials is None:
             raise NoWMLCredentialsProvided()
         if self.credentials.url is None:
@@ -322,8 +330,26 @@ class APIClient:
             raise WMLClientError(Messages.get_message(message_id="invalid_url"))
         if self.credentials.url[-1] == "/":
             self.credentials.url = self.credentials.url.rstrip("/")
+
+        # check whether it is Gov Cloud
+        _validate_gov_cloud_env(cast(str, credentials.url), self._logger)
+
         with self._session:
-            if self.credentials.instance_id is None:
+            if self.credentials.instance_id is not None:
+                warn(
+                    "The `instance_id` parameter is deprecated and will no longer be utilized. "
+                    "It is not considered in environment detection. "
+                    "The environment type, whether Cloud or CPD, is now automatically determined from "
+                    "the `credentials.url` parameter. Please update your configuration accordingly.",
+                    category=DeprecationWarning,
+                )
+
+            is_cloud_url = (
+                self.credentials.url in self.PLATFORM_URLS_MAP
+                or self.credentials.url in self.PLATFORM_URLS_MAP.values()
+            )
+
+            if is_cloud_url or self.credentials.platform_url:
                 self.CLOUD_PLATFORM_SPACES = True
                 self.ICP_PLATFORM_SPACES = False
 
@@ -337,144 +363,103 @@ class APIClient:
                                 Messages.get_message(message_id="invalid_platform_url")
                             )
                         self.PLATFORM_URL = self.credentials.platform_url
-                    elif self.credentials.url in self.PLATFORM_URLS_MAP.keys():
-                        self.PLATFORM_URL = self.PLATFORM_URLS_MAP[self.credentials.url]
                     else:
-                        raise WMLClientError(
-                            Messages.get_message(
-                                message_id="invalid_cloud_scenario_url"
-                            )
-                        )
+                        self.PLATFORM_URL = self.PLATFORM_URLS_MAP[self.credentials.url]
 
                 if not self._is_IAM():
                     raise WMLClientError(
                         Messages.get_message(message_id="apikey_not_provided")
                     )
             else:
+                self.CLOUD_PLATFORM_SPACES = False
+                self.ICP_PLATFORM_SPACES = True
+                os.environ["DEPLOYMENT_PLATFORM"] = "private"
+
+                # Validate the cpd version:
+                response_get_wml_services = self._session.get(
+                    f"{self.credentials.url}/ml/wml_services/version",
+                    headers={"User-Agent": get_user_agent_header()},
+                )
                 if (
-                    "icp" == self.credentials.instance_id.lower()
-                    or "openshift" == self.credentials.instance_id.lower()
-                ):
-                    if (
-                        self.credentials.url in self.PLATFORM_URLS_MAP.keys()
-                        or self.credentials.url in self.PLATFORM_URLS_MAP.values()
-                    ):
-                        raise WMLClientError(
-                            Messages.get_message(message_id="invalid_cloud_url")
-                        )
-
-                    self.ICP_PLATFORM_SPACES = True
-                    os.environ["DEPLOYMENT_PLATFORM"] = "private"
-
-                    # Validate the cpd version:
+                    response_get_wml_services.status_code != 200
+                ):  # retry with endpoint for cpd 4.8 and higher
                     response_get_wml_services = self._session.get(
-                        f"{self.credentials.url}/ml/wml_services/version",
+                        f"{self.credentials.url}/ml/wml_services/v2/version",
                         headers={"User-Agent": get_user_agent_header()},
                     )
-                    if (
-                        response_get_wml_services.status_code != 200
-                    ):  # retry with endpoint for cpd 4.8 and higher
-                        response_get_wml_services = self._session.get(
-                            f"{self.credentials.url}/ml/wml_services/v2/version",
-                            headers={"User-Agent": get_user_agent_header()},
-                        )
 
-                    if response_get_wml_services.status_code == 200:
-                        wml_full_version = response_get_wml_services.json().get(
-                            "version", ""
-                        )
-                        if wml_full_version:
-                            wml_version = ".".join(wml_full_version.split(".")[:2])
-                            if self.credentials.version is None:
-                                self.credentials.version = wml_version
-                            elif self.credentials.version != wml_version:
-                                cpd_version_mismatch_warning = (
-                                    f"The provided version: {self.credentials.version} "
-                                    f"is different from the current CP4D version: {wml_version}. "
-                                    f"Correct the credentials with proper CP4D version number."
-                                )
-                                warn(cpd_version_mismatch_warning)
-
-                            if (
-                                self.credentials.version
-                                not in CPDVersion.supported_version_list
-                            ):
-                                raise WMLClientError(
-                                    Messages.get_message(
-                                        self.credentials.version,
-                                        self.version,
-                                        message_id="invalid_version_from_automated_check",
-                                    )
-                                )
-                    else:
-                        self._logger.debug(
-                            f"GET /ml/wml_services/version failed with status code: {response_get_wml_services.status_code}."
-                        )
-
-                    # Condition for CAMS related changes to take effect (Might change)
-                    if self.credentials.version is None:
-                        raise WMLClientError(
-                            Messages.get_message(
-                                CPDVersion.supported_version_list,
-                                message_id="version_not_provided",
+                if response_get_wml_services.status_code == 200:
+                    wml_full_version = response_get_wml_services.json().get(
+                        "version", ""
+                    )
+                    if wml_full_version:
+                        wml_version = ".".join(wml_full_version.split(".")[:2])
+                        if self.credentials.version is None:
+                            self.credentials.version = wml_version
+                        elif self.credentials.version != wml_version:
+                            cpd_version_mismatch_warning = (
+                                f"The provided version: {self.credentials.version} "
+                                f"is different from the current CP4D version: {wml_version}. "
+                                f"Correct the credentials with proper CP4D version number."
                             )
-                        )
+                            warn(cpd_version_mismatch_warning)
 
-                    if (
-                        self.credentials.version.lower()
-                        in CPDVersion.supported_version_list
-                    ):
-                        self.CPD_version.cpd_version = self.credentials.version.lower()
-                        os.environ["DEPLOYMENT_PRIVATE"] = "icp4d"
-
-                        if self.credentials.bedrock_url is None and self.CPD_version:
-                            if self.CPD_version < 4.7:
-                                bedrock_prefix = "https://cp-console"
-                            else:
-                                namespace_from_url = "-".join(
-                                    self.credentials.url.split(".")[0].split("-")[1:]
+                        if (
+                            self.credentials.version
+                            not in CPDVersion.supported_version_list
+                        ):
+                            raise WMLClientError(
+                                Messages.get_message(
+                                    self.credentials.version,
+                                    self.version,
+                                    message_id="invalid_version_from_automated_check",
                                 )
-                                route = (
-                                    "cpd" if self.CPD_version >= 5.1 else "cp-console"
-                                )
-                                bedrock_prefix = f"https://{route}-{namespace_from_url}"
-                            self.credentials.bedrock_url = ".".join(
-                                [bedrock_prefix] + self.credentials.url.split(".")[1:]
                             )
-                            self._is_bedrock_url_autogenerated = True
+                else:
+                    self._logger.debug(
+                        "GET /ml/wml_services/version failed with status code: %s.",
+                        response_get_wml_services.status_code,
+                    )
 
-                    else:
-                        self.ICP_PLATFORM_SPACES = False
-                        raise WMLClientError(
-                            Messages.get_message(
-                                ", ".join(CPDVersion.supported_version_list),
-                                message_id="invalid_version",
-                            )
+                # Condition for CAMS related changes to take effect (Might change)
+                if self.credentials.version is None:
+                    raise WMLClientError(
+                        Messages.get_message(
+                            CPDVersion.supported_version_list,
+                            message_id="version_not_provided",
                         )
+                    )
+
+                if (
+                    self.credentials.version.lower()
+                    in CPDVersion.supported_version_list
+                ):
+                    self.CPD_version.cpd_version = self.credentials.version.lower()
+                    os.environ["DEPLOYMENT_PRIVATE"] = "icp4d"
+
+                    if self.credentials.bedrock_url is None and self.CPD_version:
+                        if self.CPD_version < 4.7:
+                            bedrock_prefix = "https://cp-console"
+                        else:
+                            namespace_from_url = "-".join(
+                                self.credentials.url.split(".")[0].split("-")[1:]
+                            )
+                            route = "cpd" if self.CPD_version >= 5.1 else "cp-console"
+                            bedrock_prefix = f"https://{route}-{namespace_from_url}"
+                        self.credentials.bedrock_url = ".".join(
+                            [bedrock_prefix] + self.credentials.url.split(".")[1:]
+                        )
+                        self._is_bedrock_url_autogenerated = True
 
                 else:
-                    if self.credentials.url in self.PLATFORM_URLS_MAP:
-                        raise WMLClientError(
-                            Messages.get_message(
-                                message_id="instance_id_in_cloud_scenario"
-                            )
+                    self.ICP_PLATFORM_SPACES = False
+                    raise WMLClientError(
+                        Messages.get_message(
+                            ", ".join(CPDVersion.supported_version_list),
+                            message_id="invalid_version",
                         )
-                    else:
-                        raise WMLClientError(
-                            Messages.get_message(message_id="invalid_instance_id")
-                        )
+                    )
 
-            if (
-                self.credentials.instance_id is not None
-                and (
-                    self.credentials.instance_id.lower()
-                    not in self.__predefined_instance_type_list
-                )
-                and self.credentials.version is not None
-            ):
-                raise WMLClientError(
-                    Messages.get_message(message_id="provided_credentials_are_invalid")
-                )
             self._use_fm_ga_api = self.CLOUD_PLATFORM_SPACES or (
                 self._check_if_fm_ga_api_available()
                 if self.CPD_version <= 4.8
@@ -717,8 +702,6 @@ class APIClient:
 
     @property
     def proceed(self) -> bool:
-        from ibm_watsonx_ai.utils.auth import TokenAuth
-
         warn(
             (
                 "`APIClient.proceed` is deprecated and will be removed in future. To use `proceed` scenario, "
@@ -895,8 +878,11 @@ class APIClient:
         Method which allows refresh/set new User Authorization Token.
 
         .. note::
-            Using this function will cause that token will not be automatically refreshed anymore, if `password` or `apikey` were passed.
-            The user needs to take care of token refresh using `set_token` function from that point in time until they finish using the client instance.
+            * Using this function will cause that token will not be automatically refreshed anymore, if `password` or `apikey` were passed.
+              The user needs to take care of token refresh using `set_token` function from that point in time until they finish using the client instance.
+            * If ``trusted_profile_id`` and ``token`` were passed in credentials,
+              the ``trusted_profile_id`` will be used for generating a new trusted profile token based on token passed to this method
+              until the client lifecycle. The generating process takes place when retrieving a token.
 
         :param token: User Authorization Token
         :type token: str
@@ -909,9 +895,11 @@ class APIClient:
 
         """
         self.credentials.token = token
-        from ibm_watsonx_ai.utils.auth import TokenAuth
 
-        if isinstance(self._auth_method, TokenAuth):
+        if isinstance(self._auth_method, TokenAuth) or (
+            isinstance(self._auth_method, TrustedProfileAuth)
+            and isinstance(self._auth_method._internal_auth_method, TokenAuth)
+        ):
             self._auth_method.set_token(token)
         else:
             # the auth method type was changed to TokenAuth

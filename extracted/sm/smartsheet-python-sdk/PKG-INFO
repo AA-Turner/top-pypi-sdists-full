@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: smartsheet-python-sdk
-Version: 3.0.5
+Version: 3.1.0
 Summary: Library that uses Python to connect to Smartsheet services (using API 2.0).
 Home-page: http://smartsheet-platform.github.io/api-docs/
 Author: Smartsheet

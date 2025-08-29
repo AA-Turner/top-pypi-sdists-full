@@ -1,4 +1,11 @@
-from ._sglang import OPTIMIZED_SGLANG_IMAGE, SGLangApp
-from ._vllm import OPTIMIZED_VLLM_IMAGE, VLLMApp
+from ._sglang import DEFAULT_SGLANG_IMAGE, OPTIMIZED_SGLANG_IMAGE, SGLangApp
+from ._vllm import DEFAULT_VLLM_IMAGE, OPTIMIZED_VLLM_IMAGE, VLLMApp
 
-__all__ = ["OPTIMIZED_SGLANG_IMAGE", "OPTIMIZED_VLLM_IMAGE", "SGLangApp", "VLLMApp"]
+__all__ = [
+    "DEFAULT_SGLANG_IMAGE",
+    "DEFAULT_VLLM_IMAGE",
+    "OPTIMIZED_SGLANG_IMAGE",
+    "OPTIMIZED_VLLM_IMAGE",
+    "SGLangApp",
+    "VLLMApp",
+]

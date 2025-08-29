@@ -28563,6 +28563,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/CustomFields'
           description: Custom field values to add to the file
+        errorMessage:
+          description: Error message for the file upload
+          type: string
         folderId:
           description: ID of the folder that the file is moved into
           example: lib_bf0636
@@ -28570,6 +28573,7 @@ components:
         uploadStatus:
           enum:
           - SUCCEEDED
+          - FAILED_VALIDATION
           type: string
       type: object
     FileUploadUiBlock:

@@ -5,13 +5,18 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.documents import Document
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.wml_client_error import WMLClientError
+
+if TYPE_CHECKING:
+    from .vector_store_connector import (
+        VectorStoreDataSourceType,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +25,7 @@ class BaseVectorStore(ABC):
     """Base abstract class for all vector store-like classes. Interface that supports simple database operations."""
 
     _client: APIClient | None = None
-    _datasource_type: str | None = None
+    _datasource_type: "VectorStoreDataSourceType | None" = None
 
     @abstractmethod
     def get_client(self) -> Any:
@@ -176,7 +181,9 @@ class BaseVectorStore(ABC):
         :rtype: langchain_core.vectorstores.VectorStoreRetriever
         """
 
-    def _connect_by_type(self, connection_id: str) -> tuple[str, dict]:
+    def _connect_by_type(
+        self, connection_id: str
+    ) -> tuple["VectorStoreDataSourceType", dict]:
         """Get the datasource type and the connection properties from the connection ID.
 
         :param connection_id: ID of the connection asset
@@ -196,14 +203,18 @@ class BaseVectorStore(ABC):
             datasource_type = self._get_connection_type(connection_data)
             properties = connection_data["entity"]["properties"]
 
-            logger.info(f"Initializing vector store of type: {datasource_type}")
-            return datasource_type, properties
+            logger.info("Initializing vector store of type: %s", datasource_type)
+            from .vector_store_connector import _convert_str_to_vs_datasource_type_enum
+
+            return _convert_str_to_vs_datasource_type_enum(datasource_type), properties
         else:
             raise WMLClientError(
                 "`api_client` is required if connecting by connection asset."
             )
 
-    def _get_connection_type(self, connection_details: dict[str, dict]) -> str:
+    def _get_connection_type(
+        self, connection_details: dict[str, dict]
+    ) -> "VectorStoreDataSourceType":
         """Determine the connection type from the connection details by comparing it to the available list of data source types.
 
         :param connection_details: dict containing the connection details
@@ -225,7 +236,11 @@ class BaseVectorStore(ABC):
             if datasource_type is None:
                 raise WMLClientError("Connection type not found or not supported.")
             else:
-                return datasource_type
+                from .vector_store_connector import (
+                    _convert_str_to_vs_datasource_type_enum,
+                )
+
+                return _convert_str_to_vs_datasource_type_enum(datasource_type)
         else:
             raise WMLClientError(
                 "`api_client` is required if connecting by connection asset."

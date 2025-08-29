@@ -53,7 +53,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.53"
+version = "0.0.54"
 authors = [
   "Jesse K. Rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -95,6 +95,7 @@ ryo3-jiff = { path = "./crates/ryo3-jiff" }
 ryo3-jiter = { path = "./crates/ryo3-jiter" }
 ryo3-json = { path = "./crates/ryo3-json" }
 ryo3-macro-rules = { path = "crates/ryo3-macro-rules" }
+ryo3-memchr = { path = "crates/ryo3-memchr" }
 ryo3-quick-maths = { path = "./crates/_ryo3-quick-maths" } # template library
 ryo3-regex = { path = "./crates/ryo3-regex" }
 ryo3-reqwest = { path = "./crates/ryo3-reqwest" }
@@ -138,14 +139,15 @@ heck = "0.5.0"
 http = "1.3.1"
 jiff = { version = "0.2.14", features = ["default", "serde", "perf-inline"] }
 jiter = { version = "0.10.0", features = ["python"] }
+memchr = "2.7.5"
 parking_lot = "0.12.3"
-regex = "1.11.1"
-reqwest = { version = "0.12.23", features = ["brotli", "charset", "cookies", "deflate", "gzip", "http2", "macos-system-configuration", "multipart", "json", "rustls-tls-native-roots", "stream", "zstd"], default-features = false }
+regex = "1.11.2"
+reqwest = { version = "0.12.23", features = ["brotli", "charset", "cookies", "deflate", "gzip", "hickory-dns", "http2", "macos-system-configuration", "multipart", "json", "rustls-tls-native-roots", "stream", "zstd"], default-features = false }
 same-file = "1.0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.17"
-serde_json = { version = "1.0.141", features = ["std"] }
+serde_json = { version = "1.0", features = ["std"] }
 shlex = "1.3.0"
 size = "0.5.0"
 sqlformat = "0.3.5"
@@ -189,20 +191,23 @@ module_name_repetitions = "allow"
 # cargo allowed
 multiple_crate_versions = "allow"
 
-# nursery
+# nursery always on
 use_self = "warn"
 
+# =======
 # nursery
-# as_ptr_cast_mut = 'allow'
+# =======
+# __turn_these_on_occasionally__
+# equatable_if_let = "warn"
+# literal_string_with_formatting_args = "warn"
+# significant_drop_in_scrutinee = "warn"
+# __TBD__
+# as_ptr_cast_mut = 'warn'
 # derive_partial_eq_without_eq = "allow"
-# equatable_if_let = "allow"
-# literal_string_with_formatting_args = "allow"
 # missing_const_for_fn = "allow"
-# option_if_let_else = "allow"
-# or_fun_call = "allow"
+# option_if_let_else = "warn"
+# or_fun_call = "warn"
 # redundant_pub_crate = "allow"
-# significant_drop_in_scrutinee = "allow"
 # significant_drop_tightening = "allow"
 # needless_pass_by_ref_mut = "allow"
 # cognitive_complexity = "allow"
-# use_self = "allow"

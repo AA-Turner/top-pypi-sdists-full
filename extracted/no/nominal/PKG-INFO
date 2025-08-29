@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nominal
-Version: 1.76.0
+Version: 1.77.0
 Summary: Automate Nominal workflows in Python
 Project-URL: Homepage, https://nominal.io
 Project-URL: Documentation, https://docs.nominal.io
@@ -20,7 +20,7 @@ Requires-Dist: cachetools>=6.1.0
 Requires-Dist: click<9,>=8
 Requires-Dist: conjure-python-client<4,>=2.8.0
 Requires-Dist: ffmpeg-python>=0.2.0
-Requires-Dist: nominal-api==0.778.1
+Requires-Dist: nominal-api==0.861.0
 Requires-Dist: pandas>=0.0.0
 Requires-Dist: python-dateutil>=0.0.0
 Requires-Dist: pyyaml>=0.0.0

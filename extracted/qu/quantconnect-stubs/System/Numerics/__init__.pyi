@@ -8,73 +8,297 @@ import System.Collections.Generic
 import System.Numerics
 import System.Runtime.Intrinsics
 
-System_Numerics_Matrix4x4 = typing.Any
 System_Numerics_Vector = typing.Any
 T = typing.Any
-System_Numerics_Matrix3x2 = typing.Any
-System_Numerics_Vector4 = typing.Any
-System_Numerics_Vector3 = typing.Any
-System_Numerics_Plane = typing.Any
-System_Numerics_Vector2 = typing.Any
-System_Numerics_Quaternion = typing.Any
 System_Numerics_TotalOrderIeee754Comparer = typing.Any
+System_Numerics_Vector3 = typing.Any
+System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_Quaternion = typing.Any
+System_Numerics_Matrix3x2 = typing.Any
+System_Numerics_Vector2 = typing.Any
+System_Numerics_Plane = typing.Any
+System_Numerics_Vector4 = typing.Any
 
-System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
-System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
-System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
-System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
-System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
-System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
-System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
-System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
-System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
-System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
-System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
-System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
-System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
 System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
-System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
-System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
-System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
-System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
-System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
-System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
-System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
-System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
-System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
-System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
-System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
-System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
-System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
-System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
-System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
-System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
-System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
-System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
-System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
-System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
-System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
-System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
-System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
-System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
-System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
-System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
-System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
-System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
-System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
-System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
 System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
 System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
 System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
-System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
+System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
+System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
+System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
+System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
+System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
+System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
+System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
+System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
+System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
+System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
+System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
+System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
+System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
+System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
+System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
+System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
 System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
+System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
+System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
+System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
+System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
+System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
+System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
+System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
+System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
+System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
+System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
+System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
+System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
+System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
+System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
+System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
+System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
 System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
 System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
 System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
-System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
-System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
-System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
+System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
+System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
+System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
+System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
+System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
+System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
+System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
+System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
+System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
+System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
+System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
+System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
+System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
 System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
+System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
+System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
+
+
+class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number type."""
+
+
+class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for shifting a value by another value."""
+
+
+class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for comparing two values to determine relative order."""
+
+
+class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for logarithmic functions."""
+
+
+class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
+    """Defines a floating-point type."""
+
+    def get_exponent_byte_count(self) -> int:
+        """
+        Gets the number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
+        
+        :returns: The number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
+        """
+        ...
+
+    def get_exponent_shortest_bit_length(self) -> int:
+        """
+        Gets the length, in bits, of the shortest two's complement representation of the current exponent.
+        
+        :returns: The length, in bits, of the shortest two's complement representation of the current exponent.
+        """
+        ...
+
+    def get_significand_bit_length(self) -> int:
+        """
+        Gets the length, in bits, of the current significand.
+        
+        :returns: The length, in bits, of the current significand.
+        """
+        ...
+
+    def get_significand_byte_count(self) -> int:
+        """
+        Gets the number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
+        
+        :returns: The number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
+        """
+        ...
+
+    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current exponent, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the exponent was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current exponent, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the exponent was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current significand, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the significand was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current significand, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the significand was successfully written to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :param start_index: The starting index at which the exponent should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :param start_index: The starting index at which the exponent should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :param start_index: The starting index at which the significand should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :param start_index: The starting index at which the significand should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+
+class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for hyperbolic functions."""
+
+
+class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for getting the minimum and maximum value of a type."""
 
 
 class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
@@ -1645,1094 +1869,6 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
         ...
 
 
-class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
-    """Represents a vector with three  single-precision floating-point values."""
-
-    @property
-    def x(self) -> float:
-        """The X component of the vector."""
-        ...
-
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        """The Y component of the vector."""
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @property
-    def z(self) -> float:
-        """The Z component of the vector."""
-        ...
-
-    @z.setter
-    def z(self, value: float) -> None:
-        ...
-
-    ALL_BITS_SET: System.Numerics.Vector3
-
-    E: System.Numerics.Vector3
-
-    EPSILON: System.Numerics.Vector3
-
-    NA_N: System.Numerics.Vector3
-
-    NEGATIVE_INFINITY: System.Numerics.Vector3
-
-    NEGATIVE_ZERO: System.Numerics.Vector3
-
-    ONE: System.Numerics.Vector3
-
-    PI: System.Numerics.Vector3
-
-    POSITIVE_INFINITY: System.Numerics.Vector3
-
-    TAU: System.Numerics.Vector3
-
-    UNIT_X: System.Numerics.Vector3
-    """Gets the vector (1,0,0)."""
-
-    UNIT_Y: System.Numerics.Vector3
-    """Gets the vector (0,1,0)."""
-
-    UNIT_Z: System.Numerics.Vector3
-    """Gets the vector (0,0,1)."""
-
-    ZERO: System.Numerics.Vector3
-
-    @overload
-    def __add__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Adds two vectors together.
-        
-        :param left: The first vector to add.
-        :param right: The second vector to add.
-        :returns: The summed vector.
-        """
-        ...
-
-    @overload
-    def __add__(self) -> System.Numerics.Vector3:
-        ...
-
-    def __and__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def __eq__(self, right: System.Numerics.Vector3) -> bool:
-        """
-        Returns a value that indicates whether each pair of elements in two specified vectors is equal.
-        
-        :param left: The first vector to compare.
-        :param right: The second vector to compare.
-        :returns: true if  and  are equal; otherwise, false.
-        """
-        ...
-
-    def __getitem__(self, index: int) -> float:
-        """
-        Gets or sets the element at the specified index.
-        
-        :param index: The index of the element to get or set.
-        :returns: The the element at .
-        """
-        ...
-
-    @overload
-    def __iadd__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Adds two vectors together.
-        
-        :param left: The first vector to add.
-        :param right: The second vector to add.
-        :returns: The summed vector.
-        """
-        ...
-
-    @overload
-    def __iadd__(self) -> System.Numerics.Vector3:
-        ...
-
-    def __iand__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector3:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The element-wise product vector.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: float) -> System.Numerics.Vector3:
-        """
-        Multiplies the specified vector by the specified scalar value.
-        
-        :param left: The vector.
-        :param right: The scalar value.
-        :returns: The scaled vector.
-        """
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Multiplies the scalar value by the specified vector.
-        
-        :param left: The vector.
-        :param right: The scalar value.
-        :returns: The scaled vector.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: float) -> None:
-        """
-        Creates a new Vector3 object whose three elements have the same value.
-        
-        :param value: The value to assign to all three elements.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector2, z: float) -> None:
-        """
-        Creates a   new Vector3 object from the specified Vector2 object and the specified value.
-        
-        :param value: The vector with two elements.
-        :param z: The additional value to assign to the Z field.
-        """
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float) -> None:
-        """
-        Creates a vector whose elements have the specified values.
-        
-        :param x: The value to assign to the X field.
-        :param y: The value to assign to the Y field.
-        :param z: The value to assign to the Z field.
-        """
-        ...
-
-    @overload
-    def __init__(self, values: System.ReadOnlySpan[float]) -> None:
-        """
-        Constructs a vector from the given ReadOnlySpan{Single}. The span must contain at least 3 elements.
-        
-        :param values: The span of elements to assign to the vector.
-        """
-        ...
-
-    def __invert__(self) -> System.Numerics.Vector3:
-        ...
-
-    def __ior__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector3:
-        ...
-
-    @overload
-    def __isub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Subtracts the second vector from the first.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The vector that results from subtracting  from .
-        """
-        ...
-
-    @overload
-    def __isub__(self) -> System.Numerics.Vector3:
-        """
-        Negates the specified vector.
-        
-        :param value: The vector to negate.
-        :returns: The negated vector.
-        """
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Divides the first vector by the second.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The vector that results from dividing  by .
-        """
-        ...
-
-    @overload
-    def __itruediv__(self, value_2: float) -> System.Numerics.Vector3:
-        """
-        Divides the specified vector by a specified scalar value.
-        
-        :param value1: The vector.
-        :param value_2: The scalar value.
-        :returns: The result of the division.
-        """
-        ...
-
-    def __ixor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector3:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The element-wise product vector.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: float) -> System.Numerics.Vector3:
-        """
-        Multiplies the specified vector by the specified scalar value.
-        
-        :param left: The vector.
-        :param right: The scalar value.
-        :returns: The scaled vector.
-        """
-        ...
-
-    @overload
-    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Multiplies the scalar value by the specified vector.
-        
-        :param left: The vector.
-        :param right: The scalar value.
-        :returns: The scaled vector.
-        """
-        ...
-
-    def __ne__(self, right: System.Numerics.Vector3) -> bool:
-        """
-        Returns a value that indicates whether two specified vectors are not equal.
-        
-        :param left: The first vector to compare.
-        :param right: The second vector to compare.
-        :returns: true if  and  are not equal; otherwise, false.
-        """
-        ...
-
-    def __or__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector3:
-        ...
-
-    def __setitem__(self, index: int, value: float) -> None:
-        """
-        Gets or sets the element at the specified index.
-        
-        :param index: The index of the element to get or set.
-        :returns: The the element at .
-        """
-        ...
-
-    @overload
-    def __sub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Subtracts the second vector from the first.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The vector that results from subtracting  from .
-        """
-        ...
-
-    @overload
-    def __sub__(self) -> System.Numerics.Vector3:
-        """
-        Negates the specified vector.
-        
-        :param value: The vector to negate.
-        :returns: The negated vector.
-        """
-        ...
-
-    @overload
-    def __truediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Divides the first vector by the second.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The vector that results from dividing  by .
-        """
-        ...
-
-    @overload
-    def __truediv__(self, value_2: float) -> System.Numerics.Vector3:
-        """
-        Divides the specified vector by a specified scalar value.
-        
-        :param value1: The vector.
-        :param value_2: The scalar value.
-        :returns: The result of the division.
-        """
-        ...
-
-    def __xor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def abs(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a vector whose elements are the absolute values of each of the specified vector's elements.
-        
-        :param value: A vector.
-        :returns: The absolute value vector.
-        """
-        ...
-
-    @staticmethod
-    def add(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Adds two vectors together.
-        
-        :param left: The first vector to add.
-        :param right: The second vector to add.
-        :returns: The summed vector.
-        """
-        ...
-
-    @staticmethod
-    def all(vector: System.Numerics.Vector3, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def all_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def and_not(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def any(vector: System.Numerics.Vector3, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def any_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def bitwise_and(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def bitwise_or(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def clamp(value_1: System.Numerics.Vector3, min: System.Numerics.Vector3, max: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def clamp_native(value_1: System.Numerics.Vector3, min: System.Numerics.Vector3, max: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def conditional_select(condition: System.Numerics.Vector3, left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def copy_sign(value: System.Numerics.Vector3, sign: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[float]) -> None:
-        """
-        Copies the elements of the vector to a specified array.
-        
-        :param array: The destination array.
-        """
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[float], index: int) -> None:
-        """
-        Copies the elements of the vector to a specified array starting at a specified index position.
-        
-        :param array: The destination array.
-        :param index: The index at which to copy the first element of the vector.
-        """
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[float]) -> None:
-        """
-        Copies the vector to the given Span{T}. The length of the destination span must be at least 3.
-        
-        :param destination: The destination span which the values are copied into.
-        """
-        ...
-
-    @staticmethod
-    def cos(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def count(vector: System.Numerics.Vector3, value: float) -> int:
-        ...
-
-    @staticmethod
-    def count_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def create(value: float) -> System.Numerics.Vector3:
-        """
-        Creates a new Vector3 object whose three elements have the same value.
-        
-        :param value: The value to assign to all three elements.
-        :returns: A new Vector3 whose three elements have the same value.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(vector: System.Numerics.Vector2, z: float) -> System.Numerics.Vector3:
-        """
-        Creates a new Vector3 object from the specified Vector2 object and a Z and a W component.
-        
-        :param vector: The vector to use for the X and Y components.
-        :param z: The Z component.
-        :returns: A new Vector3 from the specified Vector2 object and a Z and a W component.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(x: float, y: float, z: float) -> System.Numerics.Vector3:
-        """
-        Creates a vector whose elements have the specified values.
-        
-        :param x: The value to assign to the X field.
-        :param y: The value to assign to the Y field.
-        :param z: The value to assign to the Z field.
-        :returns: A new Vector3 whose elements have the specified values.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector3:
-        """
-        Constructs a vector from the given ReadOnlySpan{Single}. The span must contain at least 3 elements.
-        
-        :param values: The span of elements to assign to the vector.
-        :returns: A new Vector3 whose elements have the specified values.
-        """
-        ...
-
-    @staticmethod
-    def create_scalar(x: float) -> System.Numerics.Vector3:
-        """
-        Creates a vector with X initialized to the specified value and the remaining elements initialized to zero.
-        
-        :param x: The value to assign to the X field.
-        :returns: A new Vector3 with X initialized  and the remaining elements initialized to zero.
-        """
-        ...
-
-    @staticmethod
-    def create_scalar_unsafe(x: float) -> System.Numerics.Vector3:
-        """
-        Creates a vector with X initialized to the specified value and the remaining elements left uninitialized.
-        
-        :param x: The value to assign to the X field.
-        :returns: A new Vector3 with X initialized  and the remaining elements left uninitialized.
-        """
-        ...
-
-    @staticmethod
-    def cross(vector_1: System.Numerics.Vector3, vector_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Computes the cross product of two vectors.
-        
-        :param vector_1: The first vector.
-        :param vector_2: The second vector.
-        :returns: The cross product.
-        """
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def distance(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> float:
-        """
-        Computes the Euclidean distance between the two given points.
-        
-        :param value_1: The first point.
-        :param value_2: The second point.
-        :returns: The distance.
-        """
-        ...
-
-    @staticmethod
-    def distance_squared(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> float:
-        """
-        Returns the Euclidean distance squared between two specified points.
-        
-        :param value_1: The first point.
-        :param value_2: The second point.
-        :returns: The distance squared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def divide(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Divides the first vector by the second.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The vector resulting from the division.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def divide(left: System.Numerics.Vector3, divisor: float) -> System.Numerics.Vector3:
-        """
-        Divides the specified vector by a specified scalar value.
-        
-        :param left: The vector.
-        :param divisor: The scalar value.
-        :returns: The vector that results from the division.
-        """
-        ...
-
-    @staticmethod
-    def dot(vector_1: System.Numerics.Vector3, vector_2: System.Numerics.Vector3) -> float:
-        """
-        Returns the dot product of two vectors.
-        
-        :param vector_1: The first vector.
-        :param vector_2: The second vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Returns a value that indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Vector3) -> bool:
-        """
-        Returns a value that indicates whether this instance and another vector are equal.
-        
-        :param other: The other vector.
-        :returns: true if the two vectors are equal; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def equals_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def equals_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def exp(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: System.Numerics.Vector3, right: System.Numerics.Vector3, addend: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-    @staticmethod
-    def greater_than(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def greater_than_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def hypot(x: System.Numerics.Vector3, y: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def index_of(vector: System.Numerics.Vector3, value: float) -> int:
-        ...
-
-    @staticmethod
-    def index_of_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_finite(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_na_n(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_negative(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_negative_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_normal(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_odd_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_positive(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_positive_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_subnormal(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def is_zero(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def last_index_of(vector: System.Numerics.Vector3, value: float) -> int:
-        ...
-
-    @staticmethod
-    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
-        ...
-
-    def length(self) -> float:
-        """
-        Returns the length of this vector object.
-        
-        :returns: The vector's length.
-        """
-        ...
-
-    def length_squared(self) -> float:
-        """
-        Returns the length of the vector squared.
-        
-        :returns: The vector's length squared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def lerp(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3, amount: float) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def lerp(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3, amount: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def less_than(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def less_than_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_or_equal(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def less_than_or_equal_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_or_equal_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def load(source: typing.Any) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def load_aligned(source: typing.Any) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def load_unsafe(source: float) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def log(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def log_2(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def max(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def max_magnitude(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def max_native(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def max_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def min(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def min_magnitude(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def min_native(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def min_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The element-wise product vector.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: System.Numerics.Vector3, right: float) -> System.Numerics.Vector3:
-        """
-        Multiplies a vector by a specified scalar.
-        
-        :param left: The vector to multiply.
-        :param right: The scalar value.
-        :returns: The scaled vector.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: float, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Multiplies a scalar value by a specified vector.
-        
-        :param left: The scaled value.
-        :param right: The vector.
-        :returns: The scaled vector.
-        """
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: System.Numerics.Vector3, right: System.Numerics.Vector3, addend: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Negates a specified vector.
-        
-        :param value: The vector to negate.
-        :returns: The negated vector.
-        """
-        ...
-
-    @staticmethod
-    def none(vector: System.Numerics.Vector3, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def none_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a vector with the same direction as the specified vector, but with a length of one.
-        
-        :param value: The vector to normalize.
-        :returns: The normalized vector.
-        """
-        ...
-
-    @staticmethod
-    def ones_complement(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def reflect(vector: System.Numerics.Vector3, normal: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns the reflection of a vector off a surface that has the specified normal.
-        
-        :param vector: The source vector.
-        :param normal: The normal of the surface being reflected off.
-        :returns: The reflected vector.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector3, mode: System.MidpointRounding) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def shuffle(vector: System.Numerics.Vector3, x_index: int, y_index: int, z_index: int) -> System.Numerics.Vector3:
-        """
-        Creates a new vector by selecting values from an input vector using a set of indices.
-        
-        :param vector: The input vector from which values are selected.
-        :param x_index: The index used to select a value from  to be used as the value of X in the result.
-        :param y_index: The index used to select a value from  to be used as the value of Y in the result
-        :param z_index: The index used to select a value from  to be used as the value of Z in the result
-        :returns: A new vector containing the values from  selected by the given indices.
-        """
-        ...
-
-    @staticmethod
-    def sin(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def sin_cos(vector: System.Numerics.Vector3) -> System.ValueTuple[System.Numerics.Vector3, System.Numerics.Vector3]:
-        ...
-
-    @staticmethod
-    def square_root(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Returns a vector whose elements are the square root of each of a specified vector's elements.
-        
-        :param value: A vector.
-        :returns: The square root vector.
-        """
-        ...
-
-    @staticmethod
-    def subtract(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        """
-        Subtracts the second vector from the first.
-        
-        :param left: The first vector.
-        :param right: The second vector.
-        :returns: The difference vector.
-        """
-        ...
-
-    @staticmethod
-    def sum(value: System.Numerics.Vector3) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        """
-        Returns the string representation of the current instance using default formatting.
-        
-        :returns: The string representation of the current instance.
-        """
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        """
-        Returns the string representation of the current instance using the specified format string to format individual elements.
-        
-        :param format: A standard or custom numeric format string that defines the format of individual elements.
-        :returns: The string representation of the current instance.
-        """
-        ...
-
-    @overload
-    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
-        """
-        Returns the string representation of the current instance using the specified format string to format individual elements and the specified format provider to define culture-specific formatting.
-        
-        :param format: A standard or custom numeric format string that defines the format of individual elements.
-        :param format_provider: A format provider that supplies culture-specific formatting information.
-        :returns: The string representation of the current instance.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(position: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector3:
-        """
-        Transforms a vector by a specified 4x4 matrix.
-        
-        :param position: The vector to transform.
-        :param matrix: The transformation matrix.
-        :returns: The transformed vector.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(value: System.Numerics.Vector3, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector3:
-        """
-        Transforms a vector by the specified Quaternion rotation value.
-        
-        :param value: The vector to rotate.
-        :param rotation: The rotation to apply.
-        :returns: The transformed vector.
-        """
-        ...
-
-    @staticmethod
-    def transform_normal(normal: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector3:
-        """
-        Transforms a vector normal by the given 4x4 matrix.
-        
-        :param normal: The source vector.
-        :param matrix: The matrix.
-        :returns: The transformed vector.
-        """
-        ...
-
-    @staticmethod
-    def truncate(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-    def try_copy_to(self, destination: System.Span[float]) -> bool:
-        """
-        Attempts to copy the vector to the given Span{Single}. The length of the destination span must be at least 3.
-        
-        :param destination: The destination span which the values are copied into.
-        :returns: true if the source vector was successfully copied to . false if  is not large enough to hold the source vector.
-        """
-        ...
-
-    @staticmethod
-    def xor(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
-        ...
-
-
 class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
     """Represents a vector with four single-precision floating-point values."""
 
@@ -3898,6 +3034,230 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
         ...
 
 
+class Plane(System.IEquatable[System_Numerics_Plane]):
+    """Represents a plane in three-dimensional space."""
+
+    @property
+    def normal(self) -> System.Numerics.Vector3:
+        """The normal vector of the plane."""
+        ...
+
+    @normal.setter
+    def normal(self, value: System.Numerics.Vector3) -> None:
+        ...
+
+    @property
+    def d(self) -> float:
+        """The distance of the plane along its normal from the origin."""
+        ...
+
+    @d.setter
+    def d(self, value: float) -> None:
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether two planes are equal.
+        
+        :param value1: The first plane to compare.
+        :param value_2: The second plane to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float, d: float) -> None:
+        """
+        Initializes a Plane from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
+        
+        :param x: The X component of the normal.
+        :param y: The Y component of the normal.
+        :param z: The Z component of the normal.
+        :param d: The distance of the plane along its normal from the origin.
+        """
+        ...
+
+    @overload
+    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
+        """
+        Initializes a Plane from a specified normal and the distance along the normal from the origin.
+        
+        :param normal: The plane's normal vector.
+        :param d: The plane's distance from the origin along its normal vector.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Vector4) -> None:
+        """
+        Initializes a Plane from a specified four-dimensional vector.
+        
+        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
+        """
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether two planes are not equal.
+        
+        :param value1: The first plane to compare.
+        :param value_2: The second plane to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(value: System.Numerics.Vector4) -> System.Numerics.Plane:
+        """
+        Creates a Plane from a specified four-dimensional vector.
+        
+        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(normal: System.Numerics.Vector3, d: float) -> System.Numerics.Plane:
+        """
+        Creates a Plane from a specified normal and the distance along the normal from the origin.
+        
+        :param normal: The plane's normal vector.
+        :param d: The plane's distance from the origin along its normal vector.
+        :returns: A Plane created from a specified normal and the distance along the normal from the origin.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(x: float, y: float, z: float, d: float) -> System.Numerics.Plane:
+        """
+        Creates a Plane from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
+        
+        :param x: The X component of the normal.
+        :param y: The Y component of the normal.
+        :param z: The Z component of the normal.
+        :param d: The distance of the plane along its normal from the origin.
+        :returns: A Plane created from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
+        """
+        ...
+
+    @staticmethod
+    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
+        """
+        Creates a Plane object that contains three specified points.
+        
+        :param point_1: The first point defining the plane.
+        :param point_2: The second point defining the plane.
+        :param point_3: The third point defining the plane.
+        :returns: The plane containing the three points.
+        """
+        ...
+
+    @staticmethod
+    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
+        """
+        Calculates the dot product of a plane and a 4-dimensional vector.
+        
+        :param plane: The plane.
+        :param value: The four-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @staticmethod
+    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        """
+        Returns the dot product of a specified three-dimensional vector and the normal vector of this plane plus the distance (D) value of the plane.
+        
+        :param plane: The plane.
+        :param value: The 3-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @staticmethod
+    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        """
+        Returns the dot product of a specified three-dimensional vector and the Normal vector of this plane.
+        
+        :param plane: The plane.
+        :param value: The three-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Returns a value that indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether this instance and another plane object are equal.
+        
+        :param other: The other plane.
+        :returns: true if the two planes are equal; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
+        """
+        Creates a new Plane object whose normal vector is the source plane's normal vector normalized.
+        
+        :param value: The source plane.
+        :returns: The normalized plane.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns the string representation of this plane object.
+        
+        :returns: A string that represents this Plane object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
+        """
+        Transforms a normalized plane by a 4x4 matrix.
+        
+        :param plane: The normalized plane to transform.
+        :param matrix: The transformation matrix to apply to .
+        :returns: The transformed plane.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
+        """
+        Transforms a normalized plane by a Quaternion rotation.
+        
+        :param plane: The normalized plane to transform.
+        :param rotation: The Quaternion rotation to apply to the plane.
+        :returns: A new plane that results from applying the Quaternion rotation.
+        """
+        ...
+
+
 class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
     """Represents a 3x2 matrix."""
 
@@ -4533,230 +3893,6 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
         :param index: The index of the row to replace.
         :param value: The value to assign to the row at index: [].
         :returns: A Matrix3x2 with the value of the row at index: [] set to  and the remaining rows set to the same value as that in the current matrix.
-        """
-        ...
-
-
-class Plane(System.IEquatable[System_Numerics_Plane]):
-    """Represents a plane in three-dimensional space."""
-
-    @property
-    def normal(self) -> System.Numerics.Vector3:
-        """The normal vector of the plane."""
-        ...
-
-    @normal.setter
-    def normal(self, value: System.Numerics.Vector3) -> None:
-        ...
-
-    @property
-    def d(self) -> float:
-        """The distance of the plane along its normal from the origin."""
-        ...
-
-    @d.setter
-    def d(self, value: float) -> None:
-        ...
-
-    def __eq__(self, value_2: System.Numerics.Plane) -> bool:
-        """
-        Returns a value that indicates whether two planes are equal.
-        
-        :param value1: The first plane to compare.
-        :param value_2: The second plane to compare.
-        :returns: true if  and  are equal; otherwise, false.
-        """
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float, d: float) -> None:
-        """
-        Initializes a Plane from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
-        
-        :param x: The X component of the normal.
-        :param y: The Y component of the normal.
-        :param z: The Z component of the normal.
-        :param d: The distance of the plane along its normal from the origin.
-        """
-        ...
-
-    @overload
-    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
-        """
-        Initializes a Plane from a specified normal and the distance along the normal from the origin.
-        
-        :param normal: The plane's normal vector.
-        :param d: The plane's distance from the origin along its normal vector.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector4) -> None:
-        """
-        Initializes a Plane from a specified four-dimensional vector.
-        
-        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
-        """
-        ...
-
-    def __ne__(self, value_2: System.Numerics.Plane) -> bool:
-        """
-        Returns a value that indicates whether two planes are not equal.
-        
-        :param value1: The first plane to compare.
-        :param value_2: The second plane to compare.
-        :returns: true if  and  are not equal; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(value: System.Numerics.Vector4) -> System.Numerics.Plane:
-        """
-        Creates a Plane from a specified four-dimensional vector.
-        
-        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(normal: System.Numerics.Vector3, d: float) -> System.Numerics.Plane:
-        """
-        Creates a Plane from a specified normal and the distance along the normal from the origin.
-        
-        :param normal: The plane's normal vector.
-        :param d: The plane's distance from the origin along its normal vector.
-        :returns: A Plane created from a specified normal and the distance along the normal from the origin.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(x: float, y: float, z: float, d: float) -> System.Numerics.Plane:
-        """
-        Creates a Plane from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
-        
-        :param x: The X component of the normal.
-        :param y: The Y component of the normal.
-        :param z: The Z component of the normal.
-        :param d: The distance of the plane along its normal from the origin.
-        :returns: A Plane created from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
-        """
-        ...
-
-    @staticmethod
-    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
-        """
-        Creates a Plane object that contains three specified points.
-        
-        :param point_1: The first point defining the plane.
-        :param point_2: The second point defining the plane.
-        :param point_3: The third point defining the plane.
-        :returns: The plane containing the three points.
-        """
-        ...
-
-    @staticmethod
-    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
-        """
-        Calculates the dot product of a plane and a 4-dimensional vector.
-        
-        :param plane: The plane.
-        :param value: The four-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @staticmethod
-    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        """
-        Returns the dot product of a specified three-dimensional vector and the normal vector of this plane plus the distance (D) value of the plane.
-        
-        :param plane: The plane.
-        :param value: The 3-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @staticmethod
-    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        """
-        Returns the dot product of a specified three-dimensional vector and the Normal vector of this plane.
-        
-        :param plane: The plane.
-        :param value: The three-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Returns a value that indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Plane) -> bool:
-        """
-        Returns a value that indicates whether this instance and another plane object are equal.
-        
-        :param other: The other plane.
-        :returns: true if the two planes are equal; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
-        """
-        Creates a new Plane object whose normal vector is the source plane's normal vector normalized.
-        
-        :param value: The source plane.
-        :returns: The normalized plane.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns the string representation of this plane object.
-        
-        :returns: A string that represents this Plane object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
-        """
-        Transforms a normalized plane by a 4x4 matrix.
-        
-        :param plane: The normalized plane to transform.
-        :param matrix: The transformation matrix to apply to .
-        :returns: The transformed plane.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
-        """
-        Transforms a normalized plane by a Quaternion rotation.
-        
-        :param plane: The normalized plane to transform.
-        :param rotation: The Quaternion rotation to apply to the plane.
-        :returns: A new plane that results from applying the Quaternion rotation.
         """
         ...
 
@@ -5935,32 +5071,1092 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         ...
 
 
-class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the sum of two values."""
+class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
+    """Represents a vector with three  single-precision floating-point values."""
 
+    @property
+    def x(self) -> float:
+        """The X component of the vector."""
+        ...
 
-class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf, System_Numerics_IEqualityOperators_TOther, System_Numerics_IEqualityOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for comparing two values to determine equality."""
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
 
+    @property
+    def y(self) -> float:
+        """The Y component of the vector."""
+        ...
 
-class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number that is represented in a base-2 format."""
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
 
+    @property
+    def z(self) -> float:
+        """The Z component of the vector."""
+        ...
 
-class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for comparing two values to determine relative order."""
+    @z.setter
+    def z(self, value: float) -> None:
+        ...
 
+    ALL_BITS_SET: System.Numerics.Vector3
 
-class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the quotient of two values."""
+    E: System.Numerics.Vector3
 
+    EPSILON: System.Numerics.Vector3
 
-class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number type."""
+    NA_N: System.Numerics.Vector3
 
+    NEGATIVE_INFINITY: System.Numerics.Vector3
 
-class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the product of two values."""
+    NEGATIVE_ZERO: System.Numerics.Vector3
+
+    ONE: System.Numerics.Vector3
+
+    PI: System.Numerics.Vector3
+
+    POSITIVE_INFINITY: System.Numerics.Vector3
+
+    TAU: System.Numerics.Vector3
+
+    UNIT_X: System.Numerics.Vector3
+    """Gets the vector (1,0,0)."""
+
+    UNIT_Y: System.Numerics.Vector3
+    """Gets the vector (0,1,0)."""
+
+    UNIT_Z: System.Numerics.Vector3
+    """Gets the vector (0,0,1)."""
+
+    ZERO: System.Numerics.Vector3
+
+    @overload
+    def __add__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector3) -> bool:
+        """
+        Returns a value that indicates whether each pair of elements in two specified vectors is equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
+    def __getitem__(self, index: int) -> float:
+        """
+        Gets or sets the element at the specified index.
+        
+        :param index: The index of the element to get or set.
+        :returns: The the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Numerics.Vector3:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: float) -> None:
+        """
+        Creates a new Vector3 object whose three elements have the same value.
+        
+        :param value: The value to assign to all three elements.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Vector2, z: float) -> None:
+        """
+        Creates a   new Vector3 object from the specified Vector2 object and the specified value.
+        
+        :param value: The vector with two elements.
+        :param z: The additional value to assign to the Z field.
+        """
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float) -> None:
+        """
+        Creates a vector whose elements have the specified values.
+        
+        :param x: The value to assign to the X field.
+        :param y: The value to assign to the Y field.
+        :param z: The value to assign to the Z field.
+        """
+        ...
+
+    @overload
+    def __init__(self, values: System.ReadOnlySpan[float]) -> None:
+        """
+        Constructs a vector from the given ReadOnlySpan{Single}. The span must contain at least 3 elements.
+        
+        :param values: The span of elements to assign to the vector.
+        """
+        ...
+
+    def __invert__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Vector3:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector3:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Numerics.Vector3:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector3) -> bool:
+        """
+        Returns a value that indicates whether two specified vectors are not equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
+    def __or__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    def __setitem__(self, index: int, value: float) -> None:
+        """
+        Gets or sets the element at the specified index.
+        
+        :param index: The index of the element to get or set.
+        :returns: The the element at .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Vector3:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector3:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def abs(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a vector whose elements are the absolute values of each of the specified vector's elements.
+        
+        :param value: A vector.
+        :returns: The absolute value vector.
+        """
+        ...
+
+    @staticmethod
+    def add(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @staticmethod
+    def all(vector: System.Numerics.Vector3, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def all_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def and_not(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def any(vector: System.Numerics.Vector3, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def any_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def bitwise_and(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def bitwise_or(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def clamp(value_1: System.Numerics.Vector3, min: System.Numerics.Vector3, max: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def clamp_native(value_1: System.Numerics.Vector3, min: System.Numerics.Vector3, max: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def conditional_select(condition: System.Numerics.Vector3, left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Vector3, sign: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[float]) -> None:
+        """
+        Copies the elements of the vector to a specified array.
+        
+        :param array: The destination array.
+        """
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[float], index: int) -> None:
+        """
+        Copies the elements of the vector to a specified array starting at a specified index position.
+        
+        :param array: The destination array.
+        :param index: The index at which to copy the first element of the vector.
+        """
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[float]) -> None:
+        """
+        Copies the vector to the given Span{T}. The length of the destination span must be at least 3.
+        
+        :param destination: The destination span which the values are copied into.
+        """
+        ...
+
+    @staticmethod
+    def cos(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def count(vector: System.Numerics.Vector3, value: float) -> int:
+        ...
+
+    @staticmethod
+    def count_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def create(value: float) -> System.Numerics.Vector3:
+        """
+        Creates a new Vector3 object whose three elements have the same value.
+        
+        :param value: The value to assign to all three elements.
+        :returns: A new Vector3 whose three elements have the same value.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(vector: System.Numerics.Vector2, z: float) -> System.Numerics.Vector3:
+        """
+        Creates a new Vector3 object from the specified Vector2 object and a Z and a W component.
+        
+        :param vector: The vector to use for the X and Y components.
+        :param z: The Z component.
+        :returns: A new Vector3 from the specified Vector2 object and a Z and a W component.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(x: float, y: float, z: float) -> System.Numerics.Vector3:
+        """
+        Creates a vector whose elements have the specified values.
+        
+        :param x: The value to assign to the X field.
+        :param y: The value to assign to the Y field.
+        :param z: The value to assign to the Z field.
+        :returns: A new Vector3 whose elements have the specified values.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector3:
+        """
+        Constructs a vector from the given ReadOnlySpan{Single}. The span must contain at least 3 elements.
+        
+        :param values: The span of elements to assign to the vector.
+        :returns: A new Vector3 whose elements have the specified values.
+        """
+        ...
+
+    @staticmethod
+    def create_scalar(x: float) -> System.Numerics.Vector3:
+        """
+        Creates a vector with X initialized to the specified value and the remaining elements initialized to zero.
+        
+        :param x: The value to assign to the X field.
+        :returns: A new Vector3 with X initialized  and the remaining elements initialized to zero.
+        """
+        ...
+
+    @staticmethod
+    def create_scalar_unsafe(x: float) -> System.Numerics.Vector3:
+        """
+        Creates a vector with X initialized to the specified value and the remaining elements left uninitialized.
+        
+        :param x: The value to assign to the X field.
+        :returns: A new Vector3 with X initialized  and the remaining elements left uninitialized.
+        """
+        ...
+
+    @staticmethod
+    def cross(vector_1: System.Numerics.Vector3, vector_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Computes the cross product of two vectors.
+        
+        :param vector_1: The first vector.
+        :param vector_2: The second vector.
+        :returns: The cross product.
+        """
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def distance(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> float:
+        """
+        Computes the Euclidean distance between the two given points.
+        
+        :param value_1: The first point.
+        :param value_2: The second point.
+        :returns: The distance.
+        """
+        ...
+
+    @staticmethod
+    def distance_squared(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> float:
+        """
+        Returns the Euclidean distance squared between two specified points.
+        
+        :param value_1: The first point.
+        :param value_2: The second point.
+        :returns: The distance squared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector resulting from the division.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector3, divisor: float) -> System.Numerics.Vector3:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param left: The vector.
+        :param divisor: The scalar value.
+        :returns: The vector that results from the division.
+        """
+        ...
+
+    @staticmethod
+    def dot(vector_1: System.Numerics.Vector3, vector_2: System.Numerics.Vector3) -> float:
+        """
+        Returns the dot product of two vectors.
+        
+        :param vector_1: The first vector.
+        :param vector_2: The second vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Returns a value that indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Vector3) -> bool:
+        """
+        Returns a value that indicates whether this instance and another vector are equal.
+        
+        :param other: The other vector.
+        :returns: true if the two vectors are equal; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def equals_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def equals_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def exp(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Numerics.Vector3, right: System.Numerics.Vector3, addend: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+    @staticmethod
+    def greater_than(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def greater_than_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def hypot(x: System.Numerics.Vector3, y: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def index_of(vector: System.Numerics.Vector3, value: float) -> int:
+        ...
+
+    @staticmethod
+    def index_of_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_finite(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_na_n(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_negative(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_negative_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_normal(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_odd_integer(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_positive(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_subnormal(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def is_zero(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def last_index_of(vector: System.Numerics.Vector3, value: float) -> int:
+        ...
+
+    @staticmethod
+    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector3) -> int:
+        ...
+
+    def length(self) -> float:
+        """
+        Returns the length of this vector object.
+        
+        :returns: The vector's length.
+        """
+        ...
+
+    def length_squared(self) -> float:
+        """
+        Returns the length of the vector squared.
+        
+        :returns: The vector's length squared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def lerp(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3, amount: float) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def lerp(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3, amount: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def less_than(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def less_than_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_or_equal(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def less_than_or_equal_all(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_or_equal_any(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def load(source: typing.Any) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def load_aligned(source: typing.Any) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def load_unsafe(source: float) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def log(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def log_2(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def max(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def max_magnitude(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def max_native(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def max_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def min(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def min_magnitude(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def min_native(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def min_number(value_1: System.Numerics.Vector3, value_2: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: System.Numerics.Vector3, right: float) -> System.Numerics.Vector3:
+        """
+        Multiplies a vector by a specified scalar.
+        
+        :param left: The vector to multiply.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: float, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Multiplies a scalar value by a specified vector.
+        
+        :param left: The scaled value.
+        :param right: The vector.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Vector3, right: System.Numerics.Vector3, addend: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Negates a specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @staticmethod
+    def none(vector: System.Numerics.Vector3, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def none_where_all_bits_set(vector: System.Numerics.Vector3) -> bool:
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a vector with the same direction as the specified vector, but with a length of one.
+        
+        :param value: The vector to normalize.
+        :returns: The normalized vector.
+        """
+        ...
+
+    @staticmethod
+    def ones_complement(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def reflect(vector: System.Numerics.Vector3, normal: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns the reflection of a vector off a surface that has the specified normal.
+        
+        :param vector: The source vector.
+        :param normal: The normal of the surface being reflected off.
+        :returns: The reflected vector.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Numerics.Vector3, mode: System.MidpointRounding) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def shuffle(vector: System.Numerics.Vector3, x_index: int, y_index: int, z_index: int) -> System.Numerics.Vector3:
+        """
+        Creates a new vector by selecting values from an input vector using a set of indices.
+        
+        :param vector: The input vector from which values are selected.
+        :param x_index: The index used to select a value from  to be used as the value of X in the result.
+        :param y_index: The index used to select a value from  to be used as the value of Y in the result
+        :param z_index: The index used to select a value from  to be used as the value of Z in the result
+        :returns: A new vector containing the values from  selected by the given indices.
+        """
+        ...
+
+    @staticmethod
+    def sin(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def sin_cos(vector: System.Numerics.Vector3) -> System.ValueTuple[System.Numerics.Vector3, System.Numerics.Vector3]:
+        ...
+
+    @staticmethod
+    def square_root(value: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a vector whose elements are the square root of each of a specified vector's elements.
+        
+        :param value: A vector.
+        :returns: The square root vector.
+        """
+        ...
+
+    @staticmethod
+    def subtract(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The difference vector.
+        """
+        ...
+
+    @staticmethod
+    def sum(value: System.Numerics.Vector3) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        """
+        Returns the string representation of the current instance using default formatting.
+        
+        :returns: The string representation of the current instance.
+        """
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        """
+        Returns the string representation of the current instance using the specified format string to format individual elements.
+        
+        :param format: A standard or custom numeric format string that defines the format of individual elements.
+        :returns: The string representation of the current instance.
+        """
+        ...
+
+    @overload
+    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
+        """
+        Returns the string representation of the current instance using the specified format string to format individual elements and the specified format provider to define culture-specific formatting.
+        
+        :param format: A standard or custom numeric format string that defines the format of individual elements.
+        :param format_provider: A format provider that supplies culture-specific formatting information.
+        :returns: The string representation of the current instance.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(position: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector3:
+        """
+        Transforms a vector by a specified 4x4 matrix.
+        
+        :param position: The vector to transform.
+        :param matrix: The transformation matrix.
+        :returns: The transformed vector.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(value: System.Numerics.Vector3, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector3:
+        """
+        Transforms a vector by the specified Quaternion rotation value.
+        
+        :param value: The vector to rotate.
+        :param rotation: The rotation to apply.
+        :returns: The transformed vector.
+        """
+        ...
+
+    @staticmethod
+    def transform_normal(normal: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector3:
+        """
+        Transforms a vector normal by the given 4x4 matrix.
+        
+        :param normal: The source vector.
+        :param matrix: The matrix.
+        :returns: The transformed vector.
+        """
+        ...
+
+    @staticmethod
+    def truncate(vector: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def try_copy_to(self, destination: System.Span[float]) -> bool:
+        """
+        Attempts to copy the vector to the given Span{Single}. The length of the destination span must be at least 3.
+        
+        :param destination: The destination span which the values are copied into.
+        :returns: true if the source vector was successfully copied to . false if  is not large enough to hold the source vector.
+        """
+        ...
+
+    @staticmethod
+    def xor(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
 
 
 class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics.ISimdVector[System_Numerics_Vector, System_Numerics_Vector_T], System.IFormattable):
@@ -6406,9 +6602,9 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_2(value: System.Numerics.Vector3) -> System.Numerics.Vector2:
+    def as_vector_2(value: System.Numerics.Vector4) -> System.Numerics.Vector2:
         """
-        Reinterprets a Vector3 as a new Vector2.
+        Reinterprets a Vector4 as a new Vector2.
         
         :param value: The vector to reinterpret.
         :returns: reinterpreted as a new Vector2.
@@ -6417,9 +6613,9 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_2(value: System.Numerics.Vector4) -> System.Numerics.Vector2:
+    def as_vector_2(value: System.Numerics.Vector3) -> System.Numerics.Vector2:
         """
-        Reinterprets a Vector4 as a new Vector2.
+        Reinterprets a Vector3 as a new Vector2.
         
         :param value: The vector to reinterpret.
         :returns: reinterpreted as a new Vector2.
@@ -6471,17 +6667,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_4(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
-        """
-        Reinterprets a Vector2 to a new Vector4 with the new elements zeroed.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted to a new Vector4 with the new elements zeroed.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def as_vector_4(value: System.Numerics.Plane) -> System.Numerics.Vector4:
         """
         Reinterprets a Plane as a new Vector4.
@@ -6499,6 +6684,17 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         
         :param value: The quaternion to reinterpret.
         :returns: reinterpreted as a new Quaternion.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
+        """
+        Reinterprets a Vector2 to a new Vector4 with the new elements zeroed.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted to a new Vector4 with the new elements zeroed.
         """
         ...
 
@@ -6583,12 +6779,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
+    def extract_most_significant_bits(vector: System.Numerics.Vector4) -> int:
         ...
 
     @staticmethod
     @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector4) -> int:
+    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
         ...
 
     @staticmethod
@@ -6598,12 +6794,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
+    def get_element(vector: System.Numerics.Vector4, index: int) -> float:
         ...
 
     @staticmethod
     @overload
-    def get_element(vector: System.Numerics.Vector4, index: int) -> float:
+    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
         ...
 
     @staticmethod
@@ -6621,7 +6817,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+    def store(source: System.Numerics.Vector4, destination: typing.Any) -> None:
         """
         Stores a vector at the given destination.
         
@@ -6632,7 +6828,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store(source: System.Numerics.Vector4, destination: typing.Any) -> None:
+    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
         Stores a vector at the given destination.
         
@@ -6654,17 +6850,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
-        """
-        Stores a vector at the given 8-byte aligned destination.
-        
-        :param source: The vector that will be stored.
-        :param destination: The aligned destination at which  will be stored.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def store_aligned(source: System.Numerics.Vector4, destination: typing.Any) -> None:
         """
         Stores a vector at the given 16-byte aligned destination.
@@ -6676,7 +6861,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned(source: System.Numerics.Vector2, destination: typing.Any) -> None:
+    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
         Stores a vector at the given 8-byte aligned destination.
         
@@ -6687,7 +6872,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+    def store_aligned(source: System.Numerics.Vector2, destination: typing.Any) -> None:
         """
         Stores a vector at the given 8-byte aligned destination.
         
@@ -6709,7 +6894,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector2, destination: typing.Any) -> None:
+    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
         Stores a vector at the given 8-byte aligned destination.
         
@@ -6720,24 +6905,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
+    def store_aligned_non_temporal(source: System.Numerics.Vector2, destination: typing.Any) -> None:
         """
-        Stores a vector at the given destination.
+        Stores a vector at the given 8-byte aligned destination.
         
         :param source: The vector that will be stored.
-        :param destination: The destination at which  will be stored.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
-        """
-        Stores a vector at the given destination.
-        
-        :param source: The vector that will be stored.
-        :param destination: The destination to which  will be added before the vector will be stored.
-        :param element_offset: The element offset from  from which the vector will be stored.
+        :param destination: The aligned destination at which  will be stored.
         """
         ...
 
@@ -6755,6 +6928,29 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     @staticmethod
     @overload
     def store_unsafe(source: System.Numerics.Vector4, destination: float, element_offset: System.UIntPtr) -> None:
+        """
+        Stores a vector at the given destination.
+        
+        :param source: The vector that will be stored.
+        :param destination: The destination to which  will be added before the vector will be stored.
+        :param element_offset: The element offset from  from which the vector will be stored.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
+        """
+        Stores a vector at the given destination.
+        
+        :param source: The vector that will be stored.
+        :param destination: The destination at which  will be stored.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
         """
         Stores a vector at the given destination.
         
@@ -6789,12 +6985,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def to_scalar(vector: System.Numerics.Vector3) -> float:
+    def to_scalar(vector: System.Numerics.Vector4) -> float:
         ...
 
     @staticmethod
     @overload
-    def to_scalar(vector: System.Numerics.Vector4) -> float:
+    def to_scalar(vector: System.Numerics.Vector3) -> float:
         ...
 
     @staticmethod
@@ -6854,12 +7050,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
+    def with_element(vector: System.Numerics.Vector4, index: int, value: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def with_element(vector: System.Numerics.Vector4, index: int, value: float) -> System.Numerics.Vector4:
+    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
         ...
 
     @staticmethod
@@ -6868,24 +7064,259 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         ...
 
 
-class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for decrementing a given value."""
+class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """Defines an IEEE 754 floating-point type."""
+
+
+class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf, System_Numerics_IEqualityOperators_TOther, System_Numerics_IEqualityOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for comparing two values to determine equality."""
+
+
+class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
+    """
+    Represents a comparison operation that compares floating-point numbers
+    with IEEE 754 totalOrder semantic.
+    """
+
+    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        """
+        Compares two numbers with IEEE 754 totalOrder semantic and returns
+        a value indicating whether one is less than, equal to, or greater than the other.
+        
+        :param x: The first number to compare.
+        :param y: The second number to compare.
+        :returns: A signed integer that indicates the relative values of  and , as shown in the following table.  Value Meaning Less than zero is less than  Zero equals  Greater than zero is greater than.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
+        """
+        Determines whether the specified numbers are equal.
+        
+        :param x: The first number of type T to compare.
+        :param y: The second number of type T to compare.
+        :returns: true if the specified numbers are equal; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        """
+        Returns a hash code for the specified number.
+        
+        :param obj: The number for which a hash code is to be returned.
+        :returns: A hash code for the specified number.
+        """
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+
+class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for performing bitwise operations over two values."""
+
+
+class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for incrementing a given value."""
+
+
+class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """Defines an IEEE 754 floating-point type that is represented in a base-2 format."""
 
 
 class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
     """Defines support for floating-point constants."""
 
 
+class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the unary negation of a value."""
+
+
+class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the sum of two values."""
+
+
+class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the product of two values."""
+
+
+class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the modulus or remainder of two values."""
+
+
+class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for decrementing a given value."""
+
+
 class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
     """Defines support for root functions."""
 
 
-class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """Defines an IEEE 754 floating-point type."""
+class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for power functions."""
 
 
-class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for performing bitwise operations over two values."""
+class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the difference of two values."""
+
+
+class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IShiftOperators[System_Numerics_IBinaryInteger_TSelf, int, System_Numerics_IBinaryInteger_TSelf], metaclass=abc.ABCMeta):
+    """Defines an integer type that is represented in a base-2 format."""
+
+    def get_byte_count(self) -> int:
+        """
+        Gets the number of bytes that will be written as part of TryWriteLittleEndian(Span{byte}, out int).
+        
+        :returns: The number of bytes that will be written as part of TryWriteLittleEndian(Span{byte}, out int).
+        """
+        ...
+
+    def get_shortest_bit_length(self) -> int:
+        """
+        Gets the length, in bits, of the shortest two's complement representation of the current value.
+        
+        :returns: The length, in bits, of the shortest two's complement representation of the current value.
+        """
+        ...
+
+    def try_write_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current value, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current value should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the value was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current value, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current value should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the value was successfully written to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def write_big_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current value, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current value should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current value, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current value should be written.
+        :param start_index: The starting index at which the value should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_big_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current value, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current value should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_little_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current value, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current value should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current value, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current value should be written.
+        :param start_index: The starting index at which the value should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_little_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current value, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current value should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+
+class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the unary plus of a value."""
+
+
+class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the quotient of two values."""
+
+
+class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for exponential functions."""
+
+
+class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number that is represented in a base-2 format."""
+
+
+class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number type which can only represent positive values, that is it cannot represent negative values."""
+
+
+class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number type which can represent both positive and negative values."""
+
+
+class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for getting the multiplicative identity of a given type."""
+
+
+class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
+    """Defines the base of other number types."""
+
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
+        ...
 
 
 class BitOperations(System.Object):
@@ -7110,442 +7541,11 @@ class BitOperations(System.Object):
         ...
 
 
-class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number type which can only represent positive values, that is it cannot represent negative values."""
-
-
-class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for logarithmic functions."""
-
-
-class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the unary negation of a value."""
-
-
-class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for getting the multiplicative identity of a given type."""
+class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for trigonometric functions."""
 
 
 class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
     """Defines a mechanism for getting the additive identity of a given type."""
-
-
-class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for hyperbolic functions."""
-
-
-class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """Defines an IEEE 754 floating-point type that is represented in a base-2 format."""
-
-
-class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the modulus or remainder of two values."""
-
-
-class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IShiftOperators[System_Numerics_IBinaryInteger_TSelf, int, System_Numerics_IBinaryInteger_TSelf], metaclass=abc.ABCMeta):
-    """Defines an integer type that is represented in a base-2 format."""
-
-    def get_byte_count(self) -> int:
-        """
-        Gets the number of bytes that will be written as part of TryWriteLittleEndian(Span{byte}, out int).
-        
-        :returns: The number of bytes that will be written as part of TryWriteLittleEndian(Span{byte}, out int).
-        """
-        ...
-
-    def get_shortest_bit_length(self) -> int:
-        """
-        Gets the length, in bits, of the shortest two's complement representation of the current value.
-        
-        :returns: The length, in bits, of the shortest two's complement representation of the current value.
-        """
-        ...
-
-    def try_write_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current value, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current value should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the value was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current value, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current value should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the value was successfully written to ; otherwise, false.
-        """
-        ...
-
-    @overload
-    def write_big_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current value, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current value should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current value, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current value should be written.
-        :param start_index: The starting index at which the value should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_big_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current value, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current value should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_little_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current value, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current value should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current value, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current value should be written.
-        :param start_index: The starting index at which the value should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_little_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current value, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current value should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-
-class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the unary plus of a value."""
-
-
-class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for exponential functions."""
-
-
-class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
-    """Defines the base of other number types."""
-
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        ...
-
-
-class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for getting the minimum and maximum value of a type."""
-
-
-class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for shifting a value by another value."""
-
-
-class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number type which can represent both positive and negative values."""
-
-
-class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for incrementing a given value."""
-
-
-class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the difference of two values."""
-
-
-class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
-    """Defines a floating-point type."""
-
-    def get_exponent_byte_count(self) -> int:
-        """
-        Gets the number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
-        
-        :returns: The number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
-        """
-        ...
-
-    def get_exponent_shortest_bit_length(self) -> int:
-        """
-        Gets the length, in bits, of the shortest two's complement representation of the current exponent.
-        
-        :returns: The length, in bits, of the shortest two's complement representation of the current exponent.
-        """
-        ...
-
-    def get_significand_bit_length(self) -> int:
-        """
-        Gets the length, in bits, of the current significand.
-        
-        :returns: The length, in bits, of the current significand.
-        """
-        ...
-
-    def get_significand_byte_count(self) -> int:
-        """
-        Gets the number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
-        
-        :returns: The number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
-        """
-        ...
-
-    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current exponent, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the exponent was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current exponent, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the exponent was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current significand, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the significand was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current significand, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the significand was successfully written to ; otherwise, false.
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :param start_index: The starting index at which the exponent should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :param start_index: The starting index at which the exponent should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :param start_index: The starting index at which the significand should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :param start_index: The starting index at which the significand should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-
-class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for power functions."""
-
-
-class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
-    """
-    Represents a comparison operation that compares floating-point numbers
-    with IEEE 754 totalOrder semantic.
-    """
-
-    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        """
-        Compares two numbers with IEEE 754 totalOrder semantic and returns
-        a value indicating whether one is less than, equal to, or greater than the other.
-        
-        :param x: The first number to compare.
-        :param y: The second number to compare.
-        :returns: A signed integer that indicates the relative values of  and , as shown in the following table.  Value Meaning Less than zero is less than  Zero equals  Greater than zero is greater than.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
-        """
-        Determines whether the specified numbers are equal.
-        
-        :param x: The first number of type T to compare.
-        :param y: The second number of type T to compare.
-        :returns: true if the specified numbers are equal; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
-        ...
-
-    @overload
-    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        """
-        Returns a hash code for the specified number.
-        
-        :param obj: The number for which a hash code is to be returned.
-        :returns: A hash code for the specified number.
-        """
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-
-class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for trigonometric functions."""
 
 

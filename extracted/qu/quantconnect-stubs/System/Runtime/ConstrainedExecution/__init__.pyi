@@ -6,18 +6,11 @@ import System
 import System.Runtime.ConstrainedExecution
 
 
-class Consistency(Enum):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
+class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
+    """Ensures that all finalization code in derived classes is marked as critical."""
 
-    MAY_CORRUPT_PROCESS = 0
-
-    MAY_CORRUPT_APP_DOMAIN = 1
-
-    MAY_CORRUPT_INSTANCE = 2
-
-    WILL_NOT_CORRUPT_STATE = 3
-
-    def __int__(self) -> int:
+    def __init__(self) -> None:
+        """This method is protected."""
         ...
 
 
@@ -29,6 +22,21 @@ class Cer(Enum):
     MAY_FAIL = 1
 
     SUCCESS = 2
+
+    def __int__(self) -> int:
+        ...
+
+
+class Consistency(Enum):
+    """Obsoletions.ConstrainedExecutionRegionMessage"""
+
+    MAY_CORRUPT_PROCESS = 0
+
+    MAY_CORRUPT_APP_DOMAIN = 1
+
+    MAY_CORRUPT_INSTANCE = 2
+
+    WILL_NOT_CORRUPT_STATE = 3
 
     def __int__(self) -> int:
         ...
@@ -57,14 +65,6 @@ class PrePrepareMethodAttribute(System.Attribute):
     """Obsoletions.ConstrainedExecutionRegionMessage"""
 
     def __init__(self) -> None:
-        ...
-
-
-class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
-    """Ensures that all finalization code in derived classes is marked as critical."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
         ...
 
 

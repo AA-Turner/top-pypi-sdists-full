@@ -61,10 +61,10 @@ _last_count_time = 0
 _last_count_result: tuple[int, str] = (0, "")
 
 _total_time = 0.0
-_func_times = defaultdict(float)
-_func_mem = defaultdict(float)
-_func_call_paths = defaultdict(Counter)
-_last_mem = defaultdict(float)
+_func_times: defaultdict = defaultdict(float)
+_func_mem: defaultdict = defaultdict(float)
+_func_call_paths: defaultdict = defaultdict(Counter)
+_last_mem: defaultdict = defaultdict(float)
 _leak_threshold_mb = 10.0
 generation_strategy_names: list = []
 default_max_range_difference: int = 1000000
@@ -333,7 +333,7 @@ def show_func_name_wrapper(func: F) -> F:
 
         return result
 
-    return wrapper  # type: ignore
+    return wrapper # type: ignore
 
 def log_time_and_memory_wrapper(func: F) -> F:
     @functools.wraps(func)
@@ -360,7 +360,7 @@ def log_time_and_memory_wrapper(func: F) -> F:
 
         return result
 
-    return wrapper  # type: ignore
+    return wrapper # type: ignore
 
 def _record_stats(func_name: str, elapsed: float, mem_diff: float, mem_after: float, mem_peak: float) -> None:
     global _total_time
@@ -449,7 +449,7 @@ RESET: str = "\033[0m"
 
 uuid_regex: Pattern = re.compile(r"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
 
-worker_generator_uuid: str = uuid.uuid4()
+worker_generator_uuid: str = str(uuid.uuid4())
 
 new_uuid: str = str(uuid.uuid4())
 run_uuid: str = os.getenv("RUN_UUID", new_uuid)
@@ -478,7 +478,7 @@ def get_current_run_folder(name: Optional[str] = None) -> str:
 
     return CURRENT_RUN_FOLDER
 
-def get_state_file_name(name) -> str:
+def get_state_file_name(name: str) -> str:
     state_files_folder = f"{get_current_run_folder()}/state_files/"
     makedirs(state_files_folder)
 
@@ -525,14 +525,12 @@ def is_slurm_job() -> bool:
         return True
     return False
 
-def _sleep(t: Union[float, int]) -> int:
+def _sleep(t: Union[float, int]) -> None:
     if args is not None and not args.no_sleep:
         try:
             time.sleep(t)
         except KeyboardInterrupt:
             pass
-
-    return t
 
 LOG_DIR: str = "logs"
 makedirs(LOG_DIR)
@@ -579,20 +577,22 @@ def _debug(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> 
 def _get_debug_json(time_str: str, msg: str) -> str:
     function_stack = []
     try:
-        frame = inspect.currentframe().f_back  # skip _get_debug_json
-        while frame:
-            func_name = _function_name_cache.get(frame.f_code)
-            if func_name is None:
-                func_name = frame.f_code.co_name
-                _function_name_cache[frame.f_code] = func_name
+        cf = inspect.currentframe()
+        if cf:
+            frame = cf.f_back  # skip _get_debug_json
+            while frame:
+                func_name = _function_name_cache.get(frame.f_code)
+                if func_name is None:
+                    func_name = frame.f_code.co_name
+                    _function_name_cache[frame.f_code] = func_name
 
-            if func_name not in ("<module>", "print_debug", "wrapper"):
-                function_stack.append({
-                    "function": func_name,
-                    "line_number": frame.f_lineno
-                })
+                if func_name not in ("<module>", "print_debug", "wrapper"):
+                    function_stack.append({
+                        "function": func_name,
+                        "line_number": frame.f_lineno
+                    })
 
-            frame = frame.f_back
+                frame = frame.f_back
     except (SignalUSR, SignalINT, SignalCONT):
         print_red("\n⚠ You pressed CTRL-C. This is ignored in _get_debug_json.")
 
@@ -694,11 +694,14 @@ def my_exit(_code: int = 0) -> None:
     if is_skip_search() and os.getenv("SKIP_SEARCH_EXIT_CODE"):
         skip_search_exit_code = os.getenv("SKIP_SEARCH_EXIT_CODE")
 
+        skip_search_exit_code_found = None
+
         try:
-            sys.exit(int(skip_search_exit_code))
+            if skip_search_exit_code_found is not None:
+                skip_search_exit_code_found = int(skip_search_exit_code)
+                sys.exit(skip_search_exit_code_found)
         except ValueError:
-            print(f"Trying to look for SKIP_SEARCH_EXIT_CODE failed. Exiting with original exit code {_code}")
-            sys.exit(_code)
+            print_debug(f"Trying to look for SKIP_SEARCH_EXIT_CODE failed. Exiting with original exit code {_code}")
 
     sys.exit(_code)
 
@@ -2089,12 +2092,6 @@ def init_live_share() -> bool:
 
         return ret
 
-async def start_periodic_live_share() -> None:
-    if args.live_share and not os.environ.get("CI"):
-        while True:
-            live_share(force=False)
-            time.sleep(30)
-
 def init_storage(db_url: str) -> None:
     init_engine_and_session_factory(url=db_url, force_init=True)
     engine = get_engine()
@@ -2164,6 +2161,9 @@ def save_results_csv() -> Optional[str]:
 
     try:
         df = fetch_and_prepare_trials()
+        if df is None:
+            print_red(f"save_results_csv: fetch_and_prepare_trials returned an empty element: {df}")
+            return None
         write_csv(df, pd_csv)
         write_json_snapshot(pd_json)
         save_experiment_to_file()
@@ -2176,14 +2176,17 @@ def save_results_csv() -> Optional[str]:
     except (SignalUSR, SignalCONT, SignalINT) as e:
         raise type(e)(str(e)) from e
     except Exception as e:
-        print_red(f"While saving all trials as a pandas-dataframe-csv, an error occurred: {e}")
+        print_red(f"\nWhile saving all trials as a pandas-dataframe-csv, an error occurred: {e}")
 
     return pd_csv
 
 def get_results_paths() -> tuple[str, str]:
     return (get_current_run_folder(RESULTS_CSV_FILENAME), get_state_file_name('pd.json'))
 
-def fetch_and_prepare_trials() -> pd.DataFrame:
+def fetch_and_prepare_trials() -> Optional[pd.DataFrame]:
+    if not ax_client:
+        return None
+
     ax_client.experiment.fetch_data()
     df = ax_client.get_trials_data_frame()
 
@@ -2196,7 +2199,7 @@ def fetch_and_prepare_trials() -> pd.DataFrame:
 
     return df
 
-def write_csv(df, path: str) -> None:
+def write_csv(df: pd.DataFrame, path: str) -> None:
     try:
         df = df.sort_values(by=["trial_index"], kind="stable").reset_index(drop=True)
     except KeyError:
@@ -2204,15 +2207,21 @@ def write_csv(df, path: str) -> None:
     df.to_csv(path, index=False, float_format="%.30f")
 
 def write_json_snapshot(path: str) -> None:
-    json_snapshot = ax_client.to_json_snapshot()
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(json_snapshot, f, indent=4)
+    if ax_client is not None:
+        json_snapshot = ax_client.to_json_snapshot()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(json_snapshot, f, indent=4)
+    else:
+        print_red("write_json_snapshot: ax_client was None")
 
 def save_experiment_to_file() -> None:
-    save_experiment(
-        ax_client.experiment,
-        get_state_file_name("ax_client.experiment.json")
-    )
+    if ax_client is not None:
+        save_experiment(
+            ax_client.experiment,
+            get_state_file_name("ax_client.experiment.json")
+        )
+    else:
+        print_red("save_experiment: ax_client is None")
 
 def should_save_to_database() -> bool:
     return args.model not in uncontinuable_models and args.save_to_database
@@ -3297,7 +3306,7 @@ def parse_experiment_parameters() -> None:
     # Remove duplicates by 'name' key preserving order
     params = list({p['name']: p for p in params}.values())
 
-    experiment_parameters = params
+    experiment_parameters = params # type: ignore[assignment]
 
 def check_factorial_range() -> None:
     if args.model and args.model == "FACTORIAL":
@@ -3588,11 +3597,11 @@ def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading:
         writer = csv.writer(tmp_file)
         writer.writerow(all_headings)
         for row in rows[1:]:
-            tmp_file.writerow([
+            tmp_file.writerow([ # type: ignore[attr-defined]
                 row[existing_heading.index(h)] if h in existing_heading else ""
                 for h in all_headings
             ])
-        tmp_file.writerow([
+        tmp_file.writerow([ # type: ignore[attr-defined]
             formatted_data[new_heading.index(h)] if h in new_heading else ""
             for h in all_headings
         ])
@@ -5433,9 +5442,14 @@ def set_objectives() -> dict:
 
     return objectives
 
-def set_experiment_constraints(experiment_constraints: Optional[list], experiment_args: dict, _experiment_parameters: Union[dict, list]) -> dict:
-    if experiment_constraints and len(experiment_constraints):
+def set_experiment_constraints(experiment_constraints: Optional[list], experiment_args: dict, _experiment_parameters: Optional[Union[dict, list]]) -> dict:
+    if _experiment_parameters is None:
+        print_red("set_experiment_constraints: _experiment_parameters was None")
+        my_exit(95)
 
+        return {}
+
+    if experiment_constraints and len(experiment_constraints):
         experiment_args["parameter_constraints"] = []
 
         if experiment_constraints:
@@ -5464,11 +5478,15 @@ def set_experiment_constraints(experiment_constraints: Optional[list], experimen
 
     return experiment_args
 
-def replace_parameters_for_continued_jobs(parameter: Optional[list], cli_params_experiment_parameters: Optional[list]) -> None:
+def replace_parameters_for_continued_jobs(parameter: Optional[list], cli_params_experiment_parameters: Optional[dict | list]) -> None:
+    if not experiment_parameters:
+        print_red("replace_parameters_for_continued_jobs: experiment_parameters was False")
+        return None
+
     if args.worker_generator_path:
         return None
 
-    def get_name(obj) -> Optional[str]:
+    def get_name(obj: Any) -> Optional[str]:
         """Extract a parameter name from dict, list, or tuple safely."""
         if isinstance(obj, dict):
             return obj.get("name")
@@ -5550,13 +5568,13 @@ def copy_continue_uuid() -> None:
         print_debug(f"copy_continue_uuid: Source file does not exist: {source_file}")
 
 def load_ax_client_from_experiment_parameters() -> None:
-    #pprint(experiment_parameters)
-    global ax_client
+    if experiment_parameters:
+        global ax_client
 
-    tmp_file_path = get_tmp_file_from_json(experiment_parameters)
-    ax_client = AxClient.load_from_json_file(tmp_file_path)
-    ax_client = cast(AxClient, ax_client)
-    os.unlink(tmp_file_path)
+        tmp_file_path = get_tmp_file_from_json(experiment_parameters)
+        ax_client = AxClient.load_from_json_file(tmp_file_path)
+        ax_client = cast(AxClient, ax_client)
+        os.unlink(tmp_file_path)
 
 def save_checkpoint_for_continued() -> None:
     checkpoint_filepath = get_state_file_name('checkpoint.json')
@@ -5568,12 +5586,15 @@ def save_checkpoint_for_continued() -> None:
         _fatal_error(f"{checkpoint_filepath} not found. Cannot continue_previous_job without.", 47)
 
 def load_original_generation_strategy(original_ax_client_file: str) -> None:
-    with open(original_ax_client_file, encoding="utf-8") as f:
-        loaded_original_ax_client_json = json.load(f)
-        original_generation_strategy = loaded_original_ax_client_json["generation_strategy"]
+    if experiment_parameters:
+        with open(original_ax_client_file, encoding="utf-8") as f:
+            loaded_original_ax_client_json = json.load(f)
+            original_generation_strategy = loaded_original_ax_client_json["generation_strategy"]
 
-        if original_generation_strategy:
-            experiment_parameters["generation_strategy"] = original_generation_strategy
+            if original_generation_strategy:
+                experiment_parameters["generation_strategy"] = original_generation_strategy
+    else:
+        print_red("load_original_generation_strategy: experiment_parameters was empty!")
 
 def wait_for_checkpoint_file(checkpoint_file: str) -> None:
     start_time = time.time()
@@ -5599,6 +5620,8 @@ def validate_experiment_parameters() -> None:
         print_red(f"Error: experiment_parameters is not a dict: {type(experiment_parameters).__name__}")
         my_exit(95)
 
+        sys.exit(95)
+
     path_checks = [
         ("experiment", experiment_parameters),
         ("search_space", experiment_parameters.get("experiment")),
@@ -5610,7 +5633,12 @@ def validate_experiment_parameters() -> None:
             print_red(f"Error: Missing key '{key}' at level: {current_level}")
             my_exit(95)
 
-def __get_experiment_parameters__load_from_checkpoint(continue_previous_job: str, cli_params_experiment_parameters: Optional[list]) -> Tuple[Any, str, str]:
+def __get_experiment_parameters__load_from_checkpoint(continue_previous_job: str, cli_params_experiment_parameters: Optional[dict | list]) -> Tuple[Any, str, str]:
+    if not ax_client:
+        print_red("__get_experiment_parameters__load_from_checkpoint: ax_client was None")
+        my_exit(101)
+        return {}, "", ""
+
     print_debug(f"Load from checkpoint: {continue_previous_job}")
 
     checkpoint_file = f"{continue_previous_job}/state_files/checkpoint.json"
@@ -5652,6 +5680,12 @@ def __get_experiment_parameters__load_from_checkpoint(continue_previous_job: str
 
     experiment_constraints = get_constraints()
     if experiment_constraints:
+
+        if not experiment_parameters:
+            print_red("__get_experiment_parameters__load_from_checkpoint: experiment_parameters was None")
+
+            return {}, "", ""
+
         experiment_args = set_experiment_constraints(
             experiment_constraints,
             experiment_args,
@@ -5661,6 +5695,12 @@ def __get_experiment_parameters__load_from_checkpoint(continue_previous_job: str
     return experiment_args, gpu_string, gpu_color
 
 def __get_experiment_parameters__create_new_experiment() -> Tuple[dict, str, str]:
+    if ax_client is None:
+        print_red("__get_experiment_parameters__create_new_experiment: ax_client is None")
+        my_exit(101)
+
+        return {}, "", ""
+
     objectives = set_objectives()
 
     experiment_args = {
@@ -5697,7 +5737,7 @@ def __get_experiment_parameters__create_new_experiment() -> Tuple[dict, str, str
 
     return experiment_args, gpu_string, gpu_color
 
-def get_experiment_parameters(cli_params_experiment_parameters: Optional[list]) -> Optional[Tuple[AxClient, dict, str, str]]:
+def get_experiment_parameters(cli_params_experiment_parameters: Optional[dict | list]) -> Optional[Tuple[AxClient, dict, str, str]]:
     continue_previous_job = args.worker_generator_path or args.continue_previous_job
 
     __get_experiment_parameters__check_ax_client()
@@ -5950,10 +5990,13 @@ def print_overview_tables(classic_params: Optional[Union[list, dict]], experimen
     print_result_names_overview_table()
 
 def update_progress_bar(nr: int) -> None:
-    try:
-        progress_bar.update(nr)
-    except Exception as e:
-        print(f"Error updating progress bar: {e}")
+    if progress_bar is not None:
+        try:
+            progress_bar.update(nr)
+        except Exception as e:
+            print(f"Error updating progress bar: {e}")
+    else:
+        print_red("update_progress_bar: progress_bar was None")
 
 def get_current_model_name() -> str:
     if overwritten_to_random:
@@ -6028,7 +6071,7 @@ def get_workers_string() -> str:
     )
 
 def _get_workers_string_collect_stats() -> dict:
-    stats = {}
+    stats: dict = {}
     for job, _ in global_vars["jobs"][:]:
         state = state_from_job(job)
         stats[state] = stats.get(state, 0) + 1
@@ -6077,7 +6120,7 @@ def submitted_jobs(nr: int = 0) -> int:
 def count_jobs_in_squeue() -> tuple[int, str]:
     global _last_count_time, _last_count_result
 
-    now = time.time()
+    now = int(time.time())
     if _last_count_result != (0, "") and now - _last_count_time < 15:
         return _last_count_result
 
@@ -6299,7 +6342,7 @@ def load_existing_job_data_into_ax_client() -> None:
     nr_of_imported_jobs = get_nr_of_imported_jobs()
     set_nr_inserted_jobs(NR_INSERTED_JOBS + nr_of_imported_jobs)
 
-def parse_parameter_type_error(_error_message: Union[str, None]) -> Optional[dict]:
+def parse_parameter_type_error(_error_message: Union[Exception, str, None]) -> Optional[dict]:
     if not _error_message:
         return None
 
@@ -6366,7 +6409,7 @@ def get_generation_node_for_index(
     results_list: List[Dict[str, Any]],
     index: int,
     __status: Any,
-    base_str: str
+    base_str: Optional[str]
 ) -> str:
     __status.update(f"{base_str}: Getting generation node")
     try:
@@ -6491,7 +6534,7 @@ def normalize_path(file_path: str) -> str:
 
 def insert_jobs_from_lists(csv_path: str, arm_params_list: Any, results_list: Any, __status: Any) -> None:
     cnt = 0
-    err_msgs = []
+    err_msgs: list = []
 
     for i, (arm_params, result) in enumerate(zip(arm_params_list, results_list)):
         base_str = f"[bold green]Loading job {i}/{len(results_list)} from {csv_path} into ax_client, result: {result}"
@@ -6525,9 +6568,16 @@ def try_insert_job(csv_path: str, arm_params: Dict, result: Any, i: int, arm_par
             f"This can happen when the csv file has different parameters or results as the main job one's "
             f"or other imported jobs. Error: {e}"
         )
-        if err_msg not in err_msgs:
-            print_red(err_msg)
-            err_msgs.append(err_msg)
+
+        if err_msgs is None:
+            print_red("try_insert_job: err_msgs was None")
+        else:
+            if isinstance(err_msgs, list):
+                if err_msg not in err_msgs:
+                    print_red(err_msg)
+                    err_msgs.append(err_msg)
+            elif isinstance(err_msgs, str):
+                err_msgs += f"\n{err_msg}"
 
     return cnt
 
@@ -6553,12 +6603,18 @@ def __insert_job_into_ax_client__check_ax_client() -> None:
         _fatal_error("insert_job_into_ax_client: ax_client was not defined where it should have been", 101)
 
 def __insert_job_into_ax_client__attach_trial(arm_params: dict) -> Tuple[Any, int]:
+    if ax_client is None:
+        raise RuntimeError("__insert_job_into_ax_client__attach_trial: ax_client was empty")
+
     new_trial = ax_client.attach_trial(arm_params)
     if not isinstance(new_trial, tuple) or len(new_trial) < 2:
         raise RuntimeError("attach_trial didn't return the expected tuple")
     return new_trial
 
 def __insert_job_into_ax_client__get_trial(trial_idx: int) -> Any:
+    if ax_client is None:
+        raise RuntimeError("__insert_job_into_ax_client__get_trial: ax_client was empty")
+
     trial = ax_client.experiment.trials.get(trial_idx)
     if trial is None:
         raise RuntimeError(f"Trial with index {trial_idx} not found")
@@ -6569,6 +6625,9 @@ def __insert_job_into_ax_client__create_generator_run(arm_params: dict, trial_id
     return GeneratorRun(arms=[arm], generation_node_name=new_job_type)
 
 def __insert_job_into_ax_client__complete_trial_if_result(trial_idx: int, result: dict, __status: Optional[Any], base_str: Optional[str]) -> None:
+    if ax_client is None:
+        raise RuntimeError("__insert_job_into_ax_client__complete_trial_if_result: ax_client was empty")
+
     if f"{result}" != "":
         __insert_job_into_ax_client__update_status(__status, base_str, "Completing trial")
         is_ok = True
@@ -6614,7 +6673,7 @@ def insert_job_into_ax_client(
     result: dict,
     new_job_type: str = "MANUAL",
     __status: Optional[Any] = None,
-    base_str: str = None
+    base_str: Optional[str] = None
 ) -> bool:
     __insert_job_into_ax_client__check_ax_client()
 
@@ -7376,11 +7435,15 @@ def is_already_in_defective_nodes(hostname: str) -> bool:
                     return True
     except Exception as e:
         print_red(f"is_already_in_defective_nodes: Error reading the file {file_path}: {e}")
-        return False
 
     return False
 
 def submit_new_job(parameters: Union[dict, str], trial_index: int) -> Any:
+    if submitit_executor is None:
+        print_red("submit_new_job: submitit_executor was None")
+
+        return None
+
     print_debug(f"Submitting new job for trial_index {trial_index}, parameters {parameters}")
 
     start = time.time()
@@ -7396,18 +7459,21 @@ def submit_new_job(parameters: Union[dict, str], trial_index: int) -> Any:
 def orchestrator_start_trial(parameters: Union[dict, str], trial_index: int) -> None:
     if submitit_executor and ax_client:
         new_job = submit_new_job(parameters, trial_index)
-        submitted_jobs(1)
+        if new_job:
+            submitted_jobs(1)
 
-        _trial = ax_client.get_trial(trial_index)
+            _trial = ax_client.get_trial(trial_index)
 
-        try:
-            _trial.mark_staged(unsafe=True)
-        except Exception as e:
-            print_debug(f"orchestrator_start_trial: error {e}")
-        _trial.mark_running(unsafe=True, no_runner_required=True)
+            try:
+                _trial.mark_staged(unsafe=True)
+            except Exception as e:
+                print_debug(f"orchestrator_start_trial: error {e}")
+            _trial.mark_running(unsafe=True, no_runner_required=True)
 
-        print_debug(f"orchestrator_start_trial: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
-        global_vars["jobs"].append((new_job, trial_index))
+            print_debug(f"orchestrator_start_trial: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
+            global_vars["jobs"].append((new_job, trial_index))
+        else:
+            print_red("orchestrator_start_trial: Failed to start new job")
     else:
         _fatal_error("submitit_executor or ax_client could not be found properly", 9)
 
@@ -7539,15 +7605,18 @@ def execute_evaluation(_params: list) -> Optional[int]:
     try:
         initialize_job_environment()
         new_job = submit_new_job(parameters, trial_index)
-        submitted_jobs(1)
+        if new_job:
+            submitted_jobs(1)
 
-        print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
-        global_vars["jobs"].append((new_job, trial_index))
+            print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
+            global_vars["jobs"].append((new_job, trial_index))
 
-        mark_trial_stage("mark_running", "Marking the trial as running failed")
-        trial_counter += 1
+            mark_trial_stage("mark_running", "Marking the trial as running failed")
+            trial_counter += 1
 
-        progressbar_description("started new job")
+            progressbar_description("started new job")
+        else:
+            progressbar_description("Failed to start new job")
     except submitit.core.utils.FailedJobError as error:
         handle_failed_job(error, trial_index, new_job)
         trial_counter += 1
@@ -7645,9 +7714,11 @@ def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int]) 
         ("failed_jobs()", failed_jobs()),
         ("count_done_jobs()", count_done_jobs()),
         ("_max_eval", _max_eval),
-        ("progress_bar.total", progress_bar.total),
         ("NR_INSERTED_JOBS", NR_INSERTED_JOBS)
     ]
+
+    if progress_bar is not None:
+        rows.append(("progress_bar.total", progress_bar.total))
 
     for row in rows:
         table.add_row(str(row[0]), str(row[1]))
@@ -7688,7 +7759,7 @@ def break_run_search(_name: str, _max_eval: Optional[int]) -> bool:
             _ret = True
 
     if args.verbose_break_run_search_table:
-        show_debug_table_for_break_run_search(_name, _max_eval, _ret)
+        show_debug_table_for_break_run_search(_name, _max_eval)
 
     return _ret
 
@@ -8400,16 +8471,21 @@ def get_model_from_name(name: str) -> Any:
             return gen
     raise ValueError(f"Unknown or unsupported model: {name}")
 
-def get_name_from_model(model) -> Optional[str]:
+def get_name_from_model(model: Any) -> str:
     if not isinstance(SUPPORTED_MODELS, (list, set, tuple)):
-        return None
+        raise RuntimeError("get_model_from_name: SUPPORTED_MODELS was not a list, set or tuple. Cannot continue")
 
     model_str = model.value if hasattr(model, "value") else str(model)
 
     model_str_lower = model_str.lower()
     model_map = {m.lower(): m for m in SUPPORTED_MODELS}
 
-    return model_map.get(model_str_lower, None)
+    ret = model_map.get(model_str_lower, None)
+
+    if ret is None:
+        raise RuntimeError("get_name_from_model: failed to get Model")
+
+    return ret
 
 def parse_generation_strategy_string(gen_strat_str: str) -> tuple[list[dict[str, int]], int]:
     gen_strat_list = []
@@ -9618,7 +9694,7 @@ def load_experiment_state() -> None:
         return
 
     try:
-        arms_seen = {}
+        arms_seen: dict = {}
         for arm in data.get("arms", []):
             name = arm.get("name")
             sig = arm.get("parameters")
@@ -10266,7 +10342,7 @@ def write_result_names_file() -> None:
         except Exception as e:
             print_red(f"Error trying to open file '{fn}': {e}")
 
-def run_program_once(params=None) -> None:
+def run_program_once(params: Optional[dict] = None) -> None:
     if not args.run_program_once:
         print_debug("[yellow]No setup script specified (run_program_once). Skipping setup.[/yellow]")
         return
@@ -10305,7 +10381,7 @@ def run_program_once(params=None) -> None:
         my_exit(57)
 
 def show_omniopt_call() -> None:
-    def remove_ui_url(arg_str) -> str:
+    def remove_ui_url(arg_str: str) -> str:
         return re.sub(r'(?:--ui_url(?:=\S+)?(?:\s+\S+)?)', '', arg_str).strip()
 
     original_argv = " ".join(sys.argv[1:])
@@ -10402,8 +10478,6 @@ def main() -> None:
         set_orchestrator()
 
         init_live_share()
-
-        start_periodic_live_share()
 
         show_available_hardware_and_generation_strategy_string(gpu_string, gpu_color)
 
@@ -11101,7 +11175,7 @@ def main_outside() -> None:
 
     print_logo()
 
-    start_logging_daemon()
+    start_logging_daemon() # type: ignore[unused-coroutine]
 
     fool_linter(args.num_cpus_main_job)
     fool_linter(args.flame_graph)
@@ -11139,7 +11213,7 @@ def main_outside() -> None:
 def stack_trace_wrapper(func: Any, regex: Any = None) -> Any:
     pattern = re.compile(regex) if regex else None
 
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: Any, **kwargs: Any) -> None:
         if pattern and not pattern.search(func.__name__):
             return func(*args, **kwargs)
 
@@ -11169,7 +11243,6 @@ def auto_wrap_namespace(namespace: Any) -> Any:
         "_record_stats",
         "_open",
         "_check_memory_leak",
-        "start_periodic_live_share",
         "start_logging_daemon",
         "get_current_run_folder",
         "show_func_name_wrapper"

@@ -292,7 +292,7 @@ class TestGraphUtils(absltest.TestCase):
 
     assert isinstance(m2.a, nnx.Param)
     assert isinstance(state['a'], nnx.Param)
-    assert m2.a is not state['a']
+    assert m2.a is state['a']
     assert m2.a.value == state['a'].value
 
   def test_shared_state_variables_shared_with_graph(self):
@@ -319,8 +319,8 @@ class TestGraphUtils(absltest.TestCase):
     assert isinstance(m2.a, nnx.Param)
     assert isinstance(m2.b, nnx.Param)
     assert isinstance(state['a'], nnx.Param)
-    assert m2.a is not state['a']
-    assert m2.b is not state['a']
+    assert m2.a is state['a']
+    assert m2.b is state['a']
     assert m2.a.value == state['a'].value
     assert m2.b.value == state['a'].value
     assert m2.a is m2.b
@@ -367,7 +367,7 @@ class TestGraphUtils(absltest.TestCase):
     assert isinstance(m2.tree, Tree)
     assert m2.tree.a.raw_value == 1
     assert m2.tree.b == 'a'
-    assert m2.tree.a is not m.tree.a
+    assert m2.tree.a is m.tree.a
     assert m2.tree is not m.tree
 
   def test_cached_unflatten(self):
@@ -1117,6 +1117,19 @@ class TestGraphUtils(absltest.TestCase):
     self.assertEqual(node['a']['d'], 3.0)
     self.assertLen(jax.tree.leaves(node), 1)
     self.assertLen(jax.tree.leaves(popped), 2)
+
+  def test_find_duplicates(self):
+    class SharedModules(nnx.Module):
+      def __init__(self, rngs: nnx.Rngs):
+        self.a = nnx.Linear(1, 1, rngs=rngs)
+        self.b = nnx.Linear(1, 1, rngs=rngs)
+        self.c = self.a  # shared Module
+
+    model = SharedModules(nnx.Rngs(0))
+    duplicates = nnx.find_duplicates(model)
+
+    self.assertLen(duplicates, 1)
+    self.assertEqual(duplicates[0], [('a',), ('c',)])
 
 class SimpleModule(nnx.Module):
   pass

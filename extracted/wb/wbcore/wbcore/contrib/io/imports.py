@@ -30,6 +30,7 @@ class ImportExportHandler:
     def __init__(self, import_source: ImportSource, **kwargs):
         self.import_source: ImportSource = import_source
         self.model: Type[Model] = apps.get_model(self.MODEL_APP_LABEL)
+        self.processed_ids: list[int] = []
 
     def _inject_internal_id_from_data(self, data: dict[str, Any]) -> tuple[int, ContentType] | None:
         if provider_id := data.pop("provider_id", None):
@@ -297,6 +298,7 @@ class ImportExportHandler:
                     len(self.import_source.log) > self.MAX_ALLOWED_LOG_SIZE
                 ):  # In case we are exceedning the max log size, we reset the log to avoid issue when saving it
                     self.import_source.log = ""
+                self.processed_ids.append(_object.id)
             except DeserializationError as e:
                 self.import_source.errors_log += f"Row {self.import_source.progress_index}: {str(e)}\n"
             self.import_source.progress_index += 1

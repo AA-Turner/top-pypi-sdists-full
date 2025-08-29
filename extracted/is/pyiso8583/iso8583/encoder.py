@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, MutableMapping, Set, Tuple, Type
+from typing import Any, Dict, Literal, Mapping, MutableMapping, Set, Tuple, Type
 import binascii
 
 __all__ = ["encode", "EncodeError"]
@@ -84,15 +84,79 @@ def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict
 
     s = bytearray()
     doc_enc: EncodedDict = {}
-    fields: Set[int] = set()
+
+    # Secondary bitmaps will be calculated as needed
+    doc_dec.pop("1", None)
+    # Extended bitmap indicator must not be an actual field
+    doc_dec.pop("65", None)
+
     s += _encode_header(doc_dec, doc_enc, spec)
     s += _encode_type(doc_dec, doc_enc, spec)
-    s += _encode_bitmaps(doc_dec, doc_enc, spec, fields)
+
+    try:
+        fields: Set[int] = set([int(k) for k in doc_dec.keys() if k.isnumeric()])
+    except AttributeError:
+        raise EncodeError(
+            f"Dictionary contains invalid fields {[k for k in doc_dec.keys() if not isinstance(k, str)]}",
+            doc_dec,
+            doc_enc,
+            "p",
+        ) from None
+
+    # Verify valid field range: 1-192
+    if not fields.issubset(range(1, 193)):
+        raise EncodeError(
+            f"Dictionary contains fields outside of 1-192 range {sorted(fields.difference(range(1, 193)))}",
+            doc_dec,
+            doc_enc,
+            "p",
+        )
+
+    # Add tertiary bitmap if any 129-192 fields are present
+    tertiary_fields = fields.intersection(range(129, 193))
+    if tertiary_fields:
+        fields.add(65)
+
+    # Add secondary bitmap if any 65-128 fields are present
+    secondary_fields = fields.intersection(range(65, 129))
+    if secondary_fields:
+        fields.add(1)
+
+    s += _encode_bitmap(
+        doc_dec,
+        doc_enc,
+        "p",
+        spec["p"],
+        0,
+        False,
+        fields.intersection(range(1, 65)),
+    )
+
+    if 1 in fields:
+        s += _encode_bitmap(
+            doc_dec,
+            doc_enc,
+            "1",
+            spec["1"],
+            64,
+            False,
+            secondary_fields,
+        )
+        fields.remove(1)
+
+    if 65 in fields:
+        s += _encode_bitmap(
+            doc_dec,
+            doc_enc,
+            "1",
+            spec["1"],
+            128,
+            True,
+            tertiary_fields,
+        )
+        fields.remove(65)
 
     for field_key in [str(i) for i in sorted(fields)]:
-        # Secondary bitmap is already encoded in _encode_bitmaps
-        if field_key == "1":
-            continue
         s += _encode_field(doc_dec, doc_enc, field_key, spec[field_key])
 
     return s, doc_enc
@@ -187,9 +251,23 @@ def _encode_type(
     doc_enc["t"] = {"len": b"", "data": b""}
 
     if spec["t"]["data_enc"] == "b":
-        enc_field_len = _encode_bindary_field(doc_dec, doc_enc, "t", spec["t"], "bytes")
+        doc_enc["t"]["data"], enc_field_len = _encode_bindary_field(
+            doc_dec,
+            doc_enc,
+            doc_dec["t"],
+            "t",
+            spec["t"],
+            "bytes",
+        )
     else:
-        enc_field_len = _encode_text_field(doc_dec, doc_enc, "t", spec["t"], "bytes")
+        doc_enc["t"]["data"], enc_field_len = _encode_text_field(
+            doc_dec,
+            doc_enc,
+            doc_dec["t"],
+            "t",
+            spec["t"],
+            "bytes",
+        )
 
     if enc_field_len != expected_field_len:
         raise EncodeError(
@@ -202,13 +280,16 @@ def _encode_type(
     return doc_enc["t"]["data"]
 
 
-def _encode_bitmaps(
+def _encode_bitmap(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
-    spec: SpecDict,
+    field_key: str,
+    field_spec: _FieldSpecDict,
+    field_offset: Literal[0, 64, 128],
+    is_extended: bool,
     fields: Set[int],
 ) -> bytes:
-    r"""Encode ISO8583 primary and secondary bitmap from dictionary keys.
+    r"""Encode ISO8583 bitmap.
 
     Parameters
     ----------
@@ -216,16 +297,22 @@ def _encode_bitmaps(
         Dict containing decoded ISO8583 data
     doc_enc : dict
         Dict containing encoded ISO8583 data
-    spec : dict
-        A Python dict defining ISO8583 specification.
+    field_key : str
+        Field ID to be encoded
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
         See :mod:`iso8583.specs` module for examples.
+    field_offset : int
+        Offset by which to adjust fields to fit into 1-64 range.
+    is_extended : bool
+        If true then processing an extension of an already processed bitmap
     fields: set
         Will be populated with enabled field numbers
 
     Returns
     -------
     bytes
-        Encoded ISO8583 primary and/or secondary bitmaps data
+        Encoded ISO8583 bitmap data
 
     Raises
     ------
@@ -233,74 +320,48 @@ def _encode_bitmaps(
         An error encoding ISO8583 bytearray.
     """
 
-    # Secondary bitmap will be calculated as needed
-    doc_dec.pop("1", None)
+    bitmap = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00")
 
-    # Primary and secondary bitmaps will be created from the keys
-    try:
-        fields.update([int(k) for k in doc_dec.keys() if k.isnumeric()])
-    except AttributeError:
-        raise EncodeError(
-            f"Dictionary contains invalid fields {[k for k in doc_dec.keys() if not isinstance(k, str)]}",
-            doc_dec,
-            doc_enc,
-            "p",
-        ) from None
-
-    # Bitmap must consist of 1-128 field range
-    if not fields.issubset(range(1, 129)):
-        raise EncodeError(
-            f"Dictionary contains fields outside of 1-128 range {sorted(fields.difference(range(1, 129)))}",
-            doc_dec,
-            doc_enc,
-            "p",
-        )
-
-    # Add secondary bitmap if any 65-128 fields are present
-    if not fields.isdisjoint(range(65, 129)):
-        fields.add(1)
-
-    # Turn on bitmap bits of associated fields.
-    # There is no need to sort this set because the code below will
-    # figure out appropriate byte/bit for each field.
-    s = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
-
-    for f in fields:
+    for field in fields:
         # Fields start at 1. Make them zero-bound for easier conversion.
-        f -= 1
+        # Offset fields to fit into 0-7 byte.
+        field -= 1 + field_offset
 
         # Place this particular field in a byte where it belongs.
-        # E.g. field 8 belongs to byte 0, field 121 belongs to byte 15.
-        byte = f // 8
+        # E.g. field 8 belongs to byte 0, field 64 belongs to byte 7.
+        byte = field // 8
 
         # Determine bit to enable. ISO8583 bitmaps are left-aligned.
         # E.g. fields 1, 9, 17, etc. enable bit 7 in bytes 0, 1, 2, etc.
-        bit = 7 - (f - byte * 8)
-        s[byte] |= 1 << bit
+        bit = 7 - (field - byte * 8)
+        bitmap[byte] |= 1 << bit
 
-    # Encode primary bitmap
-    doc_dec["p"] = s[0:8].hex().upper()
-    doc_enc["p"] = {"len": b"", "data": b""}
+    hex_bitmap = bitmap.hex().upper()
 
-    if spec["p"]["data_enc"] == "b":
-        doc_enc["p"]["data"] = bytes(s[0:8])
+    if is_extended:
+        doc_dec[field_key] = doc_dec[field_key] + hex_bitmap
     else:
-        _encode_text_field(doc_dec, doc_enc, "p", spec["p"], "bytes")
+        doc_dec[field_key] = hex_bitmap
+        doc_enc[field_key] = {"len": b"", "data": b""}
 
-    # No need to produce secondary bitmap if it's not required
-    if 1 not in fields:
-        return doc_enc["p"]["data"]
-
-    # Encode secondary bitmap
-    doc_dec["1"] = s[8:16].hex().upper()
-    doc_enc["1"] = {"len": b"", "data": b""}
-
-    if spec["1"]["data_enc"] == "b":
-        doc_enc["1"]["data"] = bytes(s[8:16])
+    if field_spec["data_enc"] == "b":
+        encoded_data = bytes(bitmap)
     else:
-        _encode_text_field(doc_dec, doc_enc, "1", spec["1"], "bytes")
+        encoded_data, _ = _encode_text_field(
+            doc_dec,
+            doc_enc,
+            hex_bitmap,
+            field_key,
+            field_spec,
+            "bytes",
+        )
 
-    return doc_enc["p"]["data"] + doc_enc["1"]["data"]
+    if is_extended:
+        doc_enc[field_key]["data"] = doc_enc[field_key]["data"] + encoded_data
+    else:
+        doc_enc[field_key]["data"] = encoded_data
+
+    return encoded_data
 
 
 def _encode_field(
@@ -342,18 +403,20 @@ def _encode_field(
 
     # Binary data: either hex or BCD
     if field_spec["data_enc"] == "b":
-        enc_field_len = _encode_bindary_field(
+        doc_enc[field_key]["data"], enc_field_len = _encode_bindary_field(
             doc_dec,
             doc_enc,
+            doc_dec[field_key],
             field_key,
             field_spec,
             len_count,
         )
     # Text data
     else:
-        enc_field_len = _encode_text_field(
+        doc_enc[field_key]["data"], enc_field_len = _encode_text_field(
             doc_dec,
             doc_enc,
+            doc_dec[field_key],
             field_key,
             field_spec,
             len_count,
@@ -453,11 +516,12 @@ def _encode_field(
 def _encode_bindary_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
+    field_data: str,
     field_key: str,
     field_spec: _FieldSpecDict,
     len_count: str,
-) -> int:
-    r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its binary representation.
+) -> Tuple[bytes, int]:
+    r"""Encode ISO8583 individual field.
 
     Parameters
     ----------
@@ -465,6 +529,8 @@ def _encode_bindary_field(
         Dict containing decoded ISO8583 data
     doc_enc : dict
         Dict containing encoded ISO8583 data
+    field_data : str
+        Field data to encode
     field_key : str
         Field ID to be encoded
     field_spec : dict
@@ -473,8 +539,8 @@ def _encode_bindary_field(
 
     Returns
     -------
-    int
-        Length of the encoded ISO8583 field data. The length is either nibbles or bytes.
+    tuple(bytes, int)
+        Encoded data and length of the encoded ISO8583 field data. The length is either nibbles or bytes.
 
     Raises
     ------
@@ -483,11 +549,11 @@ def _encode_bindary_field(
     """
     try:
         # Odd length nibbles need to be padded because it's not possible to send half a byte
-        if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
-            data_to_encode = _add_pad_field(doc_dec, field_key, field_spec)
+        if len_count == "nibbles" and len(field_data) & 1:
+            data_to_encode = _add_pad_field(field_data, field_spec)
         else:
-            data_to_encode = doc_dec[field_key]
-        doc_enc[field_key]["data"] = binascii.a2b_hex(data_to_encode)
+            data_to_encode = field_data
+        encoded_data = binascii.a2b_hex(data_to_encode)
     except Exception:
         if len_count == "nibbles" and len(data_to_encode) % 2 == 1:
             raise EncodeError(
@@ -513,14 +579,13 @@ def _encode_bindary_field(
     # Encoded field length can be in bytes or half bytes (nibbles).
     # Encoded nibble length directly corresponds to the count of received nibbles.
     if len_count == "nibbles":
-        return len(doc_dec[field_key])
+        return (encoded_data, len(field_data))
     else:
-        return len(doc_enc[field_key]["data"])
+        return (encoded_data, len(encoded_data))
 
 
 def _add_pad_field(
-    doc_dec: DecodedDict,
-    field_key: str,
+    field_data: str,
     field_spec: _FieldSpecDict,
 ) -> str:
     r"""Pad a BCD or hex field from the left or right.
@@ -529,6 +594,8 @@ def _add_pad_field(
     ----------
     doc_dec : dict
         Dict containing decoded ISO8583 data
+    field_data : str
+        Field data to encode
     field_key : str
         Field ID to pad
     field_spec : dict
@@ -542,23 +609,24 @@ def _add_pad_field(
     """
     pad: str = field_spec.get("left_pad", "")[:1]
     if len(pad) > 0:
-        return pad + doc_dec[field_key]
+        return pad + field_data
 
     pad = field_spec.get("right_pad", "")[:1]
     if len(pad) > 0:
-        return doc_dec[field_key] + pad
+        return field_data + pad
 
-    return doc_dec[field_key]
+    return field_data
 
 
 def _encode_text_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
+    field_data: str,
     field_key: str,
     field_spec: _FieldSpecDict,
     len_count: str,
-) -> int:
-    r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its text representation.
+) -> Tuple[bytes, int]:
+    r"""Encode ISO8583 individual field.
 
     Parameters
     ----------
@@ -566,6 +634,8 @@ def _encode_text_field(
         Dict containing decoded ISO8583 data
     doc_enc : dict
         Dict containing encoded ISO8583 data
+    field_data : str
+        Field data to encode
     field_key : str
         Field ID to be encoded
     field_spec : dict
@@ -574,8 +644,8 @@ def _encode_text_field(
 
     Returns
     -------
-    int
-        Length of the encoded ISO8583 field data. The length is either nibbles or bytes.
+    tuple(bytes, int)
+        Encoded data and length of the encoded ISO8583 field data. The length is either nibbles or bytes.
 
     Raises
     ------
@@ -583,7 +653,7 @@ def _encode_text_field(
         An error encoding ISO8583 bytearray.
     """
     try:
-        doc_enc[field_key]["data"] = doc_dec[field_key].encode(field_spec["data_enc"])
+        encoded_data = field_data.encode(field_spec["data_enc"])
     except LookupError:
         raise EncodeError(
             "Failed to encode field, unknown encoding specified",
@@ -602,6 +672,6 @@ def _encode_text_field(
     # Encoded field length can be in bytes or half bytes (nibbles)
     # Encoded nibble length directly corresponds to the count of received nibbles.
     if len_count == "nibbles":
-        return len(doc_enc[field_key]["data"]) * 2
+        return (encoded_data, len(encoded_data) * 2)
     else:
-        return len(doc_enc[field_key]["data"])
+        return (encoded_data, len(encoded_data))

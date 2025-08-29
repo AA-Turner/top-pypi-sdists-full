@@ -338,8 +338,10 @@ async def login_emsys_fiscal(
         category=UserWarning,
         message="32-bit application should be automated using 32-bit Python",
     )
-
+    await worker_sleep(2)
     filial_cod = task.configEntrada.get("empresa")
+    if filial_cod == None:
+        filial_cod = task.configEntrada.get("filialEmpresaOrigem")
     console.print(f"Empresa a ser processada: {filial_cod}")
 
     try:
@@ -1996,7 +1998,7 @@ async def faturar_pre_venda(task: RpaProcessoEntradaDTO) -> dict:
     await worker_sleep(2)
     console.print(f"Clicou em: 'Faturar'", style="bold green")
 
-    await worker_sleep(10)
+    await worker_sleep(20)
 
     # Aviso "Deseja faturar pré-venda?"
     button_yes = (918, 557)  # find_target_position(screenshot_path, "yes", attempts=15)

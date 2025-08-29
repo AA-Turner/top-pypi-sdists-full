@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inngest
-Version: 0.5.5
+Version: 0.5.6
 Summary: Python SDK for Inngest
 Project-URL: Homepage, https://github.com/inngest/inngest-py
 Project-URL: Bug Tracker, https://github.com/inngest/inngest-py/issues

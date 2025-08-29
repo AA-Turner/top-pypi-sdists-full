@@ -7,6 +7,14 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.ObjectiveC
 
 
+class ObjectiveCTrackedTypeAttribute(System.Attribute):
+    """Attribute used to indicate a class represents a tracked Objective-C type."""
+
+    def __init__(self) -> None:
+        """Instantiate a ObjectiveCTrackedTypeAttribute instance."""
+        ...
+
+
 class ObjectiveCMarshal(System.Object):
     """API to enable Objective-C marshalling."""
 
@@ -97,14 +105,6 @@ class ObjectiveCMarshal(System.Object):
         :param context: Context provided to the returned function pointer.
         :returns: Exception propagation callback.
         """
-        ...
-
-
-class ObjectiveCTrackedTypeAttribute(System.Attribute):
-    """Attribute used to indicate a class represents a tracked Objective-C type."""
-
-    def __init__(self) -> None:
-        """Instantiate a ObjectiveCTrackedTypeAttribute instance."""
         ...
 
 

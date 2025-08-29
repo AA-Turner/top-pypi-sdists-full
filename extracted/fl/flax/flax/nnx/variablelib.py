@@ -48,7 +48,7 @@ RemoveAxisHook = tp.Callable[[V, AxisIndex, AxisName | None], None]
 if hasattr(jax, 'array_ref') and hasattr(jax, 'ArrayRef'):
   from jax import array_ref # type: ignore[import-untyped]
   from jax import ArrayRef  # type: ignore[import-untyped]
-else:
+elif not tp.TYPE_CHECKING:
   from jax._src.core import mutable_array, MutableArray
   array_ref = mutable_array
   ArrayRef = MutableArray
@@ -247,7 +247,7 @@ class Variable(tp.Generic[A], reprlib.Representable):
       if is_array_ref(value):
         _value = tp.cast(A, value)
       else:
-        _value = array_ref(jnp.asarray(value))
+        _value = array_ref(jnp.asarray(value))  # type: ignore[assignment]
     else:
       _value = value
 
@@ -267,6 +267,9 @@ class Variable(tp.Generic[A], reprlib.Representable):
 
     if hasattr(var_t, 'on_remove_axis') and 'on_remove_axis' not in metadata:
       metadata['on_remove_axis'] = var_t.on_remove_axis
+
+    if 'sharding' in metadata:
+      metadata['sharding_names'] = metadata.pop('sharding')
 
     object.__setattr__(self, '_var_metadata', metadata)
     # run create_value hooks

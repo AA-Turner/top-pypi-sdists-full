@@ -2,7 +2,6 @@
 //!
 //! Provides functionality for executing LSP commands including snippet CRUD operations.
 
-use crate::application::services::factory::create_bookmark_service;
 use crate::application::services::BookmarkService;
 use crate::domain::bookmark::Bookmark;
 use crate::domain::error::{DomainError, DomainResult};
@@ -23,16 +22,11 @@ pub struct CommandService {
 }
 
 impl CommandService {
-    /// Create a new CommandService instance
-    pub fn new() -> Self {
-        Self {
-            bookmark_service: create_bookmark_service(),
-        }
-    }
-
-    /// Create CommandService with specific bookmark service (for testing)
+    /// Create CommandService with dependency injection
     pub fn with_service(bookmark_service: Arc<dyn BookmarkService>) -> Self {
-        Self { bookmark_service }
+        Self {
+            bookmark_service,
+        }
     }
 
     /// Create a new snippet
@@ -48,9 +42,13 @@ impl CommandService {
 
         // Prepare tags with _snip_ system tag
         let mut tag_set = HashSet::new();
-        tag_set.insert(Tag::new("_snip_").map_err(LspError::from)?);
+        tag_set.insert(Tag::new("_snip_")
+            .map_err(LspError::from)
+            .map_err(|e| e.context("creating _snip_ system tag for snippet creation"))?);
         for tag in tags {
-            tag_set.insert(Tag::new(&tag).map_err(LspError::from)?);
+            tag_set.insert(Tag::new(&tag)
+                .map_err(LspError::from)
+                .map_err(|e| e.context(format!("creating user tag: {}", tag)))?);
         }
 
         // Create bookmark
@@ -63,7 +61,8 @@ impl CommandService {
                 Some(&tag_set),
                 false, // Don't fetch metadata for snippets
             )
-            .map_err(LspError::from)?;
+            .map_err(LspError::from)
+            .map_err(|e| e.context("adding snippet bookmark via service"))?;
 
         Ok(Self::bookmark_to_snippet_json(&bookmark))
     }
@@ -77,7 +76,9 @@ impl CommandService {
         let mut query = BookmarkQuery::default();
 
         // Must have _snip_ tag
-        let snip_tag = Tag::new("_snip_").map_err(LspError::from)?;
+        let snip_tag = Tag::new("_snip_")
+            .map_err(LspError::from)
+            .map_err(|e| e.context("creating _snip_ tag for snippet listing"))?;
         let mut tags_all = HashSet::new();
         tags_all.insert(snip_tag);
 

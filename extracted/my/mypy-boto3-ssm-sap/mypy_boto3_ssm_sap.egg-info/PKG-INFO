@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-ssm-sap
-Version: 1.40.0
-Summary: Type annotations for boto3 SsmSap 1.40.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.20
+Summary: Type annotations for boto3 SsmSap 1.40.20 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SsmSap 1.40.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SsmSap 1.40.20](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.20' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SsmSap` service.
 4. Use provided commands to install generated packages.
@@ -354,9 +354,13 @@ from mypy_boto3_ssm_sap import SsmSapClient
 from mypy_boto3_ssm_sap.paginator import (
     ListApplicationsPaginator,
     ListComponentsPaginator,
+    ListConfigurationCheckDefinitionsPaginator,
+    ListConfigurationCheckOperationsPaginator,
     ListDatabasesPaginator,
     ListOperationEventsPaginator,
     ListOperationsPaginator,
+    ListSubCheckResultsPaginator,
+    ListSubCheckRuleResultsPaginator,
 )
 
 client: SsmSapClient = Session().client("ssm-sap")
@@ -365,11 +369,23 @@ client: SsmSapClient = Session().client("ssm-sap")
 # Types should be correctly discovered by mypy and IDEs
 list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
 list_components_paginator: ListComponentsPaginator = client.get_paginator("list_components")
+list_configuration_check_definitions_paginator: ListConfigurationCheckDefinitionsPaginator = (
+    client.get_paginator("list_configuration_check_definitions")
+)
+list_configuration_check_operations_paginator: ListConfigurationCheckOperationsPaginator = (
+    client.get_paginator("list_configuration_check_operations")
+)
 list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
 list_operation_events_paginator: ListOperationEventsPaginator = client.get_paginator(
     "list_operation_events"
 )
 list_operations_paginator: ListOperationsPaginator = client.get_paginator("list_operations")
+list_sub_check_results_paginator: ListSubCheckResultsPaginator = client.get_paginator(
+    "list_sub_check_results"
+)
+list_sub_check_rule_results_paginator: ListSubCheckRuleResultsPaginator = client.get_paginator(
+    "list_sub_check_rule_results"
+)
 ```
 
 <a id="literals"></a>

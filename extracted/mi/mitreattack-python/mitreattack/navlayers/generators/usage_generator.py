@@ -1,13 +1,14 @@
 """Contains UsageLayerGenerator class."""
 
-from stix2 import Filter
-from itertools import chain
 import copy
+from itertools import chain
 
-from mitreattack.navlayers.exporters.matrix_gen import MatrixGen
+from stix2 import Filter
+
 from mitreattack.navlayers.core.exceptions import BadInput, typeChecker
 from mitreattack.navlayers.core.layer import Layer
-from mitreattack.navlayers.generators.gen_helpers import remove_revoked_depreciated, get_attack_id, build_data_strings
+from mitreattack.navlayers.exporters.matrix_gen import MatrixGen
+from mitreattack.navlayers.generators.gen_helpers import build_data_strings, get_attack_id, remove_revoked_depreciated
 
 
 class UnableToFindStixObject(Exception):
@@ -36,9 +37,9 @@ class UsageLayerGenerator:
         self.domain = domain
         try:
             self.source_handle = self.matrix_handle.collections[domain]
-        except KeyError:
+        except KeyError as err:
             print(f"[UsageGenerator] - unable to load collection {domain} (current source = {source}).")
-            raise BadInput
+            raise BadInput from err
         self.full_matrix = self.matrix_handle.get_matrix(self.domain)
         self.sources = self.source_handle.query([Filter("type", "=", "x-mitre-data-source")])
         self.components = self.source_handle.query([Filter("type", "=", "x-mitre-data-component")])

@@ -11,7 +11,7 @@ import warnings
 from asyncio import InvalidStateError, Task
 from enum import Enum
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, Awaitable
+from typing import TYPE_CHECKING, Any
 
 import langchain_core
 from astrapy import AsyncDatabase, DataAPIClient, Database
@@ -33,8 +33,11 @@ from astrapy.info import (
     CollectionRerankOptions,
     RerankServiceOptions,
 )
+from astrapy.utils.api_options import defaultAPIOptions
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from astrapy.info import CollectionDescriptor, VectorServiceOptions
 
 TOKEN_ENV_VAR = "ASTRA_DB_APPLICATION_TOKEN"  # noqa: S105
@@ -57,7 +60,6 @@ COMPONENT_NAME_CACHE = "langchain_cache"
 COMPONENT_NAME_SEMANTICCACHE = "langchain_semanticcache"
 COMPONENT_NAME_CHATMESSAGEHISTORY = "langchain_chatmessagehistory"
 COMPONENT_NAME_LOADER = "langchain_loader"
-COMPONENT_NAME_GRAPHVECTORSTORE = "langchain_graphvectorstore"
 COMPONENT_NAME_STORE = "langchain_store"
 COMPONENT_NAME_BYTESTORE = "langchain_bytestore"
 COMPONENT_NAME_VECTORSTORE = "langchain_vectorstore"
@@ -119,7 +121,7 @@ def _unpack_indexing_policy(
     """{} or None => (None, None); {"a": "b"} => ("a", "b"); multikey => error."""
     if indexing_dict:
         if len(indexing_dict) != 1:
-            msg = "Unexpected indexing policy provided: " f"{indexing_dict}"
+            msg = f"Unexpected indexing policy provided: {indexing_dict}"
             raise ValueError(msg)
         return next(iter(indexing_dict.items()))
     return None, None
@@ -140,26 +142,28 @@ def _survey_collection(
     environment: str | None = None,
     ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
     component_name: str | None = None,
+    api_options: APIOptions | None = None,
 ) -> tuple[CollectionDescriptor | None, list[dict[str, Any]]]:
     """Return the collection descriptor (if found) and a sample of documents."""
-    _astra_db_env = _AstraDBEnvironment(
+    astra_db_env = _AstraDBEnvironment(
         token=token,
         api_endpoint=api_endpoint,
         keyspace=keyspace,
         environment=environment,
         ext_callers=ext_callers,
         component_name=component_name,
+        api_options=api_options,
     )
     descriptors = [
         coll_d
-        for coll_d in _astra_db_env.database.list_collections()
+        for coll_d in astra_db_env.database.list_collections()
         if coll_d.name == collection_name
     ]
     if not descriptors:
         return None, []
     descriptor = descriptors[0]
     # fetch some documents
-    document_ite = _astra_db_env.database.get_collection(collection_name).find(
+    document_ite = astra_db_env.database.get_collection(collection_name).find(
         filter={},
         projection={"*": True},
         limit=SURVEY_NUMBER_OF_DOCUMENTS,
@@ -208,11 +212,13 @@ class _AstraDBEnvironment:
         environment: str | None = None,
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
         component_name: str | None = None,
+        api_options: APIOptions | None = None,
     ) -> None:
         self.token: TokenProvider
         self.api_endpoint: str | None
         self.keyspace: str | None
         self.environment: str | None
+        self.api_options: APIOptions | None
 
         self.data_api_client: DataAPIClient
         self.database: Database
@@ -220,7 +226,7 @@ class _AstraDBEnvironment:
 
         if token is None:
             logger.info(
-                "Attempting to fetch token from environment " "variable '%s'",
+                "Attempting to fetch token from environment variable '%s'",
                 TOKEN_ENV_VAR,
             )
             self.token = StaticTokenProvider(os.getenv(TOKEN_ENV_VAR))
@@ -231,7 +237,7 @@ class _AstraDBEnvironment:
 
         if api_endpoint is None:
             logger.info(
-                "Attempting to fetch API endpoint from environment " "variable '%s'",
+                "Attempting to fetch API endpoint from environment variable '%s'",
                 API_ENDPOINT_ENV_VAR,
             )
             self.api_endpoint = os.getenv(API_ENDPOINT_ENV_VAR)
@@ -240,11 +246,20 @@ class _AstraDBEnvironment:
 
         if keyspace is None:
             logger.info(
-                "Attempting to fetch keyspace from environment " "variable '%s'",
+                "Attempting to fetch keyspace from environment variable '%s'",
                 KEYSPACE_ENV_VAR,
             )
-            self.keyspace = os.getenv(KEYSPACE_ENV_VAR)
+            env_var_keyspace = os.getenv(KEYSPACE_ENV_VAR, "").strip()
+            if env_var_keyspace:
+                logger.info(
+                    "Using keyspace '%s' from environment variable.",
+                    env_var_keyspace,
+                )
+                self.keyspace = env_var_keyspace
+            else:
+                self.keyspace = keyspace
         else:
+            logger.info("No valid keyspace found in environment variable.")
             self.keyspace = keyspace
 
         # init parameters are normalized to self.{token, api_endpoint, keyspace}.
@@ -261,6 +276,8 @@ class _AstraDBEnvironment:
             environment,
             self.api_endpoint,
         )
+
+        self.api_options = api_options
 
         # prepare the "callers" list to create the clients.
         # The callers, passed to astrapy, are made of these Caller pairs in this order:
@@ -284,15 +301,23 @@ class _AstraDBEnvironment:
             (self.component_name, LC_ASTRADB_VERSION),
         ]
         # create the client (set to return plain lists for vectors)
-        self.data_api_client = DataAPIClient(
-            environment=self.environment,
-            api_options=APIOptions(
+        # first must take care of two levels of customizing of the base astrapy options
+        astrapy_default_api_options = defaultAPIOptions(self.environment)
+        adapted_default_api_options = astrapy_default_api_options.with_override(
+            APIOptions(
                 callers=self.full_callers,
                 serdes_options=SerdesOptions(custom_datatypes_in_reading=False),
                 timeout_options=TimeoutOptions(
                     request_timeout_ms=ASTRA_DB_REQUEST_TIMEOUT_MS
                 ),
             ),
+        )
+        final_api_options = adapted_default_api_options.with_override(
+            api_options if api_options is not None else APIOptions()
+        )
+        self.data_api_client = DataAPIClient(
+            environment=self.environment,
+            api_options=final_api_options,
         )
 
         self.database = self.data_api_client.get_database(
@@ -314,6 +339,7 @@ class _AstraDBCollectionEnvironment(_AstraDBEnvironment):
         environment: str | None = None,
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
         component_name: str | None = None,
+        api_options: APIOptions | None = None,
         setup_mode: SetupMode = SetupMode.SYNC,
         pre_delete_collection: bool = False,
         embedding_dimension: int | Awaitable[int] | None = None,
@@ -339,6 +365,7 @@ class _AstraDBCollectionEnvironment(_AstraDBEnvironment):
             environment=environment,
             ext_callers=ext_callers,
             component_name=component_name,
+            api_options=api_options,
         )
         self.collection_name = collection_name
         self.collection_embedding_api_key = (
@@ -389,17 +416,17 @@ class _AstraDBCollectionEnvironment(_AstraDBEnvironment):
                 )
                 raise ValueError(msg)
             try:
-                _idx_mode, _idx_target = _unpack_indexing_policy(
+                idx_mode, idx_target = _unpack_indexing_policy(
                     requested_indexing_policy,
                 )
 
                 collection_definition = (
                     CollectionDefinition.builder()
-                    .set_vector_dimension(embedding_dimension)  # type: ignore[arg-type]
+                    .set_vector_dimension(embedding_dimension)
                     .set_vector_metric(metric)
                     .set_indexing(
-                        indexing_mode=_idx_mode,
-                        indexing_target=_idx_target,
+                        indexing_mode=idx_mode,
+                        indexing_target=idx_target,
                     )
                     .set_vector_service(collection_vector_service_options)
                     .set_lexical(self.collection_lexical)
@@ -485,6 +512,7 @@ class _AstraDBCollectionEnvironment(_AstraDBEnvironment):
             component_name=self.component_name
             if component_name is None
             else component_name,
+            api_options=self.api_options,
             setup_mode=SetupMode.OFF,
             collection_embedding_api_key=self.collection_embedding_api_key
             if collection_embedding_api_key is None
@@ -513,20 +541,21 @@ class _AstraDBCollectionEnvironment(_AstraDBEnvironment):
     ) -> None:
         if pre_delete_collection:
             await self.async_database.drop_collection(self.collection_name)
-        if inspect.isawaitable(embedding_dimension):
-            dimension = await embedding_dimension
-        else:
-            dimension = embedding_dimension
+        dimension = (
+            await embedding_dimension
+            if inspect.isawaitable(embedding_dimension)
+            else embedding_dimension
+        )
 
         try:
-            _idx_mode, _idx_target = _unpack_indexing_policy(requested_indexing_policy)
+            idx_mode, idx_target = _unpack_indexing_policy(requested_indexing_policy)
             collection_definition = (
                 CollectionDefinition.builder()
                 .set_vector_dimension(dimension)
                 .set_vector_metric(metric)
                 .set_indexing(
-                    indexing_mode=_idx_mode,
-                    indexing_target=_idx_target,
+                    indexing_mode=idx_mode,
+                    indexing_target=idx_target,
                 )
                 .set_vector_service(collection_vector_service_options)
                 .set_lexical(self.collection_lexical)

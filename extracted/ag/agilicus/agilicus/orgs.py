@@ -582,3 +582,10 @@ def add_org_pop(ctx, pop, **kwargs):
 
 def remove_org_pop(ctx, pop, **kwargs):
     return _update_pop_setting(ctx, pop, pop_utils.remove_pop_from_str, **kwargs)
+
+
+def fixup(ctx, org_id, **kwargs):
+    apiclient = context.get_apiclient(ctx)
+    kwargs = strip_none(kwargs)
+    org_fixup = agilicus_api.OrgFixup(org_id=org_id, **kwargs)
+    return apiclient.org_api.org_fixup(org_id, org_fixup).to_dict()

@@ -7,7 +7,7 @@ import platform
 import sys
 from setuptools import setup, find_packages, Extension
 
-with io.open("README.rst", mode="rt", encoding="utf-8") as readme_file:
+with io.open("README.md", mode="rt", encoding="utf-8") as readme_file:
     readme = readme_file.read()
 
 # Setup flags
@@ -124,6 +124,7 @@ def make_extensions():
             "-Wno-unused-function",
             "-std=c99",
             "-O2",
+            "-g0",
         ]
         compile_arguments.extend(args)
         compile_arguments_lxb.extend(args)
@@ -167,7 +168,7 @@ def make_extensions():
 
 setup(
     name="selectolax",
-    version="0.3.33",
+    version="0.3.34",
     description="Fast HTML5 parser with CSS selectors.",
     long_description=readme,
     author="Artem Golubin",

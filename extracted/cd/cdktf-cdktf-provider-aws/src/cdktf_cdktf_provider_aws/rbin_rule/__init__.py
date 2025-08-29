@@ -1,7 +1,7 @@
 r'''
 # `aws_rbin_rule`
 
-Refer to the Terraform Registry for docs: [`aws_rbin_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule).
+Refer to the Terraform Registry for docs: [`aws_rbin_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RbinRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.rbinRule.RbinRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule aws_rbin_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule aws_rbin_rule}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class RbinRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule aws_rbin_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule aws_rbin_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.
-        :param retention_period: retention_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#description RbinRule#description}.
-        :param exclude_resource_tags: exclude_resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
-        :param lock_configuration: lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#region RbinRule#region}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags RbinRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.
+        :param retention_period: retention_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#description RbinRule#description}.
+        :param exclude_resource_tags: exclude_resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
+        :param lock_configuration: lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#region RbinRule#region}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags RbinRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class RbinRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RbinRule to import.
-        :param import_from_id: The id of the existing RbinRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RbinRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RbinRule to import is found.
         '''
         if __debug__:
@@ -161,7 +161,7 @@ class RbinRule(
         unlock_delay: typing.Union["RbinRuleLockConfigurationUnlockDelay", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param unlock_delay: unlock_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
+        :param unlock_delay: unlock_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
         '''
         value = RbinRuleLockConfiguration(unlock_delay=unlock_delay)
 
@@ -188,8 +188,8 @@ class RbinRule(
         retention_period_value: jsii.Number,
     ) -> None:
         '''
-        :param retention_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.
-        :param retention_period_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.
+        :param retention_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.
+        :param retention_period_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.
         '''
         value = RbinRuleRetentionPeriod(
             retention_period_unit=retention_period_unit,
@@ -207,9 +207,9 @@ class RbinRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#create RbinRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#delete RbinRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#update RbinRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#create RbinRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#delete RbinRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#update RbinRule#update}.
         '''
         value = RbinRuleTimeouts(create=create, delete=delete, update=update)
 
@@ -482,16 +482,16 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.
-        :param retention_period: retention_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#description RbinRule#description}.
-        :param exclude_resource_tags: exclude_resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
-        :param lock_configuration: lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#region RbinRule#region}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags RbinRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.
+        :param retention_period: retention_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#description RbinRule#description}.
+        :param exclude_resource_tags: exclude_resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
+        :param lock_configuration: lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#region RbinRule#region}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags RbinRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -621,7 +621,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_type RbinRule#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
@@ -630,7 +630,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_period(self) -> "RbinRuleRetentionPeriod":
         '''retention_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period RbinRule#retention_period}
         '''
         result = self._values.get("retention_period")
         assert result is not None, "Required property 'retention_period' is missing"
@@ -638,7 +638,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#description RbinRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#description RbinRule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -648,7 +648,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RbinRuleExcludeResourceTags"]]]:
         '''exclude_resource_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#exclude_resource_tags RbinRule#exclude_resource_tags}
         '''
         result = self._values.get("exclude_resource_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RbinRuleExcludeResourceTags"]]], result)
@@ -657,7 +657,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lock_configuration(self) -> typing.Optional["RbinRuleLockConfiguration"]:
         '''lock_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#lock_configuration RbinRule#lock_configuration}
         '''
         result = self._values.get("lock_configuration")
         return typing.cast(typing.Optional["RbinRuleLockConfiguration"], result)
@@ -666,7 +666,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#region RbinRule#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#region RbinRule#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -677,20 +677,20 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RbinRuleResourceTags"]]]:
         '''resource_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tags RbinRule#resource_tags}
         '''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RbinRuleResourceTags"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags RbinRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags RbinRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#tags_all RbinRule#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -698,7 +698,7 @@ class RbinRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RbinRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#timeouts RbinRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RbinRuleTimeouts"], result)
@@ -731,8 +731,8 @@ class RbinRuleExcludeResourceTags:
         resource_tag_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.
-        :param resource_tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.
+        :param resource_tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.
+        :param resource_tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8f42aea35d17dcd49b4ae2246868fb1a8497a10962dd022f215c455496fbc70)
@@ -746,14 +746,14 @@ class RbinRuleExcludeResourceTags:
 
     @builtins.property
     def resource_tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.'''
         result = self._values.get("resource_tag_key")
         assert result is not None, "Required property 'resource_tag_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_tag_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.'''
         result = self._values.get("resource_tag_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -953,7 +953,7 @@ class RbinRuleLockConfiguration:
         unlock_delay: typing.Union["RbinRuleLockConfigurationUnlockDelay", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param unlock_delay: unlock_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
+        :param unlock_delay: unlock_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
         '''
         if isinstance(unlock_delay, dict):
             unlock_delay = RbinRuleLockConfigurationUnlockDelay(**unlock_delay)
@@ -968,7 +968,7 @@ class RbinRuleLockConfiguration:
     def unlock_delay(self) -> "RbinRuleLockConfigurationUnlockDelay":
         '''unlock_delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay RbinRule#unlock_delay}
         '''
         result = self._values.get("unlock_delay")
         assert result is not None, "Required property 'unlock_delay' is missing"
@@ -1014,8 +1014,8 @@ class RbinRuleLockConfigurationOutputReference(
         unlock_delay_value: jsii.Number,
     ) -> None:
         '''
-        :param unlock_delay_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.
-        :param unlock_delay_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.
+        :param unlock_delay_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.
+        :param unlock_delay_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.
         '''
         value = RbinRuleLockConfigurationUnlockDelay(
             unlock_delay_unit=unlock_delay_unit, unlock_delay_value=unlock_delay_value
@@ -1064,8 +1064,8 @@ class RbinRuleLockConfigurationUnlockDelay:
         unlock_delay_value: jsii.Number,
     ) -> None:
         '''
-        :param unlock_delay_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.
-        :param unlock_delay_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.
+        :param unlock_delay_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.
+        :param unlock_delay_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57151adf5b8f0247bd68c8a634f9897648f1e36b342e9c7b217bcf6a651a5434)
@@ -1078,14 +1078,14 @@ class RbinRuleLockConfigurationUnlockDelay:
 
     @builtins.property
     def unlock_delay_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_unit RbinRule#unlock_delay_unit}.'''
         result = self._values.get("unlock_delay_unit")
         assert result is not None, "Required property 'unlock_delay_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def unlock_delay_value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#unlock_delay_value RbinRule#unlock_delay_value}.'''
         result = self._values.get("unlock_delay_value")
         assert result is not None, "Required property 'unlock_delay_value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1188,8 +1188,8 @@ class RbinRuleResourceTags:
         resource_tag_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.
-        :param resource_tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.
+        :param resource_tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.
+        :param resource_tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92823db25c66d0a74fbea75e14007373c049c0bb359de8ab70e1789fcb97966b)
@@ -1203,14 +1203,14 @@ class RbinRuleResourceTags:
 
     @builtins.property
     def resource_tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_key RbinRule#resource_tag_key}.'''
         result = self._values.get("resource_tag_key")
         assert result is not None, "Required property 'resource_tag_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_tag_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#resource_tag_value RbinRule#resource_tag_value}.'''
         result = self._values.get("resource_tag_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1414,8 +1414,8 @@ class RbinRuleRetentionPeriod:
         retention_period_value: jsii.Number,
     ) -> None:
         '''
-        :param retention_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.
-        :param retention_period_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.
+        :param retention_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.
+        :param retention_period_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ca158db9cb6bd49472dc30eb9320461de5a33b6969b168cf9c6896672159dc4)
@@ -1428,14 +1428,14 @@ class RbinRuleRetentionPeriod:
 
     @builtins.property
     def retention_period_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_unit RbinRule#retention_period_unit}.'''
         result = self._values.get("retention_period_unit")
         assert result is not None, "Required property 'retention_period_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retention_period_value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#retention_period_value RbinRule#retention_period_value}.'''
         result = self._values.get("retention_period_value")
         assert result is not None, "Required property 'retention_period_value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1533,9 +1533,9 @@ class RbinRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#create RbinRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#delete RbinRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#update RbinRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#create RbinRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#delete RbinRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#update RbinRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff7ac7b598a9f0bc201ba602bf97064e19bc05fe9e3c8acf26d6cbc04b8362d7)
@@ -1552,19 +1552,19 @@ class RbinRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#create RbinRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#create RbinRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#delete RbinRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#delete RbinRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/rbin_rule#update RbinRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/rbin_rule#update RbinRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

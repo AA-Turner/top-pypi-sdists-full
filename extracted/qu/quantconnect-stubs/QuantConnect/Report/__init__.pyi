@@ -23,64 +23,65 @@ JsonConverter = typing.Any
 QuantConnect_Report_NullResultValueTypeJsonConverter_T = typing.TypeVar("QuantConnect_Report_NullResultValueTypeJsonConverter_T")
 
 
-class CrisisEvent(Enum):
-    """Crisis Events"""
+class DrawdownPeriod(System.Object):
+    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
 
-    DOT_COM = 0
-    """DotCom bubble - https://en.wikipedia.org/wiki/Dot-com_bubble (0)"""
+    @property
+    def start(self) -> datetime.datetime:
+        """Start of the drawdown period"""
+        ...
 
-    SEPTEMBER_ELEVENTH = 1
-    """September 11, 2001 attacks - https://en.wikipedia.org/wiki/September_11_attacks (1)"""
+    @property
+    def end(self) -> datetime.datetime:
+        """End of the drawdown period"""
+        ...
 
-    US_HOUSING_BUBBLE_2003 = 2
-    """United States housing bubble - https://en.wikipedia.org/wiki/United_States_housing_bubble (2)"""
+    @property
+    def peak_to_trough(self) -> float:
+        """Loss in percent from peak to trough"""
+        ...
 
-    GLOBAL_FINANCIAL_CRISIS = 3
-    """https://en.wikipedia.org/wiki/Financial_crisis_of_2007%E2%80%9308 (3)"""
+    @property
+    def drawdown(self) -> float:
+        """Loss in percent from peak to trough - Alias for PeakToTrough"""
+        ...
 
-    FLASH_CRASH = 4
-    """The flash crash of 2010 - https://en.wikipedia.org/wiki/2010_Flash_Crash (4)"""
+    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
+        """
+        Creates an instance with the given start, end, and drawdown
+        
+        :param start: Start of the drawdown period
+        :param end: End of the drawdown period
+        :param drawdown: Max drawdown of the period
+        """
+        ...
 
-    FUKUSHIMA_MELTDOWN = 5
-    """Fukushima nuclear power plant meltdown - https://en.wikipedia.org/wiki/Fukushima_Daiichi_nuclear_disaster (5)"""
 
-    US_DOWNGRADE_EUROPEAN_DEBT = 6
+class OrderTypeNormalizingJsonConverter(JsonConverter):
     """
-    United States credit rating downgrade - https://en.wikipedia.org/wiki/United_States_federal_government_credit-rating_downgrades
-    European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (6)
+    Normalizes the "Type" field to a value that will allow for
+    successful deserialization in the OrderJsonConverter class.
     """
 
-    EUROZONE_SEPTEMBER_2012 = 7
-    """European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (7)"""
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determine if this Converter can convert a given object type
+        
+        :param object_type: Object type to convert
+        :returns: True if assignable from Order.
+        """
+        ...
 
-    EUROZONE_OCTOBER_2014 = 8
-    """European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (8)"""
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Read Json and convert
+        
+        :returns: Resulting Order.
+        """
+        ...
 
-    MARKET_SELL_OFF_2015 = 9
-    """2015-2016 market sell off https://en.wikipedia.org/wiki/2015%E2%80%9316_stock_market_selloff (9)"""
-
-    RECOVERY = 10
-    """Crisis recovery (2010 - 2012) (10)"""
-
-    NEW_NORMAL = 11
-    """2014 - 2019 market performance (11)"""
-
-    COVID_19 = 12
-    """COVID-19 pandemic market crash (12)"""
-
-    POST_COVID_RUN_UP = 13
-    """Post COVID-19 recovery (13)"""
-
-    MEME_SEASON = 14
-    """Meme-craze era like GME, AMC, and DOGE (14)"""
-
-    RUSSIA_INVADES_UKRAINE = 15
-    """Russia invased Ukraine (15)"""
-
-    AI_BOOM = 16
-    """Artificial intelligence boom (16)"""
-
-    def __int__(self) -> int:
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write Json; Not implemented"""
         ...
 
 
@@ -143,6 +144,115 @@ class DeedleUtil(System.Object):
         ...
 
 
+class DrawdownCollection(System.Object):
+    """Collection of drawdowns for the given period marked by start and end date"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Starting time of the drawdown collection"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """Ending time of the drawdown collection"""
+        ...
+
+    @property
+    def periods(self) -> int:
+        """
+        Number of periods to take into consideration for the top N drawdown periods.
+        This will be the number of items contained in the Drawdowns collection.
+        """
+        ...
+
+    @property
+    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
+        """Worst drawdowns encountered"""
+        ...
+
+    @overload
+    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
+        """
+        Creates an instance from the given drawdowns and the top N worst drawdowns
+        
+        :param strategy_series: Equity curve with both live and backtesting merged
+        :param periods: Periods this collection contains
+        """
+        ...
+
+    @overload
+    def __init__(self, periods: int) -> None:
+        """Creates an instance with a default collection (no items) and the top N worst drawdowns"""
+        ...
+
+    @staticmethod
+    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
+        """
+        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        :param periods: Top N drawdown periods to get
+        :returns: DrawdownCollection instance.
+        """
+        ...
+
+    @staticmethod
+    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Iterable[QuantConnect.Report.DrawdownPeriod]:
+        """
+        Gets the given drawdown periods from the equity curve and the set periods
+        
+        :param curve: Equity curve
+        :param periods: Top N drawdown periods to get
+        :returns: Enumerable of DrawdownPeriod.
+        """
+        ...
+
+    @staticmethod
+    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
+        """
+        Gets the top N worst drawdowns and associated statistics.
+        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
+        
+        :param curve: Equity curve
+        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
+        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def get_underwater(curve: typing.Any) -> typing.Any:
+        """
+        Gets the underwater plot for the provided curve.
+        Data is expected to be the concatenated output of ResultsUtil.EquityPoints.
+        
+        :param curve: Equity curve
+        """
+        ...
+
+    @staticmethod
+    def get_underwater_frame(curve: typing.Any) -> typing.Any:
+        """
+        Gets all the data associated with the underwater plot and everything used to generate it.
+        Note that you should instead use GetUnderwater(Series{DateTime, double}) if you
+        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
+        
+        :param curve: Equity curve
+        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
+        """
+        Normalizes the Series used to calculate the drawdown plots and charts
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        """
+        ...
+
+
 class Report(System.Object):
     """Report class"""
 
@@ -177,6 +287,67 @@ class Report(System.Object):
         :param input: Input string that may contain the regex pattern
         :returns: The regex pattern in the input string if found. Otherwise, null.
         """
+        ...
+
+
+class CrisisEvent(Enum):
+    """Crisis Events"""
+
+    DOT_COM = 0
+    """DotCom bubble - https://en.wikipedia.org/wiki/Dot-com_bubble (0)"""
+
+    SEPTEMBER_ELEVENTH = 1
+    """September 11, 2001 attacks - https://en.wikipedia.org/wiki/September_11_attacks (1)"""
+
+    US_HOUSING_BUBBLE_2003 = 2
+    """United States housing bubble - https://en.wikipedia.org/wiki/United_States_housing_bubble (2)"""
+
+    GLOBAL_FINANCIAL_CRISIS = 3
+    """https://en.wikipedia.org/wiki/Financial_crisis_of_2007%E2%80%9308 (3)"""
+
+    FLASH_CRASH = 4
+    """The flash crash of 2010 - https://en.wikipedia.org/wiki/2010_Flash_Crash (4)"""
+
+    FUKUSHIMA_MELTDOWN = 5
+    """Fukushima nuclear power plant meltdown - https://en.wikipedia.org/wiki/Fukushima_Daiichi_nuclear_disaster (5)"""
+
+    US_DOWNGRADE_EUROPEAN_DEBT = 6
+    """
+    United States credit rating downgrade - https://en.wikipedia.org/wiki/United_States_federal_government_credit-rating_downgrades
+    European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (6)
+    """
+
+    EUROZONE_SEPTEMBER_2012 = 7
+    """European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (7)"""
+
+    EUROZONE_OCTOBER_2014 = 8
+    """European debt crisis - https://en.wikipedia.org/wiki/European_debt_crisis (8)"""
+
+    MARKET_SELL_OFF_2015 = 9
+    """2015-2016 market sell off https://en.wikipedia.org/wiki/2015%E2%80%9316_stock_market_selloff (9)"""
+
+    RECOVERY = 10
+    """Crisis recovery (2010 - 2012) (10)"""
+
+    NEW_NORMAL = 11
+    """2014 - 2019 market performance (11)"""
+
+    COVID_19 = 12
+    """COVID-19 pandemic market crash (12)"""
+
+    POST_COVID_RUN_UP = 13
+    """Post COVID-19 recovery (13)"""
+
+    MEME_SEASON = 14
+    """Meme-craze era like GME, AMC, and DOGE (14)"""
+
+    RUSSIA_INVADES_UKRAINE = 15
+    """Russia invased Ukraine (15)"""
+
+    AI_BOOM = 16
+    """Artificial intelligence boom (16)"""
+
+    def __int__(self) -> int:
         ...
 
 
@@ -365,40 +536,6 @@ class PointInTimePortfolio(System.Object):
         ...
 
 
-class DrawdownPeriod(System.Object):
-    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Start of the drawdown period"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """End of the drawdown period"""
-        ...
-
-    @property
-    def peak_to_trough(self) -> float:
-        """Loss in percent from peak to trough"""
-        ...
-
-    @property
-    def drawdown(self) -> float:
-        """Loss in percent from peak to trough - Alias for PeakToTrough"""
-        ...
-
-    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
-        """
-        Creates an instance with the given start, end, and drawdown
-        
-        :param start: Start of the drawdown period
-        :param end: End of the drawdown period
-        :param drawdown: Max drawdown of the period
-        """
-        ...
-
-
 class Metrics(System.Object):
     """Strategy metrics collection such as usage of funds and asset allocations"""
 
@@ -504,143 +641,6 @@ class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullRe
 
     def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
         """Write Json; Not implemented"""
-        ...
-
-
-class OrderTypeNormalizingJsonConverter(JsonConverter):
-    """
-    Normalizes the "Type" field to a value that will allow for
-    successful deserialization in the OrderJsonConverter class.
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determine if this Converter can convert a given object type
-        
-        :param object_type: Object type to convert
-        :returns: True if assignable from Order.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Read Json and convert
-        
-        :returns: Resulting Order.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write Json; Not implemented"""
-        ...
-
-
-class DrawdownCollection(System.Object):
-    """Collection of drawdowns for the given period marked by start and end date"""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Starting time of the drawdown collection"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """Ending time of the drawdown collection"""
-        ...
-
-    @property
-    def periods(self) -> int:
-        """
-        Number of periods to take into consideration for the top N drawdown periods.
-        This will be the number of items contained in the Drawdowns collection.
-        """
-        ...
-
-    @property
-    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
-        """Worst drawdowns encountered"""
-        ...
-
-    @overload
-    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
-        """
-        Creates an instance from the given drawdowns and the top N worst drawdowns
-        
-        :param strategy_series: Equity curve with both live and backtesting merged
-        :param periods: Periods this collection contains
-        """
-        ...
-
-    @overload
-    def __init__(self, periods: int) -> None:
-        """Creates an instance with a default collection (no items) and the top N worst drawdowns"""
-        ...
-
-    @staticmethod
-    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
-        """
-        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
-        
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
-        :param periods: Top N drawdown periods to get
-        :returns: DrawdownCollection instance.
-        """
-        ...
-
-    @staticmethod
-    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Iterable[QuantConnect.Report.DrawdownPeriod]:
-        """
-        Gets the given drawdown periods from the equity curve and the set periods
-        
-        :param curve: Equity curve
-        :param periods: Top N drawdown periods to get
-        :returns: Enumerable of DrawdownPeriod.
-        """
-        ...
-
-    @staticmethod
-    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
-        """
-        Gets the top N worst drawdowns and associated statistics.
-        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
-        
-        :param curve: Equity curve
-        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
-        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
-        """
-        ...
-
-    @staticmethod
-    def get_underwater(curve: typing.Any) -> typing.Any:
-        """
-        Gets the underwater plot for the provided curve.
-        Data is expected to be the concatenated output of ResultsUtil.EquityPoints.
-        
-        :param curve: Equity curve
-        """
-        ...
-
-    @staticmethod
-    def get_underwater_frame(curve: typing.Any) -> typing.Any:
-        """
-        Gets all the data associated with the underwater plot and everything used to generate it.
-        Note that you should instead use GetUnderwater(Series{DateTime, double}) if you
-        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
-        
-        :param curve: Equity curve
-        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
-        """
-        ...
-
-    @staticmethod
-    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
-        """
-        Normalizes the Series used to calculate the drawdown plots and charts
-        
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
-        """
         ...
 
 

@@ -38,6 +38,15 @@ class VectorStoreDataSourceType(str, Enum):
         return self.value
 
 
+def _convert_str_to_vs_datasource_type_enum(
+    datasource_type_str: str,
+) -> VectorStoreDataSourceType:
+    try:
+        return VectorStoreDataSourceType(datasource_type_str)
+    except ValueError:
+        return VectorStoreDataSourceType.UNDEFINED
+
+
 class VectorStoreConnector:
     """Creates a proper vector store client using the provided properties.
 

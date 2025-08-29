@@ -249,6 +249,10 @@ def output_csv(ctx):
     return get_value(ctx, "output_format") == "csv"
 
 
+def output_markdown(ctx):
+    return get_value(ctx, "output_format") == "markdown"
+
+
 def output_headers(ctx):
     return get_value(ctx, "output_headers")
 

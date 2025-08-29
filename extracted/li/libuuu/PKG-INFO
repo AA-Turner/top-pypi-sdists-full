@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libuuu
-Version: 1.5.222
+Version: 1.5.233
 Summary: A python wraper for libuuu.
 Author: NXP
 License: BSD-3-Clause
@@ -17,7 +17,6 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools-scm<8.2
 Dynamic: license-file
 
 # libuuu

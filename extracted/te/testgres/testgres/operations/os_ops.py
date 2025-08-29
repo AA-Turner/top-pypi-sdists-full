@@ -1,4 +1,5 @@
-import getpass
+from __future__ import annotations
+
 import locale
 
 
@@ -17,12 +18,21 @@ def get_default_encoding():
 
 
 class OsOperations:
-    def __init__(self, username=None):
-        self.ssh_key = None
-        self.username = username or getpass.getuser()
+    def __init__(self):
+        pass
+
+    def create_clone(self) -> OsOperations:
+        raise NotImplementedError()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
+        raise NotImplementedError()
+
+    def build_path(self, a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
         raise NotImplementedError()
 
     # Environment setup
@@ -53,7 +63,15 @@ class OsOperations:
     def makedirs(self, path, remove_existing=False):
         raise NotImplementedError()
 
+    def makedir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        raise NotImplementedError()
+
     def rmdirs(self, path, ignore_errors=True):
+        raise NotImplementedError()
+
+    def rmdir(self, path: str):
+        assert type(path) == str  # noqa: E721
         raise NotImplementedError()
 
     def listdir(self, path):
@@ -121,4 +139,7 @@ class OsOperations:
 
     def is_port_free(self, number: int):
         assert type(number) == int  # noqa: E721
+        raise NotImplementedError()
+
+    def get_tempdir(self) -> str:
         raise NotImplementedError()

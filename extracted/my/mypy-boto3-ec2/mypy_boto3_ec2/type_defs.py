@@ -18811,6 +18811,8 @@ class CopyImageRequestTypeDef(TypedDict):
     CopyImageTags: NotRequired[bool]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     SnapshotCopyCompletionDurationMinutes: NotRequired[int]
+    DestinationAvailabilityZone: NotRequired[str]
+    DestinationAvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
 
 
@@ -18824,6 +18826,7 @@ class CopySnapshotRequestSnapshotCopyTypeDef(TypedDict):
     PresignedUrl: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     CompletionDurationMinutes: NotRequired[int]
+    DestinationAvailabilityZone: NotRequired[str]
     DryRun: NotRequired[bool]
 
 
@@ -18838,6 +18841,7 @@ class CopySnapshotRequestTypeDef(TypedDict):
     PresignedUrl: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     CompletionDurationMinutes: NotRequired[int]
+    DestinationAvailabilityZone: NotRequired[str]
     DryRun: NotRequired[bool]
 
 

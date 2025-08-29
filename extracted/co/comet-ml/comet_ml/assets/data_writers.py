@@ -39,7 +39,7 @@ class AssetDataWriterFromS3(AssetDataWriter):
     def __init__(
         self,
         s3_uri: str,
-        version_id: str,
+        version_id: Optional[str],
         monitor: Optional[file_downloader.FileDownloadSizeMonitor] = None,
     ) -> None:
         self._s3_uri = s3_uri
@@ -63,7 +63,7 @@ class AssetDataWriterFromGCS(AssetDataWriter):
     def __init__(
         self,
         gs_uri: str,
-        version_id: str,
+        version_id: Optional[str],
         monitor: Optional[file_downloader.FileDownloadSizeMonitor] = None,
     ) -> None:
         self._gs_uri = gs_uri
