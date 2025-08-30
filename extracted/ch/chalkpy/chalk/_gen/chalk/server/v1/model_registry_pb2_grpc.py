@@ -55,6 +55,21 @@ class ModelRegistryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.FromString,
         )
+        self.GetModelReferences = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/GetModelReferences",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesResponse.FromString,
+        )
+        self.GetModelReference = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/GetModelReference",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceResponse.FromString,
+        )
+        self.GetModelArtifactUploadUrls = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/GetModelArtifactUploadUrls",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsResponse.FromString,
+        )
 
 
 class ModelRegistryServiceServicer(object):
@@ -108,6 +123,24 @@ class ModelRegistryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetModelReferences(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetModelReference(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetModelArtifactUploadUrls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ModelRegistryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -150,6 +183,21 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             servicer.UpdateModelVersion,
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.SerializeToString,
+        ),
+        "GetModelReferences": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelReferences,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesResponse.SerializeToString,
+        ),
+        "GetModelReference": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelReference,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceResponse.SerializeToString,
+        ),
+        "GetModelArtifactUploadUrls": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelArtifactUploadUrls,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ModelRegistryService", rpc_method_handlers)
@@ -382,6 +430,93 @@ class ModelRegistryService(object):
             "/chalk.server.v1.ModelRegistryService/UpdateModelVersion",
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelReferences(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/GetModelReferences",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferencesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelReference(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/GetModelReference",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelReferenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelArtifactUploadUrls(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/GetModelArtifactUploadUrls",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactUploadUrlsResponse.FromString,
             options,
             channel_credentials,
             insecure,

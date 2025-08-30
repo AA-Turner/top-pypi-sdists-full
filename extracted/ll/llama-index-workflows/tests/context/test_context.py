@@ -102,7 +102,6 @@ def test_send_event_to_wrong_step(ctx: Context) -> None:
         return_types=[],
         context_parameter="",
         num_workers=99,
-        requested_services=[],
         retry_policy=None,
         resources=[],
     )
@@ -316,11 +315,6 @@ async def test_wait_for_multiple_events_in_workflow() -> None:
 
     result = await handler
     assert result == ["fizz", "buzz"]
-
-
-def test_get_holding_events(ctx: Context) -> None:
-    ctx._step_events_holding = None
-    assert ctx.get_holding_events() == []
 
 
 @pytest.mark.asyncio

@@ -20,14 +20,12 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from typing import Any, ClassVar, Dict, List, Optional
-from pulpcore.client.pulpcore.models.api_app_status_response import ApiAppStatusResponse
-from pulpcore.client.pulpcore.models.content_app_status_response import ContentAppStatusResponse
+from pulpcore.client.pulpcore.models.app_status_response import AppStatusResponse
 from pulpcore.client.pulpcore.models.content_settings_response import ContentSettingsResponse
 from pulpcore.client.pulpcore.models.database_connection_response import DatabaseConnectionResponse
 from pulpcore.client.pulpcore.models.redis_connection_response import RedisConnectionResponse
 from pulpcore.client.pulpcore.models.storage_response import StorageResponse
 from pulpcore.client.pulpcore.models.version_response import VersionResponse
-from pulpcore.client.pulpcore.models.worker_response import WorkerResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -44,9 +42,9 @@ class StatusResponse(BaseModel):
     Serializer for the status information of the app
     """ # noqa: E501
     versions: List[VersionResponse] = Field(description="Version information of Pulp components")
-    online_workers: List[WorkerResponse] = Field(description="List of online workers known to the application. An online worker is actively heartbeating and can respond to new work.")
-    online_api_apps: List[ApiAppStatusResponse] = Field(description="List of online api apps known to the application. An online api app is actively heartbeating and can serve the rest api to clients.")
-    online_content_apps: List[ContentAppStatusResponse] = Field(description="List of online content apps known to the application. An online content app is actively heartbeating and can serve data to clients.")
+    online_workers: List[AppStatusResponse] = Field(description="List of online workers known to the application. An online worker is actively heartbeating and can respond to new work.")
+    online_api_apps: List[AppStatusResponse] = Field(description="List of online api apps known to the application. An online api app is actively heartbeating and can serve the rest api to clients.")
+    online_content_apps: List[AppStatusResponse] = Field(description="List of online content apps known to the application. An online content app is actively heartbeating and can serve data to clients.")
     database_connection: DatabaseConnectionResponse = Field(description="Database connection information")
     redis_connection: Optional[RedisConnectionResponse] = Field(default=None, description="Redis connection information")
     storage: Optional[StorageResponse] = Field(default=None, description="Storage information")
@@ -146,9 +144,9 @@ class StatusResponse(BaseModel):
 
         _obj = cls.model_validate({
             "versions": [VersionResponse.from_dict(_item) for _item in obj["versions"]] if obj.get("versions") is not None else None,
-            "online_workers": [WorkerResponse.from_dict(_item) for _item in obj["online_workers"]] if obj.get("online_workers") is not None else None,
-            "online_api_apps": [ApiAppStatusResponse.from_dict(_item) for _item in obj["online_api_apps"]] if obj.get("online_api_apps") is not None else None,
-            "online_content_apps": [ContentAppStatusResponse.from_dict(_item) for _item in obj["online_content_apps"]] if obj.get("online_content_apps") is not None else None,
+            "online_workers": [AppStatusResponse.from_dict(_item) for _item in obj["online_workers"]] if obj.get("online_workers") is not None else None,
+            "online_api_apps": [AppStatusResponse.from_dict(_item) for _item in obj["online_api_apps"]] if obj.get("online_api_apps") is not None else None,
+            "online_content_apps": [AppStatusResponse.from_dict(_item) for _item in obj["online_content_apps"]] if obj.get("online_content_apps") is not None else None,
             "database_connection": DatabaseConnectionResponse.from_dict(obj["database_connection"]) if obj.get("database_connection") is not None else None,
             "redis_connection": RedisConnectionResponse.from_dict(obj["redis_connection"]) if obj.get("redis_connection") is not None else None,
             "storage": StorageResponse.from_dict(obj["storage"]) if obj.get("storage") is not None else None,

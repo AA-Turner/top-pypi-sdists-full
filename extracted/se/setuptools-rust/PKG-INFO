@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-rust
-Version: 1.11.1
+Version: 1.12.0
 Summary: Setuptools Rust extension plugin
 Author-email: Nikolay Kim <fafhrd91@gmail.com>
 Project-URL: Homepage, https://github.com/PyO3/setuptools-rust
@@ -98,7 +98,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pyo3 = "0.24"
+pyo3 = "0.25"
 
 [lib]
 name = "_lib"  # private module to be nested into Python package,

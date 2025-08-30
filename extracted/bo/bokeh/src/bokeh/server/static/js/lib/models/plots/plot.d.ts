@@ -23,6 +23,7 @@ import { DataRenderer } from "../renderers/data_renderer";
 import { GlyphRenderer } from "../renderers/glyph_renderer";
 import type { ToolAliases } from "../tools/tool";
 import { Tool } from "../tools/tool";
+import { StyledElement } from "../ui/styled_element";
 import { PlotView } from "./plot_canvas";
 export { PlotView };
 export declare namespace Plot {
@@ -37,11 +38,11 @@ export declare namespace Plot {
         frame_align: p.Property<boolean | Partial<LRTB<boolean>>>;
         title: p.Property<Title | string | null>;
         title_location: p.Property<Location | null>;
-        above: p.Property<(Annotation | Axis)[]>;
-        below: p.Property<(Annotation | Axis)[]>;
-        left: p.Property<(Annotation | Axis)[]>;
-        right: p.Property<(Annotation | Axis)[]>;
-        center: p.Property<(Annotation | Grid)[]>;
+        above: p.Property<(Annotation | Axis | StyledElement)[]>;
+        below: p.Property<(Annotation | Axis | StyledElement)[]>;
+        left: p.Property<(Annotation | Axis | StyledElement)[]>;
+        right: p.Property<(Annotation | Axis | StyledElement)[]>;
+        center: p.Property<(Annotation | Grid | StyledElement)[]>;
         renderers: p.Property<Renderer[]>;
         x_range: p.Property<Range>;
         y_range: p.Property<Range>;
@@ -73,11 +74,12 @@ export declare namespace Plot {
         hold_render: p.Property<boolean>;
         attribution: p.Property<(string | HTML)[]>;
     } & Mixins;
-    type Mixins = mixins.OutlineLine & mixins.BackgroundFill & mixins.BackgroundHatch & mixins.BorderFill & mixins.BorderHatch;
+    type Mixins = mixins.OutlineLine & mixins.BackgroundFill & mixins.BackgroundHatch & mixins.BorderLine & mixins.BorderFill & mixins.BorderHatch;
     type Visuals = visuals.Visuals & {
         outline_line: visuals.Line;
         background_fill: visuals.Fill;
         background_hatch: visuals.Hatch;
+        border_line: visuals.Line;
         border_fill: visuals.Fill;
         border_hatch: visuals.Hatch;
     };
@@ -90,14 +92,14 @@ export declare class Plot extends LayoutDOM {
     readonly use_map: boolean;
     readonly reset: Signal0<this>;
     constructor(attrs?: Partial<Plot.Attrs>);
-    add_layout(renderer: Annotation | GuideRenderer, side?: Place): void;
-    remove_layout(renderer: Annotation | GuideRenderer): void;
+    add_layout(renderer: Annotation | GuideRenderer | StyledElement, side?: Place): void;
+    remove_layout(renderer: Annotation | GuideRenderer | StyledElement): void;
     get data_renderers(): DataRenderer[];
     add_renderers(...renderers: Renderer[]): void;
     add_glyph<BaseGlyph extends Glyph>(glyph: BaseGlyph, source?: ColumnarDataSource, attrs?: Partial<GlyphRenderer.Attrs<BaseGlyph>>): GlyphRenderer<BaseGlyph>;
     add_tools(...tools: (Tool | keyof ToolAliases)[]): void;
     remove_tools(...tools: Tool[]): void;
-    get panels(): (Annotation | Axis | Grid)[];
-    get side_panels(): (Annotation | Axis)[];
+    get panels(): (Annotation | Axis | Grid | StyledElement)[];
+    get side_panels(): (Annotation | Axis | StyledElement)[];
 }
 //# sourceMappingURL=plot.d.ts.map

@@ -451,7 +451,7 @@ class PublisherCommand(BaseCommand):
         # Notify user that the publishing process is complete
         self.__console.print(
             Panel(
-                f"[bold green]✅ Publishing process completed successfully![/]",
+                "[bold green]✅ Publishing process completed successfully![/]",
                 border_style="green",
                 width=self.__with_console
             )

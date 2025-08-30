@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, ForwardRef, List, Optional, Type, TypeVa
 from pydantic import BaseModel, create_model
 
 from vellum.client.types.function_call import FunctionCall
+from vellum.workflows.constants import undefined
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.inputs.base import BaseInputs
@@ -252,6 +253,19 @@ def _get_default_value(output_type: Any) -> Any:
 def cast_to_output_type(result: Any, output_type: Any) -> Any:
     if result is None:
         return _get_default_value(output_type)
+
+    if result is undefined:
+        return _get_default_value(output_type)
+
+    # Attempt JSON parse if type is Any
+    if output_type is Any:
+        if isinstance(result, str):
+            try:
+                return json.loads(result)
+            except (json.JSONDecodeError, TypeError):
+                # If JSON parsing fails, fall back to original result
+                pass
+        return result
 
     clean_output_type = _clean_output_type(output_type)
     DynamicModel = create_model("Output", output_type=(clean_output_type, ...))

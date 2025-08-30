@@ -1447,7 +1447,7 @@ class LoopFlowNodeConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
-        "Definition": (object, True),
+        "Definition": (object, True),  # type: ignore
     }
 
 
@@ -1900,12 +1900,23 @@ class ContentFilterConfig(AWSProperty):
     }
 
 
+class ContentFiltersTierConfig(AWSProperty):
+    """
+    `ContentFiltersTierConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterstierconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "TierName": (str, True),
+    }
+
+
 class ContentPolicyConfig(AWSProperty):
     """
     `ContentPolicyConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentpolicyconfig.html>`__
     """
 
     props: PropsDictType = {
+        "ContentFiltersTierConfig": (ContentFiltersTierConfig, False),
         "FiltersConfig": ([ContentFilterConfig], True),
     }
 
@@ -1930,6 +1941,16 @@ class ContextualGroundingPolicyConfig(AWSProperty):
 
     props: PropsDictType = {
         "FiltersConfig": ([ContextualGroundingFilterConfig], True),
+    }
+
+
+class GuardrailCrossRegionConfig(AWSProperty):
+    """
+    `GuardrailCrossRegionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-guardrailcrossregionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "GuardrailProfileArn": (str, True),
     }
 
 
@@ -1993,6 +2014,16 @@ class TopicConfig(AWSProperty):
     }
 
 
+class TopicsTierConfig(AWSProperty):
+    """
+    `TopicsTierConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicstierconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "TierName": (str, True),
+    }
+
+
 class TopicPolicyConfig(AWSProperty):
     """
     `TopicPolicyConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicpolicyconfig.html>`__
@@ -2000,6 +2031,7 @@ class TopicPolicyConfig(AWSProperty):
 
     props: PropsDictType = {
         "TopicsConfig": ([TopicConfig], True),
+        "TopicsTierConfig": (TopicsTierConfig, False),
     }
 
 
@@ -2054,6 +2086,7 @@ class Guardrail(AWSObject):
         "BlockedOutputsMessaging": (str, True),
         "ContentPolicyConfig": (ContentPolicyConfig, False),
         "ContextualGroundingPolicyConfig": (ContextualGroundingPolicyConfig, False),
+        "CrossRegionConfig": (GuardrailCrossRegionConfig, False),
         "Description": (str, False),
         "KmsKeyArn": (str, False),
         "Name": (str, True),

@@ -22,6 +22,7 @@ _KINESIS_AWS_SECRET_ACCESS_KEY_NAME = "KINESIS_AWS_SECRET_ACCESS_KEY"
 _KINESIS_AWS_SESSION_TOKEN_NAME = "KINESIS_AWS_SESSION_TOKEN"
 _KINESIS_ENDPOINT_URL_NAME = "KINESIS_ENDPOINT_URL"
 _KINESIS_CONSUMER_ROLE_ARN_NAME = "KINESIS_CONSUMER_ROLE_ARN"
+_KINESIS_ENHANCED_FANOUT_CONSUMER_NAME_NAME = "KINESIS_ENHANCED_FANOUT_CONSUMER_NAME"
 
 
 class KinesisSource(StreamSource, BaseModel, frozen=True):
@@ -76,6 +77,16 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
     Optional role ARN for the consumer to assume. If this is provided, enable the "ListShards", "DescribeStream", "ListShards", "GetShardIterator", and "GetRecords" permissions for the role.
     """
 
+    enhanced_fanout_consumer_name: Optional[str] = None
+    """
+    Optional consumer name for Enhanced Fan-Out consumption.
+
+    Requires IAM permissions: kinesis:DescribeStreamSummary, kinesis:ListShards on stream ARN,
+    and kinesis:DescribeStreamConsumer, kinesis:SubscribeToShard on consumer ARN pattern
+    arn:aws:kinesis:region:account:stream/stream-name/consumer/{enhanced_fanout_consumer_name}:*
+    If None, uses traditional shared-throughput consumption.
+    """
+
     def __init__(
         self,
         *,
@@ -90,6 +101,7 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
         aws_session_token: Optional[str] = None,
         endpoint_url: Optional[str] = None,
         consumer_role_arn: Optional[str] = None,
+        enhanced_fanout_consumer_name: Optional[str] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
         super(KinesisSource, self).__init__(
@@ -146,6 +158,13 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
                 name=_KINESIS_CONSUMER_ROLE_ARN_NAME, integration_name=name, override=integration_variable_override
             )
             or KinesisSource.__fields__["consumer_role_arn"].default,
+            enhanced_fanout_consumer_name=enhanced_fanout_consumer_name
+            or load_integration_variable(
+                name=_KINESIS_ENHANCED_FANOUT_CONSUMER_NAME_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+            )
+            or KinesisSource.__fields__["enhanced_fanout_consumer_name"].default,
         )
         self.registry.append(self)
 
@@ -181,6 +200,9 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
                 create_integration_variable(_KINESIS_AWS_SESSION_TOKEN_NAME, self.name, self.aws_session_token),
                 create_integration_variable(_KINESIS_ENDPOINT_URL_NAME, self.name, self.endpoint_url),
                 create_integration_variable(_KINESIS_CONSUMER_ROLE_ARN_NAME, self.name, self.consumer_role_arn),
+                create_integration_variable(
+                    _KINESIS_ENHANCED_FANOUT_CONSUMER_NAME_NAME, self.name, self.enhanced_fanout_consumer_name
+                ),
             ]
             if v is not None
         }

@@ -24,7 +24,4 @@ class StateMeta(type):
 # Please check that editors are happy before
 # changing this pattern.
 State = StateMeta("State", (object,), {})
-"""
-Read more at https://docs.chalk.ai/docs/state
-"""
 KeyedState = State

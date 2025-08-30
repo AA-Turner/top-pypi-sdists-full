@@ -15,7 +15,7 @@
         "include_dirs": [
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps"
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps"
         ],
         "name": "gevent._gevent_cqueue",
         "sources": [
@@ -2040,6 +2040,8 @@ static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_46__iter__(stru
 static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_48__next__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_3hub___get__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue___get__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self); /* proto */
+static int __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_2__set__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
+static int __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_4__del__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_11is_shutdown___get__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self); /* proto */
 static int __pyx_pf_6gevent_14_gevent_cqueue_5Queue___init__(struct __pyx_obj_6gevent_14_gevent_cqueue_Queue *__pyx_v_self, PyObject *__pyx_v_maxsize, PyObject *__pyx_v_items, PyObject *__pyx_v_unfinished_tasks); /* proto */
 static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_5Queue_2copy(struct __pyx_obj_6gevent_14_gevent_cqueue_Queue *__pyx_v_self); /* proto */
@@ -9793,7 +9795,7 @@ static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_48__next__(stru
  * cdef class SimpleQueue:
  *     cdef __weakref__
  *     cdef readonly hub             # <<<<<<<<<<<<<<
- *     cdef readonly queue
+ *     cdef public queue # Subclasses may write this
  *     cdef readonly bint is_shutdown
 */
 
@@ -9831,7 +9833,7 @@ static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_3hub___get__(st
 /* "gevent/_gevent_cqueue.pxd":42
  *     cdef __weakref__
  *     cdef readonly hub
- *     cdef readonly queue             # <<<<<<<<<<<<<<
+ *     cdef public queue # Subclasses may write this             # <<<<<<<<<<<<<<
  *     cdef readonly bint is_shutdown
  * 
 */
@@ -9867,9 +9869,71 @@ static PyObject *__pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue___get__(
   return __pyx_r;
 }
 
+/* Python wrapper */
+static int __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_value); /*proto*/
+static int __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_v_value) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_2__set__(((struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *)__pyx_v_self), ((PyObject *)__pyx_v_value));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_2__set__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self, PyObject *__pyx_v_value) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__set__", 0);
+  __Pyx_INCREF(__pyx_v_value);
+  __Pyx_GIVEREF(__pyx_v_value);
+  __Pyx_GOTREF(__pyx_v_self->queue);
+  __Pyx_DECREF(__pyx_v_self->queue);
+  __pyx_v_self->queue = __pyx_v_value;
+
+  /* function exit code */
+  __pyx_r = 0;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static int __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_5__del__(PyObject *__pyx_v_self); /*proto*/
+static int __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_5__del__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__del__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_4__del__(((struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_4__del__(struct __pyx_obj_6gevent_14_gevent_cqueue_SimpleQueue *__pyx_v_self) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__del__", 0);
+  __Pyx_INCREF(Py_None);
+  __Pyx_GIVEREF(Py_None);
+  __Pyx_GOTREF(__pyx_v_self->queue);
+  __Pyx_DECREF(__pyx_v_self->queue);
+  __pyx_v_self->queue = Py_None;
+
+  /* function exit code */
+  __pyx_r = 0;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
 /* "gevent/_gevent_cqueue.pxd":43
  *     cdef readonly hub
- *     cdef readonly queue
+ *     cdef public queue # Subclasses may write this
  *     cdef readonly bint is_shutdown             # <<<<<<<<<<<<<<
  * 
  *     cdef getters
@@ -16809,6 +16873,15 @@ static PyObject *__pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_queue(PyOb
   return __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_1__get__(o);
 }
 
+static int __pyx_setprop_6gevent_14_gevent_cqueue_11SimpleQueue_queue(PyObject *o, PyObject *v, CYTHON_UNUSED void *x) {
+  if (v) {
+    return __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_3__set__(o, v);
+  }
+  else {
+    return __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_5queue_5__del__(o);
+  }
+}
+
 static PyObject *__pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_is_shutdown(PyObject *o, CYTHON_UNUSED void *x) {
   return __pyx_pw_6gevent_14_gevent_cqueue_11SimpleQueue_11is_shutdown_1__get__(o);
 }
@@ -16831,7 +16904,7 @@ static PyMethodDef __pyx_methods_6gevent_14_gevent_cqueue_SimpleQueue[] = {
 static struct PyGetSetDef __pyx_getsets_6gevent_14_gevent_cqueue_SimpleQueue[] = {
   {"maxsize", __pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_maxsize, __pyx_setprop_6gevent_14_gevent_cqueue_11SimpleQueue_maxsize, 0, 0},
   {"hub", __pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_hub, 0, 0, 0},
-  {"queue", __pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_queue, 0, 0, 0},
+  {"queue", __pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_queue, __pyx_setprop_6gevent_14_gevent_cqueue_11SimpleQueue_queue, PyDoc_STR("queue: object"), 0},
   {"is_shutdown", __pyx_getprop_6gevent_14_gevent_cqueue_11SimpleQueue_is_shutdown, 0, 0, 0},
   {0, 0, 0, 0, 0}
 };

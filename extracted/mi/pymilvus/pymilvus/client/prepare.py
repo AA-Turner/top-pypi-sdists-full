@@ -28,6 +28,8 @@ from .constants import (
     ITER_SEARCH_LAST_BOUND_KEY,
     ITER_SEARCH_V2_KEY,
     ITERATOR_FIELD,
+    JSON_CAST_TYPE,
+    JSON_PATH,
     PAGE_RETAIN_ORDER_FIELD,
     RANK_GROUP_SCORER,
     REDUCE_STOP_FOR_BEST,
@@ -529,6 +531,7 @@ class Prepare:
         fields_info: List[Dict],
         enable_dynamic: bool,
         entities: List,
+        partial_update: bool = False,
     ):
         input_fields_info = [
             field for field in fields_info if Prepare._is_input_field(field, is_upsert=True)
@@ -539,6 +542,7 @@ class Prepare:
             for field in input_fields_info
         }
         field_info_map = {field["name"]: field for field in input_fields_info}
+        field_len = {field["name"]: 0 for field in input_fields_info}
 
         if enable_dynamic:
             d_field = schema_types.FieldData(
@@ -546,6 +550,7 @@ class Prepare:
             )
             fields_data[d_field.field_name] = d_field
             field_info_map[d_field.field_name] = d_field
+            field_len[DYNAMIC_FIELD_NAME] = 0
 
         try:
             for entity in entities:
@@ -571,6 +576,7 @@ class Prepare:
                         ):
                             field_data.valid_data.append(v is not None)
                         entity_helper.pack_field_value_to_field_data(v, field_data, field_info)
+                        field_len[k] += 1
                 for field in input_fields_info:
                     key = field["name"]
                     if key in entity:
@@ -579,8 +585,12 @@ class Prepare:
                     field_info, field_data = field_info_map[key], fields_data[key]
                     if field_info.get("nullable", False) or field_info.get("default_value", None):
                         field_data.valid_data.append(False)
+                        field_len[key] += 1
                         entity_helper.pack_field_value_to_field_data(None, field_data, field_info)
                     else:
+                        # Skip missing field validation for partial updates
+                        if partial_update:
+                            continue
                         raise DataNotMatchException(
                             message=ExceptionsMessage.InsertMissedField % key
                         )
@@ -591,10 +601,12 @@ class Prepare:
                 if enable_dynamic:
                     json_value = entity_helper.convert_to_json(json_dict)
                     d_field.scalars.json_data.data.append(json_value)
+                    field_len[DYNAMIC_FIELD_NAME] += 1
 
         except (TypeError, ValueError) as e:
             raise DataNotMatchException(message=ExceptionsMessage.DataTypeInconsistent) from e
 
+        fields_data = {k: v for k, v in fields_data.items() if field_len[k] > 0}
         request.fields_data.extend(fields_data.values())
 
         for _, field in enumerate(input_fields_info):
@@ -612,7 +624,7 @@ class Prepare:
 
         expected_num_input_fields = len(input_fields_info) + (1 if enable_dynamic else 0)
 
-        if len(fields_data) != expected_num_input_fields:
+        if not partial_update and len(fields_data) != expected_num_input_fields:
             msg = f"{ExceptionsMessage.FieldsNumInconsistent}, expected {expected_num_input_fields} fields, got {len(fields_data)}"
             raise ParamError(message=msg)
 
@@ -651,6 +663,7 @@ class Prepare:
         fields_info: Any,
         enable_dynamic: bool = False,
         schema_timestamp: int = 0,
+        partial_update: bool = False,
     ):
         if not fields_info:
             raise ParamError(message="Missing collection meta to validate entities")
@@ -662,9 +675,12 @@ class Prepare:
             partition_name=p_name,
             num_rows=len(entities),
             schema_timestamp=schema_timestamp,
+            partial_update=partial_update,
         )
 
-        return cls._parse_upsert_row_request(request, fields_info, enable_dynamic, entities)
+        return cls._parse_upsert_row_request(
+            request, fields_info, enable_dynamic, entities, partial_update
+        )
 
     @staticmethod
     def _pre_insert_batch_check(
@@ -701,6 +717,7 @@ class Prepare:
     def _pre_upsert_batch_check(
         entities: List,
         fields_info: Any,
+        partial_update: bool = False,
     ):
         for entity in entities:
             if (
@@ -720,11 +737,14 @@ class Prepare:
         if primary_key_loc is None:
             raise ParamError(message="primary key not found")
 
-        expected_num_input_fields = Prepare._num_input_fields(fields_info, is_upsert=True)
+        # Skip field count validation for partial updates
+        if not partial_update:
+            expected_num_input_fields = Prepare._num_input_fields(fields_info, is_upsert=True)
 
-        if len(entities) != expected_num_input_fields:
-            msg = f"expected number of fields: {expected_num_input_fields}, actual number of fields in entities: {len(entities)}"
-            raise ParamError(message=msg)
+            if len(entities) != expected_num_input_fields:
+                msg = f"expected number of fields: {expected_num_input_fields}, actual number of fields in entities: {len(entities)}"
+                raise ParamError(message=msg)
+
         return location
 
     @staticmethod
@@ -752,8 +772,9 @@ class Prepare:
                 raise ParamError(message=ExceptionsMessage.NumberRowsInvalid)
             request.num_rows = pre_field_size
             for entity in entities:
+                field_name = entity.get("name")
                 field_data = entity_helper.entity_to_field_data(
-                    entity, fields_info[location[entity.get("name")]], request.num_rows
+                    entity, fields_info[location[field_name]], request.num_rows
                 )
                 request.fields_data.append(field_data)
         except (TypeError, ValueError) as e:
@@ -776,7 +797,12 @@ class Prepare:
         tag = partition_name if isinstance(partition_name, str) else ""
         request = milvus_types.InsertRequest(collection_name=collection_name, partition_name=tag)
 
-        return cls._parse_batch_request(request, entities, fields_info, location)
+        return cls._parse_batch_request(
+            request,
+            entities,
+            fields_info,
+            location,
+        )
 
     @classmethod
     def batch_upsert_param(
@@ -785,10 +811,15 @@ class Prepare:
         entities: List,
         partition_name: str,
         fields_info: Any,
+        partial_update: bool = False,
     ):
-        location = cls._pre_upsert_batch_check(entities, fields_info)
+        location = cls._pre_upsert_batch_check(entities, fields_info, partial_update)
         tag = partition_name if isinstance(partition_name, str) else ""
-        request = milvus_types.UpsertRequest(collection_name=collection_name, partition_name=tag)
+        request = milvus_types.UpsertRequest(
+            collection_name=collection_name,
+            partition_name=tag,
+            partial_update=partial_update,
+        )
 
         return cls._parse_batch_request(request, entities, fields_info, location)
 
@@ -1019,6 +1050,27 @@ class Prepare:
         strict_group_size = kwargs.get(STRICT_GROUP_SIZE)
         if strict_group_size is not None:
             search_params[STRICT_GROUP_SIZE] = strict_group_size
+
+        json_path = kwargs.get(JSON_PATH)
+        if json_path is not None:
+            search_params[JSON_PATH] = json_path
+
+        json_cast_type = kwargs.get(JSON_CAST_TYPE)
+        if json_cast_type is not None:
+            if json_cast_type == DataType.INT8:
+                search_params[JSON_CAST_TYPE] = "Int8"
+            elif json_cast_type == DataType.INT16:
+                search_params[JSON_CAST_TYPE] = "Int16"
+            elif json_cast_type == DataType.INT32:
+                search_params[JSON_CAST_TYPE] = "Int32"
+            elif json_cast_type == DataType.INT64:
+                search_params[JSON_CAST_TYPE] = "Int64"
+            elif json_cast_type == DataType.BOOL:
+                search_params[JSON_CAST_TYPE] = "Bool"
+            elif json_cast_type in (DataType.VARCHAR, DataType.STRING):
+                search_params[JSON_CAST_TYPE] = "VarChar"
+            else:
+                raise ParamError(message=f"Unsupported json cast type: {json_cast_type}")
 
         if param.get("metric_type") is not None:
             search_params["metric_type"] = param["metric_type"]

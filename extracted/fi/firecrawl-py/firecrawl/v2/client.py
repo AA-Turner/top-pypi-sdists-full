@@ -18,6 +18,7 @@ from .types import (
     CrawlResponse,
     CrawlJob,
     CrawlParamsRequest,
+    PDFParser,
     CrawlParamsData,
     WebhookConfig,
     CrawlErrorsResponse,
@@ -35,6 +36,7 @@ from .types import (
     ExecuteJavascriptAction,
     PDFAction,
     Location,
+    PaginationConfig,
 )
 from .utils.http_client import HttpClient
 from .utils.error_handler import FirecrawlError
@@ -104,7 +106,7 @@ class FirecrawlClient:
         timeout: Optional[int] = None,
         wait_for: Optional[int] = None,
         mobile: Optional[bool] = None,
-        parsers: Optional[List[str]] = None,
+        parsers: Optional[Union[List[str], List[Union[str, PDFParser]]]] = None,
         actions: Optional[List[Union['WaitAction', 'ScreenshotAction', 'ClickAction', 'WriteAction', 'PressAction', 'ScrollAction', 'ScrapeAction', 'ExecuteJavascriptAction', 'PDFAction']]] = None,
         location: Optional['Location'] = None,
         skip_tls_verification: Optional[bool] = None,
@@ -356,12 +358,17 @@ class FirecrawlClient:
         
         return crawl_module.start_crawl(self.http_client, request)
     
-    def get_crawl_status(self, job_id: str) -> CrawlJob:
+    def get_crawl_status(
+        self, 
+        job_id: str,
+        pagination_config: Optional[PaginationConfig] = None
+    ) -> CrawlJob:
         """
         Get the status of a crawl job.
         
         Args:
             job_id: ID of the crawl job
+            pagination_config: Optional configuration for pagination behavior
             
         Returns:
             CrawlJob with current status and data
@@ -369,7 +376,11 @@ class FirecrawlClient:
         Raises:
             Exception: If the status check fails
         """
-        return crawl_module.get_crawl_status(self.http_client, job_id)
+        return crawl_module.get_crawl_status(
+            self.http_client, 
+            job_id,
+            pagination_config=pagination_config
+        )
     
     def get_crawl_errors(self, crawl_id: str) -> CrawlErrorsResponse:
         """
@@ -561,7 +572,7 @@ class FirecrawlClient:
         timeout: Optional[int] = None,
         wait_for: Optional[int] = None,
         mobile: Optional[bool] = None,
-        parsers: Optional[List[str]] = None,
+        parsers: Optional[Union[List[str], List[Union[str, PDFParser]]]] = None,
         actions: Optional[List[Union['WaitAction', 'ScreenshotAction', 'ClickAction', 'WriteAction', 'PressAction', 'ScrollAction', 'ScrapeAction', 'ExecuteJavascriptAction', 'PDFAction']]] = None,
         location: Optional['Location'] = None,
         skip_tls_verification: Optional[bool] = None,
@@ -651,16 +662,25 @@ class FirecrawlClient:
             idempotency_key=idempotency_key,
         )
 
-    def get_batch_scrape_status(self, job_id: str):
+    def get_batch_scrape_status(
+        self, 
+        job_id: str,
+        pagination_config: Optional[PaginationConfig] = None
+    ):
         """Get current status and any scraped data for a batch job.
 
         Args:
             job_id: Batch job ID
+            pagination_config: Optional configuration for pagination behavior
 
         Returns:
             Status payload including counts and partial data
         """
-        return batch_module.get_batch_scrape_status(self.http_client, job_id)
+        return batch_module.get_batch_scrape_status(
+            self.http_client, 
+            job_id,
+            pagination_config=pagination_config
+        )
 
     def cancel_batch_scrape(self, job_id: str) -> bool:
         """Cancel a running batch scrape job.
@@ -740,7 +760,7 @@ class FirecrawlClient:
         timeout: Optional[int] = None,
         wait_for: Optional[int] = None,
         mobile: Optional[bool] = None,
-        parsers: Optional[List[str]] = None,
+        parsers: Optional[Union[List[str], List[Union[str, PDFParser]]]] = None,
         actions: Optional[List[Union['WaitAction', 'ScreenshotAction', 'ClickAction', 'WriteAction', 'PressAction', 'ScrollAction', 'ScrapeAction', 'ExecuteJavascriptAction', 'PDFAction']]] = None,
         location: Optional['Location'] = None,
         skip_tls_verification: Optional[bool] = None,

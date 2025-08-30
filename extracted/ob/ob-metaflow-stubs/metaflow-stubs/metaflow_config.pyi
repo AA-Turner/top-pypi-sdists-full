@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-28T00:53:38.063340                                                            #
+# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-29T18:32:22.313971                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -158,6 +158,8 @@ BATCH_CONTAINER_REGISTRY: None
 SERVICE_INTERNAL_URL: None
 
 BATCH_EMIT_TAGS: bool
+
+BATCH_DEFAULT_TAGS: dict
 
 SFN_IAM_ROLE: None
 

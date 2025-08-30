@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean
+from .validators import boolean, double
 
 
 class X12Details(AWSProperty):
@@ -82,6 +82,61 @@ class Capability(AWSObject):
     }
 
 
+class X12AcknowledgmentOptions(AWSProperty):
+    """
+    `X12AcknowledgmentOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "FunctionalAcknowledgment": (str, True),
+        "TechnicalAcknowledgment": (str, True),
+    }
+
+
+class X12InboundEdiOptions(AWSProperty):
+    """
+    `X12InboundEdiOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12inboundedioptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "AcknowledgmentOptions": (X12AcknowledgmentOptions, False),
+    }
+
+
+class InboundEdiOptions(AWSProperty):
+    """
+    `InboundEdiOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-inboundedioptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "X12": (X12InboundEdiOptions, False),
+    }
+
+
+class WrapOptions(AWSProperty):
+    """
+    `WrapOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "LineLength": (double, False),
+        "LineTerminator": (str, False),
+        "WrapBy": (str, False),
+    }
+
+
+class X12ControlNumbers(AWSProperty):
+    """
+    `X12ControlNumbers <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html>`__
+    """
+
+    props: PropsDictType = {
+        "StartingFunctionalGroupControlNumber": (double, False),
+        "StartingInterchangeControlNumber": (double, False),
+        "StartingTransactionSetControlNumber": (double, False),
+    }
+
+
 class X12Delimiters(AWSProperty):
     """
     `X12Delimiters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12delimiters.html>`__
@@ -128,8 +183,10 @@ class X12OutboundEdiHeaders(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ControlNumbers": (X12ControlNumbers, False),
         "Delimiters": (X12Delimiters, False),
         "FunctionalGroupHeaders": (X12FunctionalGroupHeaders, False),
+        "Gs05TimeFormat": (str, False),
         "InterchangeControlHeaders": (X12InterchangeControlHeaders, False),
         "ValidateEdi": (boolean, False),
     }
@@ -142,6 +199,7 @@ class X12Envelope(AWSProperty):
 
     props: PropsDictType = {
         "Common": (X12OutboundEdiHeaders, False),
+        "WrapOptions": (WrapOptions, False),
     }
 
 
@@ -161,6 +219,7 @@ class CapabilityOptions(AWSProperty):
     """
 
     props: PropsDictType = {
+        "InboundEdi": (InboundEdiOptions, False),
         "OutboundEdi": (OutboundEdiOptions, False),
     }
 
@@ -200,6 +259,97 @@ class Profile(AWSObject):
     }
 
 
+class X12SplitOptions(AWSProperty):
+    """
+    `X12SplitOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12splitoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "SplitBy": (str, False),
+    }
+
+
+class X12CodeListValidationRule(AWSProperty):
+    """
+    `X12CodeListValidationRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12codelistvalidationrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "CodesToAdd": ([str], False),
+        "CodesToRemove": ([str], False),
+        "ElementId": (str, True),
+    }
+
+
+class X12ElementLengthValidationRule(AWSProperty):
+    """
+    `X12ElementLengthValidationRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementlengthvalidationrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "ElementId": (str, True),
+        "MaxLength": (double, True),
+        "MinLength": (double, True),
+    }
+
+
+class X12ElementRequirementValidationRule(AWSProperty):
+    """
+    `X12ElementRequirementValidationRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementrequirementvalidationrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "ElementPosition": (str, True),
+        "Requirement": (str, True),
+    }
+
+
+class X12ValidationRule(AWSProperty):
+    """
+    `X12ValidationRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "CodeListValidationRule": (X12CodeListValidationRule, False),
+        "ElementLengthValidationRule": (X12ElementLengthValidationRule, False),
+        "ElementRequirementValidationRule": (
+            X12ElementRequirementValidationRule,
+            False,
+        ),
+    }
+
+
+class X12ValidationOptions(AWSProperty):
+    """
+    `X12ValidationOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "ValidationRules": ([X12ValidationRule], False),
+    }
+
+
+class X12AdvancedOptions(AWSProperty):
+    """
+    `X12AdvancedOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "SplitOptions": (X12SplitOptions, False),
+        "ValidationOptions": (X12ValidationOptions, False),
+    }
+
+
+class AdvancedOptions(AWSProperty):
+    """
+    `AdvancedOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "X12": (X12AdvancedOptions, False),
+    }
+
+
 class FormatOptions(AWSProperty):
     """
     `FormatOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-formatoptions.html>`__
@@ -216,6 +366,7 @@ class InputConversion(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AdvancedOptions": (AdvancedOptions, False),
         "FormatOptions": (FormatOptions, False),
         "FromFormat": (str, True),
     }
@@ -238,6 +389,7 @@ class OutputConversion(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AdvancedOptions": (AdvancedOptions, False),
         "FormatOptions": (FormatOptions, False),
         "ToFormat": (str, True),
     }

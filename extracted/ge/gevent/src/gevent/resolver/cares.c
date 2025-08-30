@@ -19,15 +19,15 @@
         ],
         "depends": [
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12/Python.h",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps/c-ares/include/ares.h"
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps/c-ares/include/ares.h"
         ],
         "include_dirs": [
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps/c-ares/include",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps/c-ares/src/lib",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps/c-ares/src/lib/include"
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps/c-ares/include",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps/c-ares/src/lib",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps/c-ares/src/lib/include"
         ],
         "libraries": [
             "resolv"

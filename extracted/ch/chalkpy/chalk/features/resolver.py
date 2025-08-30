@@ -257,6 +257,16 @@ class FunctionCapturedGlobalStruct(FunctionCapturedGlobal):
     name: str
     pa_dtype: pa.DataType
 
+    @classmethod
+    def from_typ(cls, obj: Type) -> "FunctionCapturedGlobalStruct":
+        if is_pydantic_basemodel(obj) or dataclasses.is_dataclass(obj):
+            return cls(
+                name=obj.__name__,
+                module=obj.__module__,
+                pa_dtype=rich_to_pyarrow(obj, obj.__name__, False, True),
+            )
+        raise ValueError(f"Can't create FunctionCapturedGlobalStruct from non-struct object of type {type(obj)}: {obj}")
+
 
 @dataclasses.dataclass(frozen=True)
 class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
@@ -265,6 +275,16 @@ class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
     serialized_fd: bytes
     full_name: str
     pa_dtype: pa.DataType
+
+    @classmethod
+    def from_typ(cls, obj: Type[google.protobuf.message.Message]) -> "FunctionCapturedGlobalProto":
+        return cls(
+            name=obj.__name__,
+            module=obj.__module__,
+            serialized_fd=serialize_message_file_descriptor(obj.DESCRIPTOR.file),
+            full_name=obj.DESCRIPTOR.full_name,
+            pa_dtype=convert_proto_message_type_to_pyarrow_type(obj.DESCRIPTOR),
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1670,13 +1690,7 @@ def _capture_global(
             pass
         try:
             if issubclass(global_value, google.protobuf.message.Message):
-                return FunctionCapturedGlobalProto(
-                    name=global_value.__name__,
-                    module=global_value.__module__,
-                    serialized_fd=serialize_message_file_descriptor(global_value.DESCRIPTOR.file),
-                    full_name=global_value.DESCRIPTOR.full_name,
-                    pa_dtype=convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR),
-                )
+                return FunctionCapturedGlobalProto.from_typ(global_value)
         except RecursionError as recursion_error:
             # Either the proto structure is too deep or there is an infinitely recursive definition
             raise recursion_error

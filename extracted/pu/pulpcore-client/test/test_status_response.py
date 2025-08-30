@@ -45,20 +45,15 @@ class TestStatusResponse(unittest.TestCase):
                         domain_compatible = True, )
                     ],
                 online_workers = [
-                    pulpcore.client.pulpcore.models.worker_response.WorkerResponse(
-                        pulp_href = '', 
-                        prn = '', 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {
                             'key' : ''
-                            }, 
-                        current_task = '', )
+                            }, )
                     ],
                 online_api_apps = [
-                    pulpcore.client.pulpcore.models.api_app_status_response.ApiAppStatusResponse(
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {
@@ -66,7 +61,7 @@ class TestStatusResponse(unittest.TestCase):
                             }, )
                     ],
                 online_content_apps = [
-                    pulpcore.client.pulpcore.models.api_app_status_response.ApiAppStatusResponse(
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {
@@ -97,20 +92,15 @@ class TestStatusResponse(unittest.TestCase):
                         domain_compatible = True, )
                     ],
                 online_workers = [
-                    pulpcore.client.pulpcore.models.worker_response.WorkerResponse(
-                        pulp_href = '', 
-                        prn = '', 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {
                             'key' : ''
-                            }, 
-                        current_task = '', )
+                            }, )
                     ],
                 online_api_apps = [
-                    pulpcore.client.pulpcore.models.api_app_status_response.ApiAppStatusResponse(
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {
@@ -118,7 +108,7 @@ class TestStatusResponse(unittest.TestCase):
                             }, )
                     ],
                 online_content_apps = [
-                    pulpcore.client.pulpcore.models.api_app_status_response.ApiAppStatusResponse(
+                    pulpcore.client.pulpcore.models.app_status_response.AppStatusResponse(
                         name = '', 
                         last_heartbeat = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         versions = {

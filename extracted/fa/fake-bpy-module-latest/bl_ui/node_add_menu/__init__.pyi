@@ -46,6 +46,9 @@ def add_node_type_with_outputs(
 def add_node_type_with_searchable_enum(
     context, layout, node_idname, property_name, search_weight=0.0
 ) -> None: ...
+def add_node_type_with_searchable_enum_socket(
+    context, layout, node_idname, socket_identifier, enum_names, search_weight=0.0
+) -> None: ...
 def add_repeat_zone(layout, label) -> None: ...
 def add_simulation_zone(layout, label) -> None:
     """Add simulation zone to a menu."""

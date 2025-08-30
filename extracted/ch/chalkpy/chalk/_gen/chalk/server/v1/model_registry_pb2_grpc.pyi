@@ -12,6 +12,12 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    GetModelArtifactUploadUrlsRequest,
+    GetModelArtifactUploadUrlsResponse,
+    GetModelReferenceRequest,
+    GetModelReferenceResponse,
+    GetModelReferencesRequest,
+    GetModelReferencesResponse,
     GetModelRequest,
     GetModelResponse,
     GetModelVersionRequest,
@@ -66,6 +72,18 @@ class ModelRegistryServiceStub:
         UpdateModelVersionRequest,
         UpdateModelVersionResponse,
     ]
+    GetModelReferences: UnaryUnaryMultiCallable[
+        GetModelReferencesRequest,
+        GetModelReferencesResponse,
+    ]
+    GetModelReference: UnaryUnaryMultiCallable[
+        GetModelReferenceRequest,
+        GetModelReferenceResponse,
+    ]
+    GetModelArtifactUploadUrls: UnaryUnaryMultiCallable[
+        GetModelArtifactUploadUrlsRequest,
+        GetModelArtifactUploadUrlsResponse,
+    ]
 
 class ModelRegistryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -116,5 +134,23 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         request: UpdateModelVersionRequest,
         context: ServicerContext,
     ) -> UpdateModelVersionResponse: ...
+    @abstractmethod
+    def GetModelReferences(
+        self,
+        request: GetModelReferencesRequest,
+        context: ServicerContext,
+    ) -> GetModelReferencesResponse: ...
+    @abstractmethod
+    def GetModelReference(
+        self,
+        request: GetModelReferenceRequest,
+        context: ServicerContext,
+    ) -> GetModelReferenceResponse: ...
+    @abstractmethod
+    def GetModelArtifactUploadUrls(
+        self,
+        request: GetModelArtifactUploadUrlsRequest,
+        context: ServicerContext,
+    ) -> GetModelArtifactUploadUrlsResponse: ...
 
 def add_ModelRegistryServiceServicer_to_server(servicer: ModelRegistryServiceServicer, server: Server) -> None: ...

@@ -58,7 +58,7 @@ class __ImplementsAbstractMethods:
         not_implemented = []
         for method in abstract_methods:
             expected_method = str(method).replace(f"_{abstract_name}", f"_{target_name}")
-            if not expected_method in target_class.__dict__:
+            if expected_method not in target_class.__dict__:
                 not_implemented.append(method)
 
         # If any abstract methods are not implemented, raise an exception

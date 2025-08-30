@@ -22,10 +22,10 @@ requires = [
     "hatchling==1.27.0",
     "packaging==25.0",
     "pathspec==0.12.1",
-    "pluggy==1.5.0",
+    "pluggy==1.6.0",
     "smmap==5.0.2",
     "tomli==2.2.1; python_version < '3.11'",
-    "trove-classifiers==2025.5.9.12",
+    "trove-classifiers==2025.8.6.13",
 ]
 build-backend = "hatchling.build"
 
@@ -59,11 +59,11 @@ classifiers = [
 ]
 
 # Version is defined in src/airflow/__init__.py and it is automatically synchronized by pre-commit
-version = "3.0.4"
+version = "3.0.6"
 
 dependencies = [
-    "apache-airflow-task-sdk<1.1.0,>=1.0.4",
-    "apache-airflow-core==3.0.4",
+    "apache-airflow-task-sdk<1.1.0,>=1.0.6",
+    "apache-airflow-core==3.0.6",
 ]
 
 packages = []
@@ -176,7 +176,7 @@ packages = []
     "apache-airflow-providers-common-io>=1.4.2"
 ]
 "common.messaging" = [
-    "apache-airflow-providers-common-messaging>=1.0.1" # Set from MIN_VERSION_OVERRIDE in update_airflow_pyproject_toml.py
+    "apache-airflow-providers-common-messaging>=1.0.3" # Set from MIN_VERSION_OVERRIDE in update_airflow_pyproject_toml.py
 ]
 "common.sql" = [
     "apache-airflow-providers-common-sql>=1.18.0"
@@ -407,7 +407,7 @@ packages = []
     "apache-airflow-providers-cohere>=1.4.0",
     "apache-airflow-providers-common-compat>=1.2.1",
     "apache-airflow-providers-common-io>=1.4.2",
-    "apache-airflow-providers-common-messaging>=1.0.1", # Set from MIN_VERSION_OVERRIDE in update_airflow_pyproject_toml.py
+    "apache-airflow-providers-common-messaging>=1.0.3", # Set from MIN_VERSION_OVERRIDE in update_airflow_pyproject_toml.py
     "apache-airflow-providers-common-sql>=1.18.0",
     "apache-airflow-providers-databricks>=6.11.0",
     "apache-airflow-providers-datadog>=3.8.0",
@@ -518,7 +518,7 @@ packages = []
     "apache-airflow-providers-amazon[s3fs]",
 ]
 "uv" = [
-    "uv>=0.8.4",
+    "uv>=0.8.13",
 ]
 
 
@@ -740,7 +740,7 @@ testing = ["dev", "providers.tests", "tests_common", "tests", "system", "unit", 
 
 # All of the modules which have an extra license header (i.e. that we copy from another project) need to
 # ignore E402 -- module level import not at top level
-"scripts/ci/pre_commit/*.py" = [ "E402" ]
+"scripts/ci/prek/*.py" = [ "E402" ]
 "airflow-core/src/airflow/api/auth/backend/kerberos_auth.py" = [ "E402" ]
 "airflow-core/src/airflow/security/kerberos.py" = [ "E402" ]
 "airflow-core/src/airflow/security/utils.py" = [ "E402" ]

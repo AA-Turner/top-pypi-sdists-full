@@ -20,7 +20,7 @@ export type SerializableState = {
 export declare namespace View {
     type Options = {
         model: HasProps;
-        parent: View | null;
+        parent: View | null | ((obj: HasProps) => View | null);
         owner?: ViewManager;
     };
 }

@@ -102,6 +102,7 @@ class Destination(AWSObject):
         "DestinationName": (str, True),
         "DestinationPolicy": (str, False),
         "RoleArn": (str, True),
+        "Tags": (Tags, False),
         "TargetArn": (str, True),
     }
 
@@ -175,6 +176,7 @@ class LogGroup(AWSObject):
         "KmsKeyId": (str, False),
         "LogGroupClass": (str, False),
         "LogGroupName": (str, False),
+        "ResourcePolicyDocument": (dict, False),
         "RetentionInDays": (validate_loggroup_retention_in_days, False),
         "Tags": (Tags, False),
     }
@@ -479,6 +481,18 @@ class ParseRoute53(AWSProperty):
     }
 
 
+class ParseToOCSF(AWSProperty):
+    """
+    `ParseToOCSF <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsetoocsf.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventSource": (str, True),
+        "OcsfVersion": (str, True),
+        "Source": (str, False),
+    }
+
+
 class ParseVPC(AWSProperty):
     """
     `ParseVPC <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsevpc.html>`__
@@ -625,6 +639,7 @@ class Processor(AWSProperty):
         "ParseKeyValue": (ParseKeyValue, False),
         "ParsePostgres": (ParsePostgres, False),
         "ParseRoute53": (ParseRoute53, False),
+        "ParseToOCSF": (ParseToOCSF, False),
         "ParseVPC": (ParseVPC, False),
         "ParseWAF": (ParseWAF, False),
         "RenameKeys": (RenameKeys, False),

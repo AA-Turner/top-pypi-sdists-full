@@ -10,6 +10,7 @@ from lightrag.utils import (
     logger,
     write_json,
 )
+from lightrag.exceptions import StorageNotInitializedError
 from .shared_storage import (
     get_namespace_data,
     get_storage_lock,
@@ -29,19 +30,19 @@ class JsonKVStorage(BaseKVStorage):
         if self.workspace:
             # Include workspace in the file path for data isolation
             workspace_dir = os.path.join(working_dir, self.workspace)
-            os.makedirs(workspace_dir, exist_ok=True)
-            self._file_name = os.path.join(
-                workspace_dir, f"kv_store_{self.namespace}.json"
-            )
+            self.final_namespace = f"{self.workspace}_{self.namespace}"
         else:
             # Default behavior when workspace is empty
-            self._file_name = os.path.join(
-                working_dir, f"kv_store_{self.namespace}.json"
-            )
+            workspace_dir = working_dir
+            self.final_namespace = self.namespace
+            self.workspace = "_"
+
+        os.makedirs(workspace_dir, exist_ok=True)
+        self._file_name = os.path.join(workspace_dir, f"kv_store_{self.namespace}.json")
+
         self._data = None
         self._storage_lock = None
         self.storage_updated = None
-        self.final_namespace = f"{self.workspace}_{self.namespace}"
 
     async def initialize(self):
         """Initialize storage data"""
@@ -64,7 +65,7 @@ class JsonKVStorage(BaseKVStorage):
                     data_count = len(loaded_data)
 
                     logger.info(
-                        f"Process {os.getpid()} KV load {self.final_namespace} with {data_count} records"
+                        f"[{self.workspace}] Process {os.getpid()} KV load {self.namespace} with {data_count} records"
                     )
 
     async def index_done_callback(self) -> None:
@@ -78,7 +79,7 @@ class JsonKVStorage(BaseKVStorage):
                 data_count = len(data_dict)
 
                 logger.debug(
-                    f"Process {os.getpid()} KV writting {data_count} records to {self.final_namespace}"
+                    f"[{self.workspace}] Process {os.getpid()} KV writting {data_count} records to {self.namespace}"
                 )
                 write_json(data_dict, self._file_name)
                 await clear_all_update_flags(self.final_namespace)
@@ -151,12 +152,16 @@ class JsonKVStorage(BaseKVStorage):
 
         current_time = int(time.time())  # Get current Unix timestamp
 
-        logger.debug(f"Inserting {len(data)} records to {self.final_namespace}")
+        logger.debug(
+            f"[{self.workspace}] Inserting {len(data)} records to {self.namespace}"
+        )
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             # Add timestamps to data based on whether key exists
             for k, v in data.items():
                 # For text_chunks namespace, ensure llm_cache_list field exists
-                if "text_chunks" in self.namespace:
+                if self.namespace.endswith("text_chunks"):
                     if "llm_cache_list" not in v:
                         v["llm_cache_list"] = []
 
@@ -195,96 +200,6 @@ class JsonKVStorage(BaseKVStorage):
             if any_deleted:
                 await set_all_update_flags(self.final_namespace)
 
-    async def drop_cache_by_modes(self, modes: list[str] | None = None) -> bool:
-        """Delete specific records from storage by cache mode
-
-        Importance notes for in-memory storage:
-        1. Changes will be persisted to disk during the next index_done_callback
-        2. update flags to notify other processes that data persistence is needed
-
-        Args:
-            modes (list[str]): List of cache modes to be dropped from storage
-
-        Returns:
-             True: if the cache drop successfully
-             False: if the cache drop failed
-        """
-        if not modes:
-            return False
-
-        try:
-            async with self._storage_lock:
-                keys_to_delete = []
-                modes_set = set(modes)  # Convert to set for efficient lookup
-
-                for key in list(self._data.keys()):
-                    # Parse flattened cache key: mode:cache_type:hash
-                    parts = key.split(":", 2)
-                    if len(parts) == 3 and parts[0] in modes_set:
-                        keys_to_delete.append(key)
-
-                # Batch delete
-                for key in keys_to_delete:
-                    self._data.pop(key, None)
-
-                if keys_to_delete:
-                    await set_all_update_flags(self.final_namespace)
-                    logger.info(
-                        f"Dropped {len(keys_to_delete)} cache entries for modes: {modes}"
-                    )
-
-            return True
-        except Exception as e:
-            logger.error(f"Error dropping cache by modes: {e}")
-            return False
-
-    # async def drop_cache_by_chunk_ids(self, chunk_ids: list[str] | None = None) -> bool:
-    #     """Delete specific cache records from storage by chunk IDs
-
-    #     Importance notes for in-memory storage:
-    #     1. Changes will be persisted to disk during the next index_done_callback
-    #     2. update flags to notify other processes that data persistence is needed
-
-    #     Args:
-    #         chunk_ids (list[str]): List of chunk IDs to be dropped from storage
-
-    #     Returns:
-    #          True: if the cache drop successfully
-    #          False: if the cache drop failed
-    #     """
-    #     if not chunk_ids:
-    #         return False
-
-    #     try:
-    #         async with self._storage_lock:
-    #             # Iterate through all cache modes to find entries with matching chunk_ids
-    #             for mode_key, mode_data in list(self._data.items()):
-    #                 if isinstance(mode_data, dict):
-    #                     # Check each cached entry in this mode
-    #                     for cache_key, cache_entry in list(mode_data.items()):
-    #                         if (
-    #                             isinstance(cache_entry, dict)
-    #                             and cache_entry.get("chunk_id") in chunk_ids
-    #                         ):
-    #                             # Remove this cache entry
-    #                             del mode_data[cache_key]
-    #                             logger.debug(
-    #                                 f"Removed cache entry {cache_key} for chunk {cache_entry.get('chunk_id')}"
-    #                             )
-
-    #                     # If the mode is now empty, remove it entirely
-    #                     if not mode_data:
-    #                         del self._data[mode_key]
-
-    #             # Set update flags to notify persistence is needed
-    #             await set_all_update_flags(self.final_namespace)
-
-    #         logger.info(f"Cleared cache for {len(chunk_ids)} chunk IDs")
-    #         return True
-    #     except Exception as e:
-    #         logger.error(f"Error clearing cache by chunk IDs: {e}")
-    #         return False
-
     async def drop(self) -> dict[str, str]:
         """Drop all data from storage and clean up resources
            This action will persistent the data to disk immediately.
@@ -305,10 +220,12 @@ class JsonKVStorage(BaseKVStorage):
                 await set_all_update_flags(self.final_namespace)
 
             await self.index_done_callback()
-            logger.info(f"Process {os.getpid()} drop {self.final_namespace}")
+            logger.info(
+                f"[{self.workspace}] Process {os.getpid()} drop {self.namespace}"
+            )
             return {"status": "success", "message": "data dropped"}
         except Exception as e:
-            logger.error(f"Error dropping {self.final_namespace}: {e}")
+            logger.error(f"[{self.workspace}] Error dropping {self.namespace}: {e}")
             return {"status": "error", "message": str(e)}
 
     async def _migrate_legacy_cache_structure(self, data: dict) -> dict:
@@ -353,7 +270,7 @@ class JsonKVStorage(BaseKVStorage):
 
         if migration_count > 0:
             logger.info(
-                f"Migrated {migration_count} legacy cache entries to flattened structure"
+                f"[{self.workspace}] Migrated {migration_count} legacy cache entries to flattened structure"
             )
             # Persist migrated data immediately
             write_json(migrated_data, self._file_name)

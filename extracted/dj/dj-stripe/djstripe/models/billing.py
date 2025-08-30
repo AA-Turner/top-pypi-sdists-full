@@ -315,6 +315,11 @@ class BaseInvoice(StripeModel):
     def total(self):
         return self.stripe_data.get("total")
 
+    @property
+    def discounts(self):
+        """The discounts applied to the invoice."""
+        return self.stripe_data.get("discounts")
+
     class Meta(StripeModel.Meta):
         abstract = True
         ordering = ["-created"]
@@ -523,23 +528,6 @@ class Invoice(BaseInvoice):
         blank=True,
         help_text="The tax rates applied to this invoice, if any.",
     )
-
-    def _attach_objects_post_save_hook(
-        self,
-        cls,
-        data,
-        api_key=djstripe_settings.STRIPE_SECRET_KEY,
-        pending_relations=None,
-    ):
-        super()._attach_objects_post_save_hook(
-            cls, data, api_key=api_key, pending_relations=pending_relations
-        )
-
-        self.default_tax_rates.set(
-            cls._stripe_object_to_default_tax_rates(
-                target_cls=TaxRate, data=data, api_key=api_key
-            )
-        )
 
 
 class UpcomingInvoice(BaseInvoice):
@@ -1583,10 +1571,8 @@ class Subscription(StripeModel):
             target_cls=SubscriptionItem, data=data, subscription=self, api_key=api_key
         )
 
-        self.default_tax_rates.set(
-            cls._stripe_object_to_default_tax_rates(
-                target_cls=TaxRate, data=data, api_key=api_key
-            )
+        cls._stripe_object_to_default_tax_rates(
+            target_cls=TaxRate, data=data, api_key=api_key
         )
 
 

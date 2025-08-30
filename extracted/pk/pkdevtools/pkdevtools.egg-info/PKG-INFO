@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pkdevtools
-Version: 0.13.20250828.281
+Version: 0.13.20250830.284
 Summary: A general day-to-day toolset for PKScreener repos
 Home-page: https://github.com/pkjmesra/PKDevTools
-Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250828.281.zip
+Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250830.284.zip
 Author: pkjmesra
 Author-email: pkjmesra@gmail.com
 License: OSI Approved (MIT)

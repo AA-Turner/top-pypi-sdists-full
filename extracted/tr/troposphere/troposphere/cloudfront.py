@@ -429,6 +429,7 @@ class CustomOriginConfig(AWSProperty):
     props: PropsDictType = {
         "HTTPPort": (validate_network_port, False),
         "HTTPSPort": (validate_network_port, False),
+        "IpAddressType": (str, False),
         "OriginKeepaliveTimeout": (integer, False),
         "OriginProtocolPolicy": (str, True),
         "OriginReadTimeout": (integer, False),
@@ -465,6 +466,7 @@ class S3OriginConfig(AWSProperty):
 
     props: PropsDictType = {
         "OriginAccessIdentity": (str, False),
+        "OriginReadTimeout": (integer, False),
     }
 
 
@@ -495,6 +497,7 @@ class Origin(AWSProperty):
         "OriginCustomHeaders": ([OriginCustomHeader], False),
         "OriginPath": (str, False),
         "OriginShield": (OriginShield, False),
+        "ResponseCompletionTimeout": (integer, False),
         "S3OriginConfig": (S3OriginConfig, False),
         "VpcOriginConfig": (VpcOriginConfig, False),
     }

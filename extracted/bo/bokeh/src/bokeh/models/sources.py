@@ -252,6 +252,22 @@ class ColumnDataSource(ColumnarDataSource):
         '''
         return list(self.data)
 
+    @property
+    def length(self) -> int:
+        ''' Number of row entries in the data. Note: All columns have the same number of row entries.
+
+        '''
+        data_lengths = {len(v) for _, v in self.data.items()}
+
+        match len(data_lengths):
+            case 0:
+                return 0
+            case 1:
+                return data_lengths.pop()
+            case _:
+                raise RuntimeError(f"expected all columns to have the same length, "
+                                   f"got {len(data_lengths)} different lengths: {data_lengths}")
+
     @staticmethod
     def _data_from_df(df: pd.DataFrame) -> DataDict:
         ''' Create a ``dict`` of columns from a Pandas ``DataFrame``,

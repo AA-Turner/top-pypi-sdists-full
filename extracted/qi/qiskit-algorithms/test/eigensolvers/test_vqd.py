@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2022, 2024.
+# (C) Copyright IBM 2022, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,18 +16,19 @@ import unittest
 from test import QiskitAlgorithmsTestCase
 
 import numpy as np
-from ddt import data, ddt
-
-from qiskit import QuantumCircuit
-from qiskit.circuit.library import TwoLocal, RealAmplitudes
-from qiskit.primitives import Sampler, Estimator
+from ddt import data, ddt, idata, unpack
+from qiskit import QuantumCircuit, generate_preset_pass_manager
+from qiskit.circuit.library import n_local, real_amplitudes, RealAmplitudes
+from qiskit.primitives import StatevectorSampler, StatevectorEstimator
+from qiskit.providers.fake_provider import GenericBackendV2
 from qiskit.quantum_info import SparsePauliOp
 
-from qiskit_algorithms.eigensolvers import VQD, VQDResult
 from qiskit_algorithms import AlgorithmError
+from qiskit_algorithms.eigensolvers import VQD, VQDResult
 from qiskit_algorithms.optimizers import COBYLA, L_BFGS_B, SLSQP, SPSA
 from qiskit_algorithms.state_fidelities import ComputeUncompute
 from qiskit_algorithms.utils import algorithm_globals
+
 
 H2_SPARSE_PAULI = SparsePauliOp.from_list(
     [
@@ -38,6 +39,8 @@ H2_SPARSE_PAULI = SparsePauliOp.from_list(
         ("XX", 0.18093119978423156),
     ]
 )
+
+THREE_QUBITS_BACKEND = GenericBackendV2(num_qubits=3, coupling_map=[[0, 1], [1, 2]], seed=54)
 
 
 @ddt
@@ -52,15 +55,14 @@ class TestVQD(QiskitAlgorithmsTestCase):
         self.h2_energy = -1.85727503
         self.h2_energy_excited = [-1.85727503, -1.24458455, -0.88272215, -0.22491125]
 
-        self.ryrz_wavefunction = TwoLocal(
-            rotation_blocks=["ry", "rz"], entanglement_blocks="cz", reps=1
+        self.ryrz_wavefunction = n_local(
+            2, rotation_blocks=["ry", "rz"], entanglement_blocks="cz", reps=1
         )
-        self.ry_wavefunction = TwoLocal(rotation_blocks="ry", entanglement_blocks="cz")
+        self.ry_wavefunction = n_local(2, rotation_blocks="ry", entanglement_blocks="cz")
 
-        self.estimator = Estimator()
-        self.estimator_shots = Estimator(options={"shots": 1024, "seed": self.seed})
-        self.fidelity = ComputeUncompute(Sampler())
-        self.betas = [50, 50]
+        self.estimator = StatevectorEstimator(seed=self.seed)
+        self.fidelity = ComputeUncompute(StatevectorSampler(seed=self.seed, default_shots=10_000))
+        self.betas = [3]
 
     @data(H2_SPARSE_PAULI)
     def test_basic_operator(self, op):
@@ -92,11 +94,16 @@ class TestVQD(QiskitAlgorithmsTestCase):
 
         with self.subTest(msg="assert return ansatz is set"):
             job = self.estimator.run(
-                result.optimal_circuits,
-                [op] * len(result.optimal_points),
-                result.optimal_points,
+                [
+                    (circuits, op, optimal_points)
+                    for (circuits, optimal_points) in zip(
+                        result.optimal_circuits, result.optimal_points
+                    )
+                ]
             )
-            np.testing.assert_array_almost_equal(job.result().values, result.eigenvalues, 6)
+            job_result = job.result()
+            eigenvalues = np.array([job_result[i].data.evs for i in range(len(result.eigenvalues))])
+            np.testing.assert_array_almost_equal(eigenvalues, result.eigenvalues, 6)
 
         with self.subTest(msg="assert returned values are eigenvalues"):
             np.testing.assert_array_almost_equal(
@@ -105,7 +112,14 @@ class TestVQD(QiskitAlgorithmsTestCase):
 
     def test_full_spectrum(self):
         """Test obtaining all eigenvalues."""
-        vqd = VQD(self.estimator, self.fidelity, self.ryrz_wavefunction, optimizer=L_BFGS_B(), k=4)
+        vqd = VQD(
+            self.estimator,
+            self.fidelity,
+            self.ryrz_wavefunction,
+            optimizer=COBYLA(),
+            k=4,
+            betas=[3, 3, 3],
+        )
         result = vqd.compute_eigenvalues(H2_SPARSE_PAULI)
         np.testing.assert_array_almost_equal(
             result.eigenvalues.real, self.h2_energy_excited, decimal=2
@@ -116,9 +130,7 @@ class TestVQD(QiskitAlgorithmsTestCase):
         """Test beta auto-evaluation for different operator types."""
 
         with self.assertLogs(level="INFO") as logs:
-            vqd = VQD(
-                self.estimator_shots, self.fidelity, self.ryrz_wavefunction, optimizer=L_BFGS_B()
-            )
+            vqd = VQD(self.estimator, self.fidelity, self.ryrz_wavefunction, optimizer=L_BFGS_B())
             _ = vqd.compute_eigenvalues(op)
 
         # the first log message shows the value of beta[0]
@@ -140,6 +152,23 @@ class TestVQD(QiskitAlgorithmsTestCase):
         )
         with self.assertRaises(AlgorithmError):
             _ = vqd.compute_eigenvalues(operator=op)
+
+    # TODO: remove this test once BlueprintCircuit support has been removed
+    @data(H2_SPARSE_PAULI)
+    def test_ansatz_resize(self, op):
+        """Test the ansatz is properly resized if it's a blueprint circuit."""
+        ansatz = RealAmplitudes(1, reps=1)
+        vqd = VQD(
+            estimator=self.estimator,
+            fidelity=self.fidelity,
+            ansatz=ansatz,
+            optimizer=COBYLA(),
+            betas=self.betas,
+        )
+        result = vqd.compute_eigenvalues(operator=op)
+        np.testing.assert_array_almost_equal(
+            result.eigenvalues.real, self.h2_energy_excited[:2], decimal=1
+        )
 
     @data(H2_SPARSE_PAULI)
     def test_missing_varform_params(self, op):
@@ -168,16 +197,17 @@ class TestVQD(QiskitAlgorithmsTestCase):
             history["metadata"].append(metadata)
             history["step"].append(step)
 
-        optimizer = COBYLA(maxiter=3)
+        optimizer = COBYLA(maxiter=10)
         wavefunction = self.ry_wavefunction
 
         vqd = VQD(
-            estimator=self.estimator_shots,
+            estimator=self.estimator,
             fidelity=self.fidelity,
             ansatz=wavefunction,
             optimizer=optimizer,
             callback=store_intermediate_result,
             betas=self.betas,
+            initial_point=[1] * 8,
         )
 
         vqd.compute_eigenvalues(operator=op)
@@ -189,12 +219,53 @@ class TestVQD(QiskitAlgorithmsTestCase):
         for params in history["parameters"]:
             self.assertTrue(all(isinstance(param, float) for param in params))
 
-        ref_eval_count = [1, 2, 3, 1, 2, 3]
-        ref_mean = [-1.07, -1.45, -1.37, 37.43, 48.55, 28.94]
-        # new ref_mean for statevector simulator. The old unit test was on qasm
-        # and the ref_mean values were slightly different.
+        ref_eval_count = [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+        ]
 
-        ref_step = [1, 1, 1, 2, 2, 2]
+        ref_mean = [
+            -1.08,
+            -1.08,
+            -1.01,
+            -1.14,
+            -1.17,
+            -1.38,
+            -1.01,
+            -1.63,
+            -1.46,
+            -1.56,
+            -0.99,
+            -1.03,
+            -0.71,
+            -0.17,
+            -0.36,
+            -0.47,
+            -0.95,
+            -0.15,
+            -0.86,
+            -0.55,
+        ]
+
+        ref_step = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
         np.testing.assert_array_almost_equal(history["eval_count"], ref_eval_count, decimal=0)
         np.testing.assert_array_almost_equal(history["mean"], ref_mean, decimal=2)
@@ -207,16 +278,16 @@ class TestVQD(QiskitAlgorithmsTestCase):
         vqd = VQD(
             estimator=self.estimator,
             fidelity=self.fidelity,
-            ansatz=RealAmplitudes(),
-            optimizer=SLSQP(),
+            ansatz=real_amplitudes(2),
+            optimizer=COBYLA(),
             k=2,
-            betas=self.betas,
+            betas=[1],
         )
 
         def run_check():
             result = vqd.compute_eigenvalues(operator=op)
             np.testing.assert_array_almost_equal(
-                result.eigenvalues.real, self.h2_energy_excited[:2], decimal=3
+                result.eigenvalues.real, self.h2_energy_excited[:2], decimal=2
             )
 
         run_check()
@@ -225,11 +296,11 @@ class TestVQD(QiskitAlgorithmsTestCase):
             run_check()
 
         with self.subTest("Optimizer replace"):
-            vqd.optimizer = L_BFGS_B()
+            vqd.optimizer = SPSA()
             run_check()
 
         with self.subTest("Batched optimizer replace"):
-            vqd.optimizer = SLSQP(maxiter=60, max_evals_grouped=10)
+            vqd.optimizer = COBYLA(maxiter=60, max_evals_grouped=10)
             run_check()
 
         with self.subTest("SPSA replace"):
@@ -243,7 +314,7 @@ class TestVQD(QiskitAlgorithmsTestCase):
     def test_optimizer_list(self, op):
         """Test sending an optimizer list"""
 
-        optimizers = [SLSQP(), L_BFGS_B()]
+        optimizers = [COBYLA(), SPSA()]
         initial_point_1 = [
             1.70256666,
             -5.34843975,
@@ -267,7 +338,7 @@ class TestVQD(QiskitAlgorithmsTestCase):
         vqd = VQD(
             estimator=self.estimator,
             fidelity=self.fidelity,
-            ansatz=RealAmplitudes(),
+            ansatz=real_amplitudes(2),
             optimizer=optimizers,
             initial_point=[initial_point_1, initial_point_2],
             k=2,
@@ -276,20 +347,34 @@ class TestVQD(QiskitAlgorithmsTestCase):
 
         result = vqd.compute_eigenvalues(operator=op)
         np.testing.assert_array_almost_equal(
-            result.eigenvalues.real, self.h2_energy_excited[:2], decimal=3
+            result.eigenvalues.real, self.h2_energy_excited[:2], decimal=2
         )
 
-    @data(H2_SPARSE_PAULI)
-    def test_aux_operators_list(self, op):
+    # Since we perform actions on the aux_operators when a transpiler is set, we have to check that it
+    # doesn't affect the final result
+    @idata(
+        [
+            [H2_SPARSE_PAULI, None],
+            [
+                H2_SPARSE_PAULI,
+                generate_preset_pass_manager(
+                    backend=THREE_QUBITS_BACKEND, optimization_level=1, seed_transpiler=42
+                ),
+            ],
+        ]
+    )
+    @unpack
+    def test_aux_operators_list(self, op, transpiler):
         """Test list-based aux_operators."""
         wavefunction = self.ry_wavefunction
         vqd = VQD(
             estimator=self.estimator,
             fidelity=self.fidelity,
             ansatz=wavefunction,
-            optimizer=SLSQP(),
+            optimizer=COBYLA(),
             k=2,
             betas=self.betas,
+            transpiler=transpiler,
         )
 
         # Start with an empty list
@@ -332,16 +417,30 @@ class TestVQD(QiskitAlgorithmsTestCase):
         self.assertIsInstance(result.aux_operators_evaluated[0][1][1], dict)
         self.assertIsInstance(result.aux_operators_evaluated[0][3][1], dict)
 
-    @data(H2_SPARSE_PAULI)
-    def test_aux_operators_dict(self, op):
+    # Since we perform actions on the aux_operators when a transpiler is set, we have to check that it
+    # doesn't affect the final result
+    @idata(
+        [
+            [H2_SPARSE_PAULI, None],
+            [
+                H2_SPARSE_PAULI,
+                generate_preset_pass_manager(
+                    backend=THREE_QUBITS_BACKEND, optimization_level=1, seed_transpiler=42
+                ),
+            ],
+        ]
+    )
+    @unpack
+    def test_aux_operators_dict(self, op, transpiler):
         """Test dictionary compatibility of aux_operators"""
         wavefunction = self.ry_wavefunction
         vqd = VQD(
             estimator=self.estimator,
             fidelity=self.fidelity,
             ansatz=wavefunction,
-            optimizer=SLSQP(),
+            optimizer=COBYLA(),
             betas=self.betas,
+            transpiler=transpiler,
         )
 
         # Start with an empty dictionary
@@ -386,8 +485,21 @@ class TestVQD(QiskitAlgorithmsTestCase):
         self.assertIsInstance(result.aux_operators_evaluated[0]["aux_op2"][1], dict)
         self.assertIsInstance(result.aux_operators_evaluated[0]["zero_operator"][1], dict)
 
-    @data(H2_SPARSE_PAULI)
-    def test_aux_operator_std_dev(self, op):
+    # Since we perform actions on the aux_operators when a transpiler is set, we have to check that it
+    # doesn't affect the final result
+    @idata(
+        [
+            [H2_SPARSE_PAULI, None],
+            [
+                H2_SPARSE_PAULI,
+                generate_preset_pass_manager(
+                    backend=THREE_QUBITS_BACKEND, optimization_level=1, seed_transpiler=42
+                ),
+            ],
+        ]
+    )
+    @unpack
+    def test_aux_operator_std_dev(self, op, transpiler):
         """Test non-zero standard deviations of aux operators."""
         wavefunction = self.ry_wavefunction
         vqd = VQD(
@@ -404,8 +516,9 @@ class TestVQD(QiskitAlgorithmsTestCase):
                 0.2442925,
                 -1.51638917,
             ],
-            optimizer=COBYLA(maxiter=0),
+            optimizer=COBYLA(maxiter=10),
             betas=self.betas,
+            transpiler=transpiler,
         )
 
         # Go again with two auxiliary operators
@@ -417,7 +530,7 @@ class TestVQD(QiskitAlgorithmsTestCase):
         # expectation values
         self.assertAlmostEqual(result.aux_operators_evaluated[0][0][0], 2.0, places=1)
         self.assertAlmostEqual(
-            result.aux_operators_evaluated[0][1][0], 0.0019531249999999445, places=1
+            result.aux_operators_evaluated[0][1][0], 0.7432341813894455, places=1
         )
         # metadata
         self.assertIsInstance(result.aux_operators_evaluated[0][0][1], dict)
@@ -429,9 +542,7 @@ class TestVQD(QiskitAlgorithmsTestCase):
         self.assertEqual(len(result.aux_operators_evaluated[0]), 4)
         # expectation values
         self.assertAlmostEqual(result.aux_operators_evaluated[0][0][0], 2.0, places=1)
-        self.assertAlmostEqual(
-            result.aux_operators_evaluated[0][1][0], 0.0019531249999999445, places=1
-        )
+        self.assertAlmostEqual(result.aux_operators_evaluated[0][1][0], 0.743234181389445, places=1)
         self.assertEqual(result.aux_operators_evaluated[0][2][0], 0.0)
         self.assertEqual(result.aux_operators_evaluated[0][3][0], 0.0)
         # metadata
@@ -439,6 +550,66 @@ class TestVQD(QiskitAlgorithmsTestCase):
         self.assertIsInstance(result.aux_operators_evaluated[0][1][1], dict)
         self.assertIsInstance(result.aux_operators_evaluated[0][2][1], dict)
         self.assertIsInstance(result.aux_operators_evaluated[0][3][1], dict)
+
+    def test_convergence_threshold(self):
+        """Test the convergence threshold raises an error if and only if too high"""
+        vqd = VQD(
+            self.estimator,
+            self.fidelity,
+            real_amplitudes(2),
+            SLSQP(eps=1e-4),
+            k=2,
+            betas=self.betas,
+            initial_point=np.array(
+                [
+                    2.15707009,
+                    -2.6128808,
+                    1.40478697,
+                    -1.73909435,
+                    -2.89100903,
+                    1.75289926,
+                    -0.14760479,
+                    -2.00011645,
+                ]
+            ),
+            convergence_threshold=1e-3,
+        )
+        with self.subTest("Failed convergence"):
+            with self.assertRaises(AlgorithmError):
+                vqd.compute_eigenvalues(operator=H2_SPARSE_PAULI)
+
+        with self.subTest("Convergence accepted"):
+            vqd.convergence_threshold = 1e-1
+            result = vqd.compute_eigenvalues(operator=H2_SPARSE_PAULI)
+            np.testing.assert_array_almost_equal(
+                result.eigenvalues.real, self.h2_energy_excited[:2], decimal=2
+            )
+
+    @data(None, THREE_QUBITS_BACKEND)
+    def test_transpiler(self, backend):
+        """Test that the transpiler is called"""
+        pass_manager = generate_preset_pass_manager(
+            backend=backend, optimization_level=1, seed_transpiler=42
+        )
+        counts = [0]
+
+        def callback(**kwargs):
+            counts[0] = kwargs["count"]
+
+        wavefunction = self.ryrz_wavefunction
+        vqd = VQD(
+            estimator=self.estimator,
+            fidelity=self.fidelity,
+            ansatz=wavefunction,
+            optimizer=COBYLA(),
+            betas=self.betas,
+            transpiler=pass_manager,
+            transpiler_options={"callback": callback},
+        )
+
+        vqd.compute_eigenvalues(operator=H2_SPARSE_PAULI)
+
+        self.assertGreater(counts[0], 0)
 
 
 if __name__ == "__main__":

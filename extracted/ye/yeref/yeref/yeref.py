@@ -9408,7 +9408,7 @@ async def is_subscription_expired(USER_VARS, USER_LSTS):
             m = USER_DT.month + 1
             y = USER_DT.year + (m - 1) // 12
             m = (m - 1) % 12 + 1
-            d = min(USER_DT.day, calendar.monthrange(y, m)[1])
+            d = min(USER_DT.day, monthrange(y, m)[1])
             reg_plus_month = USER_DT.replace(year=y, month=m, day=d)
             result = datetime.now(timezone.utc) <= reg_plus_month
             print(f"else: datetime.now(timezone.utc) <= reg_plus_month")
@@ -9417,8 +9417,6 @@ async def is_subscription_expired(USER_VARS, USER_LSTS):
             print(f"days={(reg_plus_month - datetime.now(timezone.utc)).days}")
             print(f"days={(datetime.now(timezone.utc) - reg_plus_month).days}")
             print(f"{datetime.now(timezone.utc)=}, {reg_plus_month=}")
-
-        print(f"====== {status=}")
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -9813,10 +9811,10 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
             USER_PAYMENTS = USER_LSTS.get("USER_PAYMENTS", [])
 
         print(f"{payload=}")
-        if payload in ['all', '6', '1']:
+        if payload in ['all', '6', '1', 'gift']:
             USER_PAYMENTS.append({
                 'TYPE': 'SUB',
-                'LOAD': 'month' if payload == '1' else payload,
+                'LOAD': 'month' if payload in ['1', 'gift'] else payload,
                 'DT_START': DT_START,
                 'DT_END': DT_END,
                 'AMOUNT': total_amount
@@ -17239,7 +17237,7 @@ async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
             new_image = Image.fromarray(frame)
             new_image.save(destination2)
         except Exception as e:
-            logger.info(log_ % str(e) + str(file_link))
+            # logger.info(log_ % str(e) + str(file_link))
             # await asyncio.sleep(round(random.uniform(0, 1), 2))
 
             async with aiohttp.ClientSession() as session:
@@ -17593,7 +17591,8 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
                         if w_ <= 1024 and h_ <= 1024:
                             file_link2 = file_link
                 except Exception as e:
-                    logger.info(log_ % str(e))
+                    # logger.info(log_ % str(e))
+                    pass
 
                 if not file_link2:
                     file_link2 = await jpg_photo_preview(bot, MSG_VID, KEYS_JSON, file_link, BOT_TID, msg_type, MEDIA_D)

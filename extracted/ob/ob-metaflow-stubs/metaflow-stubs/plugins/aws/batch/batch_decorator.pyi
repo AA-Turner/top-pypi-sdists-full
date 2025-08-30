@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-28T00:53:38.162776                                                            #
+# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-29T18:32:22.415401                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -18,11 +18,14 @@ from ...timeout_decorator import get_run_time_limit_for_task as get_run_time_lim
 from ..aws_utils import compute_resource_attributes as compute_resource_attributes
 from ..aws_utils import get_docker_registry as get_docker_registry
 from ..aws_utils import get_ec2_instance_metadata as get_ec2_instance_metadata
+from ..aws_utils import validate_aws_tag as validate_aws_tag
 from .batch import BatchException as BatchException
 
 BATCH_CONTAINER_IMAGE: None
 
 BATCH_CONTAINER_REGISTRY: None
+
+BATCH_DEFAULT_TAGS: dict
 
 BATCH_JOB_QUEUE: None
 
@@ -76,6 +79,9 @@ class BatchDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         A swappiness value of 0 causes swapping not to happen unless absolutely
         necessary. A swappiness value of 100 causes pages to be swapped very
         aggressively. Accepted values are whole numbers between 0 and 100.
+    aws_batch_tags: Dict[str, str], optional, default None
+        Sets arbitrary AWS tags on the AWS Batch compute environment.
+        Set as string key-value pairs.
     use_tmpfs : bool, default False
         This enables an explicit tmpfs mount for this step. Note that tmpfs is
         not available on Fargate compute environments

@@ -1,14 +1,14 @@
 from setuptools import setup
 
 # Version
-VERSION = "2.2.2"
+VERSION = "2.3.0"
 if "#" in VERSION:
     import sys
     sys.stderr.write("Bad version %s\n" % VERSION)
     sys.exit(1)
 
 
-setup(name         = "python-hostlist",
+setup(name         = "python_hostlist",
       version      = VERSION,
       description  = "Python module for hostlist handling",
       long_description = "The hostlist.py module knows how to expand and collect Slurm hostlist expressions.",

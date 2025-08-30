@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2023.
+# (C) Copyright IBM 2023, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,13 +23,11 @@ from test.time_evolvers.variational.variational_principles.expected_results.\
 import numpy as np
 
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.circuit.library import EfficientSU2
-from qiskit.primitives import Estimator
+from qiskit.circuit.library import efficient_su2
+from qiskit.primitives import StatevectorEstimator
 
 from qiskit_algorithms.gradients import LinCombEstimatorGradient, DerivativeType
-from qiskit_algorithms.time_evolvers.variational import (
-    RealMcLachlanPrinciple,
-)
+from qiskit_algorithms.time_evolvers.variational import RealMcLachlanPrinciple
 
 
 class TestRealMcLachlanPrinciple(QiskitAlgorithmsTestCase):
@@ -49,7 +47,7 @@ class TestRealMcLachlanPrinciple(QiskitAlgorithmsTestCase):
         )
 
         d = 2  # pylint: disable=invalid-name
-        ansatz = EfficientSU2(observable.num_qubits, reps=d)
+        ansatz = efficient_su2(observable.num_qubits, reps=d)
 
         # Define a set of initial parameters
         parameters = list(ansatz.parameters)
@@ -76,7 +74,7 @@ class TestRealMcLachlanPrinciple(QiskitAlgorithmsTestCase):
         )
 
         d = 2  # pylint: disable=invalid-name
-        ansatz = EfficientSU2(observable.num_qubits, reps=d)
+        ansatz = efficient_su2(observable.num_qubits, reps=d)
 
         # Define a set of initial parameters
         parameters = list(ansatz.parameters)
@@ -108,7 +106,7 @@ class TestRealMcLachlanPrinciple(QiskitAlgorithmsTestCase):
 
     def test_gradient_setting(self):
         """Test reactions to wrong gradient settings.."""
-        estimator = Estimator()
+        estimator = StatevectorEstimator(seed=123)
         gradient = LinCombEstimatorGradient(estimator, derivative_type=DerivativeType.REAL)
 
         with self.assertWarns(Warning):

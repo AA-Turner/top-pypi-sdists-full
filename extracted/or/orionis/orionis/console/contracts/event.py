@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from orionis.console.contracts.schedule_event_listener import IScheduleEventListener
-from orionis.console.entities.event import Event as EventEntity
 
 class IEvent(ABC):
 

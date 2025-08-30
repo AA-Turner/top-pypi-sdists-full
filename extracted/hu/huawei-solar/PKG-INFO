@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huawei-solar
-Version: 2.4.5
+Version: 2.4.6
 Summary: A Python wrapper for the Huawei Inverter modbus TCP API
 Project-URL: Homepage, https://gitlab.com/EmilV2/huawei-solar
 Author: Thijs Walcarius
@@ -677,16 +677,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Home Automation
 Requires-Python: >=3.11
 Requires-Dist: backoff
-Requires-Dist: pymodbus!=3.8.5,<4,>=3.8.2
+Requires-Dist: pymodbus<4,>=3.11.0
 Requires-Dist: pyserial-asyncio>=0.6
 Requires-Dist: pytz
-Requires-Dist: typing-extensions>=4.12.2
-Provides-Extra: dev
-Requires-Dist: ruff; extra == 'dev'
-Requires-Dist: tox>=4.15; extra == 'dev'
-Provides-Extra: test
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-asyncio; extra == 'test'
 Description-Content-Type: text/markdown
 
 [![pipeline status](https://gitlab.com/Emilv2/huawei-solar/badges/master/pipeline.svg)](https://gitlab.com/Emilv2/huawei-solar/commits/master)

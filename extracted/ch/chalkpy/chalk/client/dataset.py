@@ -985,6 +985,7 @@ class DatasetRevisionImpl(DatasetRevision):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        skip_failed_shards: bool = False,
         caller_name: str = "get_data_as_pandas",
     ) -> pd.DataFrame:
         context = OfflineQueryContext(environment=self.environment)
@@ -1001,6 +1002,7 @@ class DatasetRevisionImpl(DatasetRevision):
             ignore_errors=ignore_errors,
             query_inputs=False,
             return_type="pandas",
+            skip_failed_shards=skip_failed_shards,
         )
 
     def to_pandas(
@@ -1008,8 +1010,9 @@ class DatasetRevisionImpl(DatasetRevision):
         output_id: bool = False,
         output_ts: bool | str = False,
         ignore_errors: bool = False,
-        timeout: float | timedelta | ellipsis | None = ...,
         show_progress: bool | ellipsis = ...,
+        timeout: float | timedelta | ellipsis | None = ...,
+        skip_failed_shards: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
         return self.get_data_as_pandas(
@@ -1019,6 +1022,7 @@ class DatasetRevisionImpl(DatasetRevision):
             timeout=timeout,
             show_progress=show_progress,
             caller_name=caller_name,
+            skip_failed_shards=skip_failed_shards,
         )
 
     def get_data_as_dataframe(
@@ -1597,6 +1601,7 @@ class DatasetImpl(Dataset):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        skip_failed_shards: bool = False,
         caller_name: str = "get_data_as_pandas",
     ) -> pd.DataFrame:
         if len(self.revisions) == 0:
@@ -1607,6 +1612,7 @@ class DatasetImpl(Dataset):
             ignore_errors=ignore_errors,
             timeout=timeout,
             show_progress=show_progress,
+            skip_failed_shards=skip_failed_shards,
             caller_name=caller_name,
         )
 
@@ -1617,6 +1623,7 @@ class DatasetImpl(Dataset):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        skip_failed_shards: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
         return self.get_data_as_pandas(
@@ -1625,6 +1632,7 @@ class DatasetImpl(Dataset):
             ignore_errors=ignore_errors,
             timeout=timeout,
             show_progress=show_progress,
+            skip_failed_shards=skip_failed_shards,
             caller_name=caller_name,
         )
 

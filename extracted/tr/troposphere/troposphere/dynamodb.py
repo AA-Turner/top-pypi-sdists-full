@@ -140,6 +140,16 @@ class GlobalTableSSESpecification(AWSProperty):
     }
 
 
+class GlobalTableWitness(AWSProperty):
+    """
+    `GlobalTableWitness <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globaltablewitness.html>`__
+    """
+
+    props: PropsDictType = {
+        "Region": (str, False),
+    }
+
+
 class LocalSecondaryIndex(AWSProperty):
     """
     `LocalSecondaryIndex <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html>`__
@@ -159,6 +169,7 @@ class ContributorInsightsSpecification(AWSProperty):
 
     props: PropsDictType = {
         "Enabled": (boolean, True),
+        "Mode": (str, False),
     }
 
 
@@ -303,8 +314,10 @@ class GlobalTable(AWSObject):
         "AttributeDefinitions": ([AttributeDefinition], True),
         "BillingMode": (str, False),
         "GlobalSecondaryIndexes": ([GlobalTableGlobalSecondaryIndex], False),
+        "GlobalTableWitnesses": ([GlobalTableWitness], False),
         "KeySchema": ([KeySchema], True),
         "LocalSecondaryIndexes": ([LocalSecondaryIndex], False),
+        "MultiRegionConsistency": (str, False),
         "Replicas": ([ReplicaSpecification], True),
         "SSESpecification": (GlobalTableSSESpecification, False),
         "StreamSpecification": (StreamSpecification, False),

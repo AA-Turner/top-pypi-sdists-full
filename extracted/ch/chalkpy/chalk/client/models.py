@@ -908,6 +908,9 @@ class CreateOfflineQueryJobRequest(BaseModel):
 
     overlay_graph: Optional[str] = None
 
+    query_name: Optional[str] = None
+    query_name_version: Optional[str] = None
+
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
         if values["input"] is None or isinstance(
@@ -1728,3 +1731,55 @@ class PingRequest(BaseModel):
 
 class PingResponse(BaseModel):
     num: int
+
+
+class ModelUploadUrlResponse(BaseModel):
+    upload_urls: Mapping[str, str]
+    success: bool
+
+
+class RegisterModelResponse(BaseModel):
+    model_id: str
+    model_name: str
+    description: str
+    metadata: Mapping[str, Any]
+    created_by: str
+    created_at: Optional[datetime] = None
+
+
+class RegisterModelVersionResponse(BaseModel):
+    model_id: str
+    model_name: str
+    model_version: int
+    artifact: Any
+    aliases: List[str]
+    metadata: Mapping[str, Any]
+    created_by: str
+    created_at: Optional[datetime] = None
+
+
+class GetRegisteredModelResponse(BaseModel):
+    model_id: str
+    model_name: str
+    description: Optional[str]
+    metadata: Mapping[str, Any]
+    created_by: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    latest_model_version: Optional[Any] = None
+
+
+class GetRegisteredModelVersionResponse(BaseModel):
+    model_id: str
+    model_name: str
+    metadata: Mapping[str, Any]
+    created_by: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    model_artifact: Optional[Any]
+
+
+class CreateModelTrainingJobResponse(BaseModel):
+    success: bool

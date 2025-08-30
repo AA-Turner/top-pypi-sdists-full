@@ -37,6 +37,7 @@ class LaunchTemplateSpecificationOverride(AWSProperty):
         "LaunchTemplateId": (str, False),
         "LaunchTemplateName": (str, False),
         "TargetInstanceTypes": ([str], False),
+        "UserdataType": (str, False),
         "Version": (str, False),
     }
 
@@ -50,6 +51,7 @@ class LaunchTemplateSpecification(AWSProperty):
         "LaunchTemplateId": (str, False),
         "LaunchTemplateName": (str, False),
         "Overrides": ([LaunchTemplateSpecificationOverride], False),
+        "UserdataType": (str, False),
         "Version": (str, False),
     }
 
@@ -822,6 +824,17 @@ class JobStateTimeLimitAction(AWSProperty):
     }
 
 
+class ServiceEnvironmentOrder(AWSProperty):
+    """
+    `ServiceEnvironmentOrder <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobqueue-serviceenvironmentorder.html>`__
+    """
+
+    props: PropsDictType = {
+        "Order": (integer, True),
+        "ServiceEnvironment": (str, True),
+    }
+
+
 class JobQueue(AWSObject):
     """
     `JobQueue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html>`__
@@ -830,11 +843,13 @@ class JobQueue(AWSObject):
     resource_type = "AWS::Batch::JobQueue"
 
     props: PropsDictType = {
-        "ComputeEnvironmentOrder": ([ComputeEnvironmentOrder], True),
+        "ComputeEnvironmentOrder": ([ComputeEnvironmentOrder], False),
         "JobQueueName": (str, False),
+        "JobQueueType": (str, False),
         "JobStateTimeLimitActions": ([JobStateTimeLimitAction], False),
         "Priority": (integer, True),
         "SchedulingPolicyArn": (str, False),
+        "ServiceEnvironmentOrder": ([ServiceEnvironmentOrder], False),
         "State": (validate_queue_state, False),
         "Tags": (dict, False),
     }
@@ -873,5 +888,32 @@ class SchedulingPolicy(AWSObject):
     props: PropsDictType = {
         "FairsharePolicy": (FairsharePolicy, False),
         "Name": (str, False),
+        "Tags": (dict, False),
+    }
+
+
+class CapacityLimit(AWSProperty):
+    """
+    `CapacityLimit <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-serviceenvironment-capacitylimit.html>`__
+    """
+
+    props: PropsDictType = {
+        "CapacityUnit": (str, False),
+        "MaxCapacity": (integer, False),
+    }
+
+
+class ServiceEnvironment(AWSObject):
+    """
+    `ServiceEnvironment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html>`__
+    """
+
+    resource_type = "AWS::Batch::ServiceEnvironment"
+
+    props: PropsDictType = {
+        "CapacityLimits": ([CapacityLimit], True),
+        "ServiceEnvironmentName": (str, False),
+        "ServiceEnvironmentType": (str, True),
+        "State": (str, False),
         "Tags": (dict, False),
     }

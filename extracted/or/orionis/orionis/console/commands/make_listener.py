@@ -1,8 +1,5 @@
 from orionis.console.base.command import BaseCommand
-from orionis.console.contracts.reactor import IReactor
 from orionis.console.exceptions import CLIOrionisRuntimeError
-from rich.console import Console
-from rich.panel import Panel
 
 class MakeListenerCommand(BaseCommand):
     """

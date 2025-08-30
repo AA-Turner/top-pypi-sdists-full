@@ -43,6 +43,7 @@ export declare class ColorUniformVector extends UniformVector<number> {
     constructor(array: Uint32Array);
     get(i: number): number;
     [Symbol.iterator](): Generator<number, void, undefined>;
+    copy_buffer(): ArrayBufferLike;
 }
 export declare function min(u: Uniform<number>): number;
 export declare function max(u: Uniform<number>): number;

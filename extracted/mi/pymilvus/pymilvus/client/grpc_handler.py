@@ -3,7 +3,7 @@ import json
 import socket
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Union
 from urllib import parse
 
 import grpc
@@ -278,7 +278,6 @@ class GrpcHandler:
 
     @property
     def server_address(self):
-        """Server network address"""
         return self._address
 
     def get_server_type(self):
@@ -301,7 +300,11 @@ class GrpcHandler:
 
     @retry_on_rpc_failure()
     def create_collection(
-        self, collection_name: str, fields: List, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        fields: Union[CollectionSchema, Dict[str, Iterable]],
+        timeout: Optional[float] = None,
+        **kwargs,
     ):
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.create_collection_request(collection_name, fields, **kwargs)
@@ -356,7 +359,7 @@ class GrpcHandler:
         self,
         collection_name: str,
         field_name: str,
-        field_params: List,
+        field_params: Dict[str, Any],
         timeout: Optional[float] = None,
         **kwargs,
     ):
@@ -494,23 +497,6 @@ class GrpcHandler:
         status = response.status
         check_status(status)
         return response.value
-
-    # TODO: this is not inuse
-    @retry_on_rpc_failure()
-    def get_partition_info(
-        self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
-    ):
-        request = Prepare.partition_stats_request(collection_name, partition_name)
-        response = self._stub.DescribePartition(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
-        )
-        status = response.status
-        check_status(status)
-        statistics = response.statistics
-        info_dict = {}
-        for kv in statistics:
-            info_dict[kv.key] = kv.value
-        return info_dict
 
     @retry_on_rpc_failure()
     def list_partitions(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
@@ -766,6 +752,9 @@ class GrpcHandler:
         if not isinstance(entities, list):
             raise ParamError(message="'entities' must be a list, please provide valid entity data.")
 
+        # Extract partial_update parameter from kwargs
+        partial_update = kwargs.get("partial_update", False)
+
         schema = kwargs.get("schema")
         if not schema:
             schema = self.describe_collection(collection_name, timeout=timeout, **kwargs)
@@ -775,7 +764,13 @@ class GrpcHandler:
         return (
             param
             if param
-            else Prepare.batch_upsert_param(collection_name, entities, partition_name, fields_info)
+            else Prepare.batch_upsert_param(
+                collection_name,
+                entities,
+                partition_name,
+                fields_info,
+                partial_update=partial_update,
+            )
         )
 
     @retry_on_rpc_failure()
@@ -825,6 +820,9 @@ class GrpcHandler:
         if not isinstance(rows, list):
             raise ParamError(message="'rows' must be a list, please provide valid row data.")
 
+        # Extract partial_update parameter from kwargs
+        partial_update = kwargs.get("partial_update", False)
+
         schema, schema_timestamp = self._get_schema_from_cache_or_remote(
             collection_name, timeout=timeout
         )
@@ -837,6 +835,7 @@ class GrpcHandler:
             fields_info,
             enable_dynamic=enable_dynamic,
             schema_timestamp=schema_timestamp,
+            partial_update=partial_update,
         )
 
     @retry_on_rpc_failure()

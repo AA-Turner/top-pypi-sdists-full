@@ -1276,7 +1276,7 @@ class ReflectionAbstract(IReflectionAbstract):
         cls_name = self.getClassName()
         for name, prop in self.__abstract.__dict__.items():
             if isinstance(prop, property):
-                if not name.startswith(f"_") and not name.startswith(f"_{cls_name}"):
+                if not name.startswith("_") and not name.startswith(f"_{cls_name}"):
                     properties.append(name.replace(f"_{cls_name}", ""))
         return properties
 
@@ -1293,7 +1293,7 @@ class ReflectionAbstract(IReflectionAbstract):
         properties = []
         for name, prop in self.__abstract.__dict__.items():
             if isinstance(prop, property):
-                if name.startswith(f"_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
+                if name.startswith("_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
                     properties.append(name)
         return properties
 

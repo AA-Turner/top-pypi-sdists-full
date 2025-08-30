@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Tests for various magic functions."""
 
+import collections
 import gc
 import io
+import json
 import os
+import platform
 import re
 import shlex
 import signal
@@ -732,6 +735,83 @@ def test_whos():
     _ip.run_line_magic("whos", "")
 
 
+@pytest.mark.parametrize(
+    "input,expected",
+    (
+        (
+            "The quick brown fox jumps over the lazy dog",
+            "The quick brown fox jumps over the lazy dog",
+        ),
+        (
+            " ".join(["The quick brown fox jumps over the lazy dog"] * 2),
+            "The quick brown fox jumps<...>x jumps over the lazy dog",
+        ),
+        ("\nThis is \n\na long\n\nstring\n", r"\nThis is \n\na long\n\nstring\n"),
+        (
+            "\rThis is \r\ra long\r\rstring\r",
+            r"\rThis is \r\ra long\r\rstring\r",
+        ),
+    ),
+)
+def test_whos_longstr(input, expected):
+    ip = get_ipython()
+    ip.user_ns["input"] = input
+    ip.user_ns["expected"] = expected
+    with capture_output() as captured:
+        ip.run_line_magic("whos", "")
+    stdout = captured.stdout
+    from_whos = " ".join(
+        re.split(
+            r"\s+str\s+",
+            [l for l in stdout.splitlines() if l.startswith("expected")][0],
+        )[1:]
+    )
+    assert expected == from_whos
+
+
+def test_whos_len_namedtuple():
+    _ip = get_ipython()
+    _ip.run_line_magic("reset", "-f")
+    _ip.user_ns["alpha"] = 123
+    _ip.user_ns["beta"] = "test"
+    _ip.user_ns["nt"] = collections.namedtuple("MyNamedTuple", "col1 col2")
+    _ip.user_ns["x"] = _ip.user_ns["nt"]("a", "b")
+    expected = (
+        "Variable   Type            Data/Info\n"
+        "------------------------------------\n"
+        "alpha      int             123\n"
+        "beta       str             test\n"
+        "nt         type            <class 'tests.test_magic.MyNamedTuple'>\n"
+        "x          MyNamedTuple    MyNamedTuple(col1='a', col2='b')\n"
+    )
+    with capture_output() as captured:
+        ip.run_line_magic("whos", "")
+    stdout = captured.stdout
+    assert stdout == expected.strip() + "\n"
+
+
+@dec.skip_without("pandas")
+def test_whos_len_pandas():
+    import pandas as pd
+
+    _ip = get_ipython()
+    _ip.run_line_magic("reset", "-f")
+    df = pd.DataFrame({"a": range(10), "b": range(10, 20)})
+    _ip.user_ns["df"] = df
+    s = df["a"]
+    _ip.user_ns["s"] = s
+    expected = (
+        "Variable   Type         Data/Info\n"
+        "---------------------------------\n"
+        "df         DataFrame    Shape: (10, 2)\n"
+        "s          Series       Shape: (10,)\n"
+    )
+    with capture_output() as captured:
+        ip.run_line_magic("whos", "")
+    stdout = captured.stdout
+    assert stdout == expected.strip() + "\n"
+
+
 def doctest_precision():
     """doctest for %precision
 
@@ -928,6 +1008,17 @@ def test_notebook_export_json():
     with TemporaryDirectory() as td:
         outfile = os.path.join(td, "nb.ipynb")
         _ip.run_line_magic("notebook", "%s" % outfile)
+        with open(outfile) as f:
+            exported = json.load(f)
+
+    # check metadata
+    language_info = exported["metadata"]["language_info"]
+    assert language_info["name"] == "python"
+    assert language_info["file_extension"] == ".py"
+    assert language_info["version"] == platform.python_version()
+
+    kernelspec = exported["metadata"]["kernelspec"]
+    assert kernelspec["language"] == "python"
 
 
 def test_notebook_export_json_with_output():
@@ -1295,6 +1386,13 @@ def test_script_out():
     ip = get_ipython()
     ip.run_cell_magic("script", f"--out output {sys.executable}", "print('hi')")
     assert ip.user_ns["output"].strip() == "hi"
+
+
+def test_script_out_multiple_lines():
+    ip = get_ipython()
+    code = "print('hi')\nprint('this')\nprint('is')\nprint('ipython')"
+    ip.run_cell_magic("script", f"--out output {sys.executable}", code)
+    assert ip.user_ns["output"].strip().splitlines() == ["hi", "this", "is", "ipython"]
 
 
 def test_script_err():

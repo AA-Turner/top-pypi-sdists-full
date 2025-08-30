@@ -4076,7 +4076,8 @@ class Event(IEvent):
 
         # Build human-readable description
         parts = []
-        if day_of_week: parts.append(f"on {day_of_week}")
+        if day_of_week:
+            parts.append(f"on {day_of_week}")
         if hour is not None and minute is not None:
             parts.append(f"at {hour}:{minute.zfill(2)}")
         elif hour is not None:

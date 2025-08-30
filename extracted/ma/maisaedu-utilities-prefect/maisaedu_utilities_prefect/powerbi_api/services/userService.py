@@ -1,7 +1,6 @@
-import json
 import requests
-import urllib
 import warnings
+from retry import retry
 
 from requests.exceptions import HTTPError
 
@@ -11,6 +10,7 @@ class UserService:
         self.client = client
         self.base_url = f"{self.client.api_url}/{self.client.api_version_snippet}/{self.client.api_myorg_snippet}/"
 
+    @retry(tries=5, delay=1, jitter=1)
     def refresh_user_permissions(self):
         """
         Refreshes user permissions in Power BI.

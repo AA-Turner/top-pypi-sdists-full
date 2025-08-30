@@ -22,7 +22,6 @@ from .constants import (
     DEFAULT_MAX_RELATION_TOKENS,
     DEFAULT_MAX_TOTAL_TOKENS,
     DEFAULT_HISTORY_TURNS,
-    DEFAULT_ENABLE_RERANK,
     DEFAULT_OLLAMA_MODEL_NAME,
     DEFAULT_OLLAMA_MODEL_TAG,
     DEFAULT_OLLAMA_MODEL_SIZE,
@@ -133,17 +132,15 @@ class QueryParam:
     ll_keywords: list[str] = field(default_factory=list)
     """List of low-level keywords to refine retrieval focus."""
 
+    # TODO: Deprecated - history message have negtive effect on query performance
     conversation_history: list[dict[str, str]] = field(default_factory=list)
     """Stores past conversation history to maintain context.
     Format: [{"role": "user/assistant", "content": "message"}].
     """
 
-    # Deprecated: history message have negtive effect on query performance
+    # TODO: Deprecated - history message have negtive effect on query performance
     history_turns: int = int(os.getenv("HISTORY_TURNS", str(DEFAULT_HISTORY_TURNS)))
     """Number of complete conversation turns (user-assistant pairs) to consider in the response context."""
-
-    ids: list[str] | None = None
-    """List of ids to filter the results."""
 
     model_func: Callable[..., object] | None = None
     """Optional override for the LLM model function to use for this specific query.
@@ -156,9 +153,7 @@ class QueryParam:
     If proivded, this will be use instead of the default vaulue from prompt template.
     """
 
-    enable_rerank: bool = (
-        os.getenv("ENABLE_RERANK", str(DEFAULT_ENABLE_RERANK).lower()).lower() == "true"
-    )
+    enable_rerank: bool = os.getenv("RERANK_BY_DEFAULT", "true").lower() == "true"
     """Enable reranking for retrieved text chunks. If True but no rerank model is configured, a warning will be issued.
     Default is True to enable reranking when rerank model is available.
     """
@@ -217,9 +212,16 @@ class BaseVectorStorage(StorageNameSpace, ABC):
 
     @abstractmethod
     async def query(
-        self, query: str, top_k: int, ids: list[str] | None = None
+        self, query: str, top_k: int, query_embedding: list[float] = None
     ) -> list[dict[str, Any]]:
-        """Query the vector storage and retrieve top_k results."""
+        """Query the vector storage and retrieve top_k results.
+
+        Args:
+            query: The query string to search for
+            top_k: Number of top results to return
+            query_embedding: Optional pre-computed embedding for the query.
+                           If provided, skips embedding computation for better performance.
+        """
 
     @abstractmethod
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
@@ -288,6 +290,19 @@ class BaseVectorStorage(StorageNameSpace, ABC):
             ids: List of vector IDs to be deleted
         """
 
+    @abstractmethod
+    async def get_vectors_by_ids(self, ids: list[str]) -> dict[str, list[float]]:
+        """Get vectors by their IDs, returning only ID and vector data for efficiency
+
+        Args:
+            ids: List of unique identifiers
+
+        Returns:
+            Dictionary mapping IDs to their vector embeddings
+            Format: {id: [vector_values], ...}
+        """
+        pass
+
 
 @dataclass
 class BaseKVStorage(StorageNameSpace, ABC):
@@ -327,21 +342,6 @@ class BaseKVStorage(StorageNameSpace, ABC):
 
         Returns:
             None
-        """
-
-    async def drop_cache_by_modes(self, modes: list[str] | None = None) -> bool:
-        """Delete specific records from storage by cache mode
-
-        Importance notes for in-memory storage:
-        1. Changes will be persisted to disk during the next index_done_callback
-        2. update flags to notify other processes that data persistence is needed
-
-        Args:
-            modes (list[str]): List of cache modes to be dropped from storage
-
-        Returns:
-             True: if the cache drop successfully
-             False: if the cache drop failed, or the cache mode is not supported
         """
 
 
@@ -758,10 +758,6 @@ class DocStatusStorage(BaseKVStorage, ABC):
         Returns:
             Dictionary mapping status names to counts
         """
-
-    async def drop_cache_by_modes(self, modes: list[str] | None = None) -> bool:
-        """Drop cache is not supported for Doc Status storage"""
-        return False
 
 
 class StoragesStatus(str, Enum):

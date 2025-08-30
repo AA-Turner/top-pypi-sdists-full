@@ -100,6 +100,7 @@ from .usecases import (
     LicensePlateMonitorUseCase,
     DwellUseCase,
     AgeGenderUseCase,
+    WildLifeMonitoringUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -248,6 +249,7 @@ class PostProcessor:
         registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
         registry.register_use_case("general", "dwell", DwellUseCase)
         registry.register_use_case("age_gender_detection", "age_gender_detection", AgeGenderUseCase)
+        registry.register_use_case("environmental", "wildlife_monitoring", WildLifeMonitoringUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -448,6 +450,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config,context, stream_info)
             elif isinstance(use_case, AgeGenderUseCase):
                 result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
+            elif isinstance(use_case, WildLifeMonitoringUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
             
             #Put all IMAGE based usecases here
             elif isinstance(use_case, BloodCancerDetectionUseCase):

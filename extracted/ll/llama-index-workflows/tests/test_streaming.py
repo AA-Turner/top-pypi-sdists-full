@@ -2,7 +2,7 @@
 # Copyright (c) 2025 LlamaIndex Inc.
 
 import asyncio
-from typing import Any
+from typing import AsyncGenerator
 
 import pytest
 
@@ -18,7 +18,7 @@ from .conftest import OneTestEvent
 class StreamingWorkflow(Workflow):
     @step
     async def chat(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        async def stream_messages() -> Any:
+        async def stream_messages() -> AsyncGenerator[str, None]:
             resp = "Paul Graham is a British-American computer scientist, entrepreneur, vc, and writer."
             for word in resp.split():
                 yield word
@@ -42,19 +42,6 @@ async def test_e2e() -> None:
 
 
 @pytest.mark.asyncio
-async def test_too_many_runs() -> None:
-    wf = StreamingWorkflow()
-    r = asyncio.gather(wf.run(), wf.run())
-    with pytest.raises(
-        WorkflowRuntimeError,
-        match="This workflow has multiple concurrent runs in progress and cannot stream events",
-    ):
-        async for ev in wf.stream_events():
-            pass
-    await r
-
-
-@pytest.mark.asyncio
 async def test_task_raised() -> None:
     class DummyWorkflow(Workflow):
         @step
@@ -71,9 +58,7 @@ async def test_task_raised() -> None:
             assert ev.test_param == "foo"
 
     # Make sure the await actually caught the exception
-    with pytest.raises(
-        WorkflowRuntimeError, match="Error in step 'step': The step raised an error!"
-    ):
+    with pytest.raises(ValueError, match="The step raised an error!"):
         await r
 
 

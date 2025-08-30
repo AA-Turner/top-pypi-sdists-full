@@ -811,7 +811,7 @@ class UnitTest(IUnitTest):
                 setattr(test_case, getattr(test_case, "_testMethodName"), bound_method)
                 flattened_suite.addTest(test_case)
 
-            except Exception as e:
+            except Exception:
 
                 # If dependency resolution fails, add the original test case
                 flattened_suite.addTest(test_case)

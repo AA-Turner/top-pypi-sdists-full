@@ -15,7 +15,6 @@ class JobNames(str, enum.Enum):
     LOAD_FILES_JOB = "load_files_job"
     PLAYGROUND_JOB = "playground_job"
     PIPELINE_MANAGED_INGESTION_JOB = "pipeline_managed_ingestion_job"
-    DATA_SOURCE_MANAGED_INGESTION_JOB = "data_source_managed_ingestion_job"
     DATA_SOURCE_UPDATE_DISPATCHER_JOB = "data_source_update_dispatcher_job"
     PIPELINE_FILE_UPDATE_DISPATCHER_JOB = "pipeline_file_update_dispatcher_job"
     PIPELINE_FILE_UPDATER_JOB = "pipeline_file_updater_job"
@@ -35,7 +34,6 @@ class JobNames(str, enum.Enum):
         load_files_job: typing.Callable[[], T_Result],
         playground_job: typing.Callable[[], T_Result],
         pipeline_managed_ingestion_job: typing.Callable[[], T_Result],
-        data_source_managed_ingestion_job: typing.Callable[[], T_Result],
         data_source_update_dispatcher_job: typing.Callable[[], T_Result],
         pipeline_file_update_dispatcher_job: typing.Callable[[], T_Result],
         pipeline_file_updater_job: typing.Callable[[], T_Result],
@@ -57,8 +55,6 @@ class JobNames(str, enum.Enum):
             return playground_job()
         if self is JobNames.PIPELINE_MANAGED_INGESTION_JOB:
             return pipeline_managed_ingestion_job()
-        if self is JobNames.DATA_SOURCE_MANAGED_INGESTION_JOB:
-            return data_source_managed_ingestion_job()
         if self is JobNames.DATA_SOURCE_UPDATE_DISPATCHER_JOB:
             return data_source_update_dispatcher_job()
         if self is JobNames.PIPELINE_FILE_UPDATE_DISPATCHER_JOB:

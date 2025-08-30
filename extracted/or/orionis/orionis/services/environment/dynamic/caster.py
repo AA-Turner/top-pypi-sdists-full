@@ -255,64 +255,72 @@ class EnvironmentCaster(IEnvironmentCaster):
         """
         Convert the internal value to a Base64 encoded string with the type hint prefix.
 
+        - If the value is already valid base64, leave it as-is.
+        - Otherwise, encode it to base64.
+
         Returns
         -------
         str
-            A string in the format "<type_hint>:<base64_value>", where <base64_value> is the Base64
-            encoded representation of the internal value.
-
-        Raises
-        ------
-        OrionisEnvironmentValueError
-            If the internal value is not a string or bytes.
+            A string in the format "<type_hint>:<base64_value>".
         """
-
-        # Import the base64 module for encoding
         import base64
 
-        # Ensure the internal value is a string or bytes before encoding
         if not isinstance(self.__value_raw, (str, bytes)):
             raise OrionisEnvironmentValueError(
                 f"Value must be a string or bytes to convert to Base64, got {type(self.__value_raw).__name__} instead."
             )
 
-        # Encode the value in Base64
-        encoded_value = base64.b64encode(str(self.__value_raw).encode()).decode()
+        # Normalizar a str
+        if isinstance(self.__value_raw, bytes):
+            candidate = self.__value_raw.decode("utf-8", errors="ignore")
+        else:
+            candidate = self.__value_raw
 
-        # Return the formatted string with type hint and Base64 encoded value
+        try:
+            # Validar si ya es base64 válido
+            base64.b64decode(candidate, validate=True)
+            encoded_value = candidate
+        except Exception:
+            # No era base64, entonces convertirlo
+            raw_bytes = (
+                self.__value_raw.encode() if isinstance(self.__value_raw, str) else self.__value_raw
+            )
+            encoded_value = base64.b64encode(raw_bytes).decode("utf-8")
+
         return f"{self.__type_hint}:{encoded_value}"
 
-    def __parseBase64(self) -> str:
+    def __parseBase64(self) -> bytes:
         """
         Decode the internal raw value from Base64 encoding.
 
-        Decodes the Base64-encoded string stored in the internal raw value and returns the decoded result as a string.
-        If decoding fails, raises an OrionisEnvironmentValueException.
-
         Returns
         -------
-        str
-            The decoded string from the Base64-encoded internal value.
+        bytes
+            The decoded raw bytes from the Base64-encoded internal value.
 
         Raises
         ------
         OrionisEnvironmentValueException
             If the internal value cannot be decoded from Base64.
         """
-
-        # Import the base64 module for decoding
         import base64
 
         try:
+            raw_value = self.__value_raw
+            if isinstance(raw_value, bytes):
+                raw_value = raw_value.decode("utf-8", errors="ignore")
 
-            # Decode the Base64 encoded value and return as string
-            decoded_value = base64.b64decode(self.__value_raw).decode()
-            return decoded_value
+            decoded = base64.b64decode(raw_value, validate=True)
+
+            try:
+                return decoded.decode("utf-8")
+            except UnicodeDecodeError:
+                return decoded
 
         except Exception as e:
-
-            # Raise a custom exception if decoding fails
-            raise OrionisEnvironmentValueException(f"Cannot decode Base64 value '{self.__value_raw}': {str(e)}")
+            raise OrionisEnvironmentValueException(
+                f"Cannot decode Base64 value '{self.__value_raw}': {str(e)}"
+            )
 
     def __parsePath(self):
         """

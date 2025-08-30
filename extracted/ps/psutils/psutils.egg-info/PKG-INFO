@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: psutils
-Version: 3.3.11
+Version: 3.3.12
 Summary: Manipulate PDF and PostScript documents
 Author-email: Reuben Thomas <rrt@sc3d.org>
 License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/rrthomas/psutils
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: puremagic>=1.26
@@ -41,34 +41,31 @@ some programs produce non-conforming output that can be successfully
 processed anyway. If PSUtils does not work for you, check whether your
 software needs to be configured to produce DSC-conformant PostScript.
 
-Some old Perl scripts, which mostly fix up the output of various obsolete
-programs and drivers to enable PSUtils to process it, are available in git
-in the `old-scripts` directory. They are not supported, and their use is
-discouraged, unless you know you need them!
-
 
 ## Installation
 
 The easiest way to install PSUtils is from PyPI, the Python Package Index:
 
-`pip install psutils`
+`pipx install psutils`
 
-(Note the PyPI package name!)
+(You may first need to install [pipx](https://pipx.pypa.io).)
 
 PSUtils requires libpaper, which allows named paper sizes to be used and
 configured:
 
 libpaper: https://github.com/rrthomas/libpaper
 
-Unfortunately, `pip` cannot install libpaper for you, but you might be able to install it with `brew` or from other package managers. Otherwise, you can install libpaper from source (see the link above).
+Unfortunately, `pipx` cannot install libpaper for you, but you might be able
+to install it with `brew` or from other package managers. Otherwise, you can
+install libpaper from source (see the link above).
 
-## Installation from source or git
+### Installation from source or git
 
-PSUtils requires Python 3.9 or later, a handful of Python libraries (listed
+PSUtils requires Python 3.12 or later, a handful of Python libraries (listed
 in `pyproject.toml`, and automatically installed by the build procedure).
 
-In the source directory: `python -m build` (requires the `build` package to
-be installed).
+In the source directory: `make build` (requires the `build` Python package
+to be installed).
 
 Note that to use the scripts before installing them, you need to run them
 as Python modules; for example:

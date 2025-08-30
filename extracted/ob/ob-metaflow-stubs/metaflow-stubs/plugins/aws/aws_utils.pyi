@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-28T00:53:38.145537                                                            #
+# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-29T18:32:22.399266                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -87,5 +87,8 @@ def sanitize_batch_tag(key, value):
     """
     Sanitize a key and value for use as a Batch tag.
     """
+    ...
+
+def validate_aws_tag(key: str, value: str):
     ...
 

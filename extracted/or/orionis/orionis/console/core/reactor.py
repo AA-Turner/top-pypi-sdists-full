@@ -2,7 +2,7 @@ import argparse
 import os
 from pathlib import Path
 import re
-from typing import Any, List, Optional, Type
+from typing import Any, List, Optional
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.contracts.base_command import IBaseCommand

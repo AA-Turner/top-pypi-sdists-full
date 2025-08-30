@@ -5,6 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .data_sink import DataSink
+from .embedding_model_config import EmbeddingModelConfig
 from .eval_execution_params import EvalExecutionParams
 from .llama_parse_parameters import LlamaParseParameters
 from .pipeline_configuration_hashes import PipelineConfigurationHashes
@@ -14,6 +15,7 @@ from .pipeline_status import PipelineStatus
 from .pipeline_transform_config import PipelineTransformConfig
 from .pipeline_type import PipelineType
 from .preset_retrieval_params import PresetRetrievalParams
+from .sparse_model_config import SparseModelConfig
 
 try:
     import pydantic
@@ -35,11 +37,13 @@ class Pipeline(pydantic.BaseModel):
     name: str
     project_id: str
     embedding_model_config_id: typing.Optional[str]
+    embedding_model_config: typing.Optional[EmbeddingModelConfig]
     pipeline_type: typing.Optional[PipelineType] = pydantic.Field(
         description="Type of pipeline. Either PLAYGROUND or MANAGED."
     )
     managed_pipeline_id: typing.Optional[str]
     embedding_config: PipelineEmbeddingConfig
+    sparse_model_config: typing.Optional[SparseModelConfig]
     config_hash: typing.Optional[PipelineConfigurationHashes]
     transform_config: typing.Optional[PipelineTransformConfig] = pydantic.Field(
         description="Configuration for the transformation."

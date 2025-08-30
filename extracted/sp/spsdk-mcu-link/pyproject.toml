@@ -6,7 +6,7 @@ dynamic = ["version"]
 requires-python = ">= 3.9"
 dependencies = [
     "wasmtime~=24.0.0",
-    "pyusb~=1.2.1",
+    "pyusb~=1.3.1",
     "hidapi~=0.14.0.post2",
     "libusb_package",
 ]
@@ -60,7 +60,7 @@ include-package-data = true
 version = { attr = "spsdk_mcu_link.__version__" }
 
 [tool.bumpversion]
-current_version = "0.6.5"
+current_version = "0.6.6"
 
 [[tool.bumpversion.files]]
 filename = "spsdk_mcu_link/__init__.py"

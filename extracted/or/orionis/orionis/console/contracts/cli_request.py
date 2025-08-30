@@ -83,3 +83,92 @@ class ICLIRequest(ABC):
         ensuring that missing arguments return None rather than raising a KeyError.
         """
         pass
+
+    def getCWD(self) -> str:
+        """
+        Retrieve the current working directory (CWD) as an absolute path.
+
+        This method returns the absolute path of the directory from which the Python process was started.
+        It is useful for determining the context in which the CLI command is being executed, especially
+        when dealing with relative file paths or when the working directory may affect application behavior.
+
+        Returns
+        -------
+        str
+            The absolute path to the current working directory as a string.
+        """
+        pass
+
+    def getPID(self) -> int:
+        """
+        Retrieve the process ID (PID) of the current Python process.
+
+        This method returns the unique identifier assigned by the operating system
+        to the currently running Python process. The PID can be useful for logging,
+        debugging, or managing process-related operations.
+
+        Returns
+        -------
+        int
+            The process ID (PID) of the current Python process as an integer.
+        """
+        pass
+
+    def getParentPID(self) -> int:
+        """
+        Retrieve the parent process ID (PPID) of the current Python process.
+
+        This method returns the process ID of the parent process that spawned the current
+        Python process. The parent process ID can be useful for tracking process hierarchies,
+        debugging, or managing process relationships in CLI applications.
+
+        Returns
+        -------
+        int
+            The parent process ID (PPID) as an integer. This value is assigned by the operating
+            system and uniquely identifies the parent process of the current Python process.
+
+        Notes
+        -----
+        The returned PPID is determined by the operating system and may vary depending on how
+        the Python process was started. If the parent process has terminated, the PPID may refer
+        to the init process or another system-defined process.
+        """
+        pass
+
+    def getExecutable(self) -> str:
+        """
+        Retrieve the absolute path to the Python interpreter executable.
+
+        This method returns the full filesystem path to the Python interpreter
+        that is currently executing the script. This can be useful for debugging,
+        spawning subprocesses, or determining the runtime environment.
+
+        Returns
+        -------
+        str
+            The absolute path to the Python executable as a string.
+        """
+        pass
+
+    def getPlatform(self) -> str:
+        """
+        Retrieve the name of the current operating system platform.
+
+        This method determines the name of the operating system on which the Python
+        interpreter is currently running. It uses the standard library's `platform`
+        module to obtain a human-readable string representing the platform, such as
+        'Windows', 'Linux', or 'Darwin' (for macOS).
+
+        Returns
+        -------
+        str
+            A string representing the name of the operating system platform. Typical
+            return values include 'Windows', 'Linux', or 'Darwin'.
+
+        Notes
+        -----
+        The returned value is determined by the underlying system and may vary
+        depending on the environment in which the code is executed.
+        """
+        pass

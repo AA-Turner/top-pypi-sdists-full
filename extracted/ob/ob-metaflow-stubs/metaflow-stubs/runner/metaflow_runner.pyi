@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-28T00:53:38.080669                                                            #
+# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-29T18:32:22.331785                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.client.core
     import metaflow.runner.metaflow_runner
+    import metaflow.client.core
     import metaflow.runner.subprocess_manager
 
 from ..client.core import Run as Run

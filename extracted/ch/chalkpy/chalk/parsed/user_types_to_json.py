@@ -165,9 +165,7 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
 
     named_queries: list[UpsertNamedQueryGQL] = []
     for named_query in NAMED_QUERY_REGISTRY.values():
-        named_query.input
-        named_query.output
-        if named_query.filename and _is_relative_to(Path(named_query.filename), scope_to):
+        if named_query.filename is None or _is_relative_to(Path(named_query.filename), scope_to):
             try:
                 named_queries.append(convert_type_to_gql(named_query, path_prefix=path_prefix_to_remove))
             except Exception as e:

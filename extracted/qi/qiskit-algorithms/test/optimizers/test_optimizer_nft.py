@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2020, 2023.
+# (C) Copyright IBM 2020, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -14,8 +14,8 @@
 
 import unittest
 from test import QiskitAlgorithmsTestCase
-from qiskit.circuit.library import RealAmplitudes
-from qiskit.primitives import Estimator
+from qiskit.circuit.library import real_amplitudes
+from qiskit.primitives import StatevectorEstimator
 from qiskit.quantum_info import SparsePauliOp
 
 from qiskit_algorithms.optimizers import NFT
@@ -40,7 +40,7 @@ class TestOptimizerNFT(QiskitAlgorithmsTestCase):
     def test_nft(self):
         """Test NFT optimizer by using it"""
 
-        vqe = VQE(Estimator(), ansatz=RealAmplitudes(), optimizer=NFT())
+        vqe = VQE(StatevectorEstimator(), ansatz=real_amplitudes(2), optimizer=NFT())
 
         result = vqe.compute_minimum_eigenvalue(operator=self.qubit_op)
 

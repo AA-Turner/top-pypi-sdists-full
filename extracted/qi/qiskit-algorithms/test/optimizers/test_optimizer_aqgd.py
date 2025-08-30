@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2019, 2024.
+# (C) Copyright IBM 2019, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,8 +16,8 @@ import unittest
 from test import QiskitAlgorithmsTestCase, slow_test
 import numpy as np
 from ddt import ddt, data
-from qiskit.circuit.library import RealAmplitudes
-from qiskit.primitives import Estimator
+from qiskit.circuit.library import real_amplitudes
+from qiskit.primitives import StatevectorEstimator
 from qiskit.quantum_info import SparsePauliOp
 
 from qiskit_algorithms import AlgorithmError
@@ -43,7 +43,7 @@ class TestOptimizerAQGD(QiskitAlgorithmsTestCase):
                 ("XX", 0.18093119978423156),
             ]
         )
-        self.estimator = Estimator()
+        self.estimator = StatevectorEstimator()
         self.gradient = LinCombEstimatorGradient(self.estimator)
 
     @slow_test
@@ -54,7 +54,7 @@ class TestOptimizerAQGD(QiskitAlgorithmsTestCase):
 
         vqe = VQE(
             self.estimator,
-            ansatz=RealAmplitudes(),
+            ansatz=real_amplitudes(2),
             optimizer=aqgd,
             gradient=self.gradient,
         )
@@ -69,7 +69,7 @@ class TestOptimizerAQGD(QiskitAlgorithmsTestCase):
 
         vqe = VQE(
             self.estimator,
-            ansatz=RealAmplitudes(),
+            ansatz=real_amplitudes(2),
             optimizer=aqgd,
         )
         result = vqe.compute_minimum_eigenvalue(operator=self.qubit_op)
@@ -87,7 +87,7 @@ class TestOptimizerAQGD(QiskitAlgorithmsTestCase):
 
         vqe = VQE(
             self.estimator,
-            ansatz=RealAmplitudes(),
+            ansatz=real_amplitudes(2),
             optimizer=aqgd,
             gradient=self.gradient,
         )
@@ -102,7 +102,7 @@ class TestOptimizerAQGD(QiskitAlgorithmsTestCase):
 
         vqe = VQE(
             self.estimator,
-            ansatz=RealAmplitudes(),
+            ansatz=real_amplitudes(2),
             optimizer=aqgd,
             gradient=self.gradient,
         )

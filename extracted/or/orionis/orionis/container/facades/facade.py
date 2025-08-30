@@ -2,7 +2,7 @@ from typing import Any
 from orionis.app import Orionis
 from orionis.container.exceptions import OrionisContainerAttributeError, OrionisContainerException
 from orionis.foundation.application import IApplication
-from typing import TypeVar, Any
+from typing import TypeVar
 
 T = TypeVar('T')
 

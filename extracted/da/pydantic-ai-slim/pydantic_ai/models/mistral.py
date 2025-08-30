@@ -79,7 +79,7 @@ try:
     from mistralai.models.usermessage import UserMessage as MistralUserMessage
     from mistralai.types.basemodel import Unset as MistralUnset
     from mistralai.utils.eventstreaming import EventStreamAsync as MistralEventStreamAsync
-except ImportError as e:  # pragma: no cover
+except ImportError as e:
     raise ImportError(
         'Please install `mistral` to use the Mistral model, '
         'you can use the `mistral` optional group — `pip install "pydantic-ai-slim[mistral]"`'
@@ -352,7 +352,7 @@ class MistralModel(Model):
             usage=_map_usage(response),
             model_name=response.model,
             timestamp=timestamp,
-            provider_request_id=response.id,
+            provider_response_id=response.id,
             provider_name=self._provider.name,
         )
 

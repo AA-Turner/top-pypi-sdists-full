@@ -195,7 +195,12 @@ class Attributes(AWSProperty):
         "ContactLens": (boolean, False),
         "ContactflowLogs": (boolean, False),
         "EarlyMedia": (boolean, False),
+        "EnhancedChatMonitoring": (boolean, False),
+        "EnhancedContactMonitoring": (boolean, False),
+        "HighVolumeOutBound": (boolean, False),
         "InboundCalls": (boolean, True),
+        "MultiPartyChatConference": (boolean, False),
+        "MultiPartyConference": (boolean, False),
         "OutboundCalls": (boolean, True),
         "UseCustomTTSVoices": (boolean, False),
     }
@@ -322,6 +327,17 @@ class PhoneNumber(AWSObject):
     }
 
 
+class AttributeConfiguration(AWSProperty):
+    """
+    `AttributeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-predefinedattribute-attributeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableValueValidationOnAssociation": (boolean, False),
+        "IsReadOnly": (boolean, False),
+    }
+
+
 class Values(AWSProperty):
     """
     `Values <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-predefinedattribute-values.html>`__
@@ -340,9 +356,11 @@ class PredefinedAttribute(AWSObject):
     resource_type = "AWS::Connect::PredefinedAttribute"
 
     props: PropsDictType = {
+        "AttributeConfiguration": (AttributeConfiguration, False),
         "InstanceArn": (str, True),
         "Name": (str, True),
-        "Values": (Values, True),
+        "Purposes": ([str], False),
+        "Values": (Values, False),
     }
 
 
@@ -847,6 +865,7 @@ class UserPhoneConfig(AWSProperty):
         "AfterContactWorkTimeLimit": (integer, False),
         "AutoAccept": (boolean, False),
         "DeskPhoneNumber": (str, False),
+        "PersistentConnection": (boolean, False),
         "PhoneType": (str, True),
     }
 
@@ -1015,6 +1034,16 @@ class ViewVersion(AWSObject):
         "VersionDescription": (str, False),
         "ViewArn": (str, True),
         "ViewContentSha256": (str, False),
+    }
+
+
+class AutoEvaluationConfiguration(AWSProperty):
+    """
+    `AutoEvaluationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-autoevaluationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
     }
 
 

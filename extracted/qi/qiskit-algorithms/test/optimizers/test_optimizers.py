@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2018, 2023.
+# (C) Copyright IBM 2018, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,6 +13,7 @@
 """Test Optimizers"""
 
 import unittest
+
 from test import QiskitAlgorithmsTestCase
 
 from typing import Optional, List, Tuple
@@ -20,10 +21,11 @@ from ddt import ddt, data, unpack
 import numpy as np
 from scipy.optimize import rosen, rosen_der
 
-from qiskit.circuit.library import RealAmplitudes
+from qiskit.circuit.library import real_amplitudes
 from qiskit.exceptions import MissingOptionalLibraryError
+from qiskit.primitives import StatevectorSampler
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit.utils import optionals
-from qiskit.primitives import Sampler
 
 from qiskit_algorithms.optimizers import (
     ADAM,
@@ -42,6 +44,7 @@ from qiskit_algorithms.optimizers import (
     Optimizer,
     P_BFGS,
     POWELL,
+    SBPLX,
     SLSQP,
     SPSA,
     QNSPSA,
@@ -74,7 +77,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
             grad: Whether to pass the gradient function as input.
             bounds: Optimizer bounds.
         """
-        x_0 = np.asarray([1.3, 0.7, 0.8, 1.9, 1.2])
+        x_0 = np.asarray([1.13, 0.7, 0.8, 1.9, 1.2])
         jac = rosen_der if grad else None
 
         res = optimizer.minimize(rosen, x_0, jac, bounds)
@@ -149,7 +152,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
             max_eval=10000,
             min_step_size=1.0e-12,
         )
-        x_0 = [1.3, 0.7, 0.8, 1.9, 1.2]
+        x_0 = np.asarray([1.3, 0.7, 0.8, 1.9, 1.2])
 
         algorithm_globals.random_seed = 1
         res = optimizer.minimize(rosen, x_0)
@@ -183,6 +186,39 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
         self.run_optimizer(optimizer, max_nfev=10000)
         self.assertTrue(values)  # Check the list is nonempty.
 
+    def test_scipy_optimizer_parse_bounds(self):
+        """
+        Test the parsing of bounds in SciPyOptimizer.minimize method. Verifies that the bounds are
+        correctly parsed and set within the optimizer object.
+
+        Raises:
+            AssertionError: If any of the assertions fail.
+            AssertionError: If a TypeError is raised unexpectedly while parsing bounds.
+
+        """
+        try:
+            # Initialize SciPyOptimizer instance with SLSQP method
+            optimizer = SciPyOptimizer("SLSQP")
+
+            # Call minimize method with a simple lambda function and bounds
+            optimizer.minimize(lambda x: -x, 1.0, bounds=[(0.0, 1.0)])
+
+            # Assert that "bounds" is not present in optimizer options and kwargs
+            self.assertFalse("bounds" in optimizer._options)
+            self.assertFalse("bounds" in optimizer._kwargs)
+
+        except TypeError:
+            # This would give: https://github.com/qiskit-community/qiskit-machine-learning/issues/570
+            self.fail(
+                "TypeError was raised unexpectedly when parsing bounds in SciPyOptimizer.minimize(...)."
+            )
+
+        # Finally, expect exceptions if bounds are parsed incorrectly, i.e. differently than as in Scipy
+        with self.assertRaises(RuntimeError):
+            _ = SciPyOptimizer("SLSQP", bounds=[(0.0, 1.0)])
+        with self.assertRaises(RuntimeError):
+            _ = SciPyOptimizer("SLSQP", options={"bounds": [(0.0, 1.0)]})
+
     # ESCH and ISRES do not do well with rosen
     @data(
         (CRS, True),
@@ -191,6 +227,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
         (CRS, False),
         (DIRECT_L, False),
         (DIRECT_L_RAND, False),
+        (SBPLX, True),
     )
     @unpack
     def test_nlopt(self, optimizer_cls, use_bound):
@@ -373,8 +410,13 @@ class TestOptimizerSerialization(QiskitAlgorithmsTestCase):
 
     def test_qnspsa(self):
         """Test QN-SPSA optimizer is serializable."""
-        ansatz = RealAmplitudes(1)
-        fidelity = QNSPSA.get_fidelity(ansatz, sampler=Sampler())
+        ansatz = real_amplitudes(1)
+        fidelity = QNSPSA.get_fidelity(
+            ansatz,
+            sampler=StatevectorSampler(seed=123),
+            transpiler=generate_preset_pass_manager(optimization_level=1, seed_transpiler=42),
+            transpiler_options={"callable": lambda x: x},
+        )
         options = {
             "fidelity": fidelity,
             "maxiter": 100,

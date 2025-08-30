@@ -1,7 +1,7 @@
 r'''
 # `snowflake_table_column_masking_policy_application`
 
-Refer to the Terraform Registry for docs: [`snowflake_table_column_masking_policy_application`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application).
+Refer to the Terraform Registry for docs: [`snowflake_table_column_masking_policy_application`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TableColumnMaskingPolicyApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.tableColumnMaskingPolicyApplication.TableColumnMaskingPolicyApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application snowflake_table_column_masking_policy_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application snowflake_table_column_masking_policy_application}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class TableColumnMaskingPolicyApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application snowflake_table_column_masking_policy_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application snowflake_table_column_masking_policy_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param column: The column to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
-        :param masking_policy: Fully qualified name (``database.schema.policyname``) of the policy to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
-        :param table: The fully qualified name (``database.schema.table``) of the table to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
+        :param column: The column to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
+        :param masking_policy: Fully qualified name (``database.schema.policyname``) of the policy to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
+        :param table: The fully qualified name (``database.schema.table``) of the table to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class TableColumnMaskingPolicyApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TableColumnMaskingPolicyApplication to import.
-        :param import_from_id: The id of the existing TableColumnMaskingPolicyApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TableColumnMaskingPolicyApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TableColumnMaskingPolicyApplication to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class TableColumnMaskingPolicyApplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.
         '''
         value = TableColumnMaskingPolicyApplicationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -292,11 +292,11 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param column: The column to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
-        :param masking_policy: Fully qualified name (``database.schema.policyname``) of the policy to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
-        :param table: The fully qualified name (``database.schema.table``) of the table to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
+        :param column: The column to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
+        :param masking_policy: Fully qualified name (``database.schema.policyname``) of the policy to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
+        :param table: The fully qualified name (``database.schema.table``) of the table to apply the masking policy to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -408,7 +408,7 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def column(self) -> builtins.str:
         '''The column to apply the masking policy to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#column TableColumnMaskingPolicyApplication#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -418,7 +418,7 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def masking_policy(self) -> builtins.str:
         '''Fully qualified name (``database.schema.policyname``) of the policy to apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#masking_policy TableColumnMaskingPolicyApplication#masking_policy}
         '''
         result = self._values.get("masking_policy")
         assert result is not None, "Required property 'masking_policy' is missing"
@@ -428,7 +428,7 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def table(self) -> builtins.str:
         '''The fully qualified name (``database.schema.table``) of the table to apply the masking policy to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#table TableColumnMaskingPolicyApplication#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -436,7 +436,7 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#id TableColumnMaskingPolicyApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -450,7 +450,7 @@ class TableColumnMaskingPolicyApplicationConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional["TableColumnMaskingPolicyApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#timeouts TableColumnMaskingPolicyApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TableColumnMaskingPolicyApplicationTimeouts"], result)
@@ -487,10 +487,10 @@ class TableColumnMaskingPolicyApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93f99a4ab722cdba54e460f41bacc6b47a93c7a6fcf8ddcde165d5b5c323b5ae)
@@ -510,25 +510,25 @@ class TableColumnMaskingPolicyApplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#create TableColumnMaskingPolicyApplication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#delete TableColumnMaskingPolicyApplication#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#read TableColumnMaskingPolicyApplication#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/table_column_masking_policy_application#update TableColumnMaskingPolicyApplication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

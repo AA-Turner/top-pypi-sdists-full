@@ -34,6 +34,7 @@ from lightrag.types import GPTKeywordExtractionFormat
 from lightrag.api import __api_version__
 
 import numpy as np
+import base64
 from typing import Any, Union
 
 from dotenv import load_dotenv
@@ -148,17 +149,19 @@ async def openai_complete_if_cache(
     if not VERBOSE_DEBUG and logger.level == logging.DEBUG:
         logging.getLogger("openai").setLevel(logging.INFO)
 
+    # Remove special kwargs that shouldn't be passed to OpenAI
+    kwargs.pop("hashing_kv", None)
+    kwargs.pop("keyword_extraction", None)
+
     # Extract client configuration options
     client_configs = kwargs.pop("openai_client_configs", {})
 
     # Create the OpenAI client
     openai_async_client = create_openai_async_client(
-        api_key=api_key, base_url=base_url, client_configs=client_configs
+        api_key=api_key,
+        base_url=base_url,
+        client_configs=client_configs,
     )
-
-    # Remove special kwargs that shouldn't be passed to OpenAI
-    kwargs.pop("hashing_kv", None)
-    kwargs.pop("keyword_extraction", None)
 
     # Prepare messages
     messages: list[dict[str, Any]] = []
@@ -472,6 +475,13 @@ async def openai_embed(
 
     async with openai_async_client:
         response = await openai_async_client.embeddings.create(
-            model=model, input=texts, encoding_format="float"
+            model=model, input=texts, encoding_format="base64"
         )
-        return np.array([dp.embedding for dp in response.data])
+        return np.array(
+            [
+                np.array(dp.embedding, dtype=np.float32)
+                if isinstance(dp.embedding, list)
+                else np.frombuffer(base64.b64decode(dp.embedding), dtype=np.float32)
+                for dp in response.data
+            ]
+        )

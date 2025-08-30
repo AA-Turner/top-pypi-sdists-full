@@ -18,6 +18,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
   UseDagRunServiceGetDagRunsKeyFn,
@@ -28,14 +29,17 @@ import {
   UseTaskInstanceServiceGetTaskInstancesKeyFn,
   UseGridServiceGetGridRunsKeyFn,
 } from "openapi/queries";
+import type { TriggerDagRunResponse } from "openapi/requests/types.gen";
 import type { DagRunTriggerParams } from "src/components/TriggerDag/TriggerDAGForm";
 import { toaster } from "src/components/ui";
 
 export const useTrigger = ({ dagId, onSuccessConfirm }: { dagId: string; onSuccessConfirm: () => void }) => {
   const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(undefined);
+  const navigate = useNavigate();
+  const { dagId: selectedDagId } = useParams();
 
-  const onSuccess = async () => {
+  const onSuccess = async (dagRun: TriggerDagRunResponse) => {
     const queryKeys = [
       [useDagServiceGetDagsKey],
       [useDagServiceRecentDagRunsKey],
@@ -53,6 +57,10 @@ export const useTrigger = ({ dagId, onSuccessConfirm }: { dagId: string; onSucce
       type: "success",
     });
     onSuccessConfirm();
+
+    if (selectedDagId === dagRun.dag_id) {
+      navigate(`/dags/${dagRun.dag_id}/runs/${dagRun.dag_run_id}`);
+    }
   };
 
   const onError = (_error: unknown) => {

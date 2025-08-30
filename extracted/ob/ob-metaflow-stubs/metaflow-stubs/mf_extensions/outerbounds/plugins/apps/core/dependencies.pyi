@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-28T00:53:38.130302                                                            #
+# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-29T18:32:22.382446                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.dependencies
 
 from .app_config import AppConfig as AppConfig

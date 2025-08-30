@@ -156,6 +156,9 @@ __all__ = (
     "RetrievedServiceTypeDef",
     "RetrievedTraceTypeDef",
     "RootCauseExceptionTypeDef",
+    "SamplingBoostStatisticsDocumentTypeDef",
+    "SamplingBoostTypeDef",
+    "SamplingRateBoostTypeDef",
     "SamplingRuleOutputTypeDef",
     "SamplingRuleRecordTypeDef",
     "SamplingRuleTypeDef",
@@ -365,14 +368,6 @@ class SamplingStatisticSummaryTypeDef(TypedDict):
     SampledCount: NotRequired[int]
 
 
-class SamplingTargetDocumentTypeDef(TypedDict):
-    RuleName: NotRequired[str]
-    FixedRate: NotRequired[float]
-    ReservoirQuota: NotRequired[int]
-    ReservoirQuotaTTL: NotRequired[datetime]
-    Interval: NotRequired[int]
-
-
 class UnprocessedStatisticsTypeDef(TypedDict):
     RuleName: NotRequired[str]
     ErrorCode: NotRequired[str]
@@ -489,59 +484,14 @@ class SpanTypeDef(TypedDict):
     Document: NotRequired[str]
 
 
-SamplingRuleOutputTypeDef = TypedDict(
-    "SamplingRuleOutputTypeDef",
-    {
-        "ResourceARN": str,
-        "Priority": int,
-        "FixedRate": float,
-        "ReservoirSize": int,
-        "ServiceName": str,
-        "ServiceType": str,
-        "Host": str,
-        "HTTPMethod": str,
-        "URLPath": str,
-        "Version": int,
-        "RuleName": NotRequired[str],
-        "RuleARN": NotRequired[str],
-        "Attributes": NotRequired[Dict[str, str]],
-    },
-)
-SamplingRuleTypeDef = TypedDict(
-    "SamplingRuleTypeDef",
-    {
-        "ResourceARN": str,
-        "Priority": int,
-        "FixedRate": float,
-        "ReservoirSize": int,
-        "ServiceName": str,
-        "ServiceType": str,
-        "Host": str,
-        "HTTPMethod": str,
-        "URLPath": str,
-        "Version": int,
-        "RuleName": NotRequired[str],
-        "RuleARN": NotRequired[str],
-        "Attributes": NotRequired[Mapping[str, str]],
-    },
-)
-SamplingRuleUpdateTypeDef = TypedDict(
-    "SamplingRuleUpdateTypeDef",
-    {
-        "RuleName": NotRequired[str],
-        "RuleARN": NotRequired[str],
-        "ResourceARN": NotRequired[str],
-        "Priority": NotRequired[int],
-        "FixedRate": NotRequired[float],
-        "ReservoirSize": NotRequired[int],
-        "Host": NotRequired[str],
-        "ServiceName": NotRequired[str],
-        "ServiceType": NotRequired[str],
-        "HTTPMethod": NotRequired[str],
-        "URLPath": NotRequired[str],
-        "Attributes": NotRequired[Mapping[str, str]],
-    },
-)
+class SamplingBoostTypeDef(TypedDict):
+    BoostRate: float
+    BoostRateTTL: datetime
+
+
+class SamplingRateBoostTypeDef(TypedDict):
+    MaxRate: float
+    CooldownWindowMinutes: int
 
 
 class SegmentTypeDef(TypedDict):
@@ -752,6 +702,19 @@ class GetTimeSeriesServiceStatisticsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+SamplingBoostStatisticsDocumentTypeDef = TypedDict(
+    "SamplingBoostStatisticsDocumentTypeDef",
+    {
+        "RuleName": str,
+        "ServiceName": str,
+        "Timestamp": TimestampTypeDef,
+        "AnomalyCount": int,
+        "TotalCount": int,
+        "SampledAnomalyCount": int,
+    },
+)
+
+
 class SamplingStatisticsDocumentTypeDef(TypedDict):
     RuleName: str
     ClientID: str
@@ -780,13 +743,6 @@ class GetSamplingStatisticSummariesResultTypeDef(TypedDict):
     SamplingStatisticSummaries: List[SamplingStatisticSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class GetSamplingTargetsResultTypeDef(TypedDict):
-    SamplingTargetDocuments: List[SamplingTargetDocumentTypeDef]
-    LastRuleModification: datetime
-    UnprocessedStatistics: List[UnprocessedStatisticsTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetTraceSummariesRequestPaginateTypeDef(TypedDict):
@@ -865,17 +821,71 @@ class RetrievedTraceTypeDef(TypedDict):
     Spans: NotRequired[List[SpanTypeDef]]
 
 
-class SamplingRuleRecordTypeDef(TypedDict):
-    SamplingRule: NotRequired[SamplingRuleOutputTypeDef]
-    CreatedAt: NotRequired[datetime]
-    ModifiedAt: NotRequired[datetime]
+class SamplingTargetDocumentTypeDef(TypedDict):
+    RuleName: NotRequired[str]
+    FixedRate: NotRequired[float]
+    ReservoirQuota: NotRequired[int]
+    ReservoirQuotaTTL: NotRequired[datetime]
+    Interval: NotRequired[int]
+    SamplingBoost: NotRequired[SamplingBoostTypeDef]
 
 
-SamplingRuleUnionTypeDef = Union[SamplingRuleTypeDef, SamplingRuleOutputTypeDef]
-
-
-class UpdateSamplingRuleRequestTypeDef(TypedDict):
-    SamplingRuleUpdate: SamplingRuleUpdateTypeDef
+SamplingRuleOutputTypeDef = TypedDict(
+    "SamplingRuleOutputTypeDef",
+    {
+        "ResourceARN": str,
+        "Priority": int,
+        "FixedRate": float,
+        "ReservoirSize": int,
+        "ServiceName": str,
+        "ServiceType": str,
+        "Host": str,
+        "HTTPMethod": str,
+        "URLPath": str,
+        "Version": int,
+        "RuleName": NotRequired[str],
+        "RuleARN": NotRequired[str],
+        "Attributes": NotRequired[Dict[str, str]],
+        "SamplingRateBoost": NotRequired[SamplingRateBoostTypeDef],
+    },
+)
+SamplingRuleTypeDef = TypedDict(
+    "SamplingRuleTypeDef",
+    {
+        "ResourceARN": str,
+        "Priority": int,
+        "FixedRate": float,
+        "ReservoirSize": int,
+        "ServiceName": str,
+        "ServiceType": str,
+        "Host": str,
+        "HTTPMethod": str,
+        "URLPath": str,
+        "Version": int,
+        "RuleName": NotRequired[str],
+        "RuleARN": NotRequired[str],
+        "Attributes": NotRequired[Mapping[str, str]],
+        "SamplingRateBoost": NotRequired[SamplingRateBoostTypeDef],
+    },
+)
+SamplingRuleUpdateTypeDef = TypedDict(
+    "SamplingRuleUpdateTypeDef",
+    {
+        "RuleName": NotRequired[str],
+        "RuleARN": NotRequired[str],
+        "ResourceARN": NotRequired[str],
+        "Priority": NotRequired[int],
+        "FixedRate": NotRequired[float],
+        "ReservoirSize": NotRequired[int],
+        "Host": NotRequired[str],
+        "ServiceName": NotRequired[str],
+        "ServiceType": NotRequired[str],
+        "HTTPMethod": NotRequired[str],
+        "URLPath": NotRequired[str],
+        "Attributes": NotRequired[Mapping[str, str]],
+        "SamplingRateBoost": NotRequired[SamplingRateBoostTypeDef],
+    },
+)
 
 
 class TraceTypeDef(TypedDict):
@@ -990,6 +1000,7 @@ FaultRootCauseServiceTypeDef = TypedDict(
 
 class GetSamplingTargetsRequestTypeDef(TypedDict):
     SamplingStatisticsDocuments: Sequence[SamplingStatisticsDocumentTypeDef]
+    SamplingBoostStatisticsDocuments: NotRequired[Sequence[SamplingBoostStatisticsDocumentTypeDef]]
 
 
 class PutTelemetryRecordsRequestTypeDef(TypedDict):
@@ -1034,30 +1045,25 @@ class ListRetrievedTracesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class CreateSamplingRuleResultTypeDef(TypedDict):
-    SamplingRuleRecord: SamplingRuleRecordTypeDef
+class GetSamplingTargetsResultTypeDef(TypedDict):
+    SamplingTargetDocuments: List[SamplingTargetDocumentTypeDef]
+    LastRuleModification: datetime
+    UnprocessedStatistics: List[UnprocessedStatisticsTypeDef]
+    UnprocessedBoostStatistics: List[UnprocessedStatisticsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DeleteSamplingRuleResultTypeDef(TypedDict):
-    SamplingRuleRecord: SamplingRuleRecordTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class SamplingRuleRecordTypeDef(TypedDict):
+    SamplingRule: NotRequired[SamplingRuleOutputTypeDef]
+    CreatedAt: NotRequired[datetime]
+    ModifiedAt: NotRequired[datetime]
 
 
-class GetSamplingRulesResultTypeDef(TypedDict):
-    SamplingRuleRecords: List[SamplingRuleRecordTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+SamplingRuleUnionTypeDef = Union[SamplingRuleTypeDef, SamplingRuleOutputTypeDef]
 
 
-class UpdateSamplingRuleResultTypeDef(TypedDict):
-    SamplingRuleRecord: SamplingRuleRecordTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateSamplingRuleRequestTypeDef(TypedDict):
-    SamplingRule: SamplingRuleUnionTypeDef
-    Tags: NotRequired[Sequence[TagTypeDef]]
+class UpdateSamplingRuleRequestTypeDef(TypedDict):
+    SamplingRuleUpdate: SamplingRuleUpdateTypeDef
 
 
 class BatchGetTracesResultTypeDef(TypedDict):
@@ -1130,6 +1136,32 @@ class GetIndexingRulesResultTypeDef(TypedDict):
 class UpdateIndexingRuleResultTypeDef(TypedDict):
     IndexingRule: IndexingRuleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSamplingRuleResultTypeDef(TypedDict):
+    SamplingRuleRecord: SamplingRuleRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteSamplingRuleResultTypeDef(TypedDict):
+    SamplingRuleRecord: SamplingRuleRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSamplingRulesResultTypeDef(TypedDict):
+    SamplingRuleRecords: List[SamplingRuleRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSamplingRuleResultTypeDef(TypedDict):
+    SamplingRuleRecord: SamplingRuleRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSamplingRuleRequestTypeDef(TypedDict):
+    SamplingRule: SamplingRuleUnionTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class GetServiceGraphResultTypeDef(TypedDict):

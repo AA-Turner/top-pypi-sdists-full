@@ -1,9 +1,10 @@
 import asyncio
 import os
 from datetime import datetime
-from pywinauto import Application, timings, findwindows, keyboard
+from pywinauto import Application, timings, findwindows, keyboard, Desktop
 import sys
 import io
+import win32gui
 
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
@@ -59,9 +60,7 @@ async def extracao_saldo_estoque_fiscal(
         # Fecha a instancia do emsys - caso esteja aberta
         await kill_all_emsys()
 
-        app = Application(backend="win32").start(
-            "C:\\Rezende\\EMSys3\\EMSysFiscal_39.exe"
-        )
+        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSysFiscal.exe")
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
@@ -282,105 +281,272 @@ async def extracao_saldo_estoque_fiscal(
 
         await worker_sleep(2)
 
-        # Clicar em salvar
-        caminho = r"assets\\extracao_relatorios\\btn_salvar.png"
-        # Verifica se o arquivo existe
-        if os.path.isfile(caminho):
-            print("A imagem existe:", caminho)
+        max_tentativas = 5
+        tentativa = 1
+        sucesso = False
 
-            # Procura a imagem na tela
-            pos = pyautogui.locateCenterOnScreen(
-                caminho, confidence=0.9
-            )  # ajuste o confidence se necessário
-            if pos:
-                pyautogui.click(pos)  # clica no centro da imagem
-                print("Clique realizado na imagem.")
-            else:
-                print("Imagem encontrada no disco, mas não está visível na tela.")
-        else:
-            print("A imagem NÃO existe:", caminho)
-
-        await worker_sleep(2)
-
-        # Conecta na janela Configuração para Salvar Arquivo
-        app = Application().connect(class_name="TFrmRelatorioFormato", found_index=0)
-        main_window = app["TFrmRelatorioFormato"]
-        main_window.set_focus()
-        # Acessa o ComboBox pelo identificador conhecido
-        combo = main_window.ComboBox
-
-        # Garante que existe "Excel" na lista
-        itens = combo.texts()
-        print("Itens do ComboBox:", itens)
-
-        # Seleciona o Excel correto (o segundo da lista, índice 8)
-        combo.select(8)
-
-        await worker_sleep(2)
-
-        # Clicar em Salvar
-        btn_salvar = main_window.child_window(
-            class_name="TBitBtn", found_index=1
-        ).click_input()
-
-        await worker_sleep(5)
-
-        # Conecta na janela "Salvar para arquivo"
-        app = Application().connect(title_re="Salvar para arquivo", timeout=30)
-        main_window = app.window(title_re="Salvar para arquivo")
-
-        # Campo Nome (Edit) - use set_edit_text para evitar problemas de escape
-        campo_nome = main_window.child_window(
-            class_name="Edit", control_id=1148
-        ).wrapper_object()
+        # defina caminho_arquivo ANTES para não ficar indefinido
         caminho_arquivo = rf"C:\Users\automatehub\Downloads\saldo_estoque_fiscal_{periodo_format}_{filial}.xlsx"
-        campo_nome.set_focus()
-        campo_nome.set_edit_text(caminho_arquivo)
 
-        print("✅ Texto inserido no campo Nome")
+        while tentativa <= max_tentativas and not sucesso:
+            console.print(
+                f"Tentativa {tentativa} de {max_tentativas}", style="bold cyan"
+            )
 
-        await worker_sleep(3)
-       
-        # Clicar em Salvar
-        main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
+            # 1) Abrir o picker pelo botão (imagem)
+            console.print("Procurando botão de salvar (imagem)...", style="bold cyan")
+            caminho_img = r"assets\\extracao_relatorios\\btn_salvar.png"
+            if os.path.isfile(caminho_img):
+                pos = pyautogui.locateCenterOnScreen(caminho_img, confidence=0.9)
+                if pos:
+                    pyautogui.click(pos)
+                    console.print(
+                        "Clique realizado no botão salvar", style="bold green"
+                    )
+                else:
+                    console.print(
+                        "Imagem encontrada mas não está visível na tela",
+                        style="bold yellow",
+                    )
+            else:
+                console.print("Imagem do botão salvar NÃO existe", style="bold red")
 
-        await worker_sleep(5)
+            await worker_sleep(8)
 
-        # Conecta na janela "Salvar para arquivo"
-        app = Application().connect(title_re="Salvar para arquivo", timeout=30)
-        main_window = app.window(title_re="Salvar para arquivo")
+            # 2) Selecionar formato Excel (desambiguando múltiplas TFrmRelatorioFormato)
+            console.print("Selecionando formato Excel...", style="bold cyan")
+            try:
+                desktop = Desktop(backend="win32")
 
-        # Campo Nome (Edit) - use set_edit_text para evitar problemas de escape
-        campo_nome = main_window.child_window(
-            class_name="Edit", control_id=1148
-        ).wrapper_object()
-        caminho_arquivo = f"C:\\Users\\automatehub\\Downloads\\saldo_estoque_fiscal_{periodo_format}_{filial}.xlsx"
-        campo_nome.set_focus()
-        campo_nome.set_edit_text(caminho_arquivo)
+                # Liste todas as visíveis
+                wins_visiveis = desktop.windows(
+                    class_name="TFrmRelatorioFormato", visible_only=True
+                )
+                if not wins_visiveis:
+                    raise RuntimeError("Janela de formato não apareceu.")
 
-        print("✅ Texto inserido no campo Nome")
+                # 2.1) Tente a janela em foco (foreground)
+                h_fore = win32gui.GetForegroundWindow()
+                alvo = None
+                for w in wins_visiveis:
+                    if w.handle == h_fore:
+                        alvo = w
+                        break
 
-        await worker_sleep(2)
+                # 2.2) Se não estiver em foco, pegue a que contém um TComboBox (a 'Configuração para Salvar arq...')
+                if alvo is None:
+                    candidatos = []
+                    for w in wins_visiveis:
+                        try:
+                            if w.child_window(class_name="TComboBox").exists(
+                                timeout=0.8
+                            ):
+                                candidatos.append(w)
+                        except Exception:
+                            pass
+                    if candidatos:
+                        alvo = candidatos[-1]  # a mais recente
+                    else:
+                        alvo = wins_visiveis[-1]  # fallback
 
-        # Clicar em ok para salvar
-        main_window.child_window(class_name="Button", found_index=0).click_input()
+                # Trabalhe via WindowSpecification
+                spec_fmt = desktop.window(handle=alvo.handle)
+                spec_fmt.wait("visible", timeout=10)
+                win_fmt = spec_fmt.wrapper_object()
+                win_fmt.set_focus()
 
-        await worker_sleep(20)
+                # Acessar o ComboBox
+                try:
+                    combo_spec = spec_fmt.child_window(class_name="TComboBox")
+                except Exception:
+                    combo_spec = spec_fmt.child_window(control_type="ComboBox")
+                combo_spec.wait("exists enabled", timeout=10)
+                combo = combo_spec.wrapper_object()
 
-        # caminho_img = r"assets\\extracao_relatorios\\janela_printing.png"
+                textos = combo.texts()
+                console.print(f"Itens do ComboBox: {textos}", style="bold yellow")
 
-        # Aguarda até a janela com título "Printing" (ou "Salvando...") fechar
+                # Seleção por índice conhecido; fallback por texto
+                try:
+                    combo.select(8)
+                except Exception:
+                    alvo_idx = None
+                    for i, t in enumerate(textos):
+                        if "EXCEL" in str(t).upper() or "XLSX" in str(t).upper():
+                            alvo_idx = i
+                            break
+                    if alvo_idx is None:
+                        console.print(
+                            "Não foi possível localizar a opção de Excel no ComboBox.",
+                            style="bold red",
+                        )
+                        tentativa += 1
+                        await worker_sleep(2)
+                        continue
+                    combo.select(alvo_idx)
 
-        try:
-            app = Application().connect(title_re="Printing")  # conecta se existir
-            janela = app.window(title_re="Printing")
+                await worker_sleep(1)
 
-            print("⏳ Aguardando a janela 'Printing' sumir...")
-            janela.wait_not("visible", timeout=60)  # espera até 60 segundos
-            print("✅ Janela 'Printing' fechada.")
+                # Clique em OK
+                btn_ok_spec = spec_fmt.child_window(class_name="TBitBtn", found_index=1)
+                btn_ok_spec.wait("enabled", timeout=5)
+                btn_ok_spec.click_input()
 
-        except findwindows.ElementNotFoundError:
-            print("⚠️ Janela 'Printing' não estava aberta.")
+                # Aguarde a janela de formato desaparecer
+                try:
+                    spec_fmt.wait_not("visible", timeout=10)
+                except Exception:
+                    pass
+
+                # Feche possíveis duplicatas remanescentes (defensivo)
+                for w in desktop.windows(
+                    class_name="TFrmRelatorioFormato", visible_only=True
+                ):
+                    if w.handle != alvo.handle:
+                        try:
+                            w.close()
+                        except Exception:
+                            pass
+
+            except Exception as e:
+                console.print(f"Falha ao selecionar formato: {e}", style="bold red")
+                tentativa += 1
+                await worker_sleep(3)
+                continue
+
+            await worker_sleep(5)
+
+            # 3) Janela "Salvar para arquivo"
+            console.print("Abrindo janela de salvar arquivo...", style="bold cyan")
+            try:
+                app_save = Application(backend="win32").connect(
+                    title_re="Salvar para arquivo|Salvar como|Save As", timeout=30
+                )
+                spec_save = app_save.window(
+                    title_re="Salvar para arquivo|Salvar como|Save As"
+                )
+                spec_save.wait("visible", timeout=30)
+                win_save = spec_save.wrapper_object()
+            except Exception as e:
+                console.print(
+                    f"Não achou a janela 'Salvar para arquivo': {e}", style="bold red"
+                )
+                tentativa += 1
+                await worker_sleep(3)
+                continue
+
+            # 3.1) Remover arquivo pré-existente
+            if os.path.exists(caminho_arquivo):
+                try:
+                    os.remove(caminho_arquivo)
+                    console.print(
+                        "Arquivo existente removido para evitar prompt de sobrescrita.",
+                        style="bold yellow",
+                    )
+                except Exception as e:
+                    console.print(
+                        f"Não foi possível remover o arquivo existente: {e}",
+                        style="bold red",
+                    )
+
+            # 3.2) Preencher nome e salvar
+            try:
+                campo_spec = spec_save.child_window(class_name="Edit", control_id=1148)
+                campo_spec.wait("exists enabled visible", timeout=10)
+                campo_nome = campo_spec.wrapper_object()
+                campo_nome.set_focus()
+                try:
+                    campo_nome.set_edit_text("")
+                except Exception:
+                    campo_nome.type_keys("^a{DELETE}", pause=0.02)
+
+                campo_nome.type_keys(caminho_arquivo, with_spaces=True, pause=0.01)
+                console.print(
+                    f"Arquivo configurado para: {caminho_arquivo}", style="bold green"
+                )
+
+                await worker_sleep(1)
+
+                btn_salvar_spec = spec_save.child_window(
+                    class_name="Button", found_index=0
+                )
+                btn_salvar_spec.wait("enabled", timeout=10)
+                btn_salvar_spec.click_input()
+
+                # Esperar a janela sumir
+                try:
+                    spec_save.wait_not("visible", timeout=15)
+                except Exception:
+                    pass
+
+            except Exception as e:
+                console.print(f"Erro ao confirmar salvar: {e}", style="bold red")
+                tentativa += 1
+                await worker_sleep(3)
+                continue
+
+            await worker_sleep(2)
+
+            # 3.3) Confirmar sobrescrita (se houver)
+            try:
+                app_conf = Application(backend="win32").connect(
+                    title_re="Confirm(ar)?( )?Salvar( )?Como|Confirm Save As", timeout=3
+                )
+                spec_conf = app_conf.window(
+                    title_re="Confirm(ar)?( )?Salvar( )?Como|Confirm Save As"
+                )
+                spec_conf.wait("visible", timeout=3)
+                spec_conf.child_window(class_name="Button", found_index=0).click_input()
+                console.print(
+                    "Confirmação de sobrescrita respondida.", style="bold yellow"
+                )
+            except Exception:
+                pass
+
+            await worker_sleep(2)
+
+            # 4) Aguardar 'Printing' (se existir)
+            console.print(
+                "Aguardando finalização do processo de impressão/salvamento...",
+                style="bold cyan",
+            )
+            try:
+                app_print = Application(backend="win32").connect(
+                    title_re="Printing", timeout=5
+                )
+                spec_print = app_print.window(title_re="Printing")
+                try:
+                    spec_print.wait_not("visible", timeout=60)
+                    console.print("Janela 'Printing' fechada.", style="bold green")
+                except Exception:
+                    console.print(
+                        "Janela 'Printing' não fechou no tempo esperado. Seguindo.",
+                        style="bold yellow",
+                    )
+            except findwindows.ElementNotFoundError:
+                console.print("Janela 'Printing' não apareceu.", style="bold yellow")
+            except Exception as e:
+                console.print(f"Erro ao aguardar 'Printing': {e}", style="bold yellow")
+
+            # 5) Validar arquivo salvo
+            if os.path.exists(caminho_arquivo):
+                console.print(
+                    f"Arquivo encontrado: {caminho_arquivo}", style="bold green"
+                )
+                with open(caminho_arquivo, "rb") as f:
+                    file_bytes = io.BytesIO(f.read())
+                sucesso = True
+            else:
+                console.print(
+                    "Arquivo não encontrado, tentando novamente...", style="bold red"
+                )
+                tentativa += 1
+                await worker_sleep(3)
+
+        if not sucesso:
+            console.print(
+                "Falha após 5 tentativas. Arquivo não foi gerado.", style="bold red"
+            )
 
         nome_com_extensao = f"saldo_estoque_fiscal_{periodo_format}_{filial}.xlsx"
         # lê o arquivo

@@ -49,6 +49,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     extract_layout: typing.Optional[bool]
     high_res_ocr: typing.Optional[bool]
     html_make_all_elements_visible: typing.Optional[bool]
+    layout_aware: typing.Optional[bool]
     html_remove_navigation_elements: typing.Optional[bool]
     html_remove_fixed_elements: typing.Optional[bool]
     guess_xlsx_sheet_name: typing.Optional[bool]

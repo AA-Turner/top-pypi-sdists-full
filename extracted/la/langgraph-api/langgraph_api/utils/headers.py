@@ -59,6 +59,14 @@ def should_include_header(key: str) -> bool:
     Returns:
         True if the header should be included, False otherwise
     """
+    if (
+        key == "x-api-key"
+        or key == "x-service-key"
+        or key == "x-tenant-id"
+        or key == "authorization"
+    ):
+        return False
+
     include_patterns, exclude_patterns = get_header_patterns("configurable_headers")
 
     return pattern_matches(key, include_patterns, exclude_patterns)

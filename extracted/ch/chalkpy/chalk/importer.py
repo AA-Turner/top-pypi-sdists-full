@@ -1185,6 +1185,12 @@ def import_all_python_files_from_dir(
             module_path = py_path_to_module(filename, resolved_root)
             if module_path.startswith(".eggs") or module_path.startswith("venv") or filename.name == "setup.py":
                 continue
+            if str(filename) in CHALK_IMPORTER.errors:
+                previous_errored_file = CHALK_IMPORTER.errors[str(filename)].filename
+                _logger.warning(
+                    f"Skipping import of '{filename} because it already resulted in an error while importing file '{previous_errored_file}'"
+                )
+                continue
             try:
                 start = time.perf_counter()
                 importlib.import_module(module_path)

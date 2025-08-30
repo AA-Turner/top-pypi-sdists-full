@@ -21,6 +21,7 @@ from .awslambda import (
     ProvisionedConcurrencyConfiguration,
     ProvisionedPollerConfig,
     RuntimeManagementConfig,
+    SchemaRegistryConfig,
     SnapStart,
     SourceAccessConfiguration,
     VPCConfig,
@@ -319,16 +320,6 @@ class Auth(AWSProperty):
         "DefaultAuthorizer": (str, False),
         "InvokeRole": (str, False),
         "ResourcePolicy": (ResourcePolicyStatement, False),
-    }
-
-
-class Cors(AWSProperty):
-    props: PropsDictType = {
-        "AllowCredentials": (str, False),
-        "AllowHeaders": (str, False),
-        "AllowMethods": (str, False),
-        "AllowOrigin": (str, True),
-        "MaxAge": (str, False),
     }
 
 
@@ -738,11 +729,14 @@ class MSKEvent(AWSObject):
     resource_type = "MSK"
 
     props: PropsDictType = {
+        "BatchSize": (positive_integer, False),
         "ConsumerGroupId": (str, False),
         "DestinationConfig": (DestinationConfig, False),
         "FilterCriteria": (FilterCriteria, False),
+        "KmsKeyArn": (str, False),
         "MaximumBatchingWindowInSeconds": (integer, False),
         "ProvisionedPollerConfig": (ProvisionedPollerConfig, False),
+        "SchemaRegistryConfig": (SchemaRegistryConfig, False),
         "SourceAccessConfigurations": ([SourceAccessConfiguration], False),
         "StartingPosition": (str, True),
         "StartingPositionTimestamp": (double, False),

@@ -237,7 +237,7 @@ class ClientVpnEndpoint(AWSObject):
 
     props: PropsDictType = {
         "AuthenticationOptions": ([ClientAuthenticationRequest], True),
-        "ClientCidrBlock": (str, True),
+        "ClientCidrBlock": (str, False),
         "ClientConnectOptions": (ClientConnectOptions, False),
         "ClientLoginBannerOptions": (ClientLoginBannerOptions, False),
         "ClientRouteEnforcementOptions": (ClientRouteEnforcementOptions, False),
@@ -1002,11 +1002,11 @@ class CreditSpecification(AWSProperty):
 
 class ElasticGpuSpecification(AWSProperty):
     """
-    `ElasticGpuSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-elasticgpuspecification.html>`__
+    `ElasticGpuSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance-elasticgpuspecification.html>`__
     """
 
     props: PropsDictType = {
-        "Type": (str, False),
+        "Type": (str, True),
     }
 
 
@@ -1253,6 +1253,19 @@ class InternetGateway(AWSObject):
 
     props: PropsDictType = {
         "Tags": (validate_tags_or_list, False),
+    }
+
+
+class IpPoolRouteTableAssociation(AWSObject):
+    """
+    `IpPoolRouteTableAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-ippoolroutetableassociation.html>`__
+    """
+
+    resource_type = "AWS::EC2::IpPoolRouteTableAssociation"
+
+    props: PropsDictType = {
+        "PublicIpv4Pool": (str, True),
+        "RouteTableId": (str, True),
     }
 
 
@@ -1516,17 +1529,6 @@ class LaunchTemplateCreditSpecification(AWSProperty):
     }
 
 
-class LaunchTemplateElasticInferenceAccelerator(AWSProperty):
-    """
-    `LaunchTemplateElasticInferenceAccelerator <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplateelasticinferenceaccelerator.html>`__
-    """
-
-    props: PropsDictType = {
-        "Count": (integer, False),
-        "Type": (validate_elasticinferenceaccelerator_type, False),
-    }
-
-
 class MaintenanceOptions(AWSProperty):
     """
     `MaintenanceOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-maintenanceoptions.html>`__
@@ -1601,6 +1603,7 @@ class NetworkInterfaces(AWSProperty):
         "DeleteOnTermination": (boolean, False),
         "Description": (str, False),
         "DeviceIndex": (integer, False),
+        "EnaQueueCount": (integer, False),
         "EnaSrdSpecification": (EnaSrdSpecification, False),
         "Groups": ([str], False),
         "InterfaceType": (str, False),
@@ -1643,11 +1646,6 @@ class LaunchTemplateData(AWSProperty):
         "DisableApiStop": (boolean, False),
         "DisableApiTermination": (boolean, False),
         "EbsOptimized": (boolean, False),
-        "ElasticGpuSpecifications": ([ElasticGpuSpecification], False),
-        "ElasticInferenceAccelerators": (
-            [LaunchTemplateElasticInferenceAccelerator],
-            False,
-        ),
         "EnclaveOptions": (EnclaveOptions, False),
         "HibernationOptions": (HibernationOptions, False),
         "IamInstanceProfile": (IamInstanceProfile, False),
@@ -1761,7 +1759,7 @@ class NatGateway(AWSObject):
         "SecondaryAllocationIds": ([str], False),
         "SecondaryPrivateIpAddressCount": (integer, False),
         "SecondaryPrivateIpAddresses": ([str], False),
-        "SubnetId": (str, True),
+        "SubnetId": (str, False),
         "Tags": (validate_tags_or_list, False),
     }
 
@@ -2689,6 +2687,7 @@ class TrafficMirrorSession(AWSObject):
     props: PropsDictType = {
         "Description": (str, False),
         "NetworkInterfaceId": (str, True),
+        "OwnerId": (str, False),
         "PacketLength": (integer, False),
         "SessionNumber": (integer, True),
         "Tags": (Tags, False),
@@ -2788,6 +2787,48 @@ class TransitGatewayConnect(AWSObject):
         "Options": (TransitGatewayConnectOptions, True),
         "Tags": (Tags, False),
         "TransportTransitGatewayAttachmentId": (str, True),
+    }
+
+
+class TransitGatewayAttachmentBgpConfiguration(AWSProperty):
+    """
+    `TransitGatewayAttachmentBgpConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-transitgatewayconnectpeer-transitgatewayattachmentbgpconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BgpStatus": (str, False),
+        "PeerAddress": (str, False),
+        "PeerAsn": (double, False),
+        "TransitGatewayAddress": (str, False),
+        "TransitGatewayAsn": (double, False),
+    }
+
+
+class TransitGatewayConnectPeerConfiguration(AWSProperty):
+    """
+    `TransitGatewayConnectPeerConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-transitgatewayconnectpeer-transitgatewayconnectpeerconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BgpConfigurations": ([TransitGatewayAttachmentBgpConfiguration], False),
+        "InsideCidrBlocks": ([str], True),
+        "PeerAddress": (str, True),
+        "Protocol": (str, False),
+        "TransitGatewayAddress": (str, False),
+    }
+
+
+class TransitGatewayConnectPeer(AWSObject):
+    """
+    `TransitGatewayConnectPeer <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewayconnectpeer.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayConnectPeer"
+
+    props: PropsDictType = {
+        "ConnectPeerConfiguration": (TransitGatewayConnectPeerConfiguration, True),
+        "Tags": (Tags, False),
+        "TransitGatewayAttachmentId": (str, True),
     }
 
 
@@ -3286,6 +3327,7 @@ class VPNConnection(AWSObject):
         "LocalIpv4NetworkCidr": (str, False),
         "LocalIpv6NetworkCidr": (str, False),
         "OutsideIpAddressType": (str, False),
+        "PreSharedKeyStorage": (str, False),
         "RemoteIpv4NetworkCidr": (str, False),
         "RemoteIpv6NetworkCidr": (str, False),
         "StaticRoutesOnly": (boolean, False),

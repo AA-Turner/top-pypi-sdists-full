@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fastembed
-Version: 0.7.2
+Version: 0.7.3
 Summary: Fast, light, accurate library built for retrieval embedding generation
 License: Apache License
 Keywords: vector,embedding,neural,search,qdrant,sentence-transformers

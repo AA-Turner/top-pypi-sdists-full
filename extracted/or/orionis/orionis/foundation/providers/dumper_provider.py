@@ -1,5 +1,5 @@
-from orionis.console.dumper.dump import Debug
-from orionis.console.contracts.dump import IDebug
+from orionis.console.dumper.debug import Debug
+from orionis.console.contracts.debug import IDebug
 from orionis.container.providers.service_provider import ServiceProvider
 
 class DumperProvider(ServiceProvider):

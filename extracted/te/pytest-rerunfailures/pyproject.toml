@@ -9,7 +9,7 @@ ignore = [".pre-commit-config.yaml"]
 
 [project]
 name = "pytest-rerunfailures"
-version = "15.1"
+version = "16.0"
 description = "pytest plugin to re-run tests to eliminate flaky failures"
 dynamic = [
   "readme",
@@ -36,6 +36,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Software Development :: Quality Assurance",

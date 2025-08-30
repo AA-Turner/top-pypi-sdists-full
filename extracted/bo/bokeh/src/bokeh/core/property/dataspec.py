@@ -38,6 +38,7 @@ from .instance import Instance
 from .nothing import Nothing
 from .nullable import Nullable
 from .primitive import (
+    Bool,
     Float,
     Int,
     Null,
@@ -71,6 +72,7 @@ if TYPE_CHECKING:
 __all__ = (
     'AlphaSpec',
     'AngleSpec',
+    'BoolSpec',
     'ColorSpec',
     'DashPatternSpec',
     'DataSpec',
@@ -245,6 +247,10 @@ class DataSpec(Either):
 
         return val
 
+class BoolSpec(DataSpec):
+    def __init__(self, default, *, help: str | None = None) -> None:
+        super().__init__(Bool, default=default, help=help)
+
 class IntSpec(DataSpec):
     def __init__(self, default, *, help: str | None = None) -> None:
         super().__init__(Int, default=default, help=help)
@@ -345,7 +351,7 @@ class FontSizeSpec(DataSpec):
         super().validate(value, detail)
 
         if isinstance(value, str):
-            if len(value) == 0 or value[0].isdigit() and not CSS_LENGTH_RE.match(value):
+            if len(value) == 0 or (value[0].isdigit() and not CSS_LENGTH_RE.match(value)):
                 msg = "" if not detail else f"{value!r} is not a valid font size value"
                 raise ValueError(msg)
 

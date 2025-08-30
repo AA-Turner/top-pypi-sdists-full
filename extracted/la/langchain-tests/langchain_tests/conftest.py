@@ -1,3 +1,5 @@
+"""Pytest conftest."""
+
 import gzip
 from os import PathLike
 from pathlib import Path
@@ -42,7 +44,7 @@ class CustomSerializer:
 
 
 class CustomPersister:
-    """A custom persister for VCR that uses the CustomSerializer."""
+    """A custom persister for VCR that uses the ``CustomSerializer``."""
 
     @classmethod
     def load_cassette(
@@ -52,9 +54,8 @@ class CustomPersister:
         # If cassette path is already Path this is a no-op
         cassette_path = Path(cassette_path)
         if not cassette_path.is_file():
-            raise CassetteNotFoundError(
-                f"Cassette file {cassette_path} does not exist."
-            )
+            msg = f"Cassette file {cassette_path} does not exist."
+            raise CassetteNotFoundError(msg)
         with cassette_path.open(mode="rb") as f:
             data = f.read()
         deser = serializer.deserialize(data)
@@ -89,9 +90,9 @@ _BASE_FILTER_HEADERS = [
 
 @pytest.fixture(scope="session")
 def _base_vcr_config() -> dict:
-    """Configuration that every cassette will receive.
+    """Return VCR configuration that every cassette will receive.
 
-    (Anything permitted by vcr.VCR(**kwargs) can be put here.)
+    (Anything permitted by ``vcr.VCR(**kwargs)`` can be put here.)
     """
     return {
         "record_mode": "once",
@@ -106,4 +107,5 @@ def _base_vcr_config() -> dict:
 
 @pytest.fixture(scope="session")
 def vcr_config(_base_vcr_config: dict) -> dict:
+    """VCR config fixture."""
     return _base_vcr_config

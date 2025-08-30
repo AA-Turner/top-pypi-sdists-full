@@ -1,3 +1,4 @@
+export declare function iter<T>(obj: T | Iterable<T>): Iterable<T>;
 export declare function range(start: number, stop?: number, step?: number): Iterable<number>;
 export declare function reverse<T>(array: T[]): Iterable<T>;
 export declare function enumerate<T>(seq: Iterable<T>): Iterable<[T, number]>;

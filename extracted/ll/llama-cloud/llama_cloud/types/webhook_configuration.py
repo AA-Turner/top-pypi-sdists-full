@@ -23,6 +23,7 @@ class WebhookConfiguration(pydantic.BaseModel):
     webhook_url: typing.Optional[str]
     webhook_headers: typing.Optional[typing.Dict[str, typing.Optional[str]]]
     webhook_events: typing.Optional[typing.List[WebhookConfigurationWebhookEventsItem]]
+    webhook_output_format: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

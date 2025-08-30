@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
+    CreateModelTrainingJobRequest,
+    CreateModelTrainingJobResponse,
     CreateOfflineQueryJobRequest,
     CreateOfflineQueryJobResponse,
     GetOfflineQueryRequest,
@@ -49,6 +51,10 @@ class OfflineQueryMetadataServiceStub:
         CreateOfflineQueryJobRequest,
         CreateOfflineQueryJobResponse,
     ]
+    CreateModelTrainingJob: UnaryUnaryMultiCallable[
+        CreateModelTrainingJobRequest,
+        CreateModelTrainingJobResponse,
+    ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -80,6 +86,12 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: CreateOfflineQueryJobRequest,
         context: ServicerContext,
     ) -> CreateOfflineQueryJobResponse: ...
+    @abstractmethod
+    def CreateModelTrainingJob(
+        self,
+        request: CreateModelTrainingJobRequest,
+        context: ServicerContext,
+    ) -> CreateModelTrainingJobResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

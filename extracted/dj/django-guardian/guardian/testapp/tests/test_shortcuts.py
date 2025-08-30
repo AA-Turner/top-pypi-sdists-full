@@ -6,13 +6,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.query import QuerySet
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 
 from guardian.compat import get_user_permission_full_codename
 from guardian.core import ObjectPermissionChecker
 from guardian.exceptions import MixedContentTypeError, MultipleIdentityAndObjectError, NotUserNorGroup, WrongAppError
 from guardian.models import Group, Permission
 from guardian.shortcuts import (
+    _get_ct_cached,
     assign,
     assign_perm,
     get_group_perms,
@@ -354,7 +355,33 @@ class GetUsersWithPermsTest(TestCase):
             {user.username for user in (self.user1, self.user2)},
         )
 
-    def test_only_with_perms_in(self):
+    def test_only_with_perms_in_groups(self):
+        assign_perm("change_contenttype", self.group1, self.obj1)
+        assign_perm("delete_contenttype", self.group2, self.obj1)
+        assign_perm("delete_contenttype", self.group3, self.obj2)
+
+        result = get_groups_with_perms(self.obj1, only_with_perms_in=("change_contenttype",))
+        result_vals = result.values_list("name", flat=True)
+
+        self.assertEqual(
+            set(result_vals),
+            {self.group1.name},
+        )
+
+    def test_only_with_perms_in_groups_attached(self):
+        assign_perm("change_contenttype", self.group1, self.obj1)
+        assign_perm("change_contenttype", self.group2, self.obj1)
+        assign_perm("delete_contenttype", self.group2, self.obj1)
+        assign_perm("delete_contenttype", self.group3, self.obj2)
+
+        result = get_groups_with_perms(self.obj1, only_with_perms_in=("delete_contenttype",), attach_perms=True)
+
+        expected = {self.group2: ("change_contenttype", "delete_contenttype")}
+        self.assertEqual(result.keys(), expected.keys())
+        for key, perms in result.items():
+            self.assertEqual(set(perms), set(expected[key]))
+
+    def test_only_with_perms_in_users(self):
         assign_perm("change_contenttype", self.user1, self.obj1)
         assign_perm("delete_contenttype", self.user2, self.obj1)
         assign_perm("delete_contenttype", self.user3, self.obj2)
@@ -367,7 +394,7 @@ class GetUsersWithPermsTest(TestCase):
             {self.user1.username},
         )
 
-    def test_only_with_perms_in_and_with_group_users(self):
+    def test_only_with_perms_in_users_with_group_users(self):
         self.user1.groups.add(self.group1)
         self.user2.groups.add(self.group2)
         self.user3.groups.add(self.group3)
@@ -387,7 +414,7 @@ class GetUsersWithPermsTest(TestCase):
             {self.user1.username, self.user2.username},
         )
 
-    def test_only_with_perms_in_and_not_with_group_users(self):
+    def test_only_with_perms_in_users_without_group_users(self):
         self.user1.groups.add(self.group1)
         self.user2.groups.add(self.group2)
         self.user3.groups.add(self.group3)
@@ -410,7 +437,7 @@ class GetUsersWithPermsTest(TestCase):
             {self.user2.username},
         )
 
-    def test_only_with_perms_in_attached(self):
+    def test_only_with_perms_in_users_attached(self):
         assign_perm("change_contenttype", self.user1, self.obj1)
         assign_perm("change_contenttype", self.user2, self.obj1)
         assign_perm("delete_contenttype", self.user2, self.obj1)
@@ -1258,3 +1285,37 @@ class GetObjectsForGroup(TestCase):
         self.assertRaises(
             MixedContentTypeError, get_objects_for_group, self.group1, ["auth.change_permission", "auth.change_group"]
         )
+
+
+class ContentTypeCacheMixin:
+    def test_first_access(self):
+        shortcut_ct = _get_ct_cached("auth", "change_permission")
+        ct = ContentType.objects.get_by_natural_key("auth", "permission")
+        self.assertEqual(ct, shortcut_ct)
+
+        with self.assertNumQueries(0):
+            cached_ct_shortcut = _get_ct_cached("auth", "change_permission")
+            cached_ct = ContentType.objects.get_by_natural_key("auth", "permission")
+        self.assertEqual(cached_ct, cached_ct_shortcut)
+        self.assertIs(ct, cached_ct)
+        self.assertIs(shortcut_ct, cached_ct_shortcut)
+
+    def test_second_access(self):
+        shortcut_ct = _get_ct_cached("auth", "change_permission")
+        ct = ContentType.objects.get_by_natural_key("auth", "permission")
+        self.assertEqual(ct, shortcut_ct)
+
+        with self.assertNumQueries(0):
+            cached_ct_shortcut = _get_ct_cached("auth", "change_permission")
+            cached_ct = ContentType.objects.get_by_natural_key("auth", "permission")
+        self.assertEqual(cached_ct, cached_ct_shortcut)
+        self.assertIs(ct, cached_ct)
+        self.assertIs(shortcut_ct, cached_ct_shortcut)
+
+
+class ContentTypeCacheTestCase(ContentTypeCacheMixin, TestCase):
+    """Test cache against TestCase"""
+
+
+class ContentTypeCacheTransactionTestCase(ContentTypeCacheMixin, TransactionTestCase):
+    """Test cache against TransactionTestCase"""

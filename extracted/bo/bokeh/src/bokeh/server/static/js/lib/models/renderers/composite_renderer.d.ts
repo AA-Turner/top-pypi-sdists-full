@@ -4,8 +4,8 @@ import { DOMNode } from "../dom/dom_node";
 import type { ViewStorage, BuildResult, IterViews, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import type { Context2d } from "../../core/util/canvas";
-declare const ElementLike: import("../../core/kinds").Kinds.Or<[UIElement, DOMNode]>;
-type ElementLike = typeof ElementLike["__type__"];
+export declare const ElementLike: import("../../core/kinds").Kinds.Or<[UIElement, DOMNode]>;
+export type ElementLike = typeof ElementLike["__type__"];
 export declare abstract class CompositeRendererView extends RendererView {
     model: CompositeRenderer;
     protected readonly _renderer_views: ViewStorage<Renderer>;
@@ -24,9 +24,9 @@ export declare abstract class CompositeRendererView extends RendererView {
     protected _build_elements(): Promise<BuildResult<ElementLike>>;
     protected _update_renderers(): Promise<void>;
     protected _update_elements(): Promise<void>;
+    render(): void;
     remove(): void;
     connect_signals(): void;
-    private _has_rendered_elements;
     paint(ctx: Context2d): void;
     has_finished(): boolean;
 }
@@ -45,5 +45,4 @@ export declare abstract class CompositeRenderer extends Renderer {
     __view_type__: CompositeRendererView;
     constructor(attrs?: Partial<CompositeRenderer.Attrs>);
 }
-export {};
 //# sourceMappingURL=composite_renderer.d.ts.map

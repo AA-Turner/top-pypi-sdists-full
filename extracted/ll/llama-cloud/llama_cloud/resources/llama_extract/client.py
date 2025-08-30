@@ -470,6 +470,7 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractJobCreate,
+            ExtractJobCreatePriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -480,6 +481,7 @@ class LlamaExtractClient:
         )
         client.llama_extract.run_job(
             request=ExtractJobCreate(
+                priority=ExtractJobCreatePriority.LOW,
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
@@ -560,6 +562,7 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractJobCreate,
+            ExtractJobCreatePriority,
             ExtractMode,
             ExtractTarget,
             FailPageMode,
@@ -576,6 +579,7 @@ class LlamaExtractClient:
         )
         client.llama_extract.run_job_test_user(
             job_create=ExtractJobCreate(
+                priority=ExtractJobCreatePriority.LOW,
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
@@ -1463,6 +1467,7 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractJobCreate,
+            ExtractJobCreatePriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -1473,6 +1478,7 @@ class AsyncLlamaExtractClient:
         )
         await client.llama_extract.run_job(
             request=ExtractJobCreate(
+                priority=ExtractJobCreatePriority.LOW,
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
@@ -1553,6 +1559,7 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractJobCreate,
+            ExtractJobCreatePriority,
             ExtractMode,
             ExtractTarget,
             FailPageMode,
@@ -1569,6 +1576,7 @@ class AsyncLlamaExtractClient:
         )
         await client.llama_extract.run_job_test_user(
             job_create=ExtractJobCreate(
+                priority=ExtractJobCreatePriority.LOW,
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(

@@ -450,6 +450,7 @@ class Client:
         "otel_exporter",
         "_otel_trace",
         "_set_span_in_context",
+        "_max_batch_size_bytes",
     ]
 
     _api_key: Optional[str]
@@ -482,6 +483,7 @@ class Client:
         otel_enabled: Optional[bool] = None,
         tracing_sampling_rate: Optional[float] = None,
         workspace_id: Optional[str] = None,
+        max_batch_size_bytes: Optional[int] = None,
     ) -> None:
         """Initialize a Client instance.
 
@@ -534,6 +536,8 @@ class Client:
                 Should be a float between 0 and 1, where 1 means trace everything
                 and 0 means trace nothing.
             workspace_id (Optional[str]): The workspace ID. Required for org-scoped API keys.
+            max_batch_size_bytes (Optional[int]): The maximum size of a batch of runs in bytes.
+                If not provided, the default is set by the server.
 
         Raises:
             LangSmithUserError: If the API key is not provided when using the hosted service.
@@ -559,7 +563,7 @@ class Client:
         )
         # Initialize workspace attribute first
         self._workspace_id = ls_utils.get_workspace_id(workspace_id)
-        
+
         if self._write_api_urls:
             self.api_url = next(iter(self._write_api_urls))
             self.api_key = self._write_api_urls[self.api_url]
@@ -593,6 +597,7 @@ class Client:
         self._run_ops_buffer: list[tuple[str, dict]] = []
         self._run_ops_buffer_lock = threading.Lock()
         self.otel_exporter: Optional[OTELExporter] = None
+        self._max_batch_size_bytes = max_batch_size_bytes
 
         # Initialize auto batching
         if auto_batch_tracing:
@@ -840,7 +845,7 @@ class Client:
         bic = info.batch_ingest_config
         if not bic:
             return None
-        size_limit = bic.get("size_limit_bytes")
+        size_limit = self._max_batch_size_bytes or bic.get("size_limit_bytes")
         if size_limit is None:
             return None
         if content_length > size_limit:
@@ -977,7 +982,7 @@ class Client:
                             raise ls_utils.LangSmithConflictError(
                                 f"Conflict for {pathname}. {repr(e)}{_context}"
                             )
-                        elif (response.status_code == 403):
+                        elif response.status_code == 403:
                             try:
                                 error_data = response.json()
                                 error_code = error_data.get("error", "")
@@ -1763,9 +1768,11 @@ class Client:
 
         # send the requests in batches
         info = self.info
-        size_limit_bytes = (info.batch_ingest_config or {}).get(
-            "size_limit_bytes"
-        ) or _SIZE_LIMIT_BYTES
+        size_limit_bytes = (
+            self._max_batch_size_bytes
+            or (info.batch_ingest_config or {}).get("size_limit_bytes")
+            or _SIZE_LIMIT_BYTES
+        )
 
         body_chunks: collections.defaultdict[str, list] = collections.defaultdict(list)
         context_ids: collections.defaultdict[str, list] = collections.defaultdict(list)

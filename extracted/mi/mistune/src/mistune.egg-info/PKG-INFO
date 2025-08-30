@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mistune
-Version: 3.1.3
+Version: 3.1.4
 Summary: A sane and fast Markdown parser with useful plugins and renderers
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -28,6 +28,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.11"
+Dynamic: license-file
 
 Mistune v3
 ==========

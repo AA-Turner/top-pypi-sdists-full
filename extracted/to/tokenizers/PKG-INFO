@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokenizers
-Version: 0.21.4
+Version: 0.22.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: huggingface-hub>=0.16.4,<1.0
 Requires-Dist: pytest ; extra == 'testing'
+Requires-Dist: pytest-asyncio ; extra == 'testing'
 Requires-Dist: requests ; extra == 'testing'
 Requires-Dist: numpy ; extra == 'testing'
 Requires-Dist: datasets ; extra == 'testing'

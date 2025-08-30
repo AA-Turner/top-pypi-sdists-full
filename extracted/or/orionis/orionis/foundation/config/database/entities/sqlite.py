@@ -126,7 +126,7 @@ class SQLite(BaseEntity):
 
         # Validate database
         if not isinstance(self.database, str) or not self.database.strip():
-            raise OrionisIntegrityException(f"Invalid 'database': must be a non-empty string representing the database file path.")
+            raise OrionisIntegrityException("Invalid 'database': must be a non-empty string representing the database file path.")
 
         # Validate prefix
         if not isinstance(self.prefix, str):

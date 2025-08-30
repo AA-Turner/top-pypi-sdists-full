@@ -5486,6 +5486,29 @@ class AIMessageInput(sgqlc.types.Input):
     """The mcons for the tables added in this message"""
 
 
+class AgentSpanFieldFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("value",)
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """Filter value. If null, filters for null values."""
+
+
+class AgentSpanFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("agent", "workflow", "task", "span_name")
+    agent = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="agent")
+    """Filter by agent field. If omitted, no filter on agent."""
+
+    workflow = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="workflow")
+    """Filter by workflow field. If omitted, no filter on workflow."""
+
+    task = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="task")
+    """Filter by task field. If omitted, no filter on task."""
+
+    span_name = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="spanName")
+    """Filter by span_name field. If omitted, no filter on span_name."""
+
+
 class AggregateInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("by", "time_axis")
@@ -7626,6 +7649,14 @@ class MonitorRecommendationsInput(sgqlc.types.Input):
     VALIDATION, METRIC and for AI_VALIDATION is VALIDATION,
     SEGMENTATION, REGEX
     """
+
+
+class MonitorSamplingConfigInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("percentage", "count")
+    percentage = sgqlc.types.Field(Float, graphql_name="percentage")
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
 
 
 class MonitorSelectExpressionInput(sgqlc.types.Input):
@@ -15395,7 +15426,13 @@ class ConvertUiMonitorsToConfigTemplateOutput(sgqlc.types.Type):
     """Convert monitors to config template response"""
 
     __schema__ = schema
-    __field_names__ = ("monitors", "config_template_as_yaml", "config_template_as_dict", "errors")
+    __field_names__ = (
+        "monitors",
+        "config_template_as_yaml",
+        "config_template_as_dict",
+        "errors",
+        "warnings",
+    )
     monitors = sgqlc.types.Field(sgqlc.types.list_of("UserDefinedMonitor"), graphql_name="monitors")
     """Converted monitors"""
 
@@ -15407,6 +15444,9 @@ class ConvertUiMonitorsToConfigTemplateOutput(sgqlc.types.Type):
 
     errors = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="errors")
     """Errors encountered"""
+
+    warnings = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="warnings")
+    """Warnings encountered"""
 
 
 class CorrelationSamplingMetadata(sgqlc.types.Type):
@@ -15599,6 +15639,17 @@ class CreateOrUpdateAgent(sgqlc.types.Type):
         "TestCredentialsV2Response", graphql_name="validationResult"
     )
     """Result validating the provided parameters."""
+
+
+class CreateOrUpdateAgentMonitor(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agent_monitor", "queries")
+    agent_monitor = sgqlc.types.Field("MetricMonitoring", graphql_name="agentMonitor")
+
+    queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
+    )
+    """SQL queries that will be run by the monitor on each execution."""
 
 
 class CreateOrUpdateAlationIntegration(sgqlc.types.Type):
@@ -24082,6 +24133,14 @@ class MonitorRecommendationsResponse(sgqlc.types.Type):
     )
 
 
+class MonitorSamplingConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("percentage", "count")
+    percentage = sgqlc.types.Field(Float, graphql_name="percentage")
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+
+
 class MonitorSchedulingConfiguration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("schedule_type", "interval_minutes", "start_time")
@@ -24103,6 +24162,25 @@ class MonitorScoreTrendType(sgqlc.types.Type):
 
     pass_percentage = sgqlc.types.Field(Float, graphql_name="passPercentage")
     """Pass percentage for the day"""
+
+
+class MonitorSqlBlocks(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("alert_condition", "where_condition", "group_by", "agent_span")
+    alert_condition = sgqlc.types.Field(
+        sgqlc.types.non_null("FilterGroup"), graphql_name="alertCondition"
+    )
+
+    where_condition = sgqlc.types.Field(
+        sgqlc.types.non_null("FilterGroup"), graphql_name="whereCondition"
+    )
+
+    group_by = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FilterValueInterface))),
+        graphql_name="groupBy",
+    )
+
+    agent_span = sgqlc.types.Field(sgqlc.types.non_null("FilterGroup"), graphql_name="agentSpan")
 
 
 class MonitorSummary(sgqlc.types.Type):
@@ -24712,6 +24790,7 @@ class Mutation(sgqlc.types.Type):
         "pause_monitor_bootstrap",
         "create_or_update_comparison_monitor",
         "create_or_update_metric_monitor",
+        "create_or_update_agent_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
         "set_event_detector_feedback",
@@ -35335,6 +35414,175 @@ class Mutation(sgqlc.types.Type):
       request is for update
     * `where_condition` (`String`): SQL WHERE condition to apply to
       query
+    """
+
+    create_or_update_agent_monitor = sgqlc.types.Field(
+        CreateOrUpdateAgentMonitor,
+        graphql_name="createOrUpdateAgentMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput))
+                        ),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "alert_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(CustomRuleComparisonInput))
+                        ),
+                        graphql_name="alertConditions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="audiences",
+                        default=None,
+                    ),
+                ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "data_quality_dimension",
+                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
+                ),
+                (
+                    "data_source",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DataSourceUnionInput),
+                        graphql_name="dataSource",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "dw_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
+                ),
+                (
+                    "fail_on_reset",
+                    sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
+                ),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="failureAudiences",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "sampling_config",
+                    sgqlc.types.Arg(
+                        MonitorSamplingConfigInput, graphql_name="samplingConfig", default=None
+                    ),
+                ),
+                (
+                    "schedule_config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ScheduleConfigInput),
+                        graphql_name="scheduleConfig",
+                        default=None,
+                    ),
+                ),
+                (
+                    "segment_count_hint",
+                    sgqlc.types.Arg(Int, graphql_name="segmentCountHint", default=None),
+                ),
+                (
+                    "segments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(FilterValueUnionInput)),
+                        graphql_name="segments",
+                        default=None,
+                    ),
+                ),
+                (
+                    "sensitivity",
+                    sgqlc.types.Arg(SensitivityLevels, graphql_name="sensitivity", default=None),
+                ),
+                ("skip_reset", sgqlc.types.Arg(Boolean, graphql_name="skipReset", default=False)),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="tags",
+                        default=None,
+                    ),
+                ),
+                ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create or update an Agent monitor
+
+    Arguments:
+
+    * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
+      agent span fields (agent, workflow, task, span_name)
+    * `alert_conditions` (`[CustomRuleComparisonInput!]!`): Alert
+      conditions.
+    * `audiences` (`[String!]`): The monitor notification audiences
+    * `connection_id` (`UUID`): Specify a connection (e.g. query-
+      engine) to use
+    * `data_quality_dimension` (`String`): Data quality dimension.
+    * `data_source` (`DataSourceUnionInput!`)None
+    * `description` (`String!`): Used as the name in the UI
+    * `dry_run` (`Boolean`): Dry run the monitor creation or update
+      and return the MaC YAML and queries. (default: `false`)
+    * `dw_id` (`UUID!`): Warehouse the monitor will be run on.
+    * `fail_on_reset` (`Boolean`): Return an error if the update is a
+      significant change that would require a monitor reset. (default:
+      `false`)
+    * `failure_audiences` (`[String!]`): The monitor notification
+      audiences for failures
+    * `filters` (`FilterGroupInput`): Structured SQL filtering
+      conditions to apply to query
+    * `notes` (`String`): Additional context for the monitor (default:
+      `""`)
+    * `priority` (`String`): The default priority for alerts involving
+      this monitor
+    * `sampling_config` (`MonitorSamplingConfigInput`): Sampling
+      configuration: either percentage or fixed count
+    * `schedule_config` (`ScheduleConfigInput!`): Schedule of monitor
+    * `segment_count_hint` (`Int`): Segment count when then monitor
+      was created. Can be returned as the segment count for the
+      monitor when no successful execution has yet occurred, and a
+      fresh segment count is not available. This allows the UI to
+      properly validate the monitor configuration and avoid creating
+      monitors that will fail when they are created due too many
+      metric combinations.
+    * `segments` (`[FilterValueUnionInput!]`): Segments
+    * `sensitivity` (`SensitivityLevels`): Sensitivity for automated
+      thresholds.
+    * `skip_reset` (`Boolean`): Do not reset monitor if the update is
+      a significant change that would normally cause the monitor to be
+      reset. Learned model might not match the new monitor
+      configuration and false positives might be detected for up to 35
+      days (default: `false`)
+    * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
+      request is for update
     """
 
     create_or_update_json_schema_monitor = sgqlc.types.Field(
@@ -71667,11 +71915,11 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     version = sgqlc.types.Field(Int, graphql_name="version")
     """Configuration version of the monitor."""
 
-    sql_blocks = sgqlc.types.Field(JSONString, graphql_name="sqlBlocks")
-    """Structured SQL filtering"""
+    sql_blocks = sgqlc.types.Field(MonitorSqlBlocks, graphql_name="sqlBlocks")
+    """SQL blocks used on the monitor"""
 
-    sampling_config = sgqlc.types.Field(JSONString, graphql_name="samplingConfig")
-    """Sampling configuration"""
+    sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
+    """Sampling configuration for the monitor"""
 
     table = sgqlc.types.Field("WarehouseTable", graphql_name="table")
     """Table related to monitor"""

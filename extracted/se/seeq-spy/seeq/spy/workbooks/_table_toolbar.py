@@ -6,6 +6,7 @@ from collections.abc import MutableSequence
 from typing import Union, List, Dict, Any, cast, TypeVar, Generic
 
 import pandas as pd
+
 from seeq.spy import _common
 from seeq.spy._common import docstring_parameter
 from seeq.spy._errors import *
@@ -903,7 +904,7 @@ class ConditionTableColumns(TableColumns[ConditionTableColumn]):
             The name of the property to remove from the table
         """
         if property_name.lower() in ConditionTableColumnReservedProperty.CONSTANTS.KEY_MAPPING:
-            property_name = ConditionTableColumnReservedProperty.CONSTANTS.KEY_MAPPING[property_name]
+            property_name = ConditionTableColumnReservedProperty.CONSTANTS.KEY_MAPPING[property_name.lower()]
         self._remove_column(property_name)
 
     @docstring_parameter(list(TableColumn.CONSTANTS.SIGNAL_STATISTICS.keys()))

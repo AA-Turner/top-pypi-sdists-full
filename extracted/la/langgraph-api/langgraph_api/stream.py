@@ -30,7 +30,7 @@ from langgraph_api import __version__
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
-from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
+from langgraph_api.feature_flags import USE_DURABILITY, USE_RUNTIME_CONTEXT_API
 from langgraph_api.graph import get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
@@ -134,6 +134,14 @@ async def astream_state(
     kwargs = run["kwargs"].copy()
     kwargs.pop("webhook", None)
     kwargs.pop("resumable", False)
+    if USE_DURABILITY:
+        checkpoint_during = kwargs.pop("checkpoint_during")
+        if not kwargs.get("durability") and checkpoint_during:
+            kwargs["durability"] = "async" if checkpoint_during else "exit"
+    else:
+        durability = kwargs.pop("durability")
+        if not kwargs.get("checkpoint_during") and durability in ("async", "exit"):
+            kwargs["checkpoint_during"] = durability == "async"
     subgraphs = kwargs.get("subgraphs", False)
     temporary = kwargs.pop("temporary", False)
     context = kwargs.pop("context", None)

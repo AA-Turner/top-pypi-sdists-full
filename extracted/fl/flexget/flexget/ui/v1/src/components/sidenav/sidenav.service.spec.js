@@ -16,7 +16,7 @@ describe('Sidenav Service:', function () {
       expect(sideNavService.toggle).to.exist;
     });
 
-    //TODO: test funcionalities, check how to mock $mdMedia and $mdSidenav etc
+    //TODO: test functionalities, check how to mock $mdMedia and $mdSidenav etc
   });
 
   describe('close()', function () {
@@ -24,6 +24,6 @@ describe('Sidenav Service:', function () {
       expect(sideNavService.close).to.exist;
     });
 
-    //TODO: test funcionalities, check how to mock $mdMedia and $mdSidenav etc
+    //TODO: test functionalities, check how to mock $mdMedia and $mdSidenav etc
   });
 });

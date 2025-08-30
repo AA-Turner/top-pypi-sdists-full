@@ -1,18 +1,18 @@
 Metadata-Version: 2.1
 Name: langchain-tests
-Version: 0.3.20
+Version: 0.3.21
 Summary: Standard tests for LangChain implementations
 Author-Email: Erick Friis <erick@langchain.dev>
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/standard-tests
 Project-URL: repository, https://github.com/langchain-ai/langchain
 Requires-Python: >=3.9
-Requires-Dist: langchain-core<1.0.0,>=0.3.63
+Requires-Dist: langchain-core<2.0.0,>=0.3.75
 Requires-Dist: pytest<9,>=7
-Requires-Dist: pytest-asyncio<1,>=0.20
-Requires-Dist: httpx<1,>=0.25.0
+Requires-Dist: pytest-asyncio<2,>=0.20
+Requires-Dist: httpx<1,>=0.28.1
 Requires-Dist: syrupy<5,>=4
-Requires-Dist: pytest-socket<1,>=0.6.0
+Requires-Dist: pytest-socket<1,>=0.7.0
 Requires-Dist: pytest-benchmark
 Requires-Dist: pytest-codspeed
 Requires-Dist: pytest-recording
@@ -36,26 +36,26 @@ Not pinning your version will ensure you always have the latest tests, but it ma
 also break your CI if we introduce tests that your integration doesn't pass.
 
 Pip:
-    
-    ```bash
-    pip install -U langchain-tests
-    ```
 
-Poetry:
-    
-    ```bash
-    poetry add langchain-tests
-    ```
+```bash
+pip install -U langchain-tests
+```
+
+uv:
+
+```bash
+uv add langchain-tests
+```
 
 ## Usage
 
-To add standard tests to an integration package's e.g. ChatModel, you need to create
+To add standard tests to an integration package (e.g., for a ChatModel), you need to create
 
-1. A unit test class that inherits from ChatModelUnitTests
-2. An integration test class that inherits from ChatModelIntegrationTests
+1. A unit test class that inherits from `ChatModelUnitTests`
+2. An integration test class that inherits from `ChatModelIntegrationTests`
 
 `tests/unit_tests/test_standard.py`:
-    
+
 ```python
 """Standard LangChain interface tests"""
 
@@ -75,7 +75,7 @@ class TestParrotChainStandard(ChatModelUnitTests):
 ```
 
 `tests/integration_tests/test_standard.py`:
-    
+
 ```python
 """Standard LangChain interface tests"""
 

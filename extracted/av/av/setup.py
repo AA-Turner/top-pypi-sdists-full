@@ -7,20 +7,6 @@ import shlex
 import subprocess
 import sys
 
-if platform.system() == "Darwin":
-    major_version = int(platform.mac_ver()[0].split(".")[0])
-    if major_version < 12:
-        raise OSError("You are using an EOL, unsupported, and out-of-date OS.")
-
-
-def is_virtualenv():
-    return sys.base_prefix != sys.prefix
-
-
-if not (os.getenv("GITHUB_ACTIONS") == "true" or is_virtualenv()):
-    raise ValueError("You are not using a virtual environment")
-
-
 from Cython.Build import cythonize
 from Cython.Compiler.AutoDocTransforms import EmbedSignature
 from setuptools import Extension, find_packages, setup
@@ -38,21 +24,6 @@ FFMPEG_LIBRARIES = [
 
 # Monkey-patch Cython to not overwrite embedded signatures.
 old_embed_signature = EmbedSignature._embed_signature
-
-
-def insert_enum_in_generated_files(source):
-    # Work around Cython failing to add `enum` to `AVChannel` type.
-    # TODO: Make Cython bug report
-    if source.endswith(".c"):
-        with open(source, "r") as file:
-            content = file.read()
-
-        # Replace "AVChannel __pyx_v_channel;" with "enum AVChannel __pyx_v_channel;"
-        modified_content = re.sub(
-            r"\b(?<!enum\s)(AVChannel\s+__pyx_v_\w+;)", r"enum \1", content
-        )
-        with open(source, "w") as file:
-            file.write(modified_content)
 
 
 def new_embed_signature(self, sig, doc):
@@ -219,10 +190,6 @@ for dirname, dirnames, filenames in os.walk(IMPORT_NAME):
             build_dir="src",
             include_path=["include"],
         )
-
-for ext in ext_modules:
-    for cfile in ext.sources:
-        insert_enum_in_generated_files(cfile)
 
 
 package_folders = pathlib.Path(IMPORT_NAME).glob("**/")

@@ -4,21 +4,23 @@ import collections.abc
 import dataclasses
 import datetime as dt
 import json
+import os
 import random
+import tempfile
 import typing
 import warnings
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
+from urllib.parse import ParseResult, urlparse
 
 import grpc
 import grpc.experimental
-from google.protobuf import empty_pb2, timestamp_pb2
+from google.protobuf import empty_pb2, struct_pb2, timestamp_pb2
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
-from chalk._gen.chalk.common.v1 import online_query_pb2, upload_features_pb2
+from chalk._gen.chalk.common.v1 import offline_query_pb2, online_query_pb2, upload_features_pb2
 from chalk._gen.chalk.common.v1.online_query_pb2 import GenericSingleQuery, UploadFeaturesBulkRequest
 from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, ExecutePlanResponse
 from chalk._gen.chalk.engine.v1 import query_server_pb2
@@ -26,6 +28,7 @@ from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
 from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServiceStub
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
+from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import ExecuteSqlQueryRequest, PlanSqlQueryRequest
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
@@ -42,6 +45,21 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     PythonVersion,
 )
 from chalk._gen.chalk.server.v1.graph_pb2_grpc import GraphServiceStub
+from chalk._gen.chalk.server.v1.model_registry_pb2 import (
+    CreateModelRequest,
+    CreateModelResponse,
+    CreateModelVersionRequest,
+    CreateModelVersionResponse,
+    GetModelArtifactUploadUrlsRequest,
+    GetModelArtifactUploadUrlsResponse,
+    GetModelRequest,
+    GetModelResponse,
+    GetModelVersionRequest,
+    GetModelVersionResponse,
+)
+from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
+from chalk._gen.chalk.server.v1.offline_queries_pb2 import CreateModelTrainingJobRequest, CreateModelTrainingJobResponse
+from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
 from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenRequest,
     CreateServiceTokenResponse,
@@ -56,8 +74,14 @@ from chalk.client.models import (
     BulkOnlineQueryResult,
     BulkUploadFeaturesResult,
     CreateBranchResponse,
+    GetRegisteredModelResponse,
+    GetRegisteredModelVersionResponse,
+    ModelUploadUrlResponse,
     OnlineQuery,
     OnlineQueryResponse,
+    RegisterModelResponse,
+    RegisterModelVersionResponse,
+    ResourceRequests,
     UploadFeaturesResponse,
 )
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
@@ -212,6 +236,14 @@ class StubProvider:
         return QueryServiceStub(self._engine_channel)
 
     @cached_property
+    def offline_query_stub(self) -> OfflineQueryMetadataServiceStub:
+        if self._server_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return OfflineQueryMetadataServiceStub(self._server_channel)
+
+    @cached_property
     def sql_stub(self) -> SqlServiceStub:
         if self._engine_channel is None:
             raise ValueError(
@@ -226,6 +258,12 @@ class StubProvider:
                 "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
             )
         return DataFrameServiceStub(self._engine_channel)
+
+    @cached_property
+    def model_stub(self) -> ModelRegistryServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return ModelRegistryServiceStub(self._server_channel)
 
     def __init__(
         self,
@@ -408,11 +446,17 @@ class StubRefresher:
     def call_query_stub(self, fn: Callable[[QueryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.query_stub)
 
+    def call_offline_query_stub(self, fn: Callable[[OfflineQueryMetadataServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.offline_query_stub)
+
     def call_sql_stub(self, fn: Callable[[SqlServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.sql_stub)
 
     def call_dataframe_stub(self, fn: Callable[[DataFrameServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.dataframe_stub)
+
+    def call_model_stub(self, fn: Callable[[ModelRegistryServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.model_stub)
 
     @property
     def environment_id(self) -> str | None:
@@ -1151,4 +1195,529 @@ class ChalkGRPCClient:
     def execute_plan(self, *, lazy_frame_calls: expr_pb.LogicalExprNode) -> ExecutePlanResponse:
         return self._stub_refresher.call_dataframe_stub(
             lambda x: x.ExecutePlan(ExecutePlanRequest(lazy_frame_calls=lazy_frame_calls))
+        )
+
+    def get_model(
+        self,
+        name: str,
+        version: Optional[int] = None,
+    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
+        """
+        Retrieve a registered model from the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+           Name of the model to retrieve
+        version : int, optional
+           Specific version number to retrieve. If not provided, returns
+           information about all versions of the model
+
+        Returns
+        -------
+        GetRegisteredModelResponse
+           Model information including metadata, versions, and configuration details
+
+        Examples
+        --------
+        Get model by name:
+
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> model = client.get_model(name="RiskScoreModel")
+        >>> print(f"Latest version: {model.latest_version}")
+        >>> print(f"Available versions: {model.versions}")
+
+        Get specific model version:
+
+        >>> model_v1 = client.get_model(name="RiskScoreModel", version=1)
+        >>> print(f"Performance: {model_v1.metadata['training_metrics']}")
+        """
+
+        if version is not None:
+            try:
+                model_version_resp: GetModelVersionResponse = self._stub_refresher.call_model_stub(
+                    lambda x: x.GetModelVersion(
+                        GetModelVersionRequest(
+                            model_name=name,
+                            version=version,
+                        )
+                    )
+                )
+                return GetRegisteredModelVersionResponse(
+                    model_id=model_version_resp.model_version.id,
+                    model_name=model_version_resp.model_version.model_name,
+                    metadata=dict(model_version_resp.model_version.metadata),
+                    created_by=model_version_resp.model_version.created_by,
+                    created_at=model_version_resp.model_version.created_at.ToDatetime(),
+                    model_artifact=model_version_resp.model_version.model_artifact,
+                )
+            except grpc.RpcError as e:
+                raise RuntimeError(f"Could not register model version. {e.details()}")
+        else:
+            try:
+                model_resp: GetModelResponse = self._stub_refresher.call_model_stub(
+                    lambda x: x.GetModel(
+                        GetModelRequest(
+                            model_name=name,
+                        )
+                    )
+                )
+                return GetRegisteredModelResponse(
+                    model_id=model_resp.model.id,
+                    model_name=model_resp.model.model_name,
+                    description=model_resp.model.description,
+                    metadata=dict(model_resp.model.metadata),
+                    created_by=model_resp.model.created_by,
+                    created_at=model_resp.model.created_at.ToDatetime(),
+                    updated_at=model_resp.model.updated_at.ToDatetime(),
+                    archived_at=model_resp.model.archived_at.ToDatetime(),
+                    latest_model_version=model_resp.model.latest_model_version,
+                )
+            except grpc.RpcError as e:
+                raise RuntimeError(f"Could not register model version. {e.details()}")
+
+    @staticmethod
+    def _build_tabular_schema(column_dtypes: Mapping[str, Any]) -> _model_artifact_pb2.TabularSchema:
+        """
+        Build a TabularSchema from a dictionary of column names to dtypes.
+
+        Parameters
+        ----------
+        column_dtypes : dict
+            Dictionary mapping column names to their data types.
+            Data types can be PyArrow types or Python types (str, int, float, bool).
+
+        Returns
+        -------
+        TabularSchema
+            A protobuf TabularSchema object
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = ChalkGRPCClient._build_tabular_schema({
+        ...     'alcohol': pa.float64(),
+        ...     'malic_acid': pa.float64(),
+        ...     'ash': pa.float64(),
+        ... })
+        """
+        import pyarrow as pa
+
+        from chalk.features._encoding.converter import PrimitiveFeatureConverter
+
+        tabular_schema = _model_artifact_pb2.TabularSchema()
+
+        for col_name, dtype in column_dtypes.items():
+            # Convert to PyArrow type if needed
+            if not isinstance(dtype, pa.DataType):
+                # Handle Python types
+                if dtype == str:
+                    pa_dtype = pa.string()
+                elif dtype == int:
+                    pa_dtype = pa.int64()
+                elif dtype == float:
+                    pa_dtype = pa.float64()
+                elif dtype == bool:
+                    pa_dtype = pa.bool_()
+                else:
+                    raise ValueError(f"Unsupported dtype {dtype} for column {col_name}")
+            else:
+                pa_dtype = dtype
+
+            # Convert PyArrow dtype to protobuf Arrow type
+            proto_arrow_type = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype)
+
+            # Create TabularSpec for this column
+            column_spec = _model_artifact_pb2.TabularSpec(name=col_name, dtype=proto_arrow_type)
+
+            tabular_schema.columns.append(column_spec)
+
+        return tabular_schema
+
+    @staticmethod
+    def _build_tensor_schema(tensor_specs: List[Tuple[List[int], Any]]) -> _model_artifact_pb2.TensorSchema:
+        """
+        Build a TensorSchema from a list of (shape, dtype) pairs.
+
+        Parameters
+        ----------
+        tensor_specs : list of tuple
+            List of (shape, dtype) tuples where:
+            - shape is a list of integers representing tensor dimensions
+            - dtype is a PyArrow type or Python type (str, int, float, bool)
+
+        Returns
+        -------
+        TensorSchema
+            A protobuf TensorSchema object
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = ChalkGRPCClient._build_tensor_schema([
+        ...     ([224, 224, 3], pa.float32()),  # RGB image tensor
+        ...     ([100], pa.float64()),          # Feature vector
+        ... ])
+        """
+        import pyarrow as pa
+
+        from chalk.features._encoding.converter import PrimitiveFeatureConverter
+
+        tensor_schema = _model_artifact_pb2.TensorSchema()
+
+        for shape, dtype in tensor_specs:
+            # Convert to PyArrow type if needed
+            if not isinstance(dtype, pa.DataType):
+                # Handle Python types
+                if dtype == str:
+                    pa_dtype = pa.string()
+                elif dtype == int:
+                    pa_dtype = pa.int64()
+                elif dtype == float:
+                    pa_dtype = pa.float64()
+                elif dtype == bool:
+                    pa_dtype = pa.bool_()
+                else:
+                    raise ValueError(f"Unsupported dtype {dtype} for tensor")
+            else:
+                pa_dtype = dtype
+
+            # Convert PyArrow dtype to protobuf Arrow type
+            proto_arrow_type = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype)
+
+            # Create TensorSpec
+            tensor_spec = _model_artifact_pb2.TensorSpec(dtype=proto_arrow_type, shape=shape)
+
+            tensor_schema.tensors.append(tensor_spec)
+
+        return tensor_schema
+
+    def register_model(
+        self,
+        name: str,
+        description: str,
+        metadata: Mapping[str, Any],
+    ) -> RegisterModelResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for the model
+        description : str
+            Description of the model's purpose and functionality
+        metadata : Mapping[str, Any]
+            Additional metadata dictionary containing framework info,
+            training details, performance metrics, etc.
+
+        Returns
+        -------
+        RegisterModelResponse
+            The response object from the model registration
+
+        Examples
+        --------
+        Register a new model:
+
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.register_model(
+        ...     name="RiskModel",
+        ...     description="Credit risk assessment model using transaction history",
+        ...     metadata={
+        ...         "accuracy": 0.94,
+        ...         "training_date": "2024-01-15"
+        ...     }
+        ... )
+        """
+        metadata_converted: Dict[str, struct_pb2.Value] = {}
+
+        for k, v in metadata.items():
+            converted_v = struct_pb2.Value()
+            if isinstance(v, str):
+                converted_v.string_value = v
+            elif isinstance(v, (int, float)):
+                converted_v.number_value = v
+            elif isinstance(v, bool):
+                converted_v.bool_value = v
+            metadata_converted[k] = converted_v
+
+        try:
+            resp: CreateModelResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.CreateModel(
+                    CreateModelRequest(
+                        model_name=name,
+                        description=description,
+                        metadata=metadata_converted,
+                    )
+                )
+            )
+
+            return RegisterModelResponse(
+                model_id=resp.model.id,
+                model_name=resp.model.model_name,
+                description=resp.model.description,
+                metadata=dict(resp.model.metadata),
+                created_by=resp.model.created_by,
+                created_at=resp.model.created_at.ToDatetime(),
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not register model. {e.details()}")
+
+    def _get_model_artifact_presigned_s3(self, model_paths: List[str]) -> ModelUploadUrlResponse:
+        try:
+            resp: GetModelArtifactUploadUrlsResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.GetModelArtifactUploadUrls(GetModelArtifactUploadUrlsRequest(file_names=model_paths))
+            )
+            return ModelUploadUrlResponse(
+                upload_urls=dict(resp.upload_urls),
+                success=True,
+            )
+        except grpc.RpcError:
+            return ModelUploadUrlResponse(
+                upload_urls={},
+                success=False,
+            )
+
+    def register_model_version(
+        self,
+        name: str,
+        model_type: str,
+        model_format: str,
+        aliases: Optional[List[str]] = None,
+        model: Optional[Any] = None,
+        model_paths: Optional[List[str]] = None,
+        additional_files: Optional[Mapping[str, str]] = None,
+        input_schema: Optional[Any] = None,
+        output_schema: Optional[Any] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> RegisterModelVersionResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+           Unique name for the model
+        aliases : list of str, optional
+           List of version aliases (e.g., ["v1.0", "latest"])
+        model_paths : list of str, optional
+           Paths to model files (for file-based registration)
+        model : object, optional
+           Python model object (for object-based registration)
+        additional_files : list of str, optional
+           Additional files needed for inference (tokenizers, configs, etc.)
+        model_type : str
+           Type of model framework ("pytorch", "sklearn", "tensorflow", etc.)
+        model_format : str
+           Serialization format ("pytorch", "pickle", "savedmodel", etc.)
+        input_schema : dict, list, or Any
+           Definition of the input schema. Can be:
+           - dict: Dictionary mapping column names to dtypes for tabular data
+           - list: List of (shape, dtype) tuples for tensor data
+        output_schema : dict, list, or Any
+           Definition of the output schema. Can be:
+           - dict: Dictionary mapping column names to dtypes for tabular data
+           - list: List of (shape, dtype) tuples for tensor data
+        metadata : dict, optional
+           Additional metadata dictionary containing framework info,
+           training details, performance metrics, etc.
+
+        Returns
+        -------
+        ModelVersion
+           The registered model version object
+
+        Examples
+        --------
+        Register from local files:
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
+        >>> client.register_model_version(
+        ...     name="RiskModel",
+        ...     model_path=["./model.pth"],
+        ...     model_type="pytorch",
+        ...     model_format="pytorch",
+        ...     input_schema=pa.large_string(),
+        ...     output_schema=pa.float32()
+        ... )
+
+        Register from Python object:
+
+        >>> client.register_model_version(
+        ...     name="RiskModel",
+        ...     model=trained_sklearn_model,
+        ...     model_type="sklearn",
+        ...     model_format="pickle"
+        ... )
+        """
+        model_upload_paths: List[str] = []
+        additional_file_upload_path: Dict[str, str] = {}
+
+        metadata_converted: Dict[str, struct_pb2.Value] = {}
+
+        if metadata is not None:
+            for k, v in metadata.items():
+                converted_v = struct_pb2.Value()
+                if isinstance(v, str):
+                    converted_v.string_value = v
+                elif isinstance(v, (int, float)):
+                    converted_v.number_value = v
+                elif isinstance(v, bool):
+                    converted_v.bool_value = v
+                metadata_converted[k] = converted_v
+
+        if model_paths is None:
+            if model is None:
+                raise RuntimeError("Failed to register model. Please specify a model or model_path.")
+            else:
+                try:
+                    import torch
+                except:
+                    raise RuntimeError("Please install pytorch.")
+                if isinstance(model, torch.nn.Module):
+                    tmp_dir = tempfile.mkdtemp()
+                    model_path = os.path.join(tmp_dir, "model.pth")
+
+                    torch.save(model.state_dict(), model_path)
+
+                    model_paths = [str(model_path)]
+                else:
+                    tmp_dir = tempfile.mkdtemp()
+                    model_path = os.path.join(tmp_dir, "model.pth")
+                    model_paths = [str(model_path)]
+        else:
+            if model is not None:
+                raise RuntimeError(
+                    "Failed to register model. Ambiguous model, can't specify both model_path and model."
+                )
+
+        # Build input schema
+        input_model_schema = _model_artifact_pb2.ModelSchema()
+        if input_schema is not None:
+            if isinstance(input_schema, dict):
+                # Dictionary of column names to dtypes - build tabular schema
+                input_model_schema.tabular.CopyFrom(self._build_tabular_schema(input_schema))
+            elif isinstance(input_schema, list):
+                # List of (shape, dtype) tuples - build tensor schema
+                input_model_schema.tensor.CopyFrom(self._build_tensor_schema(input_schema))
+            else:
+                # Assume it's already a TensorSchema for backward compatibility
+                input_model_schema.tensor.CopyFrom(input_schema)
+
+        # Build output schema
+        output_model_schema = _model_artifact_pb2.ModelSchema()
+        if output_schema is not None:
+            if isinstance(output_schema, dict):
+                # Dictionary of column names to dtypes - build tabular schema
+                output_model_schema.tabular.CopyFrom(self._build_tabular_schema(output_schema))
+            elif isinstance(output_schema, list):
+                # List of (shape, dtype) tuples - build tensor schema
+                output_model_schema.tensor.CopyFrom(self._build_tensor_schema(output_schema))
+            else:
+                # Assume it's already a TensorSchema for backward compatibility
+                output_model_schema.tensor.CopyFrom(output_schema)
+
+        try:
+            parsed_paths = [urlparse(model_path) for model_path in model_paths]
+            model_file_names = [os.path.basename(parsed.path) for parsed in parsed_paths]
+            original_files: Dict[str, ParseResult] = {os.path.basename(parsed.path): parsed for parsed in parsed_paths}
+            original_additional_mapping: Dict[str, str] = {}
+            if additional_files is not None:
+                for file_type, file_path in additional_files.items():
+                    additional_parsed = urlparse(file_path)
+                    original_files[os.path.basename(additional_parsed.path)] = additional_parsed
+                    original_additional_mapping[os.path.basename(additional_parsed.path)] = file_type
+
+            presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
+                list(original_files.keys())
+            )
+
+            try:
+                import boto3
+            except:
+                raise RuntimeError("Please install boto3.")
+
+            s3_client = boto3.client("s3")
+
+            if presigned_s3_response.success:
+                for src_filename, src_parsed_url in original_files.items():
+                    dest_parsed_url = urlparse(presigned_s3_response.upload_urls[src_filename])
+
+                    src_bucket = src_parsed_url.netloc
+                    dest_bucket = dest_parsed_url.netloc
+                    src_key = src_parsed_url.path.lstrip("/")
+                    dest_key = dest_parsed_url.path.lstrip("/")
+                    try:
+                        s3_client.copy(
+                            CopySource={"Bucket": src_bucket, "Key": src_key},
+                            Bucket=dest_bucket,
+                            Key=dest_key,
+                        )
+                    except:
+                        pass
+                    if src_filename in model_file_names:
+                        model_upload_paths.append(presigned_s3_response.upload_urls[src_filename])
+                    else:
+                        additional_file_upload_path[
+                            original_additional_mapping[src_filename]
+                        ] = presigned_s3_response.upload_urls[src_filename]
+            else:
+                raise ValueError("If model_path is remote, it must be an s3 uri.")
+        except:
+            raise RuntimeError("Could not register model.")
+
+        try:
+            resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.CreateModelVersion(
+                    CreateModelVersionRequest(
+                        model_name=name,
+                        model_artifact=_model_artifact_pb2.ModelArtifactSpec(
+                            model_files=model_upload_paths,
+                            additional_files=additional_file_upload_path,
+                            model_type=model_type,
+                            model_encoding=model_format,
+                            model_signature=_model_artifact_pb2.ModelSignature(
+                                inputs=input_model_schema,
+                                outputs=output_model_schema,
+                            ),
+                        ),
+                        aliases=aliases,
+                        metadata=metadata_converted,
+                    )
+                )
+            )
+            return RegisterModelVersionResponse(
+                model_id=resp.model_version.id,
+                model_name=resp.model_version.model_name,
+                model_version=resp.model_version.version,
+                artifact=resp.model_version.model_artifact,
+                aliases=list(resp.model_version.aliases),
+                metadata=dict(resp.model_version.metadata),
+                created_by=resp.model_version.created_by,
+                created_at=resp.model_version.created_at.ToDatetime(),
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not register model version. {e.details()}")
+
+    def create_model_training_job(
+        self,
+        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
+        model_name: str,
+        dataset_name: str,
+        config: Optional[Mapping[str, Any]] = None,
+        resources: Optional[ResourceRequests] = None,
+    ) -> CreateModelTrainingJobResponse:
+        return self._stub_refresher.call_offline_query_stub(
+            lambda x: x.CreateModelTrainingJob(
+                CreateModelTrainingJobRequest(
+                    training_job_request=offline_query_pb2.OfflineQueryRequest(
+                        dataset_name=dataset_name,
+                    )
+                )
+            )
         )

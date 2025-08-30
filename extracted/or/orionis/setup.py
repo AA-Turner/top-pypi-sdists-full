@@ -54,13 +54,13 @@ setup(
     license='MIT',
     packages=find_packages(
         exclude=[
-            'app',
-            'bootstrap',
-            'config',
-            'database'
-            'routes',
-            'storage',
-            'tests'
+            'app', 'app.*',
+            'bootstrap', 'bootstrap.*',
+            'config', 'config.*',
+            'database', 'database.*',
+            'routes', 'routes.*',
+            'storage', 'storage.*',
+            'tests', 'tests.*'
         ]
     ),
     include_package_data=True,
@@ -68,5 +68,5 @@ setup(
     python_requires=PYTHON_REQUIRES,
     install_requires=REQUIRES,
     keywords=KEYWORDS,
-    zip_safe=True
+    zip_safe=False
 )

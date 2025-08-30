@@ -2572,7 +2572,9 @@ ResourceTypeType = Literal[
     "vpn-gateway",
 ]
 RootDeviceTypeType = Literal["ebs", "instance-store"]
-RouteOriginType = Literal["CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"]
+RouteOriginType = Literal[
+    "Advertisement", "CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"
+]
 RouteServerAssociationStateType = Literal["associated", "associating", "disassociating"]
 RouteServerBfdStateType = Literal["down", "up"]
 RouteServerBgpStateType = Literal["down", "up"]
@@ -2591,7 +2593,7 @@ RouteServerPropagationStateType = Literal["available", "deleting", "pending"]
 RouteServerRouteInstallationStatusType = Literal["installed", "rejected"]
 RouteServerRouteStatusType = Literal["in-fib", "in-rib"]
 RouteServerStateType = Literal["available", "deleted", "deleting", "modifying", "pending"]
-RouteStateType = Literal["active", "blackhole"]
+RouteStateType = Literal["active", "blackhole", "filtered"]
 RouteTableAssociationStateCodeType = Literal[
     "associated", "associating", "disassociated", "disassociating", "failed"
 ]
@@ -3476,6 +3478,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

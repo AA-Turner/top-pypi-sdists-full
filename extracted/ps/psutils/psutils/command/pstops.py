@@ -1,13 +1,13 @@
 """pstops command.
 
-Copyright (c) Reuben Thomas 2023.
+Copyright (c) Reuben Thomas 2023-2025.
 Released under the GPL version 3, or (at your option) any later version.
 """
 
 import argparse
 import sys
 import warnings
-from typing import NoReturn, Optional
+from typing import NoReturn
 
 from psutils.argparse import (
     HelpFormatter,
@@ -108,9 +108,9 @@ def pstops(argv: list[str] = sys.argv[1:]) -> None:
     # Get specs if we don't have them yet
     if args.specs is None:
         if args.infile is None:
-            parser.print_help()
-            sys.exit(1)
-        args.specs = args.infile
+            args.specs = "-"
+        else:
+            args.specs = args.infile
         try:
             parsespecs(args.specs, paper_context, err_function=spec_exception)
             args.infile = args.outfile
@@ -118,8 +118,8 @@ def pstops(argv: list[str] = sys.argv[1:]) -> None:
         except SpecsException:
             args.specs = DEFAULT_SPECS
 
-    size: Optional[Rectangle] = None
-    in_size: Optional[Rectangle] = None
+    size: Rectangle | None = None
+    in_size: Rectangle | None = None
     if args.paper:
         size = args.paper
     elif args.width is not None and args.height is not None:

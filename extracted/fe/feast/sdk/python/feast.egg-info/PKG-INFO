@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.52.0
+Version: 0.53.0
 Summary: Python SDK for Feast
 Home-page: https://github.com/feast-dev/feast
 Author: Feast
@@ -423,7 +423,7 @@ Dynamic: requires-python
 
 <p align="center">
     <a href="https://feast.dev/">
-      <img src="docs/assets/feast_logo.png" width="550">
+      <img src="https://raw.githubusercontent.com/feast-dev/feast/master/docs/assets/feast_logo.png" width="550">
     </a>
 </p>
 <br />
@@ -459,7 +459,7 @@ Feast allows ML platform teams to:
 Please see our [documentation](https://docs.feast.dev/) for more information about the project.
 
 ## 📐 Architecture
-![](docs/assets/feast_marchitecture.png)
+![](https://raw.githubusercontent.com/feast-dev/feast/master/docs/assets/feast_marchitecture.png)
 
 The above architecture is the minimal Feast deployment. Want to run the full Feast on Snowflake/GCP/AWS? Click [here](https://docs.feast.dev/how-to-guides/feast-snowflake-gcp-aws).
 
@@ -483,7 +483,7 @@ feast apply
 
 ### 4. Explore your data in the web UI (experimental)
 
-![Web UI](ui/sample.png)
+![Web UI](https://raw.githubusercontent.com/feast-dev/feast/master/ui/sample.png)
 ```commandline
 feast ui
 ```

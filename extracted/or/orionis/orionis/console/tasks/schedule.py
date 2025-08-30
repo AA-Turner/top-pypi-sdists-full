@@ -1229,7 +1229,7 @@ class Schedule(ISchedule):
                 self.__scheduler.remove_job("scheduler_pause_at")
 
             # If the job doesn't exist, it's fine to proceed
-            except:
+            finally:
                 pass
 
             # Add a job to the scheduler to pause it at the specified datetime
@@ -1340,7 +1340,7 @@ class Schedule(ISchedule):
                 self.__scheduler.remove_job("scheduler_resume_at")
 
             # If the job doesn't exist, it's fine to proceed
-            except:
+            finally:
                 pass
 
             # Add a job to the scheduler to resume it at the specified datetime
@@ -1431,7 +1431,7 @@ class Schedule(ISchedule):
                 self.__scheduler.remove_job("scheduler_shutdown_at")
 
             # If the job doesn't exist, it's fine to proceed
-            except:
+            finally:
                 pass
 
             # Add a job to the scheduler to shut it down at the specified datetime
@@ -1474,7 +1474,7 @@ class Schedule(ISchedule):
         try:
 
             # Ensure the method is called within an asyncio event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
 
             # Create an asyncio event to manage clean shutdowns
             self._stop_event = asyncio.Event()
@@ -1814,7 +1814,8 @@ class Schedule(ISchedule):
             # Return True to indicate the pause job was successfully cancelled
             return True
 
-        except:
+        finally:
+
             # Return False if the pause job does not exist or an error occurred
             return False
 
@@ -1852,7 +1853,7 @@ class Schedule(ISchedule):
             # Return True to indicate the resume job was successfully cancelled
             return True
 
-        except:
+        finally:
 
             # Return False if the resume job does not exist or an error occurred
             return False
@@ -1891,7 +1892,7 @@ class Schedule(ISchedule):
             # Return True to indicate the shutdown job was successfully cancelled
             return True
 
-        except:
+        finally:
 
             # Return False if the shutdown job does not exist or an error occurred
             return False

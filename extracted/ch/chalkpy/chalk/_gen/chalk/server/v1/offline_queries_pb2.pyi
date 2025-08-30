@@ -39,6 +39,7 @@ class OfflineQueryKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     OFFLINE_QUERY_KIND_OFFLINE_QUERY: _ClassVar[OfflineQueryKind]
     OFFLINE_QUERY_KIND_DATASET_INGESTION: _ClassVar[OfflineQueryKind]
     OFFLINE_QUERY_KIND_AGGREGATION_BACKFILL: _ClassVar[OfflineQueryKind]
+    OFFLINE_QUERY_KIND_TRAINING_JOB: _ClassVar[OfflineQueryKind]
 
 OFFLINE_QUERY_STATUS_UNSPECIFIED: OfflineQueryStatus
 OFFLINE_QUERY_STATUS_UNKNOWN: OfflineQueryStatus
@@ -54,6 +55,7 @@ OFFLINE_QUERY_KIND_CRON_OFFLINE_QUERY: OfflineQueryKind
 OFFLINE_QUERY_KIND_OFFLINE_QUERY: OfflineQueryKind
 OFFLINE_QUERY_KIND_DATASET_INGESTION: OfflineQueryKind
 OFFLINE_QUERY_KIND_AGGREGATION_BACKFILL: OfflineQueryKind
+OFFLINE_QUERY_KIND_TRAINING_JOB: OfflineQueryKind
 
 class OfflineQueryMeta(_message.Message):
     __slots__ = (
@@ -296,3 +298,15 @@ class CreateOfflineQueryJobResponse(_message.Message):
     def __init__(
         self, dataset_response: _Optional[_Union[_dataset_response_pb2.DatasetResponse, _Mapping]] = ...
     ) -> None: ...
+
+class CreateModelTrainingJobRequest(_message.Message):
+    __slots__ = ("training_job_request",)
+    TRAINING_JOB_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    training_job_request: _offline_query_pb2.OfflineQueryRequest
+    def __init__(
+        self, training_job_request: _Optional[_Union[_offline_query_pb2.OfflineQueryRequest, _Mapping]] = ...
+    ) -> None: ...
+
+class CreateModelTrainingJobResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

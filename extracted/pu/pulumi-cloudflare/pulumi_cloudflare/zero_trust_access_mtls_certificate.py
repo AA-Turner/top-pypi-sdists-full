@@ -250,6 +250,8 @@ class ZeroTrustAccessMtlsCertificate(pulumi.CustomResource):
 
         ## Import
 
+        Note: The "certificate" field cannot be imported by this module and must be manually added to state.
+
         ```sh
         $ pulumi import cloudflare:index/zeroTrustAccessMtlsCertificate:ZeroTrustAccessMtlsCertificate example '<{accounts|zones}/{account_id|zone_id}>/<certificate_id>'
         ```
@@ -287,6 +289,8 @@ class ZeroTrustAccessMtlsCertificate(pulumi.CustomResource):
         ```
 
         ## Import
+
+        Note: The "certificate" field cannot be imported by this module and must be manually added to state.
 
         ```sh
         $ pulumi import cloudflare:index/zeroTrustAccessMtlsCertificate:ZeroTrustAccessMtlsCertificate example '<{accounts|zones}/{account_id|zone_id}>/<certificate_id>'
@@ -388,7 +392,7 @@ class ZeroTrustAccessMtlsCertificate(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="associatedHostnames")
-    def associated_hostnames(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
+    def associated_hostnames(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
         The hostnames of the applications that will use this certificate.
         """

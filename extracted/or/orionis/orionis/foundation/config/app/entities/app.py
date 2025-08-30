@@ -237,8 +237,9 @@ class App(BaseEntity):
         # Validate `key` attribute
         if self.key is None:
             self.key = SecureKeyGenerator.generate()
-        if not isinstance(self.key, str):
-            raise OrionisIntegrityException("The 'key' attribute must be a string.")
+            Env.set('APP_KEY', self.key)
+        if not isinstance(self.key, (bytes, str)) or not self.key.strip():
+            raise OrionisIntegrityException("The 'key' attribute must be a non-empty string.")
 
         # Validate `maintenance` attribute
         if not isinstance(self.maintenance, str) or not self.name.strip() or not self.maintenance.startswith('/'):

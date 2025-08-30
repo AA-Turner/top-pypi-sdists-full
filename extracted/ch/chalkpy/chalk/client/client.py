@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Collection, Iterable, Literal, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Collection, Iterable, List, Literal, Mapping, Optional, Sequence, Union
 
 import requests
 from typing_extensions import TypeAlias
@@ -12,15 +12,20 @@ from chalk.client.models import (
     BranchIdParam,
     BulkOnlineQueryResponse,
     ChalkError,
+    CreateModelTrainingJobResponse,
     FeatureDropResponse,
     FeatureObservationDeletionResponse,
     FeatureReference,
     FeatureStatisticsResponse,
     GetIncrementalProgressResponse,
+    GetRegisteredModelResponse,
+    GetRegisteredModelVersionResponse,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
     PlanQueryResponse,
+    RegisterModelResponse,
+    RegisterModelVersionResponse,
     ResolverRunResponse,
     ResourceRequests,
     StreamResolverTestResponse,
@@ -898,6 +903,8 @@ class ChalkClient:
         num_workers: int | None = None,
         completion_deadline: timedelta | None = None,
         max_retries: int | None = None,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -1010,6 +1017,10 @@ class ChalkClient:
         max_retries
             If specified, failed offline query shards will be retried. The retry budget is shared across all shards.
             By default, max_retries=num_shards/
+        query_name
+            The name of the query to execute. If provided, will create a new named query or fill in missing parameters from a preexisting execution.
+        query_name_version
+            The version of the named query to execute.
 
         Other Parameters
         ----------------
@@ -2027,7 +2038,7 @@ class ChalkClient:
 
         Examples
         --------
-        >>> from chalk.client import Chalklient
+        >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
         >>> client.ping_engine(3)
         3
@@ -2035,6 +2046,201 @@ class ChalkClient:
         ...
 
     def get_operation_feature_statistics(self, operation_id: uuid.UUID) -> FeatureStatisticsResponse:
+        ...
+
+    def get_model(
+        self,
+        name: str,
+        version: Optional[int] = None,
+    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
+        """
+        Retrieve a registered model from the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+           Name of the model to retrieve
+        version : int, optional
+           Specific version number to retrieve. If not provided, returns
+           information about all versions of the model
+
+        Returns
+        -------
+        GetRegisteredModelResponse or GetRegisteredModelVersionResponse
+           Model information including metadata, versions, and configuration details
+
+        Examples
+        --------
+        Get model by name:
+
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> model = client.get_model(name="RiskScoreModel")
+        >>> print(f"Latest version: {model.latest_version}")
+        >>> print(f"Available versions: {model.versions}")
+
+        Get specific model version:
+
+        >>> model_v1 = client.get_model(name="RiskScoreModel", version=1)
+        >>> print(f"Performance: {model_v1.metadata['training_metrics']}")
+        """
+        ...
+
+    def register_model(
+        self,
+        name: str,
+        description: str,
+        metadata: Mapping[str, Any],
+    ) -> RegisterModelResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for the model
+        description : str
+            Description of the model's purpose and functionality
+        metadata : Mapping[str, Any]
+            Additional metadata dictionary containing framework info,
+            training details, performance metrics, etc.
+
+        Returns
+        -------
+        RegisterModelResponse
+            The response object from the model registration
+
+        Examples
+        --------
+        Register a new model:
+
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.register_model(
+        ...     name="RiskModel",
+        ...     description="Credit risk assessment model using transaction history",
+        ...     metadata={
+        ...         "accuracy": 0.94,
+        ...         "training_date": "2024-01-15"
+        ...     }
+        ... )
+        """
+        ...
+
+    def register_model_version(
+        self,
+        name: str,
+        model_type: str,
+        model_format: str,
+        aliases: Optional[List[str]] = None,
+        model: Optional[Any] = None,
+        model_paths: Optional[List[str]] = None,
+        additional_files: Optional[Mapping[str, str]] = None,
+        input_schema: Optional[Any] = None,
+        output_schema: Optional[Any] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> RegisterModelVersionResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+           Unique name for the model
+        aliases : list of str, optional
+           List of version aliases (e.g., ["v1.0", "latest"])
+        model_paths : list of str, optional
+           Paths to model files (for file-based registration)
+        model : object, optional
+           Python model object (for object-based registration)
+        additional_files : list of str, optional
+           Additional files needed for inference (tokenizers, configs, etc.)
+        model_type : str
+           Type of model framework ("pytorch", "sklearn", "tensorflow", etc.)
+        model_format : str
+           Serialization format ("pytorch", "pickle", "savedmodel", etc.)
+        input_schema : pyarrow.DataType
+           PyArrow data type defining the input schema
+        output_schema : pyarrow.DataType
+           PyArrow data type defining the output schema
+        metadata : dict, optional
+           Additional metadata dictionary containing framework info,
+           training details, performance metrics, etc.
+
+        Returns
+        -------
+        ModelVersion
+           The registered model version object
+
+        Examples
+        --------
+        Register from local files:
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
+        >>> client.register_model(
+        ...     name="RiskModel",
+        ...     model_path=["./model.pth"],
+        ...     model_type="pytorch",
+        ...     model_format="pytorch",
+        ...     input_schema=pa.large_string(),
+        ...     output_schema=pa.float32()
+        ... )
+
+        Register from Python object:
+
+        >>> client.register_model(
+        ...     name="RiskModel",
+        ...     model=trained_sklearn_model,
+        ...     model_type="sklearn",
+        ...     model_format="pickle"
+        ... )
+        """
+        ...
+
+    def train_model(
+        self,
+        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
+        model_name: str,
+        dataset_name: str,
+        config: Optional[Mapping[str, Any]] = None,
+        resources: Optional[ResourceRequests] = None,
+    ) -> CreateModelTrainingJobResponse:
+        """Train a model using a provided training function and dataset.
+
+        Parameters
+        ----------
+        train_fn
+            A callable training function that takes an optional config dictionary
+            and returns a boolean indicating success.
+        model_name
+            The name of the model to train.
+        dataset_name
+            The name of the dataset to use for training.
+        config
+            Optional configuration dictionary to pass to the training function.
+        resources
+            Optional resource requirements for the training job.
+
+        Returns
+        -------
+        CreateModelTrainingJobResponse
+            Response containing information about the created training job.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> def my_training_function(config=None):
+        ...     # Training logic here
+        ...     return True
+        >>> client = ChalkClient()
+        >>> response = client.train_model(
+        ...     train_fn=my_training_function,
+        ...     model_name="my_model",
+        ...     dataset_name="training_data"
+        ... )
+        """
         ...
 
     def __new__(cls, *args: Any, **kwargs: Any):

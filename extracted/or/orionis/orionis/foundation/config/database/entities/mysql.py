@@ -252,7 +252,7 @@ class MySQL(BaseEntity):
 
             # Check if engine is a string or MySQLEngine enum
             if not isinstance(self.engine, (str, MySQLEngine)):
-                raise OrionisIntegrityException(f"Engine must be a string or MySQLEngine enum.")
+                raise OrionisIntegrityException("Engine must be a string or MySQLEngine enum.")
 
             # Convert engine to MySQLEngine enum if it's a string
             options_engines = MySQLEngine._member_names_

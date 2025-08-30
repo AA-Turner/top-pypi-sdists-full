@@ -10,6 +10,7 @@ const failedRuns = new Counter('failed_runs');
 const timeoutErrors = new Counter('timeout_errors');
 const connectionErrors = new Counter('connection_errors');
 const serverErrors = new Counter('server_errors');
+const missingMessageErrors = new Counter('missing_message_errors');
 const otherErrors = new Counter('other_errors');
 
 // URL of your LangGraph server
@@ -36,6 +37,13 @@ for (let i = 1; i <= LEVELS; i++) {
 stages.push({ duration: `${PLATEAU_DURATION}s`, target: LOAD_SIZE * LEVELS});
 stages.push({ duration: '60s', target: 0 }); // Ramp down
 
+// These are rough estimates from running in github actions. Actual results should be better so long as load is 1-1 with jobs available.
+const p95_run_duration = {
+  'sequential': 18000,
+  'parallel': 8500,
+  'single': 1500,
+}
+
 // Test configuration
 export let options = {
   scenarios: {
@@ -47,16 +55,16 @@ export let options = {
     },
   },
   thresholds: {
-    // These are the first set of goals I'd like to hit. To get the job just working and ramp on main, leaving them off for now.
-    // 'run_duration': ['p(95)<10000'],  // 95% of runs should complete within 10s
-    // 'successful_runs': ['count>100000'],  // At least 100,000 successful runs
-    // 'http_req_failed': ['rate<0.05'],   // Error rate should be less than 5%
+    'run_duration': [`p(95)<${p95_run_duration[MODE]}`],
+    'successful_runs': [`count>${(PLATEAU_DURATION / (p95_run_duration[MODE] / 1000)) * LOAD_SIZE * LEVELS * 2}`],  // Number of expected successful runs per user worst caseduring plateau * max number of users * 2 cause that feels about right
+    'http_req_failed': ['rate<0.01'],   // Error rate should be less than 1%
   },
 };
 
 // Main test function
 export default function() {
   const startTime = new Date().getTime();
+  let response;
 
   try {
     // Prepare the request payload
@@ -91,7 +99,7 @@ export default function() {
     }
 
     // Make a single request to the wait endpoint
-    const response = http.post(url, payload, {
+    response = http.post(url, payload, {
       headers,
       timeout: '120s'  // k6 request timeout slightly longer than the server timeout
     });
@@ -110,9 +118,6 @@ export default function() {
       // Record success metrics
       runDuration.add(duration);
       successfulRuns.add(1);
-
-      // Optional: Log successful run details
-      console.log(`Run completed successfully in ${duration/1000}s`);
     } else {
       // Handle failure
       failedRuns.add(1);
@@ -124,12 +129,15 @@ export default function() {
       } else if (response.status === 408 || response.error === 'timeout') {
         timeoutErrors.add(1);
         console.log(`Timeout error: ${response.error}`);
+      } else if (response.status === 200 && response?.body?.messages?.length !== expected_length) {
+        missingMessageErrors.add(1);
+        console.log(response);
+        console.log(`Missing message error: Status ${response.status}, ${JSON.stringify(response.body)}`);
       } else {
         otherErrors.add(1);
-        console.log(`Other error: Status ${response.status}, ${JSON.stringify(response)}`);
+        console.log(`Other error: Status ${response.status}, ${JSON.stringify(response.body)}`);
       }
     }
-
   } catch (error) {
     // Handle exceptions (network errors, etc.)
     failedRuns.add(1);
@@ -142,7 +150,9 @@ export default function() {
       console.log(`Connection error: ${error.message}`);
     } else {
       otherErrors.add(1);
-      console.log(`Unexpected error: ${error.message}`);
+      // Usually we end up with HTML error pages here
+      console.log(response);
+      console.log(`Unexpected error: ${error.message}, Response Body: ${response?.body}`);
     }
   }
 
@@ -180,6 +190,7 @@ export function handleSummary(data) {
         timeout: data.metrics.timeout_errors ? data.metrics.timeout_errors.values.count : 0,
         connection: data.metrics.connection_errors ? data.metrics.connection_errors.values.count : 0,
         server: data.metrics.server_errors ? data.metrics.server_errors.values.count : 0,
+        missingMessage: data.metrics.missing_message_errors ? data.metrics.missing_message_errors.values.count : 0,
         other: data.metrics.other_errors ? data.metrics.other_errors.values.count : 0
       }
     }

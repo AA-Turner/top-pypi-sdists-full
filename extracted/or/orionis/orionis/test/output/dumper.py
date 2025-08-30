@@ -1,6 +1,6 @@
 import os
 import sys
-from orionis.console.dumper.dump import Debug
+from orionis.console.dumper.debug import Debug
 from orionis.test.exceptions import OrionisTestRuntimeError
 from orionis.test.contracts.dumper import ITestDumper
 

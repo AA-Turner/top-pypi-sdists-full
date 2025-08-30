@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: qiskit-algorithms
-Version: 0.3.1
+Version: 0.4.0
 Summary: Qiskit Algorithms: A library of quantum computing algorithms
 Home-page: https://github.com/qiskit-community/qiskit-algorithms
 Author: Qiskit Algorithms Development Team
@@ -18,22 +18,39 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: qiskit>=0.44
+Requires-Dist: qiskit>=1.0
 Requires-Dist: scipy>=1.4
 Requires-Dist: numpy>=1.17
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Qiskit Algorithms
 
 [![License](https://img.shields.io/github/license/qiskit-community/qiskit-algorithms.svg?style=popout-square)](https://opensource.org/licenses/Apache-2.0)
+
+> [!WARNING]  
+> **Qiskit Algorithms is no longer officially supported by IBM**.  
+> Like any other Apache 2 licensed code, you are free to use it or/and extend it, but please be aware that it is under your own risk. 
 
 ## Installation
 

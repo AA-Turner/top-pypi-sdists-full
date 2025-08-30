@@ -46,7 +46,7 @@ class CacheClearCommand(BaseCommand):
                 raise CLIOrionisRuntimeError(f"Cache clearing failed: {error_message}")
 
             # If the command was successful, print the output
-            self.textSuccess(f"Cache cleared successfully.")
+            self.textSuccess("Cache cleared successfully.")
 
             # If the command was successful, return True
             return True  # Cache cleared successfully

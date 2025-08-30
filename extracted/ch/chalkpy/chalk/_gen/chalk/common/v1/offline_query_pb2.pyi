@@ -117,6 +117,8 @@ class OfflineQueryRequest(_message.Message):
         "num_workers",
         "query_context",
         "overlay_graph",
+        "query_name",
+        "query_name_version",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -165,6 +167,8 @@ class OfflineQueryRequest(_message.Message):
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     QUERY_CONTEXT_FIELD_NUMBER: _ClassVar[int]
     OVERLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     inputs: OfflineQueryInputs
     outputs: _containers.RepeatedScalarFieldContainer[str]
     required_outputs: _containers.RepeatedScalarFieldContainer[str]
@@ -192,6 +196,8 @@ class OfflineQueryRequest(_message.Message):
     num_workers: int
     query_context: _containers.MessageMap[str, _struct_pb2.Value]
     overlay_graph: _graph_pb2.OverlayGraph
+    query_name: str
+    query_name_version: str
     def __init__(
         self,
         inputs: _Optional[_Union[OfflineQueryInputs, _Mapping]] = ...,
@@ -221,6 +227,8 @@ class OfflineQueryRequest(_message.Message):
         num_workers: _Optional[int] = ...,
         query_context: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         overlay_graph: _Optional[_Union[_graph_pb2.OverlayGraph, _Mapping]] = ...,
+        query_name: _Optional[str] = ...,
+        query_name_version: _Optional[str] = ...,
     ) -> None: ...
 
 class ColumnMetadataList(_message.Message):

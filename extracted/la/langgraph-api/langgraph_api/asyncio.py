@@ -162,7 +162,8 @@ class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
         taskset: set[asyncio.Task] | None = None,
         taskgroup_name: str | None = None,
     ) -> None:
-        self.tasks = taskset if taskset is not None else set()
+        # Copy the taskset to avoid modifying the original set unintentionally (like in lifespan)
+        self.tasks = taskset.copy() if taskset is not None else set()
         self.cancel = cancel
         self.wait = wait
         if taskset:

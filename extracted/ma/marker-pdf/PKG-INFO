@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: marker-pdf
-Version: 1.8.5
+Version: 1.9.0
 Summary: Convert documents to markdown with high speed and accuracy.
 License: GPL-3.0-or-later
 Keywords: pdf,markdown,ocr,nlp
@@ -35,7 +35,7 @@ Requires-Dist: python-pptx (>=1.0.2,<2.0.0) ; extra == "full"
 Requires-Dist: rapidfuzz (>=3.8.1,<4.0.0)
 Requires-Dist: regex (>=2024.4.28,<2025.0.0)
 Requires-Dist: scikit-learn (>=1.6.1,<2.0.0)
-Requires-Dist: surya-ocr (>=0.15.4,<0.16.0)
+Requires-Dist: surya-ocr (>=0.16.0,<0.17.0)
 Requires-Dist: torch (>=2.7.0,<3.0.0)
 Requires-Dist: tqdm (>=4.66.1,<5.0.0)
 Requires-Dist: transformers (>=4.45.2,<5.0.0)

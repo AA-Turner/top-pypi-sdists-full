@@ -19,6 +19,8 @@ import * as Box from "../common/box_kinds";
 import { Node } from "../coordinates/node";
 import { Coordinate } from "../coordinates/coordinate";
 import type { Renderer } from "../renderers/renderer";
+declare const CoordinateLike: import("../../core/kinds").Kinds.Or<[number, string | number | [string, string] | [string, string, string] | [string, number] | [string, string, number] | [string, string, string, number], Coordinate]>;
+type CoordinateLike = typeof CoordinateLike["__type__"];
 export declare const EDGE_TOLERANCE = 2.5;
 export declare namespace BoxInteractionHandles {
     type Attrs = p.AttrsOf<Props>;
@@ -61,6 +63,7 @@ export declare class BoxAnnotationView extends AnnotationView implements Pannabl
     get computed_renderers(): Renderer[];
     connect_signals(): void;
     protected _build_renderers(): Promise<BuildResult<Renderer>>;
+    private _synthetic_lrtb;
     readonly [auto_ranged] = true;
     bounds(): Rect;
     log_bounds(): Rect;
@@ -93,10 +96,10 @@ export declare class BoxAnnotationView extends AnnotationView implements Pannabl
 export declare namespace BoxAnnotation {
     type Attrs = p.AttrsOf<Props>;
     type Props = Annotation.Props & {
-        top: p.Property<number | Coordinate>;
-        bottom: p.Property<number | Coordinate>;
-        left: p.Property<number | Coordinate>;
-        right: p.Property<number | Coordinate>;
+        top: p.Property<CoordinateLike>;
+        bottom: p.Property<CoordinateLike>;
+        left: p.Property<CoordinateLike>;
+        right: p.Property<CoordinateLike>;
         top_units: p.Property<CoordinateUnits>;
         bottom_units: p.Property<CoordinateUnits>;
         left_units: p.Property<CoordinateUnits>;
@@ -164,4 +167,5 @@ export declare class BoxAnnotation extends Annotation {
         readonly height: Node;
     };
 }
+export {};
 //# sourceMappingURL=box_annotation.d.ts.map

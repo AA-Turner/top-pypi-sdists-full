@@ -690,6 +690,7 @@ class ConfigManager:
             'license_plate_monitor' : None,
             'dwell' : None,
             'age_gender_detection': None,
+            'wildlife_monitoring': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1152,6 +1153,14 @@ class ConfigManager:
         try:
             from ..usecases.age_gender_detection import AgeGenderConfig
             return AgeGenderConfig
+        except ImportError:
+            return None
+    
+    def wildlife_monitoring_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
+            return WildLifeMonitoringConfig
         except ImportError:
             return None
     
@@ -2263,6 +2272,22 @@ class ConfigManager:
                 **kwargs
             )
         
+        elif usecase == "wildlife_monitoring":
+            # Import here to avoid circular import
+            from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WildLifeMonitoringConfig(
+                category=category or "environmental",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
@@ -2765,6 +2790,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.age_gender_detection import AgeGenderConfig
             default_config = AgeGenderConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "wildlife_monitoring":
+            # Import here to avoid circular import
+            from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
+            default_config = WildLifeMonitoringConfig()
             return default_config.to_dict()
         
         #Add all image based usecases here

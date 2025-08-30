@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # Hostlist library
 #
@@ -35,7 +34,7 @@ corner cases the behaviour of this module have not been compared for
 compatibility with pdsh/dshbak/SLURM et al.
 """
 
-__version__ = "2.2.2"
+__version__ = "2.3.0"
 
 import re
 import itertools
@@ -428,12 +427,3 @@ def parse_slurm_tasks_per_node(s):
         else:
             raise BadHostlist("bad task list syntax")
     return res
-
-#
-# Keep this part to tell users where the command line interface went
-#
-
-if __name__ == '__main__':
-    import os, sys
-    sys.stderr.write("The command line utility has been moved to a separate 'hostlist' program.\n")
-    sys.exit(os.EX_USAGE)

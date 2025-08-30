@@ -495,6 +495,8 @@ class AsyncChalkClient:
         num_workers: int | None = None,
         completion_deadline: timedelta | None = None,
         max_retries: int | None = None,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -589,6 +591,10 @@ class AsyncChalkClient:
         num_workers
             If specified, the query will be run asynchronously across a maximum `num_workers` pod workers at any time.
             This parameter is useful if you have a large number of shards and would like to limit the number of pods running at once.
+        query_name
+            The name of the query to execute. If provided, will create a new named query or fill in missing parameters from a preexisting execution.
+        query_name_version
+            The version of the named query to execute.
 
         Other Parameters
         ----------------

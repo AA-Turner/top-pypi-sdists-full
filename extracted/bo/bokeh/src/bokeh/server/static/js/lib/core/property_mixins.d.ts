@@ -135,6 +135,9 @@ export type AboveFill = Prefixed<"above", Fill>;
 export type AboveHatch = Prefixed<"above", Hatch>;
 export type BelowFill = Prefixed<"below", Fill>;
 export type BelowHatch = Prefixed<"below", Hatch>;
+export type GlyphLineVector = Prefixed<"glyph", LineVector>;
+export type GlyphFillVector = Prefixed<"glyph", FillVector>;
+export type GlyphHatchVector = Prefixed<"glyph", HatchVector>;
 export type AxisLabelText = Prefixed<"axis_label", Text>;
 export type AxisLine = Prefixed<"axis", Line>;
 export type BackgroundFill = Prefixed<"background", Fill>;
@@ -163,7 +166,7 @@ export type OutlineLine = Prefixed<"outline", Line>;
 export type SeparatorLine = Prefixed<"separator", Line>;
 export type SubGroupText = Prefixed<"subgroup", Text>;
 export type TitleText = Prefixed<"title", Text>;
-type Mixins = Text | Line | Fill | Hatch | Image;
+type Mixins = Text | Line | Fill | Hatch | Image | TextVector | LineVector | FillVector | HatchVector;
 export declare function attrs_of<P extends string, T extends Mixins>(model: HasProps, prefix: P, mixin: p.DefineOf<T>, new_prefix?: string | boolean): {
     [key: string]: unknown;
 };

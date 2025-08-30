@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: plotly-resampler
-Version: 0.10.0
+Version: 0.11.0
 Summary: Visualizing large time series with plotly
 Home-page: https://github.com/predict-idlab/plotly-resampler
 License: MIT
 Keywords: time-series,visualization,resampling,plotly,plotly-dash
 Author: Jonas Van Der Donckt
-Requires-Python: >=3.7.1,<4.0.0
+Requires-Python: >=3.8,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,17 +20,18 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: inline-persistent
-Requires-Dist: Flask-Cors (>=3.0.10,<4.0.0) ; extra == "inline-persistent"
-Requires-Dist: dash (>=2.9.0)
-Requires-Dist: jupyter-dash (>=0.4.2) ; extra == "inline-persistent"
+Requires-Dist: Flask-Cors (>=4.0.2,<5.0.0) ; extra == "inline-persistent"
+Requires-Dist: dash (>=2.11.0)
 Requires-Dist: kaleido (==0.2.1) ; extra == "inline-persistent"
 Requires-Dist: numpy (>=1.14) ; python_version < "3.11"
-Requires-Dist: numpy (>=1.24) ; python_version >= "3.11"
-Requires-Dist: orjson (>=3.8.0,<4.0.0)
-Requires-Dist: pandas (>=1)
-Requires-Dist: plotly (>=5.5.0,<6.0.0)
+Requires-Dist: numpy (>=1.24) ; python_version >= "3.11" and python_version < "3.13"
+Requires-Dist: numpy (>=2.0) ; python_version >= "3.13"
+Requires-Dist: orjson (>=3.10.0,<4.0.0)
+Requires-Dist: pandas (>=1) ; python_version < "3.13"
+Requires-Dist: pandas (>=2.2.3) ; python_version >= "3.13"
+Requires-Dist: plotly (>=5.5.0,<7.0.0)
 Requires-Dist: tsdownsample (>=0.1.3)
 Project-URL: Documentation, https://predict-idlab.github.io/plotly-resampler/latest
 Project-URL: Repository, https://github.com/predict-idlab/plotly-resampler
@@ -50,6 +51,7 @@ Description-Content-Type: text/markdown
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?)](http://makeapullrequest.com)
 [![Testing](https://github.com/predict-idlab/plotly-resampler/actions/workflows/test.yml/badge.svg)](https://github.com/predict-idlab/plotly-resampler/actions/workflows/test.yml)
 [![Documentation](https://img.shields.io/badge/read%20our%20docs!-informational)](https://predict-idlab.github.io/plotly-resampler/latest)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/k2d59GrxPX)
 
 <!-- [![Downloads](https://pepy.tech/badge/plotly-resampler)](https://pepy.tech/project/plotly-resampler) -->
 

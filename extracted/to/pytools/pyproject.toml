@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytools"
-version = "2025.2.2"
+version = "2025.2.3"
 description = "A collection of tools for Python"
 readme = "README.rst"
 license = "MIT"
@@ -39,7 +39,7 @@ numpy = [
     "numpy>=1.6",
 ]
 test = [
-    "mypy",
+    "basedpyright",
     "pytest",
     "ruff",
 ]
@@ -110,6 +110,14 @@ reportUnnecessaryIsInstance = "none"
 reportUnusedCallResult = "none"
 reportExplicitAny = "none"
 reportUnreachable = "hint"
+
+exclude = [
+    "doc",
+    ".conda-root",
+    "build",
+    ".env",
+    ".run-pylint.py",
+]
 
 # This reports even cycles that are qualified by 'if TYPE_CHECKING'. Not what
 # we care about at this moment.

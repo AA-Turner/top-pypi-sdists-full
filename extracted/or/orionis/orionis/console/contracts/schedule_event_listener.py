@@ -1,11 +1,7 @@
 from abc import ABC, abstractmethod
-
 from orionis.console.entities.event_job import EventJob
 
 class IScheduleEventListener(ABC):
-    """
-    Interface for event listeners that handle various stages of event processing.
-    """
 
     @abstractmethod
     async def before(self, event: EventJob, schedule):
@@ -34,24 +30,6 @@ class IScheduleEventListener(ABC):
         ----------
         event : EventJob
             The job execution event containing details about the job.
-        schedule : ISchedule
-            The associated schedule instance managing the job.
-
-        Returns
-        -------
-        None
-        """
-        pass
-
-    @abstractmethod
-    async def onSuccess(self, event: EventJob, schedule):
-        """
-        Called when a job is successfully executed.
-
-        Parameters
-        ----------
-        event : EventJob
-            The successful job execution event containing details about the job.
         schedule : ISchedule
             The associated schedule instance managing the job.
 

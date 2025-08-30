@@ -6,7 +6,7 @@ import type { Range } from "../ranges/range";
 import type * as visuals from "../../core/visuals";
 import * as mixins from "../../core/property_mixins";
 import type * as p from "../../core/properties";
-import { Align, Face, LabelOrientation } from "../../core/enums";
+import { Align, Face, LabelOrientation, AxisLabelStandoffMode } from "../../core/enums";
 import type { Size } from "../../core/layout";
 import type { Orient, Normal, Dimension } from "../../core/layout/side_panel";
 import { SidePanel } from "../../core/layout/side_panel";
@@ -94,6 +94,7 @@ export declare namespace Axis {
         formatter: p.Property<TickFormatter>;
         axis_label: p.Property<string | BaseText | null>;
         axis_label_standoff: p.Property<number>;
+        axis_label_standoff_mode: p.Property<AxisLabelStandoffMode>;
         axis_label_orientation: p.Property<LabelOrientation | number>;
         axis_label_align: p.Property<Align>;
         major_label_standoff: p.Property<number>;

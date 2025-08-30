@@ -1,4 +1,4 @@
-from opentelemetry.trace.status import StatusCode
+from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.sdk.trace.export import (
     SpanExportResult,
     SpanExporter,
@@ -28,6 +28,8 @@ from deepeval.tracing.otel.utils import (
     check_tool_name_from_gen_ai_attributes,
     set_trace_time,
     to_hex_string,
+    parse_string,
+    parse_list_of_strings,
 )
 from deepeval.tracing import perf_epoch_bridge as peb
 from deepeval.tracing.types import TraceAttributes
@@ -111,6 +113,14 @@ class ConfidentSpanExporter(SpanExporter):
                 if api_key:
                     current_trace.confident_api_key = api_key
 
+                # error trace if root span is errored
+                if base_span_wrapper.base_span.parent_uuid is None:
+                    if (
+                        base_span_wrapper.base_span.status
+                        == TraceSpanStatus.ERRORED
+                    ):
+                        current_trace.status = TraceSpanStatus.ERRORED
+
                 # set the trace attributes (to be deprecated)
                 if base_span_wrapper.trace_attributes:
 
@@ -156,10 +166,10 @@ class ConfidentSpanExporter(SpanExporter):
                         pass
 
                 if base_span_wrapper.trace_metadata and isinstance(
-                    base_span_wrapper.trace_metadata, str
+                    base_span_wrapper.trace_metadata, dict
                 ):
                     try:
-                        current_trace.metadata = json.loads(
+                        current_trace.metadata = (
                             base_span_wrapper.trace_metadata
                         )
                     except Exception:
@@ -237,15 +247,19 @@ class ConfidentSpanExporter(SpanExporter):
         parent_uuid = (
             to_hex_string(span.parent.span_id, 16) if span.parent else None
         )
-        status = (
-            TraceSpanStatus.ERRORED
-            if span.status.status_code == StatusCode.ERROR
-            else TraceSpanStatus.SUCCESS
-        )
+
+        base_span_status = TraceSpanStatus.SUCCESS
+        base_span_error = None
+
+        if isinstance(span.status, Status):
+            if span.status.status_code == StatusCode.ERROR:
+                base_span_status = TraceSpanStatus.ERRORED
+                base_span_error = span.status.description
+
         if not base_span:
             base_span = BaseSpan(
                 uuid=to_hex_string(span.context.span_id, 16),
-                status=status,
+                status=base_span_status,
                 children=[],
                 trace_uuid=to_hex_string(span.context.trace_id, 32),
                 parent_uuid=parent_uuid,
@@ -254,12 +268,10 @@ class ConfidentSpanExporter(SpanExporter):
             )
 
         # Extract Span Attributes
-        span_error = span.attributes.get("confident.span.error")
         span_input = span.attributes.get("confident.span.input")
         span_output = span.attributes.get("confident.span.output")
         span_name = span.attributes.get("confident.span.name")
 
-        raw_span_feedback = span.attributes.get("confident.span.feedback")
         raw_span_metric_collection = span.attributes.get(
             "confident.span.metric_collection"
         )
@@ -317,30 +329,27 @@ class ConfidentSpanExporter(SpanExporter):
         )
 
         # Validate Span Attributes
-        span_retrieval_context = self._parse_list_of_strings(
+        span_retrieval_context = parse_list_of_strings(
             raw_span_retrieval_context
         )
-        span_context = self._parse_list_of_strings(raw_span_context)
+        span_context = parse_list_of_strings(raw_span_context)
         span_tools_called = self._parse_list_of_tools(raw_span_tools_called)
         span_expected_tools = self._parse_list_of_tools(raw_span_expected_tools)
-        span_feedback = self._parse_base_model(raw_span_feedback, Feedback)
         span_metadata = self._parse_json_string(raw_span_metadata)
-        span_metric_collection = self._parse_string(raw_span_metric_collection)
+        span_metric_collection = parse_string(raw_span_metric_collection)
 
         # Validate Trace Attributes
-        trace_tags = self._parse_list_of_strings(raw_trace_tags)
-        trace_retrieval_context = self._parse_list_of_strings(
+        trace_tags = parse_list_of_strings(raw_trace_tags)
+        trace_retrieval_context = parse_list_of_strings(
             raw_trace_retrieval_context
         )
-        trace_context = self._parse_list_of_strings(raw_trace_context)
+        trace_context = parse_list_of_strings(raw_trace_context)
         trace_tools_called = self._parse_list_of_tools(raw_trace_tools_called)
         trace_expected_tools = self._parse_list_of_tools(
             raw_trace_expected_tools
         )
         trace_metadata = self._parse_json_string(raw_trace_metadata)
-        trace_metric_collection = self._parse_string(
-            raw_trace_metric_collection
-        )
+        trace_metric_collection = parse_string(raw_trace_metric_collection)
 
         # Set Span Attributes
         base_span.parent_uuid = (
@@ -348,12 +357,10 @@ class ConfidentSpanExporter(SpanExporter):
         )
         base_span.name = None if base_span.name == "None" else base_span.name
         base_span.name = span_name or base_span.name or span.name
-        if span_error:
-            base_span.error = span_error
+        base_span.status = base_span_status  # setting for boilerplate spans
+        base_span.error = base_span_error
         if span_metric_collection:
             base_span.metric_collection = span_metric_collection
-        if span_feedback:
-            base_span.feedback = span_feedback
         if span_retrieval_context:
             base_span.retrieval_context = span_retrieval_context
         if span_context:
@@ -597,23 +604,6 @@ class ConfidentSpanExporter(SpanExporter):
                     except ValidationError:
                         pass
         return parsed_tools
-
-    def _parse_list_of_strings(self, context: List[str]) -> List[str]:
-        parsed_context: List[str] = []
-        if context and (
-            isinstance(context, list) or isinstance(context, tuple)
-        ):
-            for context_str in context:
-                if not isinstance(context_str, str):
-                    pass
-                else:
-                    parsed_context.append(context_str)
-        return parsed_context
-
-    def _parse_string(self, value: Any) -> Any:
-        if isinstance(value, str):
-            return value
-        return None
 
     #######################################################
     ### Span Forest

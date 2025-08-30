@@ -1623,8 +1623,8 @@ class EmbyApiMedia(EmbyApiBase):
                 args['Years'] = year
 
         logger.debug('Search media with: {}', args)
-        medias = EmbyApi.request_emby(EMBY_ENDPOINT_SEARCH, auth, 'GET', **args)
-        if not medias or 'Items' not in medias or not medias['Items']:
+        media_results = EmbyApi.request_emby(EMBY_ENDPOINT_SEARCH, auth, 'GET', **args)
+        if not media_results or 'Items' not in media_results or not media_results['Items']:
             if EmbyApi.has_providers_search_arg(**parameters):
                 EmbyApi.remove_providers_search(parameters)
                 return EmbyApiMedia.search(**parameters)
@@ -1632,7 +1632,7 @@ class EmbyApiMedia(EmbyApiBase):
             logger.warning('No media found')
             return None
 
-        media = medias['Items'][0]
+        media = media_results['Items'][0]
 
         media_api = EmbyApiMedia(auth=auth, **media)
 

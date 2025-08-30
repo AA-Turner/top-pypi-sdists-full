@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cerebras_cloud_sdk
-Version: 1.46.0
+Version: 1.49.0
 Summary: The official Python library for the cerebras API
 Project-URL: Homepage, https://github.com/Cerebras/cerebras-cloud-sdk-python
 Project-URL: Repository, https://github.com/Cerebras/cerebras-cloud-sdk-python

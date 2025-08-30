@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.86.0"
+__version__ = "3.87.0"
 
 # Define package exports
 __all__ = [
@@ -80,13 +80,12 @@ __all__ = [
     "ApiException",
     "AccessPolicy",
     "AccessPolicyResponse",
-    "ApiAppStatusResponse",
+    "AppStatusResponse",
     "ArtifactDistributionResponse",
     "ArtifactResponse",
     "AsyncOperationResponse",
     "CompositeContentGuard",
     "CompositeContentGuardResponse",
-    "ContentAppStatusResponse",
     "ContentGuardResponse",
     "ContentRedirectContentGuard",
     "ContentRedirectContentGuardResponse",
@@ -320,13 +319,12 @@ from pulpcore.client.pulpcore.exceptions import ApiException as ApiException
 # import models into sdk package
 from pulpcore.client.pulpcore.models.access_policy import AccessPolicy as AccessPolicy
 from pulpcore.client.pulpcore.models.access_policy_response import AccessPolicyResponse as AccessPolicyResponse
-from pulpcore.client.pulpcore.models.api_app_status_response import ApiAppStatusResponse as ApiAppStatusResponse
+from pulpcore.client.pulpcore.models.app_status_response import AppStatusResponse as AppStatusResponse
 from pulpcore.client.pulpcore.models.artifact_distribution_response import ArtifactDistributionResponse as ArtifactDistributionResponse
 from pulpcore.client.pulpcore.models.artifact_response import ArtifactResponse as ArtifactResponse
 from pulpcore.client.pulpcore.models.async_operation_response import AsyncOperationResponse as AsyncOperationResponse
 from pulpcore.client.pulpcore.models.composite_content_guard import CompositeContentGuard as CompositeContentGuard
 from pulpcore.client.pulpcore.models.composite_content_guard_response import CompositeContentGuardResponse as CompositeContentGuardResponse
-from pulpcore.client.pulpcore.models.content_app_status_response import ContentAppStatusResponse as ContentAppStatusResponse
 from pulpcore.client.pulpcore.models.content_guard_response import ContentGuardResponse as ContentGuardResponse
 from pulpcore.client.pulpcore.models.content_redirect_content_guard import ContentRedirectContentGuard as ContentRedirectContentGuard
 from pulpcore.client.pulpcore.models.content_redirect_content_guard_response import ContentRedirectContentGuardResponse as ContentRedirectContentGuardResponse

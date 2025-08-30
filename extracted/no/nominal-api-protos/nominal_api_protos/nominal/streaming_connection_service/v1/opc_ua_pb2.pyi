@@ -35,6 +35,20 @@ class OpcUaFailedMonitorHandling(int, metaclass=_enum_type_wrapper.EnumTypeWrapp
     OPC_UA_FAILED_MONITOR_HANDLING_UNSPECIFIED: _ClassVar[OpcUaFailedMonitorHandling]
     OPC_UA_FAILED_MONITOR_HANDLING_ERROR: _ClassVar[OpcUaFailedMonitorHandling]
     OPC_UA_FAILED_MONITOR_HANDLING_IGNORE: _ClassVar[OpcUaFailedMonitorHandling]
+
+class OpcUaDataChangeTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OPC_UA_DATA_CHANGE_TRIGGER_UNSPECIFIED: _ClassVar[OpcUaDataChangeTrigger]
+    OPC_UA_DATA_CHANGE_TRIGGER_STATUS_ONLY: _ClassVar[OpcUaDataChangeTrigger]
+    OPC_UA_DATA_CHANGE_TRIGGER_STATUS_VALUE: _ClassVar[OpcUaDataChangeTrigger]
+    OPC_UA_DATA_CHANGE_TRIGGER_STATUS_VALUE_TIMESTAMP: _ClassVar[OpcUaDataChangeTrigger]
+
+class OpcUaDeadbandType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OPC_UA_DEADBAND_TYPE_UNSPECIFIED: _ClassVar[OpcUaDeadbandType]
+    OPC_UA_DEADBAND_TYPE_NONE: _ClassVar[OpcUaDeadbandType]
+    OPC_UA_DEADBAND_TYPE_ABSOLUTE: _ClassVar[OpcUaDeadbandType]
+    OPC_UA_DEADBAND_TYPE_PERCENT: _ClassVar[OpcUaDeadbandType]
 OPC_SECURITY_POLICY_UNSPECIFIED: OpcSecurityPolicy
 NONE: OpcSecurityPolicy
 OPC_UA_REFERENCE_EXPLORATION_TYPE_UNSPECIFIED: OpcUaReferenceExplorationType
@@ -47,6 +61,14 @@ OPC_UA_UNKNOWN_DATA_TYPE_HANDLING_TREAT_AS_STRING: OpcUaUnknownDataTypeHandling
 OPC_UA_FAILED_MONITOR_HANDLING_UNSPECIFIED: OpcUaFailedMonitorHandling
 OPC_UA_FAILED_MONITOR_HANDLING_ERROR: OpcUaFailedMonitorHandling
 OPC_UA_FAILED_MONITOR_HANDLING_IGNORE: OpcUaFailedMonitorHandling
+OPC_UA_DATA_CHANGE_TRIGGER_UNSPECIFIED: OpcUaDataChangeTrigger
+OPC_UA_DATA_CHANGE_TRIGGER_STATUS_ONLY: OpcUaDataChangeTrigger
+OPC_UA_DATA_CHANGE_TRIGGER_STATUS_VALUE: OpcUaDataChangeTrigger
+OPC_UA_DATA_CHANGE_TRIGGER_STATUS_VALUE_TIMESTAMP: OpcUaDataChangeTrigger
+OPC_UA_DEADBAND_TYPE_UNSPECIFIED: OpcUaDeadbandType
+OPC_UA_DEADBAND_TYPE_NONE: OpcUaDeadbandType
+OPC_UA_DEADBAND_TYPE_ABSOLUTE: OpcUaDeadbandType
+OPC_UA_DEADBAND_TYPE_PERCENT: OpcUaDeadbandType
 
 class OpcAuthenticationConfig(_message.Message):
     __slots__ = ("anonymous",)
@@ -153,8 +175,18 @@ class OpcUaTimestampHandling(_message.Message):
     relative: OpcUaTimestampHandling.OpcUaRelativeTimestamp
     def __init__(self, server: _Optional[_Union[OpcUaTimestampHandling.OpcUaServerTime, _Mapping]] = ..., source: _Optional[_Union[OpcUaTimestampHandling.OpcUaSourceTime, _Mapping]] = ..., relative: _Optional[_Union[OpcUaTimestampHandling.OpcUaRelativeTimestamp, _Mapping]] = ...) -> None: ...
 
+class OpcUaDataChangeFilter(_message.Message):
+    __slots__ = ("trigger", "deadband_type", "deadband_value")
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    DEADBAND_TYPE_FIELD_NUMBER: _ClassVar[int]
+    DEADBAND_VALUE_FIELD_NUMBER: _ClassVar[int]
+    trigger: OpcUaDataChangeTrigger
+    deadband_type: OpcUaDeadbandType
+    deadband_value: float
+    def __init__(self, trigger: _Optional[_Union[OpcUaDataChangeTrigger, str]] = ..., deadband_type: _Optional[_Union[OpcUaDeadbandType, str]] = ..., deadband_value: _Optional[float] = ...) -> None: ...
+
 class OpcUaScrapingConfig(_message.Message):
-    __slots__ = ("node_exploration_config", "unit_node_name", "channel_naming_convention", "override_host", "unknown_data_type_handling", "failed_monitor_handling", "timestamp_handling")
+    __slots__ = ("node_exploration_config", "unit_node_name", "channel_naming_convention", "override_host", "unknown_data_type_handling", "failed_monitor_handling", "timestamp_handling", "data_change_filter")
     NODE_EXPLORATION_CONFIG_FIELD_NUMBER: _ClassVar[int]
     UNIT_NODE_NAME_FIELD_NUMBER: _ClassVar[int]
     CHANNEL_NAMING_CONVENTION_FIELD_NUMBER: _ClassVar[int]
@@ -162,6 +194,7 @@ class OpcUaScrapingConfig(_message.Message):
     UNKNOWN_DATA_TYPE_HANDLING_FIELD_NUMBER: _ClassVar[int]
     FAILED_MONITOR_HANDLING_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_HANDLING_FIELD_NUMBER: _ClassVar[int]
+    DATA_CHANGE_FILTER_FIELD_NUMBER: _ClassVar[int]
     node_exploration_config: OpcUaNodeExplorationConfig
     unit_node_name: str
     channel_naming_convention: OpcUaChannelNamingConvention
@@ -169,4 +202,5 @@ class OpcUaScrapingConfig(_message.Message):
     unknown_data_type_handling: OpcUaUnknownDataTypeHandling
     failed_monitor_handling: OpcUaFailedMonitorHandling
     timestamp_handling: OpcUaTimestampHandling
-    def __init__(self, node_exploration_config: _Optional[_Union[OpcUaNodeExplorationConfig, _Mapping]] = ..., unit_node_name: _Optional[str] = ..., channel_naming_convention: _Optional[_Union[OpcUaChannelNamingConvention, _Mapping]] = ..., override_host: bool = ..., unknown_data_type_handling: _Optional[_Union[OpcUaUnknownDataTypeHandling, str]] = ..., failed_monitor_handling: _Optional[_Union[OpcUaFailedMonitorHandling, str]] = ..., timestamp_handling: _Optional[_Union[OpcUaTimestampHandling, _Mapping]] = ...) -> None: ...
+    data_change_filter: OpcUaDataChangeFilter
+    def __init__(self, node_exploration_config: _Optional[_Union[OpcUaNodeExplorationConfig, _Mapping]] = ..., unit_node_name: _Optional[str] = ..., channel_naming_convention: _Optional[_Union[OpcUaChannelNamingConvention, _Mapping]] = ..., override_host: bool = ..., unknown_data_type_handling: _Optional[_Union[OpcUaUnknownDataTypeHandling, str]] = ..., failed_monitor_handling: _Optional[_Union[OpcUaFailedMonitorHandling, str]] = ..., timestamp_handling: _Optional[_Union[OpcUaTimestampHandling, _Mapping]] = ..., data_change_filter: _Optional[_Union[OpcUaDataChangeFilter, _Mapping]] = ...) -> None: ...

@@ -19,6 +19,8 @@ StreamMode = Literal[
     "values", "messages", "updates", "events", "debug", "tasks", "checkpoints", "custom"
 ]
 
+ThreadStreamMode = Literal["lifecycle", "run_modes", "state_update"]
+
 MultitaskStrategy = Literal["reject", "rollback", "interrupt", "enqueue"]
 
 OnConflictBehavior = Literal["raise", "do_nothing"]

@@ -13,7 +13,6 @@ import pytest
 from workflows.context import Context, PickleSerializer
 from workflows.decorators import step
 from workflows.errors import (
-    WorkflowCancelledByUser,
     WorkflowConfigurationError,
     WorkflowRuntimeError,
     WorkflowTimeoutError,
@@ -67,66 +66,11 @@ async def test_workflow_run(workflow: Workflow) -> None:
 
 
 @pytest.mark.asyncio
-async def test_workflow_run_step(workflow: Workflow) -> None:
-    handler = workflow.run(stepwise=True)
-
-    events = await handler.run_step()
-    assert isinstance(events[0], OneTestEvent)  # type:ignore
-    assert not handler.is_done()
-    handler.ctx.send_event(events[0])  # type:ignore
-
-    events = await handler.run_step()
-    assert isinstance(events[0], LastEvent)  # type:ignore
-    assert not handler.is_done()
-    handler.ctx.send_event(events[0])  # type:ignore
-
-    events = await handler.run_step()
-    assert isinstance(events[0], StopEvent)  # type:ignore
-    assert not handler.is_done()
-    handler.ctx.send_event(events[0])  # type:ignore
-
-    event = await handler.run_step()
-    assert event is None
-
-    result = await handler
-    assert handler.is_done()
-    assert result == "Workflow completed"
-    # there shouldn't be any in progress events
-    for inprogress_list in handler.ctx._in_progress.values():  # type:ignore
-        assert len(inprogress_list) == 0
-
-
-@pytest.mark.asyncio
-async def test_workflow_cancelled_by_user(workflow: Workflow) -> None:
-    handler = workflow.run(stepwise=True)
-
-    events = await handler.run_step()
-    assert isinstance(events[0], OneTestEvent)  # type:ignore
-    assert not handler.is_done()
-    handler.ctx.send_event(events[0])  # type:ignore
-
-    await handler.cancel_run()
-    await asyncio.sleep(0.1)  # let workflow get cancelled
-    assert handler.is_done()
-    assert type(handler.exception()) is WorkflowCancelledByUser
-
-
-@pytest.mark.asyncio
-async def test_workflow_run_step_continue_context() -> None:
-    class DummyWorkflow(Workflow):
-        @step
-        async def step(self, ctx: Context, ev: StartEvent) -> StopEvent:
-            cur_number = await ctx.store.get("number", default=0)
-            await ctx.store.set("number", cur_number + 1)
-            return StopEvent(result="Done")
-
-
-@pytest.mark.asyncio
 async def test_workflow_timeout() -> None:
     class SlowWorkflow(Workflow):
         @step
         async def slow_step(self, ev: StartEvent) -> StopEvent:
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(2.0)
             return StopEvent(result="Done")
 
     workflow = SlowWorkflow(timeout=1)
@@ -218,7 +162,6 @@ async def test_workflow_sync_async_steps() -> None:
 
     workflow = SyncAsyncWorkflow()
     await workflow.run()
-    assert workflow.is_done()
 
 
 @pytest.mark.asyncio
@@ -236,7 +179,6 @@ async def test_workflow_sync_steps_only() -> None:
 
     workflow = SyncWorkflow()
     await workflow.run()
-    assert workflow.is_done()
 
 
 @pytest.mark.asyncio
@@ -278,7 +220,6 @@ async def test_workflow_num_workers() -> None:
     result = await handler
     end_time = time.time()
 
-    assert workflow.is_done()
     assert set(result) == {"test1", "test2", "test4"}
 
     # ctx should have 1 extra event
@@ -317,7 +258,6 @@ async def test_workflow_step_send_event() -> None:
     workflow = StepSendEventWorkflow()
     result = await workflow.run()
     assert result == "step2"
-    assert workflow.is_done()
     ctx = workflow._contexts.pop()
     assert ("step2", "OneTestEvent") in ctx._accepted_events
     assert ("step3", "OneTestEvent") not in ctx._accepted_events
@@ -337,7 +277,6 @@ async def test_workflow_step_send_event_to_None() -> None:
 
     workflow = StepSendEventToNoneWorkflow(verbose=True)
     await workflow.run()
-    assert workflow.is_done()
     assert ("step2", "OneTestEvent") in workflow._contexts.pop()._accepted_events
 
 
@@ -365,22 +304,6 @@ async def test_workflow_step_returning_bogus() -> None:
 
 
 @pytest.mark.asyncio
-async def test_workflow_missing_service() -> None:
-    class DummyWorkflow(Workflow):
-        @step
-        async def step(self, ev: StartEvent, my_service: Workflow) -> StopEvent:
-            return StopEvent(result=42)
-
-    workflow = DummyWorkflow()
-    # do not add any service called "my_service"...
-    with pytest.raises(
-        WorkflowValidationError,
-        match="The following services are not available: my_service",
-    ):
-        await workflow.run()
-
-
-@pytest.mark.asyncio
 async def test_workflow_multiple_runs() -> None:
     class DummyWorkflow(Workflow):
         @step
@@ -392,24 +315,6 @@ async def test_workflow_multiple_runs() -> None:
         workflow.run(number=3), workflow.run(number=42), workflow.run(number=-99)
     )
     assert set(results) == {6, 84, -198}
-
-
-def test_deprecated_send_event(workflow: Workflow) -> None:
-    ev = StartEvent()
-    ctx_1 = mock.MagicMock()
-
-    # One context, assert step emits a warning
-    workflow._contexts.add(ctx_1)
-    with pytest.warns(UserWarning):
-        workflow.send_event(message=ev)
-    ctx_1.send_event.assert_called_with(message=ev, step=None)
-
-    # Second context, assert step raises an exception
-    ctx_2 = mock.MagicMock()
-    workflow._contexts.add(ctx_2)
-    with pytest.raises(WorkflowRuntimeError):
-        workflow.send_event(message=ev)
-    ctx_2.send_event.assert_not_called()
 
 
 def test_add_step() -> None:
@@ -452,26 +357,8 @@ async def test_workflow_task_raises() -> None:
             raise ValueError("The step raised an error!")
 
     workflow = DummyWorkflow()
-    with pytest.raises(
-        WorkflowRuntimeError, match="Error in step 'step': The step raised an error!"
-    ):
+    with pytest.raises(ValueError, match="The step raised an error!"):
         await workflow.run()
-
-
-@pytest.mark.asyncio
-async def test_workflow_task_raises_step() -> None:
-    class DummyWorkflow(Workflow):
-        @step
-        async def step(self, ev: StartEvent) -> StopEvent:
-            raise ValueError("The step raised an error!")
-
-    workflow = DummyWorkflow()
-    handler = workflow.run(stepwise=True)
-    with pytest.raises(
-        WorkflowRuntimeError, match="Error in step 'step': The step raised an error!"
-    ):
-        await handler.run_step()
-    assert handler.exception()
 
 
 def test_workflow_disable_validation() -> None:
@@ -559,51 +446,6 @@ async def test_workflow_pickle() -> None:
 
 
 @pytest.mark.asyncio
-async def test_workflow_context_to_dict_mid_run(workflow: Workflow) -> None:
-    handler = workflow.run(stepwise=True)
-
-    events = await handler.run_step()
-    assert isinstance(events[0], OneTestEvent)  # type:ignore
-    assert not handler.is_done()
-    handler.ctx.send_event(events[0])  # type:ignore
-
-    # get the context dict
-    data = handler.ctx.to_dict()  # type:ignore
-
-    new_ctx = Context.from_dict(workflow, data)
-
-    # continue from the second step
-    new_handler = workflow.run(
-        ctx=new_ctx,
-        stepwise=True,
-    )
-
-    # run the second step
-    events = await new_handler.run_step()
-    assert isinstance(events[0], LastEvent)  # type:ignore
-    assert not new_handler.is_done()
-    new_handler.ctx.send_event(events[0])  # type:ignore
-
-    # run third step
-    events = await new_handler.run_step()
-    assert isinstance(events[0], StopEvent)  # type:ignore
-    assert not new_handler.is_done()
-    new_handler.ctx.send_event(events[0])  # type:ignore
-
-    # Let the workflow finish
-    assert await new_handler.run_step() is None
-
-    result = await new_handler
-    assert new_handler.is_done()
-    assert result == "Workflow completed"
-
-    # Clean up
-    await handler.cancel_run()
-    await asyncio.sleep(0.1)
-    assert handler.exception()
-
-
-@pytest.mark.asyncio
 async def test_workflow_context_to_dict(workflow: Workflow) -> None:
     handler = workflow.run()
     ctx = handler.ctx
@@ -644,10 +486,6 @@ async def test_human_in_the_loop() -> None:
     with pytest.raises(WorkflowTimeoutError):
         await workflow.run()
 
-    # workflow should not work with stepwise
-    with pytest.raises(WorkflowRuntimeError):
-        handler = workflow.run(stepwise=True)
-
     # workflow should work with streaming
     workflow = HumanInTheLoopWorkflow()
 
@@ -675,7 +513,7 @@ async def test_human_in_the_loop_with_resume() -> None:
         if isinstance(event, InputRequiredEvent):
             ctx_dict = handler.ctx.to_dict()
             await handler.cancel_run()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
             break
 
     assert handler.exception()
@@ -704,7 +542,7 @@ class DummyWorkflowForConcurrentRunsTest(Workflow):
         run_num = ev.get("run_num")
         async with self._lock:
             self.num_active_runs += 1
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.01)
         return StopEvent(result=f"Run {run_num}: Done")
 
     @step
@@ -815,7 +653,7 @@ async def test_custom_stop_event() -> None:
     # ensure that streaming exits
     handler = wf.run(query="foo")
     async for event in handler.stream_events():
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.01)
 
     _ = await handler
 
@@ -851,12 +689,6 @@ async def test_workflow_stream_events_exits() -> None:
         timeout=1,
     )
     assert result.outcome == "Workflow completed"
-
-
-def test_is_done(workflow: Workflow) -> None:
-    assert workflow.is_done() is True
-    workflow._stepwise_context = mock.MagicMock()
-    assert workflow.is_done() is False
 
 
 def test_wrong_event_types() -> None:

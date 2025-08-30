@@ -35,6 +35,7 @@ from ...types.playground_session import PlaygroundSession
 from ...types.preset_retrieval_params import PresetRetrievalParams
 from ...types.retrieval_mode import RetrievalMode
 from ...types.retrieve_results import RetrieveResults
+from ...types.sparse_model_config import SparseModelConfig
 from ...types.text_node import TextNode
 from .types.pipeline_file_update_custom_metadata_value import PipelineFileUpdateCustomMetadataValue
 from .types.pipeline_update_embedding_config import PipelineUpdateEmbeddingConfig
@@ -217,6 +218,7 @@ class PipelinesClient:
         *,
         embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig] = OMIT,
         transform_config: typing.Optional[PipelineUpdateTransformConfig] = OMIT,
+        sparse_model_config: typing.Optional[SparseModelConfig] = OMIT,
         data_sink_id: typing.Optional[str] = OMIT,
         embedding_model_config_id: typing.Optional[str] = OMIT,
         data_sink: typing.Optional[DataSinkCreate] = OMIT,
@@ -237,6 +239,8 @@ class PipelinesClient:
             - embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig].
 
             - transform_config: typing.Optional[PipelineUpdateTransformConfig]. Configuration for the transformation.
+
+            - sparse_model_config: typing.Optional[SparseModelConfig].
 
             - data_sink_id: typing.Optional[str].
 
@@ -263,6 +267,8 @@ class PipelinesClient:
             _request["embedding_config"] = embedding_config
         if transform_config is not OMIT:
             _request["transform_config"] = transform_config
+        if sparse_model_config is not OMIT:
+            _request["sparse_model_config"] = sparse_model_config
         if data_sink_id is not OMIT:
             _request["data_sink_id"] = data_sink_id
         if embedding_model_config_id is not OMIT:
@@ -554,6 +560,7 @@ class PipelinesClient:
         *,
         data_source_id: typing.Optional[str] = None,
         only_manually_uploaded: typing.Optional[bool] = None,
+        file_name_contains: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         offset: typing.Optional[int] = None,
         order_by: typing.Optional[str] = None,
@@ -561,12 +568,23 @@ class PipelinesClient:
         """
         Get files for a pipeline.
 
+        Args:
+        pipeline_id: ID of the pipeline
+        data_source_id: Optional filter by data source ID
+        only_manually_uploaded: Filter for only manually uploaded files
+        file_name_contains: Optional filter by file name (substring match)
+        limit: Limit number of results
+        offset: Offset for pagination
+        order_by: Field to order by
+
         Parameters:
             - pipeline_id: str.
 
             - data_source_id: typing.Optional[str].
 
             - only_manually_uploaded: typing.Optional[bool].
+
+            - file_name_contains: typing.Optional[str].
 
             - limit: typing.Optional[int].
 
@@ -590,6 +608,7 @@ class PipelinesClient:
                 {
                     "data_source_id": data_source_id,
                     "only_manually_uploaded": only_manually_uploaded,
+                    "file_name_contains": file_name_contains,
                     "limit": limit,
                     "offset": offset,
                     "order_by": order_by,
@@ -1888,6 +1907,7 @@ class AsyncPipelinesClient:
         *,
         embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig] = OMIT,
         transform_config: typing.Optional[PipelineUpdateTransformConfig] = OMIT,
+        sparse_model_config: typing.Optional[SparseModelConfig] = OMIT,
         data_sink_id: typing.Optional[str] = OMIT,
         embedding_model_config_id: typing.Optional[str] = OMIT,
         data_sink: typing.Optional[DataSinkCreate] = OMIT,
@@ -1908,6 +1928,8 @@ class AsyncPipelinesClient:
             - embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig].
 
             - transform_config: typing.Optional[PipelineUpdateTransformConfig]. Configuration for the transformation.
+
+            - sparse_model_config: typing.Optional[SparseModelConfig].
 
             - data_sink_id: typing.Optional[str].
 
@@ -1934,6 +1956,8 @@ class AsyncPipelinesClient:
             _request["embedding_config"] = embedding_config
         if transform_config is not OMIT:
             _request["transform_config"] = transform_config
+        if sparse_model_config is not OMIT:
+            _request["sparse_model_config"] = sparse_model_config
         if data_sink_id is not OMIT:
             _request["data_sink_id"] = data_sink_id
         if embedding_model_config_id is not OMIT:
@@ -2225,6 +2249,7 @@ class AsyncPipelinesClient:
         *,
         data_source_id: typing.Optional[str] = None,
         only_manually_uploaded: typing.Optional[bool] = None,
+        file_name_contains: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         offset: typing.Optional[int] = None,
         order_by: typing.Optional[str] = None,
@@ -2232,12 +2257,23 @@ class AsyncPipelinesClient:
         """
         Get files for a pipeline.
 
+        Args:
+        pipeline_id: ID of the pipeline
+        data_source_id: Optional filter by data source ID
+        only_manually_uploaded: Filter for only manually uploaded files
+        file_name_contains: Optional filter by file name (substring match)
+        limit: Limit number of results
+        offset: Offset for pagination
+        order_by: Field to order by
+
         Parameters:
             - pipeline_id: str.
 
             - data_source_id: typing.Optional[str].
 
             - only_manually_uploaded: typing.Optional[bool].
+
+            - file_name_contains: typing.Optional[str].
 
             - limit: typing.Optional[int].
 
@@ -2261,6 +2297,7 @@ class AsyncPipelinesClient:
                 {
                     "data_source_id": data_source_id,
                     "only_manually_uploaded": only_manually_uploaded,
+                    "file_name_contains": file_name_contains,
                     "limit": limit,
                     "offset": offset,
                     "order_by": order_by,

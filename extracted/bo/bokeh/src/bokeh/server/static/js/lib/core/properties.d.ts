@@ -12,6 +12,8 @@ import type { NDArray, NDArrayType } from "./util/ndarray";
 import type { RaggedArray } from "./util/ragged_array";
 import { Uniform, UniformScalar, UniformVector, ColorUniformVector } from "./uniforms";
 export { Uniform, UniformScalar, UniformVector };
+export declare class ValidationError extends Error {
+}
 export declare function isSpec(obj: any): boolean;
 export interface Theme {
     get(obj: HasProps | typeof HasProps, attr: string): unknown;

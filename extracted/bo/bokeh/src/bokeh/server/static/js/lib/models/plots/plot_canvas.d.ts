@@ -7,8 +7,8 @@ import type { DataRenderer } from "../renderers/data_renderer";
 import type { Range } from "../ranges/range";
 import type { Tool } from "../tools/tool";
 import type { Selection } from "../selections/selection";
-import type { LayoutDOM, DOMBoxSizing, FullDisplay } from "../layouts/layout_dom";
-import { LayoutDOMView } from "../layouts/layout_dom";
+import type { DOMBoxSizing, FullDisplay } from "../layouts/layout_dom";
+import { LayoutDOM, LayoutDOMView } from "../layouts/layout_dom";
 import type { Plot } from "./plot";
 import { Title } from "../annotations/title";
 import { AxisView } from "../axes/axis";
@@ -102,7 +102,7 @@ export declare class PlotView extends LayoutDOMView implements Paintable {
     request_paint(...to_invalidate: (Renderer | RendererView)[]): void;
     invalidate_painters(...to_invalidate: (Renderer | RendererView)[]): void;
     schedule_paint(): void;
-    request_layout(): void;
+    request_layout(force?: boolean): void;
     reset(): void;
     remove(): void;
     protected _provide_context_menu(): Menu | null;
@@ -113,6 +113,7 @@ export declare class PlotView extends LayoutDOMView implements Paintable {
     box_sizing(): DOMBoxSizing;
     protected _intrinsic_display(): FullDisplay;
     private _compute_layout_panels;
+    protected _make_layout(): BorderLayout;
     _update_layout(): void;
     protected _measure_layout(): void;
     get axis_views(): AxisView[];
@@ -122,6 +123,7 @@ export declare class PlotView extends LayoutDOMView implements Paintable {
     get_selection(): Map<DataRenderer, Selection>;
     update_selection(selections: Map<DataRenderer, Selection> | null): void;
     reset_selection(): void;
+    private _needs_layout;
     protected _invalidate_layout_if_needed(): void;
     protected _compute_renderers(): Generator<Renderer, void, undefined>;
     protected _update_attribution(): void;
@@ -141,6 +143,10 @@ export declare class PlotView extends LayoutDOMView implements Paintable {
     protected _paint_overlays(ctx: Context2d): void;
     protected _paint_levels(ctx: Context2d, level: RenderLevel, clip_box: BBox, global_clip: boolean): void;
     paint_layout(ctx: Context2d, layout: Layoutable): void;
+    /**
+     * Shrink bbox by 1px to make right and bottom lines visible if they are on the edge of the canvas.
+     */
+    private _shrink_to_canvas;
     protected _paint_empty(ctx: Context2d, frame_box: BBox): void;
     protected _paint_outline(ctx: Context2d, frame_box: BBox): void;
     private _force_paint;

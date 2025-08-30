@@ -1,10 +1,9 @@
-from orionis.console.contracts.console import IConsole
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.log.contracts.log_service import ILogger
 from orionis.test.contracts.kernel import ITestKernel
 from orionis.test.contracts.unit_test import IUnitTest
 from orionis.foundation.config.testing.entities.testing import Testing
-from orionis.test.exceptions import OrionisTestConfigException, OrionisTestFailureException
+from orionis.test.exceptions import OrionisTestConfigException
 
 class TestKernel(ITestKernel):
 

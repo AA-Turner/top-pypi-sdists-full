@@ -44,23 +44,6 @@ class BaseScheduleEventListener(IScheduleEventListener):
         """
         pass  # Placeholder for post-job execution logic
 
-    async def onSuccess(self, event: EventJob, schedule):
-        """
-        Called when a job is successfully executed.
-
-        Parameters
-        ----------
-        event : EventJob
-            The successful job execution event containing details about the job.
-        schedule : ISchedule
-            The associated schedule instance managing the job.
-
-        Returns
-        -------
-        None
-        """
-        pass  # Placeholder for logic to handle successful job execution
-
     async def onFailure(self, event: EventJob, schedule):
         """
         Called when a job execution fails.

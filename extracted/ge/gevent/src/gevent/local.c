@@ -15,7 +15,7 @@
         "include_dirs": [
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
             "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.1-94g1v6pg/gitclone/deps"
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-25.8.2-e4d_msuc/gitclone/deps"
         ],
         "name": "gevent._gevent_clocal",
         "sources": [

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Collection,
     Dict,
     Iterable,
@@ -76,6 +77,7 @@ from chalk.client.models import (
     ChalkException,
     ComputeResolverOutputRequest,
     ComputeResolverOutputResponse,
+    CreateModelTrainingJobResponse,
     CreateOfflineQueryJobRequest,
     CreateOfflineQueryJobResponse,
     CreatePromptEvaluationRequest,
@@ -94,6 +96,8 @@ from chalk.client.models import (
     FeatureStatisticsResponse,
     GetIncrementalProgressResponse,
     GetOfflineQueryJobResponse,
+    GetRegisteredModelResponse,
+    GetRegisteredModelVersionResponse,
     IngestDatasetRequest,
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
@@ -115,6 +119,8 @@ from chalk.client.models import (
     PlanQueryRequest,
     PlanQueryResponse,
     QueryMeta,
+    RegisterModelResponse,
+    RegisterModelVersionResponse,
     ResolverReplayResponse,
     ResolverRunResponse,
     ResourceRequests,
@@ -1435,7 +1441,7 @@ from the command line from '{os.getcwd()}'. If you are still having trouble, ple
 
 Additional Details:
 Response Status Code: {r.status_code}
-{f'Reason for Failure: {r.reason}' if r.reason else ''}
+{f"Reason for Failure: {r.reason}" if r.reason else ""}
 Response Headers: {formatted_headers}
 """,
             )
@@ -2171,6 +2177,8 @@ https://docs.chalk.ai/cli/apply
         num_workers: int | None = None,
         completion_deadline: timedelta | None = None,
         max_retries: int | None = None,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
         include_meta: Optional[
             bool
         ] = None,  # unused, undocumented. provided to make switching online_query -> offline_query easier.
@@ -2198,8 +2206,10 @@ https://docs.chalk.ai/cli/apply
             raise missing_dependency_exception("chalkpy[runtime]")
         del pl  # unused
 
-        if len(output) == 0 and len(required_output) == 0:
+        if len(output) == 0 and len(required_output) == 0 and query_name is None:
             raise ValueError("Either 'output' or 'required_output' must be specified.")
+        if query_name is None and query_name_version is not None:
+            raise ValueError("Passed 'query_name_version' without 'query_name'.")
 
         if isinstance(num_shards, int) and num_shards < 1:
             raise ValueError("num_shards must be greater than 0")
@@ -2298,6 +2308,8 @@ https://docs.chalk.ai/cli/apply
             optional_output_expressions=optional_output_expressions,
             required_output_expressions=required_output_expressions,
             use_job_queue=use_job_queue,
+            query_name=query_name,
+            query_name_version=query_name_version,
         )
 
         initialized_dataset = dataset_from_response(response, self)
@@ -3413,6 +3425,8 @@ https://docs.chalk.ai/cli/apply
         optional_output_expressions: Optional[List[str]] = None,
         required_output_expressions: Optional[List[str]] = None,
         use_job_queue: bool = False,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
     ) -> DatasetResponse:
         if not (
             isinstance(recompute_features, list)
@@ -3486,6 +3500,8 @@ https://docs.chalk.ai/cli/apply
             max_retries=max_retries,
             use_job_queue=use_job_queue,
             overlay_graph=_get_overlay_graph_b64(),
+            query_name=query_name,
+            query_name_version=query_name_version,
         )
 
         response = self._create_dataset_request(
@@ -4716,3 +4732,104 @@ https://docs.chalk.ai/cli/apply
             metadata_request=False,
             extra_headers={"x-chalk-server": "go-api"},
         ).num
+
+    def get_model(
+        self,
+        name: str,
+        version: Optional[int] = None,
+    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.get_model(name=name, version=version)
+
+        return resp
+
+    def register_model(
+        self,
+        name: str,
+        description: str,
+        metadata: Mapping[str, Any],
+    ) -> RegisterModelResponse:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.register_model(
+            name=name,
+            description=description,
+            metadata=metadata,
+        )
+
+        return resp
+
+    def register_model_version(
+        self,
+        name: str,
+        model_type: str,
+        model_format: str,
+        aliases: Optional[List[str]] = None,
+        model: Optional[Any] = None,
+        model_paths: Optional[List[str]] = None,
+        additional_files: Optional[Mapping[str, str]] = None,
+        input_schema: Optional[Any] = None,
+        output_schema: Optional[Any] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> RegisterModelVersionResponse:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.register_model_version(
+            name=name,
+            aliases=aliases,
+            model_type=model_type,
+            model_format=model_format,
+            model=model,
+            model_paths=model_paths,
+            additional_files=additional_files,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            metadata=metadata,
+        )
+
+        return resp
+
+    def train_model(
+        self,
+        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
+        model_name: str,
+        dataset_name: str,
+        config: Optional[Mapping[str, Any]] = None,
+        resources: Optional[ResourceRequests] = None,
+    ) -> CreateModelTrainingJobResponse:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        client_grpc.create_model_training_job(
+            train_fn=train_fn, model_name=model_name, dataset_name=dataset_name, config=config, resources=resources
+        )
+
+        return CreateModelTrainingJobResponse(success=True)

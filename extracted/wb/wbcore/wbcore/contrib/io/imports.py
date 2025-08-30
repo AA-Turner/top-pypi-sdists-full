@@ -298,7 +298,8 @@ class ImportExportHandler:
                     len(self.import_source.log) > self.MAX_ALLOWED_LOG_SIZE
                 ):  # In case we are exceedning the max log size, we reset the log to avoid issue when saving it
                     self.import_source.log = ""
-                self.processed_ids.append(_object.id)
+                if object_id := getattr(_object, "id", None):
+                    self.processed_ids.append(object_id)
             except DeserializationError as e:
                 self.import_source.errors_log += f"Row {self.import_source.progress_index}: {str(e)}\n"
             self.import_source.progress_index += 1

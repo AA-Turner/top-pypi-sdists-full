@@ -66,7 +66,6 @@ export declare namespace BaseColorBar {
         title_standoff: p.Property<number>;
         width: p.Property<number | "auto">;
         height: p.Property<number | "auto">;
-        scale_alpha: p.Property<number>;
         ticker: p.Property<Ticker | "auto">;
         formatter: p.Property<TickFormatter | "auto">;
         major_label_overrides: p.Property<LabelOverrides>;
@@ -93,7 +92,7 @@ export declare namespace BaseColorBar {
 }
 export interface BaseColorBar extends BaseColorBar.Attrs {
 }
-export declare class BaseColorBar extends Annotation {
+export declare abstract class BaseColorBar extends Annotation {
     properties: BaseColorBar.Props;
     __view_type__: BaseColorBarView;
     constructor(attrs?: Partial<BaseColorBar.Attrs>);

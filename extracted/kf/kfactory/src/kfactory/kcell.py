@@ -1967,6 +1967,14 @@ class ProtoTKCell(ProtoKCell[TUnit, TKCell], Generic[TUnit], ABC):
                         eqps = c_.kcl.virtual_factories[
                             c_.factory_name
                         ].lvs_equivalent_ports
+                    elif c_.is_library_cell():
+                        from .layout import kcls
+
+                        eqps = (
+                            kcls[c_.library().name()]
+                            .factories[c_.factory_name]
+                            .lvs_equivalent_ports
+                        )
                     else:
                         eqps = c_.kcl.factories[c_.factory_name].lvs_equivalent_ports
                 if eqps is not None:
@@ -3747,7 +3755,7 @@ def show(
             import git
 
             try:
-                repo = git.repo.Repo(".", search_parent_directories=True)
+                repo = git.Repo(".", search_parent_directories=True)
             except git.InvalidGitRepositoryError:
                 pass
             else:
@@ -3800,7 +3808,7 @@ def show(
             import git
 
             try:
-                repo = git.repo.Repo(".", search_parent_directories=True)
+                repo = git.Repo(".", search_parent_directories=True)
             except git.InvalidGitRepositoryError:
                 pass
             else:
@@ -3862,7 +3870,7 @@ def show(
                 import git
 
                 try:
-                    repo = git.repo.Repo(".", search_parent_directories=True)
+                    repo = git.Repo(".", search_parent_directories=True)
                 except git.InvalidGitRepositoryError:
                     pass
                 else:
@@ -3908,7 +3916,7 @@ def show(
                 import git
 
                 try:
-                    repo = git.repo.Repo(".", search_parent_directories=True)
+                    repo = git.Repo(".", search_parent_directories=True)
                 except git.InvalidGitRepositoryError:
                     pass
                 else:

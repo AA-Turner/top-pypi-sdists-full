@@ -122,6 +122,7 @@ class DBCluster(AWSObject):
         "DBSystemId": (str, False),
         "DatabaseInsightsMode": (str, False),
         "DatabaseName": (str, False),
+        "DeleteAutomatedBackups": (boolean, False),
         "DeletionProtection": (boolean, False),
         "Domain": (str, False),
         "DomainIAMRoleName": (str, False),
@@ -158,6 +159,7 @@ class DBCluster(AWSObject):
         "ServerlessV2ScalingConfiguration": (ServerlessV2ScalingConfiguration, False),
         "SnapshotIdentifier": (str, False),
         "SourceDBClusterIdentifier": (str, False),
+        "SourceDbClusterResourceId": (str, False),
         "SourceRegion": (str, False),
         "StorageEncrypted": (boolean, False),
         "StorageType": (str, False),
@@ -246,6 +248,7 @@ class DBInstance(AWSObject):
         "AutomaticBackupReplicationRetentionPeriod": (integer, False),
         "AvailabilityZone": (str, False),
         "BackupRetentionPeriod": (validate_backup_retention_period, False),
+        "BackupTarget": (str, False),
         "CACertificateIdentifier": (str, False),
         "CertificateDetails": (CertificateDetails, False),
         "CertificateRotationRestart": (boolean, False),
@@ -607,6 +610,19 @@ class OptionGroup(AWSObject):
         "OptionGroupDescription": (str, True),
         "OptionGroupName": (str, False),
         "Tags": (validate_tags_or_list, False),
+    }
+
+
+class DBInstanceStatusInfo(AWSProperty):
+    """
+    `DBInstanceStatusInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "Message": (str, False),
+        "Normal": (boolean, False),
+        "Status": (str, False),
+        "StatusType": (str, False),
     }
 
 

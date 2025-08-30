@@ -227,6 +227,7 @@ class ParsingClient:
         guess_xlsx_sheet_name: bool,
         high_res_ocr: bool,
         html_make_all_elements_visible: bool,
+        layout_aware: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
         http_proxy: str,
@@ -356,6 +357,8 @@ class ParsingClient:
             - high_res_ocr: bool.
 
             - html_make_all_elements_visible: bool.
+
+            - layout_aware: bool.
 
             - html_remove_fixed_elements: bool.
 
@@ -522,6 +525,7 @@ class ParsingClient:
             "guess_xlsx_sheet_name": guess_xlsx_sheet_name,
             "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
+            "layout_aware": layout_aware,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,
             "http_proxy": http_proxy,
@@ -1399,6 +1403,7 @@ class AsyncParsingClient:
         guess_xlsx_sheet_name: bool,
         high_res_ocr: bool,
         html_make_all_elements_visible: bool,
+        layout_aware: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
         http_proxy: str,
@@ -1528,6 +1533,8 @@ class AsyncParsingClient:
             - high_res_ocr: bool.
 
             - html_make_all_elements_visible: bool.
+
+            - layout_aware: bool.
 
             - html_remove_fixed_elements: bool.
 
@@ -1694,6 +1701,7 @@ class AsyncParsingClient:
             "guess_xlsx_sheet_name": guess_xlsx_sheet_name,
             "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
+            "layout_aware": layout_aware,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,
             "http_proxy": http_proxy,

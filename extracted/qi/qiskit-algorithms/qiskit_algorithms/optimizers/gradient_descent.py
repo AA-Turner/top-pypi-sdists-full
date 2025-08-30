@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -42,6 +42,15 @@ class GradientDescentState(OptimizerState):
 
     """
 
+    # See parent class for a comment on having a custom equals. I needed this
+    # too as it does not appear to use super by default and without this failed
+    # the exact same way. Note it does not include learning rate as that field
+    # is not included in the compare as pre the field decorator.
+    def __eq__(self, other: object):
+        if not isinstance(other, GradientDescentState):
+            return NotImplemented
+        return super().__eq__(other) and self.stepsize == other.stepsize
+
 
 class GradientDescent(SteppableOptimizer):
     r"""The gradient descent minimization routine.
@@ -75,7 +84,7 @@ class GradientDescent(SteppableOptimizer):
 
             from qiskit_algorithms.optimizers import GradientDescent
 
-            def f(x):
+            def fun(x):
                 return (np.linalg.norm(x) - 1) ** 2
 
             initial_point = np.array([1, 0.5, -0.2])
@@ -106,7 +115,7 @@ class GradientDescent(SteppableOptimizer):
 
                 return power_law()
 
-            def f(x):
+            def fun(x):
                 return (np.linalg.norm(x) - 1) ** 2
 
             def grad_f(x):

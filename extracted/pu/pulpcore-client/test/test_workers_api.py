@@ -30,14 +30,14 @@ class TestWorkersApi(unittest.TestCase):
     def test_list(self) -> None:
         """Test case for list
 
-        List workers
+        List app statuss
         """
         pass
 
     def test_read(self) -> None:
         """Test case for read
 
-        Inspect a worker
+        Inspect an app status
         """
         pass
 

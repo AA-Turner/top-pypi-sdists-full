@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.26.4
+Version: 0.27.0
 Summary: LLMs with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors
@@ -9,7 +9,7 @@ License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mlx>=0.26.0
+Requires-Dist: mlx>=0.29.0
 Requires-Dist: numpy
 Requires-Dist: transformers>=4.39.3
 Requires-Dist: protobuf

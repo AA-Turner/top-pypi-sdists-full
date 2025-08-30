@@ -6917,7 +6917,13 @@ class Capabilities(AWSProperty):
         "CreateSPICEDataset": (str, False),
         "CreateSharedFolders": (str, False),
         "ExportToCsv": (str, False),
+        "ExportToCsvInScheduledReports": (str, False),
         "ExportToExcel": (str, False),
+        "ExportToExcelInScheduledReports": (str, False),
+        "ExportToPdf": (str, False),
+        "ExportToPdfInScheduledReports": (str, False),
+        "IncludeContentInScheduledReportsEmail": (str, False),
+        "PrintReports": (str, False),
         "RenameSharedFolders": (str, False),
         "ShareAnalyses": (str, False),
         "ShareDashboards": (str, False),
@@ -7429,7 +7435,7 @@ class CastColumnTypeOperation(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ColumnName": (str, True),
+        "ColumnName": (str, False),
         "Format": (str, False),
         "NewColumnType": (str, True),
         "SubType": (str, False),
@@ -7464,7 +7470,7 @@ class FilterOperation(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ConditionExpression": (str, True),
+        "ConditionExpression": (str, False),
     }
 
 
@@ -7499,7 +7505,7 @@ class ProjectOperation(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ProjectedColumns": ([str], True),
+        "ProjectedColumns": ([str], False),
     }
 
 
@@ -7509,7 +7515,7 @@ class RenameColumnOperation(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ColumnName": (str, True),
+        "ColumnName": (str, False),
         "NewColumnName": (str, False),
     }
 
@@ -7592,7 +7598,7 @@ class UniqueKey(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ColumnNames": ([str], True),
+        "ColumnNames": ([str], False),
     }
 
 
@@ -7703,7 +7709,7 @@ class RowLevelPermissionTagRule(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ColumnName": (str, True),
+        "ColumnName": (str, False),
         "MatchAllValue": (str, False),
         "TagKey": (str, True),
         "TagMultiValueDelimiter": (str, False),
@@ -7776,12 +7782,23 @@ class AmazonOpenSearchParameters(AWSProperty):
     }
 
 
+class IdentityCenterConfiguration(AWSProperty):
+    """
+    `IdentityCenterConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-datasource-identitycenterconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableIdentityPropagation": (boolean, False),
+    }
+
+
 class AthenaParameters(AWSProperty):
     """
     `AthenaParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-datasource-athenaparameters.html>`__
     """
 
     props: PropsDictType = {
+        "IdentityCenterConfiguration": (IdentityCenterConfiguration, False),
         "RoleArn": (str, False),
         "WorkGroup": (str, False),
     }
@@ -7856,6 +7873,7 @@ class OracleParameters(AWSProperty):
         "Database": (str, True),
         "Host": (str, True),
         "Port": (double, True),
+        "UseServiceName": (boolean, False),
     }
 
 
@@ -7891,16 +7909,6 @@ class RdsParameters(AWSProperty):
     props: PropsDictType = {
         "Database": (str, True),
         "InstanceId": (str, True),
-    }
-
-
-class IdentityCenterConfiguration(AWSProperty):
-    """
-    `IdentityCenterConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-datasource-identitycenterconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "EnableIdentityPropagation": (boolean, False),
     }
 
 
@@ -8499,6 +8507,16 @@ class Theme(AWSObject):
     }
 
 
+class CustomInstructions(AWSProperty):
+    """
+    `CustomInstructions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topic-custominstructions.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomInstructionsString": (str, True),
+    }
+
+
 class DataAggregation(AWSProperty):
     """
     `DataAggregation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topic-dataaggregation.html>`__
@@ -8866,10 +8884,12 @@ class Topic(AWSObject):
     props: PropsDictType = {
         "AwsAccountId": (str, False),
         "ConfigOptions": (TopicConfigOptions, False),
+        "CustomInstructions": (CustomInstructions, False),
         "DataSets": ([DatasetMetadata], False),
         "Description": (str, False),
         "FolderArns": ([str], False),
         "Name": (str, False),
+        "Tags": (Tags, False),
         "TopicId": (str, False),
         "UserExperienceVersion": (str, False),
     }

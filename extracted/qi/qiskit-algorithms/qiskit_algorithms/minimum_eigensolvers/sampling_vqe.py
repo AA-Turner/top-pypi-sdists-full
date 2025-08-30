@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2022, 2024.
+# (C) Copyright IBM 2022, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 import logging
 from time import time
@@ -22,7 +23,7 @@ from typing import Any
 import numpy as np
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseSampler
+from qiskit.primitives import BaseSamplerV2
 from qiskit.result import QuasiDistribution
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 
@@ -92,7 +93,7 @@ class SamplingVQE(VariationalAlgorithm, SamplingMinimumEigensolver):
     the ``SamplingVQE`` object has been constructed.
 
     Attributes:
-        sampler (BaseSampler): The sampler primitive to sample the circuits.
+        sampler (BaseSamplerV2): The sampler primitive to sample the circuits.
         ansatz (QuantumCircuit): A parameterized quantum circuit to prepare the trial state.
         optimizer (Optimizer | Minimizer): A classical optimizer to find the minimum energy. This
             can either be an :class:`.Optimizer` or a callable implementing the
@@ -116,7 +117,7 @@ class SamplingVQE(VariationalAlgorithm, SamplingMinimumEigensolver):
 
     def __init__(
         self,
-        sampler: BaseSampler,
+        sampler: BaseSamplerV2,
         ansatz: QuantumCircuit,
         optimizer: Optimizer | Minimizer,
         *,
@@ -172,6 +173,18 @@ class SamplingVQE(VariationalAlgorithm, SamplingMinimumEigensolver):
                     "Trying to resize ansatz to match operator on %s qubits.", operator.num_qubits
                 )
                 self.ansatz.num_qubits = operator.num_qubits
+                warnings.warn(
+                    "Previously, it was possible to pass to SamplingVQE a BlueprintCircuit as an "
+                    "ansatz without its number of qubits being set, the algorithm taking care "
+                    "of setting it. Since BlueprintCircuits are now  deprecated, and those "
+                    "being the only ones that can have their number of qubits set after their "
+                    "initialization, this behavior is now also deprecated, and won't be "
+                    "supported once the oldest supported Qiskit version is 3.0. As such, users "
+                    "that made use of this feature would now need to ensure that the ansatz "
+                    "they pass to these algorithms have their number of qubits set and matching "
+                    "with that of the operator they wish to run the algorithm on.",
+                    category=DeprecationWarning,
+                )
             except AttributeError as error:
                 raise AlgorithmError(
                     "The number of qubits of the ansatz does not match the "
@@ -240,7 +253,12 @@ class SamplingVQE(VariationalAlgorithm, SamplingMinimumEigensolver):
             optimizer_result.x,
         )
 
-        final_state = self.sampler.run([self.ansatz], [optimizer_result.x]).result().quasi_dists[0]
+        final_res = self.sampler.run([(self.ansatz, optimizer_result.x)]).result()
+        final_state = getattr(final_res[0].data, self.ansatz.cregs[0].name)
+        final_state = {
+            label: value / final_state.num_shots
+            for label, value in final_state.get_counts().items()
+        }
 
         if aux_operators is not None:
             aux_operators_evaluated = estimate_observables(
@@ -314,18 +332,16 @@ class SamplingVQE(VariationalAlgorithm, SamplingMinimumEigensolver):
             nonlocal eval_count
             # handle broadcasting: ensure parameters is of shape [array, array, ...]
             parameters = np.reshape(parameters, (-1, num_parameters)).tolist()
-            batch_size = len(parameters)
-
-            estimator_result = estimator.run(
-                batch_size * [ansatz], batch_size * [operator], parameters
-            ).result()
-            values = estimator_result.values
+            job = estimator.run([(ansatz, operator, parameters)])
+            estimator_result = job.result()[0]
+            values = estimator_result.data.evs
+            if not values.shape:
+                values = values.reshape(1)
 
             if self.callback is not None:
-                metadata = estimator_result.metadata
-                for params, value, meta in zip(parameters, values, metadata):
+                for params, value in zip(parameters, values):
                     eval_count += 1
-                    self.callback(eval_count, params, value, meta)
+                    self.callback(eval_count, params, value, estimator_result.metadata)
 
             result = values if len(values) > 1 else values[0]
             return np.real(result)

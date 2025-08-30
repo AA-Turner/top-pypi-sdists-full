@@ -11,7 +11,7 @@ from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.file_store_info_response import FileStoreInfoResponse
 from ...types.http_validation_error import HttpValidationError
 from ...types.license_info_response import LicenseInfoResponse
-from ...types.llama_extract_mode_availability import LlamaExtractModeAvailability
+from ...types.llama_extract_feature_availability import LlamaExtractFeatureAvailability
 
 try:
     import pydantic
@@ -80,7 +80,7 @@ class AdminClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_llamaextract_features(self) -> typing.List[LlamaExtractModeAvailability]:
+    def get_llamaextract_features(self) -> LlamaExtractFeatureAvailability:
         """
         Get LlamaExtract feature availability based on available models.
 
@@ -99,7 +99,7 @@ class AdminClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(typing.List[LlamaExtractModeAvailability], _response.json())  # type: ignore
+            return pydantic.parse_obj_as(LlamaExtractFeatureAvailability, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -167,7 +167,7 @@ class AsyncAdminClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_llamaextract_features(self) -> typing.List[LlamaExtractModeAvailability]:
+    async def get_llamaextract_features(self) -> LlamaExtractFeatureAvailability:
         """
         Get LlamaExtract feature availability based on available models.
 
@@ -186,7 +186,7 @@ class AsyncAdminClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(typing.List[LlamaExtractModeAvailability], _response.json())  # type: ignore
+            return pydantic.parse_obj_as(LlamaExtractFeatureAvailability, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

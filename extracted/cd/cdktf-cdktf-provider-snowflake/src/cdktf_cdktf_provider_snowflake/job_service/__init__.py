@@ -1,7 +1,7 @@
 r'''
 # `snowflake_job_service`
 
-Refer to the Terraform Registry for docs: [`snowflake_job_service`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service).
+Refer to the Terraform Registry for docs: [`snowflake_job_service`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class JobService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.jobService.JobService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service snowflake_job_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service snowflake_job_service}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class JobService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service snowflake_job_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service snowflake_job_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#compute_pool JobService#compute_pool}
-        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#database JobService#database}
-        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#name JobService#name}
-        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#schema JobService#schema}
-        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#comment JobService#comment}
-        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
-        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification JobService#from_specification}
-        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#id JobService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#timeouts JobService#timeouts}
+        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#compute_pool JobService#compute_pool}
+        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#database JobService#database}
+        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#name JobService#name}
+        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#schema JobService#schema}
+        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#comment JobService#comment}
+        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
+        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification JobService#from_specification}
+        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#id JobService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#timeouts JobService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class JobService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the JobService to import.
-        :param import_from_id: The id of the existing JobService that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing JobService that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the JobService to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class JobService(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
-        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
-        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
-        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
+        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
+        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
+        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         value = JobServiceFromSpecification(
             file=file, path=path, stage=stage, text=text
@@ -176,11 +176,11 @@ class JobService(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#using JobService#using}
-        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
-        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
-        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
-        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#using JobService#using}
+        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
+        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
+        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
+        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         value = JobServiceFromSpecificationTemplate(
             using=using, file=file, path=path, stage=stage, text=text
@@ -198,10 +198,10 @@ class JobService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#create JobService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#delete JobService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#read JobService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#update JobService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#create JobService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#delete JobService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#read JobService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#update JobService#update}.
         '''
         value = JobServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -502,17 +502,17 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#compute_pool JobService#compute_pool}
-        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#database JobService#database}
-        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#name JobService#name}
-        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#schema JobService#schema}
-        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#comment JobService#comment}
-        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
-        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification JobService#from_specification}
-        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#id JobService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#timeouts JobService#timeouts}
+        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#compute_pool JobService#compute_pool}
+        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#database JobService#database}
+        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#name JobService#name}
+        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#schema JobService#schema}
+        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#comment JobService#comment}
+        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
+        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification JobService#from_specification}
+        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#id JobService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#timeouts JobService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -647,7 +647,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#compute_pool JobService#compute_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#compute_pool JobService#compute_pool}
         '''
         result = self._values.get("compute_pool")
         assert result is not None, "Required property 'compute_pool' is missing"
@@ -659,7 +659,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#database JobService#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#database JobService#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -671,7 +671,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#name JobService#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#name JobService#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -683,7 +683,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#schema JobService#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#schema JobService#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -693,7 +693,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#comment JobService#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#comment JobService#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -704,7 +704,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the names of the external access integrations that allow your service to access external sites.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#external_access_integrations JobService#external_access_integrations}
         '''
         result = self._values.get("external_access_integrations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -713,7 +713,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def from_specification(self) -> typing.Optional["JobServiceFromSpecification"]:
         '''from_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification JobService#from_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification JobService#from_specification}
         '''
         result = self._values.get("from_specification")
         return typing.cast(typing.Optional["JobServiceFromSpecification"], result)
@@ -724,14 +724,14 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["JobServiceFromSpecificationTemplate"]:
         '''from_specification_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#from_specification_template JobService#from_specification_template}
         '''
         result = self._values.get("from_specification_template")
         return typing.cast(typing.Optional["JobServiceFromSpecificationTemplate"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#id JobService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#id JobService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -745,7 +745,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#query_warehouse JobService#query_warehouse}
         '''
         result = self._values.get("query_warehouse")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -754,7 +754,7 @@ class JobServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["JobServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#timeouts JobService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#timeouts JobService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["JobServiceTimeouts"], result)
@@ -1064,10 +1064,10 @@ class JobServiceFromSpecification:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
-        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
-        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
-        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
+        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
+        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
+        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e494f6a32fcef511e01b65bb388954b71930460c5717274c7b436b6fafa67ab)
@@ -1089,7 +1089,7 @@ class JobServiceFromSpecification:
     def file(self) -> typing.Optional[builtins.str]:
         '''The file name of the service specification. Example: ``spec.yaml``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1100,7 +1100,7 @@ class JobServiceFromSpecification:
 
         When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1111,7 +1111,7 @@ class JobServiceFromSpecification:
 
         At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1120,7 +1120,7 @@ class JobServiceFromSpecification:
     def text(self) -> typing.Optional[builtins.str]:
         '''The embedded text of the service specification.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1279,11 +1279,11 @@ class JobServiceFromSpecificationTemplate:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#using JobService#using}
-        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
-        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
-        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
-        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#using JobService#using}
+        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
+        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
+        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
+        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d173a1db854fc526f87782c97bb82a458531e7eb63ca667b124188cff66071b4)
@@ -1310,7 +1310,7 @@ class JobServiceFromSpecificationTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["JobServiceFromSpecificationTemplateUsing"]]:
         '''using block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#using JobService#using}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#using JobService#using}
         '''
         result = self._values.get("using")
         assert result is not None, "Required property 'using' is missing"
@@ -1320,7 +1320,7 @@ class JobServiceFromSpecificationTemplate:
     def file(self) -> typing.Optional[builtins.str]:
         '''The file name of the service specification template. Example: ``spec.yaml``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#file JobService#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#file JobService#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1331,7 +1331,7 @@ class JobServiceFromSpecificationTemplate:
 
         When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#path JobService#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#path JobService#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1342,7 +1342,7 @@ class JobServiceFromSpecificationTemplate:
 
         At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#stage JobService#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#stage JobService#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1351,7 +1351,7 @@ class JobServiceFromSpecificationTemplate:
     def text(self) -> typing.Optional[builtins.str]:
         '''The embedded text of the service specification template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#text JobService#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#text JobService#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1521,8 +1521,8 @@ class JobServiceFromSpecificationTemplateOutputReference(
 class JobServiceFromSpecificationTemplateUsing:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: The name of the template variable. The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#key JobService#key}
-        :param value: The value to assign to the variable in the template. The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#value JobService#value}
+        :param key: The name of the template variable. The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#key JobService#key}
+        :param value: The value to assign to the variable in the template. The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#value JobService#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9193eb0c3bbcae0d90b64b8b461183de01a74241203951f9d9258bed932fcfb9)
@@ -1539,7 +1539,7 @@ class JobServiceFromSpecificationTemplateUsing:
 
         The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#key JobService#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#key JobService#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1551,7 +1551,7 @@ class JobServiceFromSpecificationTemplateUsing:
 
         The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#value JobService#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#value JobService#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -2033,10 +2033,10 @@ class JobServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#create JobService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#delete JobService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#read JobService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#update JobService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#create JobService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#delete JobService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#read JobService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#update JobService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d2fd8bb35eadb895dfc945923b3620f740b733566e891841129314faf01832e)
@@ -2056,25 +2056,25 @@ class JobServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#create JobService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#create JobService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#delete JobService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#delete JobService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#read JobService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#read JobService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/job_service#update JobService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/job_service#update JobService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

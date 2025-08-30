@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_adapter
-Version: 1.6.0
+Version: 1.7.0
 Summary: SQLAlchemy Adapter for PyCasbin
 Home-page: https://github.com/officialpycasbin/sqlalchemy-adapter
 Author: Casbin

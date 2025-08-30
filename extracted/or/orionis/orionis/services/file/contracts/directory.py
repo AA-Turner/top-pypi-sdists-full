@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from orionis.foundation.contracts.application import IApplication
 
 class IDirectory(ABC):
 

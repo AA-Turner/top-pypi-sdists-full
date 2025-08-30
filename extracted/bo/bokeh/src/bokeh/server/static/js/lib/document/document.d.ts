@@ -8,6 +8,7 @@ import type { Equatable, Comparator } from "../core/util/eq";
 import { equals } from "../core/util/eq";
 import type { CallbackLike } from "../core/util/callbacks";
 import { Model } from "../model";
+import { DocumentConfig } from "./config";
 import type { ModelDef } from "./defs";
 import type { BokehEvent, BokehEventType, BokehEventMap } from "../core/bokeh_events";
 import { ModelEvent } from "../core/bokeh_events";
@@ -26,6 +27,7 @@ export type DocJson = {
     version?: string;
     title?: string;
     defs?: ModelDef[];
+    config?: ModelRep;
     roots: ModelRep[];
     callbacks?: {
         [key: string]: ModelRep[];
@@ -61,17 +63,24 @@ export declare class Document implements Equatable {
     protected _interactive_plot: Model | null;
     protected _interactive_finalize: (() => void) | null;
     protected _recompute_timeout: number;
+    private _config?;
+    get config(): DocumentConfig;
+    set config(config: DocumentConfig);
     constructor(options?: DocumentOptions);
     [equals](that: this, _cmp: Comparator): boolean;
     get all_models(): Set<HasProps>;
     get is_idle(): boolean;
+    private _notified_idle;
     notify_idle(model: HasProps): void;
-    clear(): void;
+    clear({ sync }?: {
+        sync?: boolean;
+    }): void;
     interactive_start(plot: Model, finalize?: (() => void) | null): void;
     interactive_stop(): void;
     interactive_duration(): number;
     destructively_move(dest_doc: Document): void;
     private _hold_models_freeze;
+    freeze_all_models(fn: () => void): void;
     protected _push_all_models_freeze(): void;
     protected _pop_all_models_freeze(): void;
     protected _recompute_timer: number | null;
@@ -79,6 +88,7 @@ export declare class Document implements Equatable {
     protected _schedule_recompute_all_models(): void;
     protected _recompute_all_models(): void;
     partially_update_all_models(value: unknown): void;
+    get all_roots(): HasProps[];
     roots(): HasProps[];
     protected _add_roots(...models: HasProps[]): boolean;
     protected _remove_root(model: HasProps): boolean;

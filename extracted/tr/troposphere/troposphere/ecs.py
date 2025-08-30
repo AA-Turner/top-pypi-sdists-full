@@ -233,6 +233,18 @@ class DeploymentCircuitBreaker(AWSProperty):
     }
 
 
+class DeploymentLifecycleHook(AWSProperty):
+    """
+    `DeploymentLifecycleHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html>`__
+    """
+
+    props: PropsDictType = {
+        "HookTargetArn": (str, True),
+        "LifecycleStages": ([str], True),
+        "RoleArn": (str, True),
+    }
+
+
 class DeploymentConfiguration(AWSProperty):
     """
     `DeploymentConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html>`__
@@ -240,9 +252,12 @@ class DeploymentConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "Alarms": (DeploymentAlarms, False),
+        "BakeTimeInMinutes": (integer, False),
         "DeploymentCircuitBreaker": (DeploymentCircuitBreaker, False),
+        "LifecycleHooks": ([DeploymentLifecycleHook], False),
         "MaximumPercent": (integer, False),
         "MinimumHealthyPercent": (integer, False),
+        "Strategy": (str, False),
     }
 
 
@@ -256,12 +271,37 @@ class DeploymentController(AWSProperty):
     }
 
 
+class ForceNewDeployment(AWSProperty):
+    """
+    `ForceNewDeployment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableForceNewDeployment": (boolean, True),
+        "ForceNewDeploymentNonce": (str, False),
+    }
+
+
+class AdvancedConfiguration(AWSProperty):
+    """
+    `AdvancedConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlternateTargetGroupArn": (str, True),
+        "ProductionListenerRule": (str, False),
+        "RoleArn": (str, False),
+        "TestListenerRule": (str, False),
+    }
+
+
 class LoadBalancer(AWSProperty):
     """
     `LoadBalancer <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-loadbalancer.html>`__
     """
 
     props: PropsDictType = {
+        "AdvancedConfiguration": (AdvancedConfiguration, False),
         "ContainerName": (str, False),
         "ContainerPort": (validate_network_port, False),
         "LoadBalancerName": (str, False),
@@ -336,6 +376,37 @@ class LogConfiguration(AWSProperty):
     }
 
 
+class ServiceConnectTestTrafficRulesHeaderValue(AWSProperty):
+    """
+    `ServiceConnectTestTrafficRulesHeaderValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheadervalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "Exact": (str, True),
+    }
+
+
+class ServiceConnectTestTrafficRulesHeader(AWSProperty):
+    """
+    `ServiceConnectTestTrafficRulesHeader <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheader.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Value": (ServiceConnectTestTrafficRulesHeaderValue, False),
+    }
+
+
+class ServiceConnectTestTrafficRules(AWSProperty):
+    """
+    `ServiceConnectTestTrafficRules <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrules.html>`__
+    """
+
+    props: PropsDictType = {
+        "Header": (ServiceConnectTestTrafficRulesHeader, True),
+    }
+
+
 class ServiceConnectClientAlias(AWSProperty):
     """
     `ServiceConnectClientAlias <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectclientalias.html>`__
@@ -344,6 +415,7 @@ class ServiceConnectClientAlias(AWSProperty):
     props: PropsDictType = {
         "DnsName": (str, False),
         "Port": (integer, True),
+        "TestTrafficRules": (ServiceConnectTestTrafficRules, False),
     }
 
 
@@ -492,6 +564,7 @@ class Service(AWSObject):
         "DesiredCount": (integer, False),
         "EnableECSManagedTags": (boolean, False),
         "EnableExecuteCommand": (boolean, False),
+        "ForceNewDeployment": (ForceNewDeployment, False),
         "HealthCheckGracePeriodSeconds": (integer, False),
         "LaunchType": (launch_type_validator, False),
         "LoadBalancers": ([LoadBalancer], False),
@@ -787,17 +860,6 @@ class EphemeralStorage(AWSProperty):
     }
 
 
-class InferenceAccelerator(AWSProperty):
-    """
-    `InferenceAccelerator <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-inferenceaccelerator.html>`__
-    """
-
-    props: PropsDictType = {
-        "DeviceName": (str, False),
-        "DeviceType": (str, False),
-    }
-
-
 class ProxyConfiguration(AWSProperty):
     """
     `ProxyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-proxyconfiguration.html>`__
@@ -928,7 +990,6 @@ class TaskDefinition(AWSObject):
         "EphemeralStorage": (EphemeralStorage, False),
         "ExecutionRoleArn": (str, False),
         "Family": (str, False),
-        "InferenceAccelerators": ([InferenceAccelerator], False),
         "IpcMode": (str, False),
         "Memory": (str, False),
         "NetworkMode": (str, False),

@@ -24,7 +24,7 @@ def append_file(
     Args:
         datasource_name: Name of the datasource to append fixture to
         fixture_pathname: Path to the fixture file to append
-        cloud: Whether to append the fixture to the cloud or local environment. If None (user didn't specify), will ask user to clarify. Defaults to local (False) in dangerous skip permissions mode.
+        cloud: Whether to append the fixture to the cloud or local environment. If None (user didn't specify in a previous step), will ask user to clarify. Defaults to local (False) in dangerous skip permissions mode.
 
     Returns:
         str: Message indicating the success or failure of the appending
@@ -54,6 +54,7 @@ def append_file(
 
         cloud_or_local = "Cloud" if cloud else "Local"
         active_plan = ctx.deps.get_plan() is not None and not cloud
+        ctx.deps.thinking_animation.stop()
         confirmation = show_confirmation(
             title=f"Append fixture {fixture_pathname} to datasource '{datasource_name}' in Tinybird {cloud_or_local}?",
             skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,

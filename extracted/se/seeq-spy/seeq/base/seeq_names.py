@@ -60,6 +60,7 @@ class SeeqNames:
         mutable = 'Mutable'
         properties = 'Properties'
         suppressed = 'Suppressed'
+        formula = 'Formula'
     
     class GraphQL:
         class DataLoaderRegistry:
@@ -233,6 +234,7 @@ class SeeqNames:
         last_capsule_state_column = 'Last Capsule State'
         hierarchy_node_id_column = 'node_id'
         hierarchy_node_column_column = 'node_column'
+        hierarchy_node_text_column = 'node_text_column'
         class Parameters:
             property_name = 'propertyName'
             property_names = 'propertyNames'
@@ -297,8 +299,13 @@ class SeeqNames:
             datasource = 'datasource'
             context_condition = 'contextCondition'
             event_asset_creator = 'eventAssetCreator'
-            descendant_search = 'descendantSearch'
             find_property = 'findProperty'
+            descendant_search = 'descendantSearch'
+            class FindDescendant:
+                base_find_descendant = 'findDescendant'
+                item_find_descendant = 'itemFindDescendant'
+                string_find_descendant = 'stringFindDescendant'
+            
             class ScalarCreator:
                 base_scalar_creator = 'scalarCreator'
                 numeric_scalar_creator = 'numericScalarCreator'
@@ -457,6 +464,7 @@ class SeeqNames:
         a_d_x = 'ADX'
         a_p_r_m = 'AspenTech APRM'
         big_query = 'BigQuery'
+        canary = 'Canary'
         chaos_monkey = 'Chaos Monkey'
         cognite = 'Cognite'
         c_o_n_n_e_c_t_data_services = 'CONNECT Data Services'
@@ -616,6 +624,7 @@ class SeeqNames:
         thumbnail_channel = 'workbook-thumbnail'
         workstep_channel = 'workstep'
         report_update_channel = 'report-update'
+        subscription_channel = 'subscription'
         table_materializer_channel = 'table-materializer'
         context = 'context'
     
@@ -757,6 +766,7 @@ class SeeqNames:
             height = 'x-sq-height'
             width = 'x-sq-width'
             warning_message = 'x-sq-warning-message'
+            subscription_id = 'x-sq-subscription-id'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'

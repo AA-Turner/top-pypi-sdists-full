@@ -17,13 +17,12 @@
 # import models into model package
 from pulpcore.client.pulpcore.models.access_policy import AccessPolicy
 from pulpcore.client.pulpcore.models.access_policy_response import AccessPolicyResponse
-from pulpcore.client.pulpcore.models.api_app_status_response import ApiAppStatusResponse
+from pulpcore.client.pulpcore.models.app_status_response import AppStatusResponse
 from pulpcore.client.pulpcore.models.artifact_distribution_response import ArtifactDistributionResponse
 from pulpcore.client.pulpcore.models.artifact_response import ArtifactResponse
 from pulpcore.client.pulpcore.models.async_operation_response import AsyncOperationResponse
 from pulpcore.client.pulpcore.models.composite_content_guard import CompositeContentGuard
 from pulpcore.client.pulpcore.models.composite_content_guard_response import CompositeContentGuardResponse
-from pulpcore.client.pulpcore.models.content_app_status_response import ContentAppStatusResponse
 from pulpcore.client.pulpcore.models.content_guard_response import ContentGuardResponse
 from pulpcore.client.pulpcore.models.content_redirect_content_guard import ContentRedirectContentGuard
 from pulpcore.client.pulpcore.models.content_redirect_content_guard_response import ContentRedirectContentGuardResponse

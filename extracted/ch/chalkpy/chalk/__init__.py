@@ -31,6 +31,7 @@ from chalk.features.tag import BranchId, EnvironmentId
 from chalk.features.underscore import _, __, underscore
 from chalk.importer import get_resolver
 from chalk.logging import chalk_logger
+from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
 from chalk.prompts import Prompt, completion, run_prompt
 from chalk.queries.named_query import NamedQuery
@@ -64,6 +65,7 @@ __all__ = (
     "JSON",
     "Last",
     "MaterializationWindowConfig",
+    "ModelReference",
     "NamedQuery",
     "Now",
     "OfflineResolver",

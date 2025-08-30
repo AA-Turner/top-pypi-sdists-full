@@ -2,12 +2,17 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def apply_pose_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
+    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    | None = "LOCAL",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     blend_factor: float | None = 1.0,
     flipped: bool | None = False,
 ) -> None:
@@ -15,6 +20,12 @@ def apply_pose_asset(
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    :param asset_library_type: Asset Library Type
+    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
+    :param asset_library_identifier: Asset Library Identifier
+    :type asset_library_identifier: str
+    :param relative_asset_identifier: Relative Asset Identifier
+    :type relative_asset_identifier: str
     :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
     :type blend_factor: float | None
     :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis
@@ -64,6 +75,10 @@ def blend_pose_asset(
     undo: bool | None = None,
     /,
     *,
+    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    | None = "LOCAL",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     blend_factor: float | None = 0.0,
     flipped: bool | None = False,
     release_confirm: bool | None = False,
@@ -72,6 +87,12 @@ def blend_pose_asset(
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    :param asset_library_type: Asset Library Type
+    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
+    :param asset_library_identifier: Asset Library Identifier
+    :type asset_library_identifier: str
+    :param relative_asset_identifier: Relative Asset Identifier
+    :type relative_asset_identifier: str
     :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
     :type blend_factor: float | None
     :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis

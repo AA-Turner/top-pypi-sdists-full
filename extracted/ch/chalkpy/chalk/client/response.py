@@ -222,6 +222,7 @@ class DatasetRevision(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        skip_failed_shards: bool = False,
     ) -> pd.DataFrame:
         """Loads a `pd.DataFrame` containing the output.
 
@@ -901,6 +902,7 @@ class Dataset(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        skip_failed_shards: bool = False,
     ) -> pd.DataFrame:
         """Loads a `pd.DataFrame` containing the output of the most recent revision.
 

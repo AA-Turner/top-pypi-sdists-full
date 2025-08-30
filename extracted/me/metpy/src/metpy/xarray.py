@@ -45,9 +45,9 @@ coordinate_criteria = {
                      'atmosphere_hybrid_height_coordinate', 'atmosphere_sleve_coordinate',
                      'height_above_geopotential_datum', 'height_above_reference_ellipsoid',
                      'height_above_mean_sea_level'},
-        'y': 'projection_y_coordinate',
+        'y': {'projection_y_coordinate', 'grid_latitude'},
         'latitude': 'latitude',
-        'x': 'projection_x_coordinate',
+        'x': {'projection_x_coordinate', 'grid_longitude'},
         'longitude': 'longitude'
     },
     '_CoordinateAxisType': {
@@ -810,7 +810,7 @@ class MetPyDatasetAccessor:
         if np.iterable(varname) and not isinstance(varname, str):
             # If non-string iterable is given, apply recursively across the varnames
             subset = xr.merge([self.parse_cf(single_varname, coordinates=coordinates)
-                               for single_varname in varname])
+                               for single_varname in varname], compat='no_conflicts')
             subset.attrs = self._dataset.attrs
             return subset
 
@@ -885,8 +885,10 @@ class MetPyDatasetAccessor:
                 try:
                     var = var.metpy.convert_coordinate_units(coord_name, 'meters')
                 except DimensionalityError:
-                    # Radians! Attempt to use perspective point height conversion
-                    if crs is not None:
+                    # Not strictly a length coordinate, so angle of some kind, either rotated
+                    # lat/lon or some satellite projection. Guess if we should convert to
+                    # length using the perspective point height
+                    if crs is not None and 'perspective_point_height' in crs:
                         height = crs['perspective_point_height']
                         new_coord_var = coord_var.copy(
                             data=(

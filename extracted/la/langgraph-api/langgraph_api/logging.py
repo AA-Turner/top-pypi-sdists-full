@@ -69,9 +69,12 @@ class AddApiVersion:
     def __call__(
         self, logger: logging.Logger, method_name: str, event_dict: EventDict
     ) -> EventDict:
-        from langgraph_api import __version__
+        try:
+            from langgraph_api import __version__
 
-        event_dict["langgraph_api_version"] = __version__
+            event_dict["langgraph_api_version"] = __version__
+        except ImportError:
+            pass
         return event_dict
 
 

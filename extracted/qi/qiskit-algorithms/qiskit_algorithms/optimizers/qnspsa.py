@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,10 +20,11 @@ from typing import Any, Callable
 import numpy as np
 from qiskit.circuit import QuantumCircuit
 
-from qiskit.primitives import BaseSampler
+from qiskit.primitives import BaseSamplerV2
 from qiskit_algorithms.state_fidelities import ComputeUncompute
 
 from .spsa import SPSA, CALLBACK, TERMINATIONCHECKER, _batch_evaluate
+from ..custom_types import Transpiler
 
 # the function to compute the fidelity
 FIDELITY = Callable[[np.ndarray, np.ndarray], float]
@@ -56,35 +57,34 @@ class QNSPSA(SPSA):
     Examples:
 
         This short example runs QN-SPSA for the ground state calculation of the ``Z ^ Z``
-        observable where the ansatz is a ``PauliTwoDesign`` circuit.
+        observable where the ansatz is a ``pauli_two_design`` circuit.
 
         .. code-block:: python
 
             import numpy as np
             from qiskit_algorithms.optimizers import QNSPSA
-            from qiskit.circuit.library import PauliTwoDesign
-            from qiskit.primitives import Estimator, Sampler
+            from qiskit.circuit.library import pauli_two_design
+            from qiskit.primitives import StatevectorEstimator, StatevectorSampler
             from qiskit.quantum_info import Pauli
 
             # problem setup
-            ansatz = PauliTwoDesign(2, reps=1, seed=2)
+            ansatz = pauli_two_design(2, reps=1, seed=2)
             observable = Pauli("ZZ")
             initial_point = np.random.random(ansatz.num_parameters)
 
             # loss function
-            estimator = Estimator()
+            estimator = StatevectorEstimator()
 
             def loss(x):
-                result = estimator.run([ansatz], [observable], [x]).result()
-                return np.real(result.values[0])
+                return estimator.run([(ansatz, observable, x)]).result()[0].data.evs
 
             # fidelity for estimation of the geometric tensor
-            sampler = Sampler()
+            sampler = StatevectorSampler()
             fidelity = QNSPSA.get_fidelity(ansatz, sampler)
 
             # run QN-SPSA
             qnspsa = QNSPSA(fidelity, maxiter=300)
-            result = qnspsa.optimize(ansatz.num_parameters, loss, initial_point=initial_point)
+            result = qnspsa.minimize(loss, x0=initial_point)
 
     References:
 
@@ -232,8 +232,10 @@ class QNSPSA(SPSA):
     @staticmethod
     def get_fidelity(
         circuit: QuantumCircuit,
+        sampler: BaseSamplerV2,
         *,
-        sampler: BaseSampler | None = None,
+        transpiler: Transpiler | None = None,
+        transpiler_options: dict[str, Any] | None = None,
     ) -> Callable[[np.ndarray, np.ndarray], float]:
         r"""Get a function to compute the fidelity of ``circuit`` with itself.
 
@@ -251,12 +253,19 @@ class QNSPSA(SPSA):
         Args:
             circuit: The circuit preparing the parameterized ansatz.
             sampler: A sampler primitive to sample from a quantum state.
+            transpiler: An optional object with a `run` method allowing to transpile the circuits
+                that are produced by the fidelity object. If set to `None`, these won't be
+                transpiled.
+            transpiler_options: A dictionary of options to be passed to the transpiler's `run`
+                method as keyword arguments.
 
         Returns:
             A handle to the function :math:`F`.
 
         """
-        fid = ComputeUncompute(sampler)
+        fid = ComputeUncompute(
+            sampler, transpiler=transpiler, transpiler_options=transpiler_options
+        )
 
         num_parameters = circuit.num_parameters
 

@@ -222,6 +222,19 @@ lint.flake8-type-checking.quote-annotations = true
 lint.isort.known-first-party = [ 'flexget' ]
 lint.future-annotations = true
 
+[tool.codespell]
+skip = [
+  "**/cassettes/*",
+  "flexget/api/templates/api_response.html",
+  "flexget/api/templates/swagger-ui.html",
+  'flexget/utils/bittorrent.py',
+  'flexget/utils/parsers/series.py',
+  'tests/couchpotato_movie_list_test_response.json',
+  'tests/LICENSE.torrent',
+  'tests/test_thetvdb.py',
+  'pyproject.toml',
+]
+
 [tool.pyproject-fmt]
 max_supported_python = '3.14'
 

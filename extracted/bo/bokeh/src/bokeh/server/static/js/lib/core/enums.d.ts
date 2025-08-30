@@ -10,6 +10,8 @@ export declare const AngleUnits: import("./kinds").Kinds.Enum<"deg" | "rad" | "g
 export type AngleUnits = typeof AngleUnits["__type__"];
 export declare const AlternationPolicy: import("./kinds").Kinds.Enum<"every" | "none" | "even" | "odd">;
 export type AlternationPolicy = typeof AlternationPolicy["__type__"];
+export declare const AxisLabelStandoffMode: import("./kinds").Kinds.Enum<"tick_labels" | "axis">;
+export type AxisLabelStandoffMode = typeof AxisLabelStandoffMode["__type__"];
 export declare const BoxOrigin: import("./kinds").Kinds.Enum<"center" | "corner">;
 export type BoxOrigin = typeof BoxOrigin["__type__"];
 export declare const ButtonType: import("./kinds").Kinds.Enum<"default" | "primary" | "success" | "warning" | "danger" | "light">;
@@ -124,6 +126,8 @@ export declare const TextBaseline: import("./kinds").Kinds.Enum<"top" | "bottom"
 export type TextBaseline = typeof TextBaseline["__type__"];
 export declare const TextureRepetition: import("./kinds").Kinds.Enum<"repeat" | "repeat_x" | "repeat_y" | "no_repeat">;
 export type TextureRepetition = typeof TextureRepetition["__type__"];
+export declare const TimedeltaResolutionType: import("./kinds").Kinds.Enum<"microseconds" | "milliseconds" | "seconds" | "minsec" | "minutes" | "hourmin" | "hours" | "days" | "nanoseconds">;
+export type TimedeltaResolutionType = typeof TimedeltaResolutionType["__type__"];
 export declare const LabelOrientation: import("./kinds").Kinds.Enum<"normal" | "vertical" | "horizontal" | "parallel">;
 export type LabelOrientation = typeof LabelOrientation["__type__"];
 export declare const TooltipAttachment: import("./kinds").Kinds.Enum<"left" | "right" | "above" | "below" | "vertical" | "horizontal">;

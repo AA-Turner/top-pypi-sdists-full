@@ -20,6 +20,7 @@ from chalk.config.project_config import ProjectSettings, load_project_config
 from chalk.features import FeatureSetBase
 from chalk.features.resolver import RESOLVER_REGISTRY
 from chalk.importer import CHALK_IMPORTER, import_all_files
+from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
 from chalk.parsed._proto.lsp import convert_lsp_gql_to_proto
 from chalk.parsed._proto.utils import (
     build_failed_import,
@@ -150,6 +151,7 @@ def export_from_registry() -> export_pb.Export:
         sql_source_group_registry=SQLSourceGroup.registry,
         stream_source_registry=StreamSource.registry,
         named_query_registry=NAMED_QUERY_REGISTRY,
+        model_reference_registry=MODEL_REFERENCE_REGISTRY,
     )
 
     crons: List[CronQuery] = []

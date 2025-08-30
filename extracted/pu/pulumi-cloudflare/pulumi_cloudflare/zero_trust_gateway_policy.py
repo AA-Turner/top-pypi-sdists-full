@@ -40,15 +40,12 @@ class ZeroTrustGatewayPolicyArgs:
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] name: The name of the rule.
         :param pulumi.Input[_builtins.str] description: The description of the rule.
-        :param pulumi.Input[_builtins.str] device_posture: The wirefilter expression used for device posture check matching.
         :param pulumi.Input[_builtins.bool] enabled: True if the rule is enabled.
         :param pulumi.Input['ZeroTrustGatewayPolicyExpirationArgs'] expiration: The expiration time stamp and default duration of a DNS policy. Takes
                precedence over the policy's `schedule` configuration, if any.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device posture expressions.
-        :param pulumi.Input[_builtins.str] identity: The wirefilter expression used for identity matching.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         :param pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs'] rule_settings: Additional settings that modify the rule's action.
         :param pulumi.Input['ZeroTrustGatewayPolicyScheduleArgs'] schedule: The schedule for activating DNS policies. This does not apply to HTTP or network policies.
-        :param pulumi.Input[_builtins.str] traffic: The wirefilter expression used for traffic matching.
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "action", action)
@@ -123,9 +120,6 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for device posture check matching.
-        """
         return pulumi.get(self, "device_posture")
 
     @device_posture.setter
@@ -161,7 +155,7 @@ class ZeroTrustGatewayPolicyArgs:
     @pulumi.getter
     def filters(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The protocol or layer to evaluate the traffic, identity, and device posture expressions.
+        The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         """
         return pulumi.get(self, "filters")
 
@@ -172,9 +166,6 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter
     def identity(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for identity matching.
-        """
         return pulumi.get(self, "identity")
 
     @identity.setter
@@ -217,9 +208,6 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for traffic matching.
-        """
         return pulumi.get(self, "traffic")
 
     @traffic.setter
@@ -257,20 +245,17 @@ class _ZeroTrustGatewayPolicyState:
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Date of deletion, if any.
         :param pulumi.Input[_builtins.str] description: The description of the rule.
-        :param pulumi.Input[_builtins.str] device_posture: The wirefilter expression used for device posture check matching.
         :param pulumi.Input[_builtins.bool] enabled: True if the rule is enabled.
         :param pulumi.Input['ZeroTrustGatewayPolicyExpirationArgs'] expiration: The expiration time stamp and default duration of a DNS policy. Takes
                precedence over the policy's `schedule` configuration, if any.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device posture expressions.
-        :param pulumi.Input[_builtins.str] identity: The wirefilter expression used for identity matching.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         :param pulumi.Input[_builtins.str] name: The name of the rule.
-        :param pulumi.Input[_builtins.bool] not_sharable: The rule cannot be shared via the Orgs API
-        :param pulumi.Input[_builtins.bool] read_only: The rule was shared via the Orgs API and cannot be edited by the current account
+        :param pulumi.Input[_builtins.bool] not_sharable: The rule cannot be shared via the Orgs API.
+        :param pulumi.Input[_builtins.bool] read_only: The rule was shared via the Orgs API and cannot be edited by the current account.
         :param pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs'] rule_settings: Additional settings that modify the rule's action.
         :param pulumi.Input['ZeroTrustGatewayPolicyScheduleArgs'] schedule: The schedule for activating DNS policies. This does not apply to HTTP or network policies.
-        :param pulumi.Input[_builtins.str] source_account: account tag of account that created the rule
-        :param pulumi.Input[_builtins.str] traffic: The wirefilter expression used for traffic matching.
-        :param pulumi.Input[_builtins.int] version: version number of the rule
+        :param pulumi.Input[_builtins.str] source_account: account tag of account that created the rule.
+        :param pulumi.Input[_builtins.int] version: version number of the rule.
         :param pulumi.Input[_builtins.str] warning_status: Warning for a misconfigured rule, if any.
         """
         if account_id is not None:
@@ -374,9 +359,6 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for device posture check matching.
-        """
         return pulumi.get(self, "device_posture")
 
     @device_posture.setter
@@ -412,7 +394,7 @@ class _ZeroTrustGatewayPolicyState:
     @pulumi.getter
     def filters(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The protocol or layer to evaluate the traffic, identity, and device posture expressions.
+        The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         """
         return pulumi.get(self, "filters")
 
@@ -423,9 +405,6 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter
     def identity(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for identity matching.
-        """
         return pulumi.get(self, "identity")
 
     @identity.setter
@@ -448,7 +427,7 @@ class _ZeroTrustGatewayPolicyState:
     @pulumi.getter(name="notSharable")
     def not_sharable(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        The rule cannot be shared via the Orgs API
+        The rule cannot be shared via the Orgs API.
         """
         return pulumi.get(self, "not_sharable")
 
@@ -469,7 +448,7 @@ class _ZeroTrustGatewayPolicyState:
     @pulumi.getter(name="readOnly")
     def read_only(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        The rule was shared via the Orgs API and cannot be edited by the current account
+        The rule was shared via the Orgs API and cannot be edited by the current account.
         """
         return pulumi.get(self, "read_only")
 
@@ -505,7 +484,7 @@ class _ZeroTrustGatewayPolicyState:
     @pulumi.getter(name="sourceAccount")
     def source_account(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        account tag of account that created the rule
+        account tag of account that created the rule.
         """
         return pulumi.get(self, "source_account")
 
@@ -516,9 +495,6 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The wirefilter expression used for traffic matching.
-        """
         return pulumi.get(self, "traffic")
 
     @traffic.setter
@@ -538,7 +514,7 @@ class _ZeroTrustGatewayPolicyState:
     @pulumi.getter
     def version(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        version number of the rule
+        version number of the rule.
         """
         return pulumi.get(self, "version")
 
@@ -593,16 +569,13 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] action: The action to perform when the associated traffic, identity, and device posture expressions are either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] description: The description of the rule.
-        :param pulumi.Input[_builtins.str] device_posture: The wirefilter expression used for device posture check matching.
         :param pulumi.Input[_builtins.bool] enabled: True if the rule is enabled.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyExpirationArgs', 'ZeroTrustGatewayPolicyExpirationArgsDict']] expiration: The expiration time stamp and default duration of a DNS policy. Takes
                precedence over the policy's `schedule` configuration, if any.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device posture expressions.
-        :param pulumi.Input[_builtins.str] identity: The wirefilter expression used for identity matching.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         :param pulumi.Input[_builtins.str] name: The name of the rule.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyRuleSettingsArgs', 'ZeroTrustGatewayPolicyRuleSettingsArgsDict']] rule_settings: Additional settings that modify the rule's action.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyScheduleArgs', 'ZeroTrustGatewayPolicyScheduleArgsDict']] schedule: The schedule for activating DNS policies. This does not apply to HTTP or network policies.
-        :param pulumi.Input[_builtins.str] traffic: The wirefilter expression used for traffic matching.
         """
         ...
     @overload
@@ -727,20 +700,17 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Date of deletion, if any.
         :param pulumi.Input[_builtins.str] description: The description of the rule.
-        :param pulumi.Input[_builtins.str] device_posture: The wirefilter expression used for device posture check matching.
         :param pulumi.Input[_builtins.bool] enabled: True if the rule is enabled.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyExpirationArgs', 'ZeroTrustGatewayPolicyExpirationArgsDict']] expiration: The expiration time stamp and default duration of a DNS policy. Takes
                precedence over the policy's `schedule` configuration, if any.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device posture expressions.
-        :param pulumi.Input[_builtins.str] identity: The wirefilter expression used for identity matching.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         :param pulumi.Input[_builtins.str] name: The name of the rule.
-        :param pulumi.Input[_builtins.bool] not_sharable: The rule cannot be shared via the Orgs API
-        :param pulumi.Input[_builtins.bool] read_only: The rule was shared via the Orgs API and cannot be edited by the current account
+        :param pulumi.Input[_builtins.bool] not_sharable: The rule cannot be shared via the Orgs API.
+        :param pulumi.Input[_builtins.bool] read_only: The rule was shared via the Orgs API and cannot be edited by the current account.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyRuleSettingsArgs', 'ZeroTrustGatewayPolicyRuleSettingsArgsDict']] rule_settings: Additional settings that modify the rule's action.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyScheduleArgs', 'ZeroTrustGatewayPolicyScheduleArgsDict']] schedule: The schedule for activating DNS policies. This does not apply to HTTP or network policies.
-        :param pulumi.Input[_builtins.str] source_account: account tag of account that created the rule
-        :param pulumi.Input[_builtins.str] traffic: The wirefilter expression used for traffic matching.
-        :param pulumi.Input[_builtins.int] version: version number of the rule
+        :param pulumi.Input[_builtins.str] source_account: account tag of account that created the rule.
+        :param pulumi.Input[_builtins.int] version: version number of the rule.
         :param pulumi.Input[_builtins.str] warning_status: Warning for a misconfigured rule, if any.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -808,9 +778,6 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> pulumi.Output[_builtins.str]:
-        """
-        The wirefilter expression used for device posture check matching.
-        """
         return pulumi.get(self, "device_posture")
 
     @_builtins.property
@@ -834,16 +801,13 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @pulumi.getter
     def filters(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        The protocol or layer to evaluate the traffic, identity, and device posture expressions.
+        The protocol or layer to evaluate the traffic, identity, and device. posture expressions.
         """
         return pulumi.get(self, "filters")
 
     @_builtins.property
     @pulumi.getter
     def identity(self) -> pulumi.Output[_builtins.str]:
-        """
-        The wirefilter expression used for identity matching.
-        """
         return pulumi.get(self, "identity")
 
     @_builtins.property
@@ -858,20 +822,20 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @pulumi.getter(name="notSharable")
     def not_sharable(self) -> pulumi.Output[_builtins.bool]:
         """
-        The rule cannot be shared via the Orgs API
+        The rule cannot be shared via the Orgs API.
         """
         return pulumi.get(self, "not_sharable")
 
     @_builtins.property
     @pulumi.getter
-    def precedence(self) -> pulumi.Output[Optional[_builtins.int]]:
+    def precedence(self) -> pulumi.Output[_builtins.int]:
         return pulumi.get(self, "precedence")
 
     @_builtins.property
     @pulumi.getter(name="readOnly")
     def read_only(self) -> pulumi.Output[_builtins.bool]:
         """
-        The rule was shared via the Orgs API and cannot be edited by the current account
+        The rule was shared via the Orgs API and cannot be edited by the current account.
         """
         return pulumi.get(self, "read_only")
 
@@ -895,16 +859,13 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @pulumi.getter(name="sourceAccount")
     def source_account(self) -> pulumi.Output[_builtins.str]:
         """
-        account tag of account that created the rule
+        account tag of account that created the rule.
         """
         return pulumi.get(self, "source_account")
 
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> pulumi.Output[_builtins.str]:
-        """
-        The wirefilter expression used for traffic matching.
-        """
         return pulumi.get(self, "traffic")
 
     @_builtins.property
@@ -916,7 +877,7 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @pulumi.getter
     def version(self) -> pulumi.Output[_builtins.int]:
         """
-        version number of the rule
+        version number of the rule.
         """
         return pulumi.get(self, "version")
 

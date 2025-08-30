@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: spsdk
-Version: 3.1.0
+Version: 3.2.0
 Summary: Open Source Secure Provisioning SDK for NXP MCU/MPU
-Author-email: NXP <michal.starecek@nxp.com>
+Author-email: NXP <spsdk@nxp.com>
 License: BSD-3-Clause
 Project-URL: Code, https://github.com/NXPmicro/spsdk
 Project-URL: Issue tracker, https://github.com/NXPmicro/spsdk/issues
@@ -69,7 +69,7 @@ Requires-Dist: ftd2xx; extra == "dk6"
 Provides-Extra: oscca
 Requires-Dist: gmssl<4,>=3.2; extra == "oscca"
 Provides-Extra: can
-Requires-Dist: python-can<4.5,>=4.4; extra == "can"
+Requires-Dist: python-can<4.6,>=4.5; extra == "can"
 Provides-Extra: jlink
 Requires-Dist: spsdk-jlink<1,>=0.3.1; extra == "jlink"
 Provides-Extra: lauterbach
@@ -78,6 +78,8 @@ Provides-Extra: pemicro
 Requires-Dist: spsdk-pemicro<1,>=0.3.1; extra == "pemicro"
 Provides-Extra: pqc
 Requires-Dist: spsdk-pqc<1.0,>=0.6.1; extra == "pqc"
+Provides-Extra: rblhost
+Requires-Dist: pymboot-rs<0.2.0; extra == "rblhost"
 Provides-Extra: all
 Requires-Dist: spsdk[examples]; extra == "all"
 Requires-Dist: spsdk[dk6]; extra == "all"
@@ -87,6 +89,7 @@ Requires-Dist: spsdk[jlink]; extra == "all"
 Requires-Dist: spsdk[lauterbach]; extra == "all"
 Requires-Dist: spsdk[pemicro]; extra == "all"
 Requires-Dist: spsdk[pqc]; extra == "all"
+Requires-Dist: spsdk[rblhost]; extra == "all"
 
 # NXP Secure Provisioning SDK
 
@@ -169,12 +172,18 @@ Requires-Dist: spsdk[pqc]; extra == "all"
 |mcxa154   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/MCX-A13X-A14X-A15X)                                                                                                                                                                                                                                     |a0             |
 |mcxa155   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/MCX-A13X-A14X-A15X)                                                                                                                                                                                                                                     |a0             |
 |mcxa156   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/MCX-A13X-A14X-A15X)                                                                                                                                                                                                                                     |a0             |
+|mcxa173   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa174   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa175   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa176   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa185   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa186   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa255   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa256   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa265   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa266   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
-|mcxa285   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
-|mcxa286   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa343   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
+|mcxa344   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa345   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa346   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
 |mcxa355   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-a-series-microcontrollers:MCX-A-SERIES)                                                                                                                  |a0             |
@@ -201,6 +210,7 @@ Requires-Dist: spsdk[pqc]; extra == "all"
 |mcxn236   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series-microcontrollers/mcx-n23x-highly-integrated-mcus-with-on-chip-accelerators-intelligent-peripherals-and-advanced-security:MCX-N23X)              |a0             |
 |mcxn546   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series/mcx-n94x-and-n54x-mcus-with-dual-core-arm-cortex-m33-edgelock-secure-subsystem-and-neural-processing-unit:MCX-N94X-N54X)                        |a1             |
 |mcxn547   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series/mcx-n94x-and-n54x-mcus-with-dual-core-arm-cortex-m33-edgelock-secure-subsystem-and-neural-processing-unit:MCX-N94X-N54X)                        |a1             |
+|mcxn556s  |MCX Series                 |[Link to nxp.com](https://www.nxp.com)                                                                                                                                                                                                                                                                 |a0             |
 |mcxn946   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series/mcx-n94x-and-n54x-mcus-with-dual-core-arm-cortex-m33-edgelock-secure-subsystem-and-neural-processing-unit:MCX-N94X-N54X)                        |a1             |
 |mcxn947   |MCX Series                 |[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/mcx-arm-cortex-m/mcx-n-series/mcx-n94x-and-n54x-mcus-with-dual-core-arm-cortex-m33-edgelock-secure-subsystem-and-neural-processing-unit:MCX-N94X-N54X)                        |a1             |
 |mcxw235   |Wireless Connectivity MCUs |[Link to nxp.com](https://www.nxp.com)                                                                                                                                                                                                                                                                 |a0             |
@@ -210,6 +220,9 @@ Requires-Dist: spsdk[pqc]; extra == "all"
 |mcxw727a  |Wireless Connectivity MCUs |[Link to nxp.com](https://www.nxp.com/products/MCX-W72X)                                                                                                                                                                                                                                               |a2.1           |
 |mcxw727c  |Wireless Connectivity MCUs |[Link to nxp.com](https://www.nxp.com/products/MCX-W72X)                                                                                                                                                                                                                                               |a2.1           |
 |mcxw727d  |Wireless Connectivity MCUs |[Link to nxp.com](https://www.nxp.com/products/MCX-W72X)                                                                                                                                                                                                                                               |a2.1           |
+|mimx8dxl  |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/i.MX8)                                                                                                                                                                                                                                                  |a0             |
+|mimx8qm   |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/i.MX8)                                                                                                                                                                                                                                                  |a0             |
+|mimx8qxp  |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/i.MX8)                                                                                                                                                                                                                                                  |a0             |
 |mimx8ulp  |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-processors/i-mx-applications-processors/i-mx-8-applications-processors/i-mx-8ulp-applications-processor-family:i.MX8ULP)                                                                                            |a2             |
 |mimx9131  |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-processors/i-mx-applications-processors/i-mx-9-processors/secure-energy-efficient-i-mx-91-family-brings-essential-linux-capabilities-for-thousands-of-edge-applications:i.MX91)                                     |a0             |
 |mimx9352  |i.MX Application Processors|[Link to nxp.com](https://www.nxp.com/products/processors-and-microcontrollers/arm-processors/i-mx-applications-processors/i-mx-9-processors/i-mx-93-applications-processor-family-arm-cortex-a55-ml-acceleration-power-efficient-mpu:i.MX93)                                                          |a1             |

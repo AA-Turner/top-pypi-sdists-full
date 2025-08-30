@@ -97,7 +97,9 @@ dependencies = [
     "parse >= 1.18.0",
     "parse-type >= 0.6.0",
     "six >= 1.15.0",
+    # -- PYTHON BACKPORTS:
     "traceback2; python_version < '3.0'",
+    "scandir>=1.10.0; python_version < '3.5'",
 
     # -- PREPARED:
     "win_unicode_console; python_version <= '3.9'",
@@ -149,7 +151,7 @@ develop = [
     "ruff; python_version >=  '3.7'",
 ]
 docs = [
-    "sphinx >= 7.3.7;   python_version >= '3.7'",
+    "sphinx >= 7.4.0;   python_version >= '3.7'",
     "sphinx >=1.6,<4.4; python_version < '3.7'",
     "furo >= 2024.04.27; python_version >= '3.8'",
     # -- CONSTRAINTS UNTIL: sphinx > 5.0 is usable -- 2024-01

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: backend.ai-manager
-Version: 25.12.1
+Version: 25.13.1
 Summary: Backend.AI Manager
 Home-page: https://github.com/lablup/backend.ai
 Author: Lablup Inc. and contributors
@@ -34,27 +34,33 @@ Requires-Dist: aiotools~=1.9.0
 Requires-Dist: alembic~=1.13.2
 Requires-Dist: async_timeout~=4.0
 Requires-Dist: attrs>=25.3
-Requires-Dist: backend.ai-cli==25.12.1
-Requires-Dist: backend.ai-common==25.12.1
-Requires-Dist: backend.ai-logging==25.12.1
-Requires-Dist: backend.ai-plugin==25.12.1
+Requires-Dist: backend.ai-cli==25.13.1
+Requires-Dist: backend.ai-common==25.13.1
+Requires-Dist: backend.ai-logging==25.13.1
+Requires-Dist: backend.ai-plugin==25.13.1
 Requires-Dist: bcrypt~=4.2.0
 Requires-Dist: boto3~=1.35
 Requires-Dist: callosum~=1.0.3
 Requires-Dist: click~=8.1.7
 Requires-Dist: cryptography>=44.0.2
-Requires-Dist: etcd-client-py~=0.4.0
+Requires-Dist: etcd-client-py~=0.4.1
+Requires-Dist: graphene-federation~=3.2.0
 Requires-Dist: graphene~=3.3.0
+Requires-Dist: graphql-core~=3.2.6
+Requires-Dist: graphql-relay~=3.2.0
 Requires-Dist: lark~=1.1.5
 Requires-Dist: more-itertools~=10.5.0
 Requires-Dist: msgpack~=1.1.0
 Requires-Dist: multidict~=6.2.0
+Requires-Dist: orjson~=3.10.16
+Requires-Dist: prometheus-client~=0.21.1
 Requires-Dist: pydantic[email]~=2.11.3
 Requires-Dist: python-dateutil>=2.9
 Requires-Dist: pyzmq~=26.4
 Requires-Dist: redis[hiredis]==4.5.5
 Requires-Dist: ruamel.yaml~=0.18.10
 Requires-Dist: setproctitle~=1.3.5
+Requires-Dist: strawberry-graphql~=0.278.0
 Requires-Dist: tabulate~=0.8.9
 Requires-Dist: tenacity>=9.0
 Requires-Dist: tomli~=2.0.1

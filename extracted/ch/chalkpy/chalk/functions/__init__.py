@@ -11,6 +11,7 @@ from chalk.features.underscore import Underscore, UnderscoreCast, UnderscoreFunc
 from chalk.functions.holidays import DayOfWeek
 from chalk.functions.http import http_delete, http_get, http_post, http_put, http_request
 from chalk.functions.proto import proto_deserialize, proto_serialize
+from chalk.ml.model_reference import ModelReference
 from chalk.utils.duration import parse_chalk_duration
 
 ########################################################################################################################
@@ -4154,6 +4155,47 @@ def nth_bucket_end(value: Underscore, bucket_duration: str, n: int, initial_buck
 ########################################################################################################################
 # ML Models                                                                                                            #
 ########################################################################################################################
+
+
+def inference(model: ModelReference, inputs: list[Underscore | Any]) -> Underscore:
+    """
+    Run inference on a deployed ML model.
+
+    Parameters
+    ----------
+    model
+        A reference to a deployed model version.
+    inputs
+        A list of features which were used to train the model.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> from chalk.models import ModelReference
+    >>> user_churn_risk = ModelReference.from(name="user_churn_model", version=1)
+    ...
+    ... @features
+    ... class User:
+    ...    id: str
+    ...    a: float
+    ...    b: float
+    ...    c: float
+    ...    d: float
+    ...    e: float
+    ...    prediction: bool = F.inference(
+    ...       user_churn_risk,
+    ...       inputs=[_.a, _.b, _.c, _.d, _.e]
+    ...    )
+    """
+    if not isinstance(model, ModelReference):  #  type: ignore[unreachable]
+        raise ValueError(f"First input to F.inference must be a `ModelReference`, but got {type(model)}.")
+
+    return UnderscoreFunction(
+        "inference",
+        model=model,
+        inputs=inputs,
+    )
 
 
 def ordinal_encode(feature: Underscore, options: list[Any], default: int | None = None) -> Underscore:

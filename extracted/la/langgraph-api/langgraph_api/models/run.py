@@ -106,6 +106,8 @@ class RunCreateDict(TypedDict):
     """Create the thread if it doesn't exist. If False, reply with 404."""
     langsmith_tracer: LangSmithTracer | None
     """Configuration for additional tracing with LangSmith."""
+    durability: str | None
+    """Durability level for the run. Must be one of 'sync', 'async', or 'exit'."""
 
 
 def ensure_ids(
@@ -322,6 +324,11 @@ async def create_valid_run(
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")
 
+    durability = payload.get("durability")
+    if durability is None:
+        checkpoint_during = payload.get("checkpoint_during")
+        durability = "async" if checkpoint_during in (None, True) else "exit"
+
     run_coro = Runs.put(
         conn,
         assistant_id,
@@ -339,6 +346,7 @@ async def create_valid_run(
             "subgraphs": payload.get("stream_subgraphs", False),
             "resumable": stream_resumable,
             "checkpoint_during": payload.get("checkpoint_during", True),
+            "durability": durability,
         },
         metadata=payload.get("metadata"),
         status="pending",

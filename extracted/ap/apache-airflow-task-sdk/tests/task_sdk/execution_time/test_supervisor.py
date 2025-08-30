@@ -51,7 +51,9 @@ from airflow.sdk.api.datamodels._generated import (
     AssetEventResponse,
     AssetProfile,
     AssetResponse,
+    DagRun,
     DagRunState,
+    DagRunType,
     TaskInstance,
     TaskInstanceState,
 )
@@ -75,6 +77,7 @@ from airflow.sdk.execution_time.comms import (
     GetConnection,
     GetDagRunState,
     GetDRCount,
+    GetPreviousDagRun,
     GetPrevSuccessfulDagRun,
     GetTaskRescheduleStartDate,
     GetTaskStates,
@@ -85,6 +88,7 @@ from airflow.sdk.execution_time.comms import (
     GetXComSequenceSlice,
     InactiveAssetsResult,
     OKResponse,
+    PreviousDagRunResult,
     PrevSuccessfulDagRunResult,
     PutVariable,
     RescheduleTask,
@@ -1823,6 +1827,72 @@ class TestHandleRequest:
                 id="get_dr_count",
             ),
             pytest.param(
+                GetPreviousDagRun(
+                    dag_id="test_dag",
+                    logical_date=timezone.parse("2024-01-15T12:00:00Z"),
+                ),
+                {
+                    "dag_run": {
+                        "dag_id": "test_dag",
+                        "run_id": "prev_run",
+                        "logical_date": timezone.parse("2024-01-14T12:00:00Z"),
+                        "run_type": "scheduled",
+                        "start_date": timezone.parse("2024-01-15T12:00:00Z"),
+                        "run_after": timezone.parse("2024-01-15T12:00:00Z"),
+                        "consumed_asset_events": [],
+                        "state": "success",
+                        "data_interval_start": None,
+                        "data_interval_end": None,
+                        "end_date": None,
+                        "clear_number": 0,
+                        "conf": None,
+                    },
+                    "type": "PreviousDagRunResult",
+                },
+                "dag_runs.get_previous",
+                (),
+                {
+                    "dag_id": "test_dag",
+                    "logical_date": timezone.parse("2024-01-15T12:00:00Z"),
+                    "state": None,
+                },
+                PreviousDagRunResult(
+                    dag_run=DagRun(
+                        dag_id="test_dag",
+                        run_id="prev_run",
+                        logical_date=timezone.parse("2024-01-14T12:00:00Z"),
+                        run_type=DagRunType.SCHEDULED,
+                        start_date=timezone.parse("2024-01-15T12:00:00Z"),
+                        run_after=timezone.parse("2024-01-15T12:00:00Z"),
+                        consumed_asset_events=[],
+                        state=DagRunState.SUCCESS,
+                    )
+                ),
+                None,
+                id="get_previous_dagrun",
+            ),
+            pytest.param(
+                GetPreviousDagRun(
+                    dag_id="test_dag",
+                    logical_date=timezone.parse("2024-01-15T12:00:00Z"),
+                    state="success",
+                ),
+                {
+                    "dag_run": None,
+                    "type": "PreviousDagRunResult",
+                },
+                "dag_runs.get_previous",
+                (),
+                {
+                    "dag_id": "test_dag",
+                    "logical_date": timezone.parse("2024-01-15T12:00:00Z"),
+                    "state": "success",
+                },
+                PreviousDagRunResult(dag_run=None),
+                None,
+                id="get_previous_dagrun_with_state",
+            ),
+            pytest.param(
                 GetTaskStates(dag_id="test_dag", task_group_id="test_group"),
                 {
                     "task_states": {"run_id": {"task1": "success", "task2": "failed"}},
@@ -1884,10 +1954,11 @@ class TestHandleRequest:
                     start=None,
                     stop=None,
                     step=None,
+                    include_prior_dates=False,
                 ),
                 {"root": ["foo", "bar"], "type": "XComSequenceSliceResult"},
                 "xcoms.get_sequence_slice",
-                ("test_dag", "test_run", "test_task", "test_key", None, None, None),
+                ("test_dag", "test_run", "test_task", "test_key", None, None, None, False),
                 {},
                 XComSequenceSliceResult(root=["foo", "bar"]),
                 None,
@@ -2105,7 +2176,7 @@ class TestInProcessTestSupervisor:
         pytest.param(False, "", "", id="no-remote-logging"),
     ),
 )
-def test_remote_logging_conn(remote_logging, remote_conn, expected_env, monkeypatch):
+def test_remote_logging_conn(remote_logging, remote_conn, expected_env, monkeypatch, mocker):
     # This doesn't strictly need the AWS provider, but it does need something that
     # airflow.config_templates.airflow_local_settings.DEFAULT_LOGGING_CONFIG knows about
     pytest.importorskip("airflow.providers.amazon", reason="'amazon' provider not installed")
@@ -2124,6 +2195,9 @@ def test_remote_logging_conn(remote_logging, remote_conn, expected_env, monkeypa
             },
         )
 
+    mock_masker = mocker.Mock()
+    mocker.patch("airflow.sdk.execution_time.secrets_masker._secrets_masker", return_value=mock_masker)
+
     with conf_vars(
         {
             ("logging", "remote_logging"): str(remote_logging),
@@ -2140,3 +2214,29 @@ def test_remote_logging_conn(remote_logging, remote_conn, expected_env, monkeypa
                 assert new_keys == {expected_env}
             else:
                 assert not new_keys
+
+        if remote_logging and expected_env:
+            connection_available = {"available": False, "conn_uri": None}
+
+            def mock_upload_to_remote(process_log, ti):
+                connection_available["available"] = expected_env in os.environ
+                connection_available["conn_uri"] = os.environ.get(expected_env)
+
+            mocker.patch("airflow.sdk.log.upload_to_remote", side_effect=mock_upload_to_remote)
+
+            activity_subprocess = ActivitySubprocess(
+                process_log=mocker.MagicMock(),
+                id=TI_ID,
+                pid=12345,
+                stdin=mocker.MagicMock(),
+                client=client,
+                process=mocker.MagicMock(),
+            )
+            activity_subprocess.ti = mocker.MagicMock()
+
+            activity_subprocess._upload_logs()
+
+            assert connection_available["available"], (
+                f"Connection {expected_env} was not available during upload_to_remote call"
+            )
+            assert connection_available["conn_uri"] is not None, "Connection URI was None during upload"

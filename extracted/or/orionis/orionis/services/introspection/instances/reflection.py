@@ -858,7 +858,7 @@ class ReflectionInstance(IReflectionInstance):
             if isinstance(attr, classmethod):
 
                 # Check not private or protected methods
-                if not name.startswith(f"_"):
+                if not name.startswith("_"):
                     class_methods.append(name)
 
         # Return the list of public class method
@@ -890,7 +890,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's NOT a coroutine function (i.e., synchronous)
-                if not inspect.iscoroutinefunction(func) and not name.startswith(f"_"):
+                if not inspect.iscoroutinefunction(func) and not name.startswith("_"):
                     public_class_sync_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of public synchronous class method names
@@ -922,7 +922,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's a coroutine function (i.e., asynchronous)
-                if inspect.iscoroutinefunction(func) and not name.startswith(f"_"):
+                if inspect.iscoroutinefunction(func) and not name.startswith("_"):
                     public_class_async_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of public asynchronous class method names
@@ -950,7 +950,7 @@ class ReflectionInstance(IReflectionInstance):
             if isinstance(attr, classmethod):
 
                 # Check is a protected class method
-                if name.startswith(f"_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
+                if name.startswith("_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
                     class_methods.append(name)
 
         # Return the list of public class method
@@ -982,7 +982,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's NOT a coroutine function (i.e., synchronous)
-                if not inspect.iscoroutinefunction(func) and name.startswith(f"_") and not name.startswith(f"_{class_name}"):
+                if not inspect.iscoroutinefunction(func) and name.startswith("_") and not name.startswith(f"_{class_name}"):
                     protected_class_sync_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of protected class method names
@@ -1014,7 +1014,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's a coroutine function (i.e., asynchronous)
-                if inspect.iscoroutinefunction(func) and name.startswith(f"_") and not name.startswith(f"_{class_name}"):
+                if inspect.iscoroutinefunction(func) and name.startswith("_") and not name.startswith(f"_{class_name}"):
                     protected_class_async_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of protected asynchronous class method names
@@ -1129,7 +1129,7 @@ class ReflectionInstance(IReflectionInstance):
         static_methods = []
         for name in dir(cls):
             attr = inspect.getattr_static(cls, name)
-            if isinstance(attr, staticmethod) and not name.startswith(f"_"):
+            if isinstance(attr, staticmethod) and not name.startswith("_"):
                 static_methods.append(name)
         return static_methods
 
@@ -1159,7 +1159,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's NOT a coroutine function (i.e., synchronous)
-                if not inspect.iscoroutinefunction(func) and not name.startswith(f"_"):
+                if not inspect.iscoroutinefunction(func) and not name.startswith("_"):
                     public_static_sync_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of public synchronous static method names
@@ -1191,7 +1191,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's a coroutine function (i.e., asynchronous)
-                if inspect.iscoroutinefunction(func) and not name.startswith(f"_"):
+                if inspect.iscoroutinefunction(func) and not name.startswith("_"):
                     public_static_async_methods.append(str(name).replace(f"_{class_name}", ""))
 
         # Return the list of public asynchronous static method names
@@ -1216,7 +1216,7 @@ class ReflectionInstance(IReflectionInstance):
             attr = inspect.getattr_static(cls, name)
 
             # Check if the attribute is a static method
-            if isinstance(attr, staticmethod) and name.startswith(f"_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
+            if isinstance(attr, staticmethod) and name.startswith("_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
                 protected_static_methods.append(name)
 
         return protected_static_methods
@@ -1247,7 +1247,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's NOT a coroutine function (i.e., synchronous)
-                if not inspect.iscoroutinefunction(func) and name.startswith(f"_") and not name.startswith(f"_{class_name}"):
+                if not inspect.iscoroutinefunction(func) and name.startswith("_") and not name.startswith(f"_{class_name}"):
                     protected_static_sync_methods.append(str(name).replace(f"_{class_name}", ""))
 
         return protected_static_sync_methods
@@ -1278,7 +1278,7 @@ class ReflectionInstance(IReflectionInstance):
                 func = attr.__func__
 
                 # Check if it's a coroutine function (i.e., asynchronous)
-                if inspect.iscoroutinefunction(func) and name.startswith(f"_") and not name.startswith(f"_{class_name}"):
+                if inspect.iscoroutinefunction(func) and name.startswith("_") and not name.startswith(f"_{class_name}"):
                     protected_static_async_methods.append(str(name).replace(f"_{class_name}", ""))
 
         return protected_static_async_methods
@@ -1435,7 +1435,7 @@ class ReflectionInstance(IReflectionInstance):
         cls_name = self.getClassName()
         for name, prop in self._instance.__class__.__dict__.items():
             if isinstance(prop, property):
-                if not name.startswith(f"_") and not name.startswith(f"_{cls_name}"):
+                if not name.startswith("_") and not name.startswith(f"_{cls_name}"):
                     properties.append(name.replace(f"_{cls_name}", ""))
         return properties
 
@@ -1451,7 +1451,7 @@ class ReflectionInstance(IReflectionInstance):
         properties = []
         for name, prop in self._instance.__class__.__dict__.items():
             if isinstance(prop, property):
-                if name.startswith(f"_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
+                if name.startswith("_") and not name.startswith("__") and not name.startswith(f"_{self.getClassName()}"):
                     properties.append(name)
         return properties
 

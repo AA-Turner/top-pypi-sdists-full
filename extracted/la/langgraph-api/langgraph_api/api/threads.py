@@ -1,3 +1,4 @@
+from typing import get_args
 from uuid import uuid4
 
 from starlette.exceptions import HTTPException
@@ -5,7 +6,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import THREAD_FIELDS
+from langgraph_api.schema import THREAD_FIELDS, ThreadStreamMode
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.utils import (
@@ -293,10 +294,31 @@ async def join_thread_stream(request: ApiRequest):
     validate_stream_id(
         last_event_id, "Invalid last-event-id: must be a valid Redis stream ID"
     )
+
+    # Parse stream_modes parameter - can be single string or comma-separated list
+    stream_modes_param = request.query_params.get("stream_modes")
+    if stream_modes_param:
+        if "," in stream_modes_param:
+            # Handle comma-separated list
+            stream_modes = [mode.strip() for mode in stream_modes_param.split(",")]
+        else:
+            # Handle single value
+            stream_modes = [stream_modes_param]
+        # Validate each mode
+        for mode in stream_modes:
+            if mode not in get_args(ThreadStreamMode):
+                raise HTTPException(
+                    status_code=422, detail=f"Invalid stream mode: {mode}"
+                )
+    else:
+        # Default to run_modes
+        stream_modes = ["run_modes"]
+
     return EventSourceResponse(
         Threads.Stream.join(
             thread_id,
             last_event_id=last_event_id,
+            stream_modes=stream_modes,
         ),
     )
 

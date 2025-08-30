@@ -57,6 +57,16 @@ class AccessEntry(AWSObject):
     }
 
 
+class NamespaceConfig(AWSProperty):
+    """
+    `NamespaceConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-namespaceconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Namespace": (str, True),
+    }
+
+
 class PodIdentityAssociationProperty(AWSProperty):
     """
     `PodIdentityAssociationProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-podidentityassociation.html>`__
@@ -80,6 +90,7 @@ class Addon(AWSObject):
         "AddonVersion": (str, False),
         "ClusterName": (str, True),
         "ConfigurationValues": (str, False),
+        "NamespaceConfig": (NamespaceConfig, False),
         "PodIdentityAssociations": ([PodIdentityAssociationProperty], False),
         "PreserveOnDelete": (boolean, False),
         "ResolveConflicts": (str, False),
@@ -306,6 +317,7 @@ class Cluster(AWSObject):
         "AccessConfig": (AccessConfig, False),
         "BootstrapSelfManagedAddons": (boolean, False),
         "ComputeConfig": (ComputeConfig, False),
+        "DeletionProtection": (boolean, False),
         "EncryptionConfig": ([EncryptionConfig], False),
         "Force": (boolean, False),
         "KubernetesNetworkConfig": (KubernetesNetworkConfig, False),

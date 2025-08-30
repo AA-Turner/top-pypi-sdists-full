@@ -178,7 +178,7 @@ OPTIONS = [
 
 
     (("-f", "--format"),
-     dict(dest="format", action="append",
+     dict(dest="format", action="append", metavar="FORMATTER",
           help="""Specify a formatter. If none is specified the default
                   formatter is used. Pass "--format help" to get a
                   list of available formatters.""")),
@@ -186,12 +186,18 @@ OPTIONS = [
     (("--steps-catalog",),
      dict(dest="steps_catalog", action="store_true",
           help="""Show a catalog of all available step definitions.
-                  SAME AS: --format=steps.catalog --dry-run --no-summary -q""")),
+                  SAME AS: "--format=steps.catalog --dry-run --no-summary -q".""")),
 
     ((),  # -- CONFIGFILE only
      dict(dest="scenario_outline_annotation_schema",
           help="""Specify name annotation schema for scenario outline
                   (default="{name} -- @{row.id} {examples.name}").""")),
+
+    ((),  # -- CONFIGFILE only
+     dict(dest="use_nested_step_modules", action="store_true",
+          type=bool, default=False,
+          help="""Use subdirectories of steps directory to import steps
+                  (default: false).""")),
 
     (("--no-skipped",),
      dict(dest="show_skipped", action="store_false",
@@ -275,23 +281,26 @@ OPTIONS = [
           help="""Disable capture of hooks.""")),
 
     (("--logging-level",),
-     dict(type=LogLevel.parse_type, default=logging.INFO,
+     dict(type=LogLevel.parse_type, default=logging.INFO, metavar="LOG_LEVEL",
           help="""Specify a level to capture logging at. The default
                   is INFO - capturing everything.""")),
 
     (("--logging-format",),
-     dict(help="""Specify custom format to print statements. Uses the
+     dict(metavar="LOG_FORMAT",
+         help="""Specify custom format to print statements. Uses the
                   same format as used by standard logging handlers. The
                   default is "%%(levelname)s:%%(name)s:%%(message)s".""")),
 
     (("--logging-datefmt",),
-     dict(help="""Specify custom date/time format to print
+     dict(metavar="LOG_DATE_FORMAT",
+          help="""Specify custom date/time format to print
                   statements.
                   Uses the same format as used by standard logging
                   handlers.""")),
 
     (("--logging-filter",),
-     dict(help="""Specify which statements to filter in/out. By default,
+     dict(metavar="LOG_FILTER",
+         help="""Specify which statements to filter in/out. By default,
                   everything is captured. If the output is too verbose, use
                   this option to filter out needless output.
                   Example: --logging-filter=foo will capture statements issued
@@ -327,8 +336,8 @@ OPTIONS = [
           help="""Display the summary at the end of the run.""")),
 
     (("-o", "--outfile"),
-     dict(dest="outfiles", action="append", metavar="FILE",
-          help="Write to specified file instead of stdout.")),
+     dict(dest="outfiles", action="append", metavar="FILENAME",
+          help="Write formatter output to output-file (default: stdout).")),
 
     ((),  # -- CONFIGFILE only
      dict(dest="paths", action="append",
@@ -383,13 +392,13 @@ With "auto_detect", tag-expressions v1 and v2 are auto-detected.
     ((),  # -- CONFIGFILE only
      dict(dest="default_tags", metavar="TAG_EXPRESSION", action="append",
           help="""Define default tags when non are provided.
-                  See --tags for more information.""")),
+                  See :option:`--tags` for more information.""")),
 
     (("-t", "--tags"),
      dict(action="append", metavar="TAG_EXPRESSION",
           help="""Only execute features or scenarios with tags
-                  matching TAG_EXPRESSION. Pass "--tags-help" for
-                  more information.""",
+                  matching TAG_EXPRESSION.
+                  Use :option:`--tags-help` option for more information.""",
           config_help="""Only execute certain features or scenarios based
                          on the tag expression given. See below for how to code
                          tag expressions in configuration files.""")),
@@ -753,7 +762,15 @@ def setup_config_file_parser():
     return parser
 
 class Configuration(object):
-    """Configuration object for behave and behave runners."""
+    """
+    Configuration object for behave and behave runners.
+
+    .. attribute:: tag_expression
+        :type: behave.tag_expression.v2.TagExpression | behave.tag_expression.v1.TagExpression
+
+        Provides the Tag-Expression object based on the :option:`--tags` option(s)
+        on command-line and `:confval:`default_tags` parameter in the config-file.
+    """
     # pylint: disable=too-many-instance-attributes
     defaults = dict(
         color=os.getenv("BEHAVE_COLOR", COLOR_DEFAULT),
@@ -781,7 +798,8 @@ class Configuration(object):
         default_format="pretty",    # -- Used when no formatters are configured.
         default_tags="",            # -- Used when no tags are defined.
         config_tags=None,
-        scenario_outline_annotation_schema=u"{name} -- @{row.id} {examples.name}"
+        scenario_outline_annotation_schema=u"{name} -- @{row.id} {examples.name}",
+        use_nested_step_modules=False,
     )
 
     def __init__(self, command_args=None, load_config=True, verbose=None,
@@ -875,6 +893,7 @@ class Configuration(object):
         self.include_re = None
         self.exclude_re = None
         self.scenario_outline_annotation_schema = None  # pylint: disable=invalid-name
+        self.use_nested_step_modules = False
         self.steps_dir = "steps"
         self.environment_file = "environment.py"
         self.userdata_defines = None
@@ -1002,7 +1021,7 @@ class Configuration(object):
 
     def show_bad_formats_and_fail(self, parser):
         """
-        Show any BAD-FORMATTER(s) and fail with ``ParseError``if any exists.
+        Show any BAD-FORMATTER(s) and fail with :class:`~behave.parser.ParseError` if any exists.
         """
         # -- SANITY-CHECK FIRST: Is correct type used for "config.format"
         if self.format is not None and not isinstance(self.format, list):

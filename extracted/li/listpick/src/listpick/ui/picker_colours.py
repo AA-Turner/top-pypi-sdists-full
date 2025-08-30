@@ -69,6 +69,8 @@ def get_colours(pick:int=0) -> Dict[str, int]:
         'selected_cell_fg': 253,
         'deselecting_cell_bg': 162,
         'deselecting_cell_fg': 253,
+        'active_column_bg': 234,
+        'active_column_fg': 253,
     },
         ### (1) Black and white
     {
@@ -120,6 +122,8 @@ def get_colours(pick:int=0) -> Dict[str, int]:
         'selected_cell_fg': 253,
         'deselecting_cell_bg': 162,
         'deselecting_cell_fg': 253,
+        'active_column_bg': 234,
+        'active_column_fg': 253,
     },
         ### (2) Blue header, blue title, blue modes, purple selected, green cursor
     {
@@ -171,6 +175,8 @@ def get_colours(pick:int=0) -> Dict[str, int]:
         'selected_cell_fg': 253,
         'deselecting_cell_bg': 162,
         'deselecting_cell_fg': 253,
+        'active_column_bg': 234,
+        'active_column_fg': 253,
     },
         ### (3) Purple header, purple title, white modes, green selected, blue cursor
     {
@@ -222,6 +228,8 @@ def get_colours(pick:int=0) -> Dict[str, int]:
         'selected_cell_fg': 232,
         'deselecting_cell_bg': 162,
         'deselecting_cell_fg': 253,
+        'active_column_bg': 234,
+        'active_column_fg': 253,
     },
         ## (4) 3-bit colours
     {
@@ -273,6 +281,8 @@ def get_colours(pick:int=0) -> Dict[str, int]:
         'selected_cell_fg': 253,
         'deselecting_cell_bg': curses.COLOR_MAGENTA,
         'deselecting_cell_fg': curses.COLOR_WHITE,
+        'active_column_bg': curses.COLOR_BLACK,
+        'active_column_fg': curses.COLOR_WHITE,
     },
     ]
     for colour in colours:
@@ -340,7 +350,7 @@ def get_notification_colours(pick:int=0) -> Dict[str, int]:
     else:
         colours['background'] = 237
         colours['unselected_bg'] = 237
-        colours['cursor_bg'] = 237
+        colours['cursor_bg'] = 238
         colours['selected_bg'] = 237
 
     return colours

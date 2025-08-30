@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytools
-Version: 2025.2.2
+Version: 2025.2.3
 Summary: A collection of tools for Python
 Project-URL: Documentation, https://documen.tician.de/pytools/
 Project-URL: Homepage, https://github.com/inducer/pytools/
@@ -27,7 +27,7 @@ Requires-Dist: typing-extensions>=4.5
 Provides-Extra: numpy
 Requires-Dist: numpy>=1.6; extra == 'numpy'
 Provides-Extra: test
-Requires-Dist: mypy; extra == 'test'
+Requires-Dist: basedpyright; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: ruff; extra == 'test'
 Description-Content-Type: text/x-rst

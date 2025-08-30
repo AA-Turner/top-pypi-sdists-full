@@ -17,6 +17,7 @@ class InputSwitchConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "MQCSInputSwitching": (boolean, False),
+        "PreferredInput": (integer, False),
     }
 
 
@@ -76,6 +77,87 @@ class ChannelPolicy(AWSObject):
     }
 
 
+class DashBaseUrl(AWSProperty):
+    """
+    `DashBaseUrl <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html>`__
+    """
+
+    props: PropsDictType = {
+        "DvbPriority": (integer, False),
+        "DvbWeight": (integer, False),
+        "ServiceLocation": (str, False),
+        "Url": (str, True),
+    }
+
+
+class DashDvbFontDownload(AWSProperty):
+    """
+    `DashDvbFontDownload <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbfontdownload.html>`__
+    """
+
+    props: PropsDictType = {
+        "FontFamily": (str, False),
+        "MimeType": (str, False),
+        "Url": (str, False),
+    }
+
+
+class DashDvbMetricsReporting(AWSProperty):
+    """
+    `DashDvbMetricsReporting <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbmetricsreporting.html>`__
+    """
+
+    props: PropsDictType = {
+        "Probability": (integer, False),
+        "ReportingUrl": (str, True),
+    }
+
+
+class DashDvbSettings(AWSProperty):
+    """
+    `DashDvbSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "ErrorMetrics": ([DashDvbMetricsReporting], False),
+        "FontDownload": (DashDvbFontDownload, False),
+    }
+
+
+class DashProgramInformation(AWSProperty):
+    """
+    `DashProgramInformation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Copyright": (str, False),
+        "LanguageCode": (str, False),
+        "MoreInformationUrl": (str, False),
+        "Source": (str, False),
+        "Title": (str, False),
+    }
+
+
+class DashTtmlConfiguration(AWSProperty):
+    """
+    `DashTtmlConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashttmlconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "TtmlProfile": (str, True),
+    }
+
+
+class DashSubtitleConfiguration(AWSProperty):
+    """
+    `DashSubtitleConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashsubtitleconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "TtmlConfiguration": (DashTtmlConfiguration, False),
+    }
+
+
 class DashUtcTiming(AWSProperty):
     """
     `DashUtcTiming <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashutctiming.html>`__
@@ -117,15 +199,21 @@ class DashManifestConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "BaseUrls": ([DashBaseUrl], False),
+        "Compactness": (str, False),
         "DrmSignaling": (str, False),
+        "DvbSettings": (DashDvbSettings, False),
         "FilterConfiguration": (FilterConfiguration, False),
         "ManifestName": (str, True),
         "ManifestWindowSeconds": (integer, False),
         "MinBufferTimeSeconds": (integer, False),
         "MinUpdatePeriodSeconds": (integer, False),
         "PeriodTriggers": ([str], False),
+        "Profiles": ([str], False),
+        "ProgramInformation": (DashProgramInformation, False),
         "ScteDash": (ScteDash, False),
         "SegmentTemplateFormat": (str, False),
+        "SubtitleConfiguration": (DashSubtitleConfiguration, False),
         "SuggestedPresentationDelaySeconds": (integer, False),
         "UtcTiming": (DashUtcTiming, False),
     }
@@ -240,6 +328,7 @@ class Encryption(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CmafExcludeSegmentDrmMetadata": (boolean, False),
         "ConstantInitializationVector": (str, False),
         "EncryptionMethod": (EncryptionMethod, True),
         "KeyRotationIntervalSeconds": (integer, False),
@@ -296,6 +385,17 @@ class OriginEndpoint(AWSObject):
     }
 
 
+class CdnAuthConfiguration(AWSProperty):
+    """
+    `CdnAuthConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpointpolicy-cdnauthconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "CdnIdentifierSecretArns": ([str], True),
+        "SecretsRoleArn": (str, True),
+    }
+
+
 class OriginEndpointPolicy(AWSObject):
     """
     `OriginEndpointPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html>`__
@@ -304,6 +404,7 @@ class OriginEndpointPolicy(AWSObject):
     resource_type = "AWS::MediaPackageV2::OriginEndpointPolicy"
 
     props: PropsDictType = {
+        "CdnAuthConfiguration": (CdnAuthConfiguration, False),
         "ChannelGroupName": (str, True),
         "ChannelName": (str, True),
         "OriginEndpointName": (str, True),

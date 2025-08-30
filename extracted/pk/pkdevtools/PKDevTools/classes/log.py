@@ -249,9 +249,7 @@ class filterlogger:
             if getattr(self, "_initialized", False):
                 return
 
-            self._logger = logger or logging.getLogger(
-                f"PKDevTools_{current_process().pid}_{get_ident()}"
-            )
+            self._logger = logger or logging.getLogger(f"PKDevTools_{current_process().pid}_{get_ident()}")
             self._initialized = True
             # Store process ID for handler management
             self._process_id = current_process().pid
@@ -741,9 +739,7 @@ def log_to(logger_func):
                         ret_val = func(*args, **kwargs)
                         time_spent = time.time() - startTime
                         logger_func(
-                            f"{func_description} - {func.__name__} completed: {
-                                time_spent:.3f
-                            }s (TIME_TAKEN)"
+                            f"{func_description} - {func.__name__} completed: {time_spent:.3f}s (TIME_TAKEN)"
                         )
                         return ret_val
                     except Exception:

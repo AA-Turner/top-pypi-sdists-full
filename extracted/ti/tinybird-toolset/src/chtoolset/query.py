@@ -14,7 +14,9 @@ from chtoolset._query import replace_tables, \
     apply_row_binary_encoder, \
     apply_row_binary_encoder_bytes, \
     delete_row_binary_encoder, \
-    validate_row_binary_encoder_schema
+    validate_row_binary_encoder_schema, \
+    set_row_binary_encoder_buffer_config, \
+    set_row_binary_encoder_thread_buffer_size
 
 
 class RowBinaryEncoderError(Exception):

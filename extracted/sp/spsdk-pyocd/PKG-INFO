@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: spsdk-pyocd
-Version: 0.3.2
+Version: 0.3.3
 Summary: PyOCD SW Debugger. A debugger probe plugin for SPSDK.
 Author: NXP
-Maintainer-email: NXP <michal.starecek@nxp.com>
+Maintainer-email: NXP <spsdk@nxp.com>
 License: BSD-3-Clause
 Project-URL: Homepage, https://github.com/nxp-mcuxpresso/spsdk_plugins/tree/master/pemicro
 Project-URL: Issues, https://github.com/nxp-mcuxpresso/spsdk_plugins/issues
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pyocd<0.37,>=0.35.1
+Requires-Dist: pyocd<0.38,>=0.35.1
 Provides-Extra: pemicro
 Requires-Dist: pyocd-pemicro<1.2,>=1.1.5; extra == "pemicro"
 Dynamic: license-file

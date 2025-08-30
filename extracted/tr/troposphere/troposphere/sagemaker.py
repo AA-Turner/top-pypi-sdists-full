@@ -168,9 +168,101 @@ class ClusterLifeCycleConfig(AWSProperty):
     }
 
 
+class Alarm(AWSProperty):
+    """
+    `Alarm <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-alarm.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlarmName": (str, True),
+    }
+
+
+class AutoRollbackConfig(AWSProperty):
+    """
+    `AutoRollbackConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-autorollbackconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Alarms": ([Alarm], True),
+    }
+
+
+class CapacitySize(AWSProperty):
+    """
+    `CapacitySize <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-capacitysize.html>`__
+    """
+
+    props: PropsDictType = {
+        "Type": (str, True),
+        "Value": (integer, True),
+    }
+
+
+class TrafficRoutingConfig(AWSProperty):
+    """
+    `TrafficRoutingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-trafficroutingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CanarySize": (CapacitySize, False),
+        "LinearStepSize": (CapacitySize, False),
+        "Type": (str, True),
+        "WaitIntervalInSeconds": (integer, False),
+    }
+
+
+class BlueGreenUpdatePolicy(AWSProperty):
+    """
+    `BlueGreenUpdatePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-bluegreenupdatepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaximumExecutionTimeoutInSeconds": (integer, False),
+        "TerminationWaitInSeconds": (integer, False),
+        "TrafficRoutingConfiguration": (TrafficRoutingConfig, True),
+    }
+
+
+class RollingUpdatePolicy(AWSProperty):
+    """
+    `RollingUpdatePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-rollingupdatepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaximumBatchSize": (CapacitySize, True),
+        "MaximumExecutionTimeoutInSeconds": (integer, False),
+        "RollbackMaximumBatchSize": (CapacitySize, False),
+        "WaitIntervalInSeconds": (integer, True),
+    }
+
+
+class DeploymentConfig(AWSProperty):
+    """
+    `DeploymentConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-deploymentconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AutoRollbackConfiguration": (AutoRollbackConfig, False),
+        "BlueGreenUpdatePolicy": (BlueGreenUpdatePolicy, False),
+        "RollingUpdatePolicy": (RollingUpdatePolicy, False),
+    }
+
+
+class ScheduledUpdateConfig(AWSProperty):
+    """
+    `ScheduledUpdateConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-scheduledupdateconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeploymentConfig": (DeploymentConfig, False),
+        "ScheduleExpression": (str, True),
+    }
+
+
 class VpcConfig(AWSProperty):
     """
-    `VpcConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-vpcconfig.html>`__
+    `VpcConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-vpcconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -187,6 +279,7 @@ class ClusterInstanceGroup(AWSProperty):
     props: PropsDictType = {
         "CurrentCount": (integer, False),
         "ExecutionRole": (str, True),
+        "ImageId": (str, False),
         "InstanceCount": (integer, True),
         "InstanceGroupName": (str, True),
         "InstanceStorageConfigs": ([ClusterInstanceStorageConfig], False),
@@ -194,7 +287,50 @@ class ClusterInstanceGroup(AWSProperty):
         "LifeCycleConfig": (ClusterLifeCycleConfig, True),
         "OnStartDeepHealthChecks": ([str], False),
         "OverrideVpcConfig": (VpcConfig, False),
+        "ScheduledUpdateConfig": (ScheduledUpdateConfig, False),
         "ThreadsPerCore": (integer, False),
+        "TrainingPlanArn": (str, False),
+    }
+
+
+class FSxLustreConfig(AWSProperty):
+    """
+    `FSxLustreConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-fsxlustreconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "PerUnitStorageThroughput": (integer, True),
+        "SizeInGiB": (integer, True),
+    }
+
+
+class EnvironmentConfig(AWSProperty):
+    """
+    `EnvironmentConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-environmentconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "FSxLustreConfig": (FSxLustreConfig, False),
+    }
+
+
+class ClusterRestrictedInstanceGroup(AWSProperty):
+    """
+    `ClusterRestrictedInstanceGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html>`__
+    """
+
+    props: PropsDictType = {
+        "CurrentCount": (integer, False),
+        "EnvironmentConfig": (EnvironmentConfig, True),
+        "ExecutionRole": (str, True),
+        "InstanceCount": (integer, True),
+        "InstanceGroupName": (str, True),
+        "InstanceStorageConfigs": ([ClusterInstanceStorageConfig], False),
+        "InstanceType": (str, True),
+        "OnStartDeepHealthChecks": ([str], False),
+        "OverrideVpcConfig": (VpcConfig, False),
+        "ThreadsPerCore": (integer, False),
+        "TrainingPlanArn": (str, False),
     }
 
 
@@ -227,9 +363,11 @@ class Cluster(AWSObject):
 
     props: PropsDictType = {
         "ClusterName": (str, False),
-        "InstanceGroups": ([ClusterInstanceGroup], True),
+        "InstanceGroups": ([ClusterInstanceGroup], False),
+        "NodeProvisioningMode": (str, False),
         "NodeRecovery": (str, False),
         "Orchestrator": (Orchestrator, False),
+        "RestrictedInstanceGroups": ([ClusterRestrictedInstanceGroup], False),
         "Tags": (Tags, False),
         "VpcConfig": (VpcConfig, False),
     }
@@ -382,12 +520,12 @@ class DataQualityJobInput(AWSProperty):
 
 class S3Output(AWSProperty):
     """
-    `S3Output <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-s3output.html>`__
+    `S3Output <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3output.html>`__
     """
 
     props: PropsDictType = {
-        "LocalPath": (str, True),
-        "S3UploadMode": (str, False),
+        "LocalPath": (str, False),
+        "S3UploadMode": (str, True),
         "S3Uri": (str, True),
     }
 
@@ -415,7 +553,7 @@ class MonitoringOutputConfig(AWSProperty):
 
 class ClusterConfig(AWSProperty):
     """
-    `ClusterConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-clusterconfig.html>`__
+    `ClusterConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -438,7 +576,7 @@ class MonitoringResources(AWSProperty):
 
 class NetworkConfig(AWSProperty):
     """
-    `NetworkConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-networkconfig.html>`__
+    `NetworkConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-networkconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -450,7 +588,7 @@ class NetworkConfig(AWSProperty):
 
 class StoppingCondition(AWSProperty):
     """
-    `StoppingCondition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-monitoringschedule-stoppingcondition.html>`__
+    `StoppingCondition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-stoppingcondition.html>`__
     """
 
     props: PropsDictType = {
@@ -555,6 +693,17 @@ class FSxLustreFileSystemConfig(AWSProperty):
     }
 
 
+class S3FileSystemConfig(AWSProperty):
+    """
+    `S3FileSystemConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-s3filesystemconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "MountPath": (str, False),
+        "S3Uri": (str, False),
+    }
+
+
 class CustomFileSystemConfig(AWSProperty):
     """
     `CustomFileSystemConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-customfilesystemconfig.html>`__
@@ -563,6 +712,7 @@ class CustomFileSystemConfig(AWSProperty):
     props: PropsDictType = {
         "EFSFileSystemConfig": (EFSFileSystemConfig, False),
         "FSxLustreFileSystemConfig": (FSxLustreFileSystemConfig, False),
+        "S3FileSystemConfig": (S3FileSystemConfig, False),
     }
 
 
@@ -853,91 +1003,10 @@ class Domain(AWSObject):
         "DomainName": (str, True),
         "DomainSettings": (DomainSettings, False),
         "KmsKeyId": (str, False),
-        "SubnetIds": ([str], True),
+        "SubnetIds": ([str], False),
         "TagPropagation": (str, False),
         "Tags": (Tags, False),
-        "VpcId": (str, True),
-    }
-
-
-class Alarm(AWSProperty):
-    """
-    `Alarm <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-inferencecomponent-alarm.html>`__
-    """
-
-    props: PropsDictType = {
-        "AlarmName": (str, True),
-    }
-
-
-class AutoRollbackConfig(AWSProperty):
-    """
-    `AutoRollbackConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-autorollbackconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "Alarms": ([Alarm], True),
-    }
-
-
-class CapacitySize(AWSProperty):
-    """
-    `CapacitySize <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-capacitysize.html>`__
-    """
-
-    props: PropsDictType = {
-        "Type": (str, True),
-        "Value": (integer, True),
-    }
-
-
-class TrafficRoutingConfig(AWSProperty):
-    """
-    `TrafficRoutingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-trafficroutingconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "CanarySize": (CapacitySize, False),
-        "LinearStepSize": (CapacitySize, False),
-        "Type": (str, True),
-        "WaitIntervalInSeconds": (integer, False),
-    }
-
-
-class BlueGreenUpdatePolicy(AWSProperty):
-    """
-    `BlueGreenUpdatePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-bluegreenupdatepolicy.html>`__
-    """
-
-    props: PropsDictType = {
-        "MaximumExecutionTimeoutInSeconds": (integer, False),
-        "TerminationWaitInSeconds": (integer, False),
-        "TrafficRoutingConfiguration": (TrafficRoutingConfig, True),
-    }
-
-
-class RollingUpdatePolicy(AWSProperty):
-    """
-    `RollingUpdatePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-rollingupdatepolicy.html>`__
-    """
-
-    props: PropsDictType = {
-        "MaximumBatchSize": (CapacitySize, True),
-        "MaximumExecutionTimeoutInSeconds": (integer, False),
-        "RollbackMaximumBatchSize": (CapacitySize, False),
-        "WaitIntervalInSeconds": (integer, True),
-    }
-
-
-class DeploymentConfig(AWSProperty):
-    """
-    `DeploymentConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpoint-deploymentconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "AutoRollbackConfiguration": (AutoRollbackConfig, False),
-        "BlueGreenUpdatePolicy": (BlueGreenUpdatePolicy, False),
-        "RollingUpdatePolicy": (RollingUpdatePolicy, False),
+        "VpcId": (str, False),
     }
 
 
@@ -1130,6 +1199,17 @@ class ExplainerConfig(AWSProperty):
     }
 
 
+class CapacityReservationConfig(AWSProperty):
+    """
+    `CapacityReservationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CapacityReservationPreference": (str, False),
+        "MlReservationArn": (str, False),
+    }
+
+
 class ManagedInstanceScaling(AWSProperty):
     """
     `ManagedInstanceScaling <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant-managedinstancescaling.html>`__
@@ -1170,6 +1250,7 @@ class ProductionVariant(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CapacityReservationConfig": (CapacityReservationConfig, False),
         "ContainerStartupHealthCheckTimeoutInSeconds": (integer, False),
         "EnableSSMAccess": (boolean, False),
         "InferenceAmiVersion": (str, False),
@@ -2949,6 +3030,174 @@ class Pipeline(AWSObject):
     }
 
 
+class AppSpecification(AWSProperty):
+    """
+    `AppSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-appspecification.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContainerArguments": ([str], False),
+        "ContainerEntrypoint": ([str], False),
+        "ImageUri": (str, True),
+    }
+
+
+class ExperimentConfig(AWSProperty):
+    """
+    `ExperimentConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExperimentName": (str, False),
+        "RunName": (str, False),
+        "TrialComponentDisplayName": (str, False),
+        "TrialName": (str, False),
+    }
+
+
+class AthenaDatasetDefinition(AWSProperty):
+    """
+    `AthenaDatasetDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Catalog": (str, True),
+        "Database": (str, True),
+        "KmsKeyId": (str, False),
+        "OutputCompression": (str, False),
+        "OutputFormat": (str, True),
+        "OutputS3Uri": (str, True),
+        "QueryString": (str, True),
+        "WorkGroup": (str, False),
+    }
+
+
+class RedshiftDatasetDefinition(AWSProperty):
+    """
+    `RedshiftDatasetDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClusterId": (str, True),
+        "ClusterRoleArn": (str, True),
+        "Database": (str, True),
+        "DbUser": (str, True),
+        "KmsKeyId": (str, False),
+        "OutputCompression": (str, False),
+        "OutputFormat": (str, True),
+        "OutputS3Uri": (str, True),
+        "QueryString": (str, True),
+    }
+
+
+class DatasetDefinition(AWSProperty):
+    """
+    `DatasetDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "AthenaDatasetDefinition": (AthenaDatasetDefinition, False),
+        "DataDistributionType": (str, False),
+        "InputMode": (str, False),
+        "LocalPath": (str, False),
+        "RedshiftDatasetDefinition": (RedshiftDatasetDefinition, False),
+    }
+
+
+class S3Input(AWSProperty):
+    """
+    `S3Input <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html>`__
+    """
+
+    props: PropsDictType = {
+        "LocalPath": (str, False),
+        "S3CompressionType": (str, False),
+        "S3DataDistributionType": (str, False),
+        "S3DataType": (str, True),
+        "S3InputMode": (str, False),
+        "S3Uri": (str, True),
+    }
+
+
+class ProcessingInputsObject(AWSProperty):
+    """
+    `ProcessingInputsObject <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html>`__
+    """
+
+    props: PropsDictType = {
+        "AppManaged": (boolean, False),
+        "DatasetDefinition": (DatasetDefinition, False),
+        "InputName": (str, True),
+        "S3Input": (S3Input, False),
+    }
+
+
+class FeatureStoreOutput(AWSProperty):
+    """
+    `FeatureStoreOutput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-featurestoreoutput.html>`__
+    """
+
+    props: PropsDictType = {
+        "FeatureGroupName": (str, True),
+    }
+
+
+class ProcessingOutputsObject(AWSProperty):
+    """
+    `ProcessingOutputsObject <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html>`__
+    """
+
+    props: PropsDictType = {
+        "AppManaged": (boolean, False),
+        "FeatureStoreOutput": (FeatureStoreOutput, False),
+        "OutputName": (str, True),
+        "S3Output": (S3Output, False),
+    }
+
+
+class ProcessingOutputConfig(AWSProperty):
+    """
+    `ProcessingOutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyId": (str, False),
+        "Outputs": ([ProcessingOutputsObject], True),
+    }
+
+
+class ProcessingResources(AWSProperty):
+    """
+    `ProcessingResources <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingresources.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClusterConfig": (ClusterConfig, True),
+    }
+
+
+class ProcessingJob(AWSObject):
+    """
+    `ProcessingJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html>`__
+    """
+
+    resource_type = "AWS::SageMaker::ProcessingJob"
+
+    props: PropsDictType = {
+        "AppSpecification": (AppSpecification, True),
+        "Environment": (dict, False),
+        "ExperimentConfig": (ExperimentConfig, False),
+        "NetworkConfig": (NetworkConfig, False),
+        "ProcessingInputs": ([ProcessingInputsObject], False),
+        "ProcessingJobName": (str, False),
+        "ProcessingOutputConfig": (ProcessingOutputConfig, False),
+        "ProcessingResources": (ProcessingResources, True),
+        "RoleArn": (str, True),
+        "StoppingCondition": (StoppingCondition, False),
+        "Tags": (Tags, False),
+    }
+
+
 class ServiceCatalogProvisionedProductDetails(AWSProperty):
     """
     `ServiceCatalogProvisionedProductDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-project-servicecatalogprovisionedproductdetails.html>`__
@@ -2984,6 +3233,40 @@ class ServiceCatalogProvisioningDetails(AWSProperty):
     }
 
 
+class CfnStackParameter(AWSProperty):
+    """
+    `CfnStackParameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-project-cfnstackparameter.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class CfnTemplateProviderDetail(AWSProperty):
+    """
+    `CfnTemplateProviderDetail <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-project-cfntemplateproviderdetail.html>`__
+    """
+
+    props: PropsDictType = {
+        "Parameters": ([CfnStackParameter], False),
+        "RoleARN": (str, False),
+        "TemplateName": (str, True),
+        "TemplateURL": (str, True),
+    }
+
+
+class TemplateProviderDetail(AWSProperty):
+    """
+    `TemplateProviderDetail <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-project-templateproviderdetail.html>`__
+    """
+
+    props: PropsDictType = {
+        "CfnTemplateProviderDetail": (CfnTemplateProviderDetail, True),
+    }
+
+
 class Project(AWSObject):
     """
     `Project <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-project.html>`__
@@ -2998,8 +3281,9 @@ class Project(AWSObject):
             ServiceCatalogProvisionedProductDetails,
             False,
         ),
-        "ServiceCatalogProvisioningDetails": (ServiceCatalogProvisioningDetails, True),
+        "ServiceCatalogProvisioningDetails": (ServiceCatalogProvisioningDetails, False),
         "Tags": (Tags, False),
+        "TemplateProviderDetails": ([TemplateProviderDetail], False),
     }
 
 
@@ -3033,6 +3317,16 @@ class FSxLustreFileSystem(AWSProperty):
     }
 
 
+class S3FileSystem(AWSProperty):
+    """
+    `S3FileSystem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-s3filesystem.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, False),
+    }
+
+
 class CustomFileSystem(AWSProperty):
     """
     `CustomFileSystem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-customfilesystem.html>`__
@@ -3041,6 +3335,7 @@ class CustomFileSystem(AWSProperty):
     props: PropsDictType = {
         "EFSFileSystem": (EFSFileSystem, False),
         "FSxLustreFileSystem": (FSxLustreFileSystem, False),
+        "S3FileSystem": (S3FileSystem, False),
     }
 
 
@@ -3119,6 +3414,8 @@ class SpaceSettings(AWSProperty):
         "JupyterLabAppSettings": (SpaceJupyterLabAppSettings, False),
         "JupyterServerAppSettings": (JupyterServerAppSettings, False),
         "KernelGatewayAppSettings": (KernelGatewayAppSettings, False),
+        "RemoteAccess": (str, False),
+        "SpaceManagedResources": (str, False),
         "SpaceStorageSettings": (SpaceStorageSettings, False),
     }
 
@@ -3251,6 +3548,27 @@ class AdditionalModelDataSource(AWSProperty):
     props: PropsDictType = {
         "ChannelName": (str, True),
         "S3DataSource": (S3DataSource, True),
+    }
+
+
+class AlarmDetails(AWSProperty):
+    """
+    `AlarmDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-alarmdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlarmName": (str, True),
+    }
+
+
+class CapacitySizeConfig(AWSProperty):
+    """
+    `CapacitySizeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-capacitysizeconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Type": (str, True),
+        "Value": (integer, True),
     }
 
 

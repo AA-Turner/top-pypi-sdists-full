@@ -19,8 +19,9 @@ from chalk._gen.chalk.arrow.v1 import arrow_pb2 as arrow_pb
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1 import graph_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
-from chalk._gen.chalk.graph.v1.graph_pb2 import CronFilterWithFeatureArgs
+from chalk._gen.chalk.graph.v1.graph_pb2 import CronFilterWithFeatureArgs, SourceFileReference
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
+from chalk._gen.chalk.lsp.v1.lsp_pb2 import Position, Range
 from chalk._validation.feature_validation import FeatureValidation
 from chalk.features import (
     CacheStrategy,
@@ -67,6 +68,7 @@ from chalk.features.resolver import (
 )
 from chalk.features.underscore import convert_value_to_proto_expr
 from chalk.importer import SQLSourceGroup
+from chalk.ml.model_reference import ModelReference
 from chalk.operators._utils import static_resolver_to_operator
 from chalk.parsed._proto.utils import (
     datetime_to_proto_timestamp,
@@ -167,6 +169,28 @@ class ToProtoConverter:
             )
         except Exception as e:
             raise ValueError(f"Could not convert named query '{source.name}'") from e
+
+    @staticmethod
+    def _convert_model_reference(source: ModelReference) -> pb.ModelReference:
+        # Ignoring source.errors when converting model versions because structured errors in model versions
+        # prevent that specific model from being used at runtime.
+        try:
+            return pb.ModelReference(
+                name=source.name,
+                version=source.version,
+                alias=source.alias,
+                as_of=datetime_to_proto_timestamp(source.as_of_date) if source.as_of_date else None,
+                source_file_reference=SourceFileReference(
+                    code=source.code,
+                    file_name=source.filename,
+                    range=Range(
+                        start=Position(line=source.source_line_start, character=0),
+                        end=Position(line=source.source_line_end, character=0),
+                    ),
+                ),
+            )
+        except Exception as e:
+            raise ValueError(f"Could not convert model {source.name} [{source.identifier}]") from e
 
     @staticmethod
     def convert_stream_source(source: StreamSource) -> sources_pb.StreamSource:
@@ -1344,6 +1368,7 @@ class ToProtoConverter:
         sql_source_group_registry: Collection[SQLSourceGroup],
         stream_source_registry: Collection[StreamSource],
         named_query_registry: dict[tuple[str, Optional[str]], NamedQuery],
+        model_reference_registry: dict[tuple[str, str], ModelReference],
     ) -> pb.Graph:
         feature_sets = []
         for feature_set in features_registry.values():
@@ -1383,6 +1408,10 @@ class ToProtoConverter:
         for named_query in named_query_registry.values():
             named_queries.append(ToProtoConverter._convert_named_query(named_query))
 
+        model_references: list[pb.ModelReference] = []
+        for model_reference in model_reference_registry.values():
+            model_references.append(ToProtoConverter._convert_model_reference(model_reference))
+
         return pb.Graph(
             feature_sets=feature_sets,
             resolvers=resolvers,
@@ -1392,6 +1421,7 @@ class ToProtoConverter:
             database_source_groups=[ToProtoConverter.convert_sql_source_group(s) for s in sql_source_group_registry],
             stream_sources_v2=[ToProtoConverter.convert_stream_source(s) for s in stream_source_registry],
             named_queries=named_queries,
+            model_references=model_references,
         )
 
     @classmethod

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-git-versioning", "colorama"]
+requires = ["setuptools>=77", "setuptools-git-versioning", "colorama"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -24,7 +24,8 @@ authors = [
   {email = "info@bokeh.org"},
   {name = "Bokeh Team"}
 ]
-license = {file = "LICENSE.txt"}
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -38,7 +39,6 @@ classifiers = [
     "Intended Audience :: Legal Industry",
     "Intended Audience :: Other Audience",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -73,7 +73,7 @@ dev_template = "{tag}+{ccount}.g{sha}"
 dirty_template = "{tag}+{ccount}.g{sha}.dirty"
 
 [tool.pytest.ini_options]
-timeout = 90
+timeout = 300
 asyncio_mode = "strict"
 norecursedirs = "build _build node_modules tests/support"
 python_files = "*_tests.py *_test.py test_*.py"
@@ -172,6 +172,7 @@ lint.ignore = [
     'NPY002', # Replace legacy np.random.{method_name} call with np.random.Generator
     'UP035',  # Import from `collections.abc` instead: `Iterator`
     'RUF012', # Mutable class attributes should be annotated with `typing.ClassVar`
+    'RUF022', # Ruff uses weird "isort-style" sort rather than straigh alphabetic sort
     'TID252', # Prefer absolute imports over relative imports from parent modules
 ]
 line-length = 165

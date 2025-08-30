@@ -12,6 +12,7 @@ from .pipeline_create_transform_config import PipelineCreateTransformConfig
 from .pipeline_metadata_config import PipelineMetadataConfig
 from .pipeline_type import PipelineType
 from .preset_retrieval_params import PresetRetrievalParams
+from .sparse_model_config import SparseModelConfig
 
 try:
     import pydantic
@@ -40,6 +41,7 @@ class PipelineCreate(pydantic.BaseModel):
     eval_parameters: typing.Optional[EvalExecutionParams] = pydantic.Field(
         description="Eval parameters for the pipeline."
     )
+    sparse_model_config: typing.Optional[SparseModelConfig]
     llama_parse_parameters: typing.Optional[LlamaParseParameters]
     status: typing.Optional[str]
     metadata_config: typing.Optional[PipelineMetadataConfig]

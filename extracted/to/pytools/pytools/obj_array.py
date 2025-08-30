@@ -40,19 +40,6 @@ These functions work around a `long-standing, annoying numpy issue
 .. autofunction:: obj_array_imag
 .. autofunction:: obj_array_real_copy
 .. autofunction:: obj_array_imag_copy
-
-References
-----------
-
-.. currentmodule:: np
-
-.. class:: ndarray
-
-    See :class:`numpy.ndarray`.
-
-.. class:: dtype
-
-    See :class:`numpy.dtype`.
 """
 
 
@@ -176,12 +163,28 @@ class ObjectArray(Generic[ShapeT, T], metaclass=_ObjectArrayMetaclass):
         @overload
         def __getitem__(
             self: ObjectArray1D[T],
-            x: slice) -> ObjectArray1D[T]: ...
+            x: slice, /) -> ObjectArray1D[T]: ...
 
         @overload
         def __getitem__(
             self: ObjectArray2D[T],
-            x: slice) -> ObjectArray2D[T]: ...
+            x: slice, /) -> ObjectArray2D[T]: ...
+
+        @overload
+        def __getitem__(
+            self: ObjectArray2D[T],
+            x: tuple[slice, int], /) -> ObjectArray1D[T]: ...
+
+        @overload
+        def __getitem__(
+            self: ObjectArray2D[T],
+            x: tuple[int, slice], /) -> ObjectArray1D[T]: ...
+
+        @overload
+        def __getitem__(
+                self: ObjectArrayND[T],
+                x: tuple[int | slice, ...],
+            /) -> ObjectArrayND[T] | T: ...
 
         @overload
         def __iter__(self: ObjectArray1D[T]) -> Iterator[T]: ...
@@ -270,6 +273,12 @@ class ObjectArray(Generic[ShapeT, T], metaclass=_ObjectArrayMetaclass):
                     self: ObjectArray2D[T],
                     other: ObjectArray2D[T],
                 /) -> ObjectArray2D[T]: ...
+
+        @overload
+        def __matmul__(
+                    self: ObjectArrayND[T],
+                    other: ObjectArrayND[T],
+                /) -> ObjectArrayND[T] | T: ...
 
         @property
         def flat(self) -> ObjectArray1D[T]: ...
@@ -405,6 +414,38 @@ def trace(
     """
     import numpy as np
     return cast("T", np.trace(cast("NDArray[Any]", cast("object", array))))
+
+
+@overload
+def sum(
+            array: ObjectArrayND[T],
+            axis: None,
+        ) -> T: ...
+
+
+@overload
+def sum(
+            array: ObjectArray1D[T],
+            axis: int,
+        ) -> T: ...
+
+
+@overload
+def sum(
+            array: ObjectArray2D[T],
+            axis: int,
+        ) -> ObjectArray1D[T]: ...
+
+
+def sum(
+            array: ObjectArrayND[T],
+            axis: int | None,
+        ) -> ObjectArrayND[T] | T:
+    import numpy as np
+    return cast("ObjectArrayND[T] | T", np.sum(
+            cast("NDArray[Any]", cast("object", array)),
+            axis=axis,
+        ))
 
 
 def to_hashable(ary: ObjectArray[ShapeT, T] | Hashable, /) -> Hashable:

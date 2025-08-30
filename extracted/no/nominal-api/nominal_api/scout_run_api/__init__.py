@@ -1,6 +1,7 @@
 # coding=utf-8
 from .._impl import (
     scout_run_api_AllRunsPropertiesAndLabelsResponse as AllRunsPropertiesAndLabelsResponse,
+    scout_run_api_ArchiveRunsRequest as ArchiveRunsRequest,
     scout_run_api_ChannelMetadata as ChannelMetadata,
     scout_run_api_CheckAlertStatesFilter as CheckAlertStatesFilter,
     scout_run_api_ConnectionRid as ConnectionRid,
@@ -43,6 +44,7 @@ from .._impl import (
     scout_run_api_SortOptions as SortOptions,
     scout_run_api_SortProperty as SortProperty,
     scout_run_api_TimeRangeFilter as TimeRangeFilter,
+    scout_run_api_UnarchiveRunsRequest as UnarchiveRunsRequest,
     scout_run_api_Unit as Unit,
     scout_run_api_UpdateAttachmentsRequest as UpdateAttachmentsRequest,
     scout_run_api_UpdateRunRequest as UpdateRunRequest,
@@ -52,6 +54,7 @@ from .._impl import (
 
 __all__ = [
     'AllRunsPropertiesAndLabelsResponse',
+    'ArchiveRunsRequest',
     'ChannelMetadata',
     'CheckAlertStatesFilter',
     'ConnectionRid',
@@ -94,6 +97,7 @@ __all__ = [
     'SortOptions',
     'SortProperty',
     'TimeRangeFilter',
+    'UnarchiveRunsRequest',
     'Unit',
     'UpdateAttachmentsRequest',
     'UpdateRunRequest',

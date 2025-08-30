@@ -6,10 +6,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-import warnings
 from typing import (
     Any,
-    AsyncGenerator,
     Callable,
     Tuple,
 )
@@ -18,8 +16,7 @@ from weakref import WeakSet
 from llama_index_instrumentation import get_dispatcher
 from pydantic import ValidationError
 
-from .checkpointer import Checkpoint, CheckpointCallback
-from .context import BaseSerializer, Context, JsonSerializer
+from .context import Context
 from .decorators import StepConfig, step
 from .errors import (
     WorkflowConfigurationError,
@@ -29,7 +26,6 @@ from .errors import (
     WorkflowValidationError,
 )
 from .events import (
-    Event,
     HumanResponseEvent,
     InputRequiredEvent,
     StartEvent,
@@ -37,13 +33,8 @@ from .events import (
 )
 from .handler import WorkflowHandler
 from .resource import ResourceManager
-from .service import ServiceManager
 from .types import RunResultT
-from .utils import (
-    ServiceDefinition,
-    get_steps_from_class,
-    get_steps_from_instance,
-)
+from .utils import get_steps_from_class, get_steps_from_instance
 
 dispatcher = get_dispatcher(__name__)
 logger = logging.getLogger()
@@ -57,17 +48,50 @@ class WorkflowMeta(type):
 
 class Workflow(metaclass=WorkflowMeta):
     """
-    An event-driven abstraction used to orchestrate the execution of different components called "steps".
+    Event-driven orchestrator to define and run application flows using typed steps.
 
-    Each step is responsible for handling certain event types and possibly emitting new events. Steps can be "bound"
-    when they are defined as methods of the `Workflow` class itself, or "unbound" when they are defined as free
-    functions. To define a step, the method or function must be decorated with the `@step` decorator.
+    A `Workflow` is composed of `@step`-decorated callables that accept and emit
+    typed [Event][workflows.events.Event]s. Steps can be declared as instance
+    methods or as free functions registered via the decorator.
 
-    Workflows provide basic validation to catch potential runtime errors as soon as possible. Validation happens once,
-    when the workflow starts, and does not produce much overhead. It can be disabled in any case.
+    Key features:
+    - Validation of step signatures and event graph before running
+    - Typed start/stop events
+    - Streaming of intermediate events
+    - Optional human-in-the-loop events
+    - Retry policies per step
+    - Resource injection
 
-    Use an instance of a `Workflow` class to run a workflow and stream events produced during execution. Workflows
-    can be run step-by-step, by calling the `run_step` function multiple times until completion.
+    Examples:
+        Basic usage:
+
+        ```python
+        from workflows import Workflow, step
+        from workflows.events import StartEvent, StopEvent
+
+        class MyFlow(Workflow):
+            @step
+            async def start(self, ev: StartEvent) -> StopEvent:
+                return StopEvent(result="done")
+
+        result = await MyFlow(timeout=60).run(topic="Pirates")
+        ```
+
+        Custom start/stop events and streaming:
+
+        ```python
+        handler = MyFlow().run()
+        async for ev in handler.stream_events():
+            ...
+        result = await handler
+        ```
+
+    See Also:
+        - [step][workflows.decorators.step]
+        - [Event][workflows.events.Event]
+        - [Context][workflows.context.context.Context]
+        - [WorkflowHandler][workflows.handler.WorkflowHandler]
+        - [RetryPolicy][workflows.retry_policy.RetryPolicy]
     """
 
     def __init__(
@@ -75,30 +99,21 @@ class Workflow(metaclass=WorkflowMeta):
         timeout: float | None = 45.0,
         disable_validation: bool = False,
         verbose: bool = False,
-        service_manager: ServiceManager | None = None,
         resource_manager: ResourceManager | None = None,
         num_concurrent_runs: int | None = None,
     ) -> None:
         """
-        Create an instance of the workflow.
+        Initialize a workflow instance.
 
         Args:
-            timeout:
-                Number of seconds after the workflow execution will be halted, raising a `WorkflowTimeoutError`
-                exception. If set to `None`, the timeout will be disabled.
-            disable_validaton:
-                Whether or not the workflow should be validated before running. In case the workflow is
-                misconfigured, a call to `run` will raise a `WorkflowValidationError` exception explaining the details
-                of the problem.
-            verbose:
-                Whether or not the workflow should print additional informative messages during execution.
-            service_manager:
-                The instance of the `ServiceManager` used to make nested workflows available to this
-                workflow instance. The default value is the best choice unless you're customizing the workflow runtime.
-            num_concurrent_runs:
-                maximum number of .run() executions occurring simultaneously. If set to `None`, there
-                is no limit to this number.
-
+            timeout (float | None): Max seconds to wait for completion. `None`
+                disables the timeout.
+            disable_validation (bool): Skip pre-run validation of the event graph
+                (not recommended).
+            verbose (bool): If True, print step activity.
+            resource_manager (ResourceManager | None): Custom resource manager
+                for dependency injection.
+            num_concurrent_runs (int | None): Limit on concurrent `run()` calls.
         """
         # Configuration
         self._timeout = timeout
@@ -112,9 +127,6 @@ class Workflow(metaclass=WorkflowMeta):
         )
         # Broker machinery
         self._contexts: WeakSet[Context] = WeakSet()
-        self._stepwise_context: Context | None = None
-        # Services management
-        self._service_manager = service_manager or ServiceManager()
         # Resource management
         self._resource_manager = resource_manager or ResourceManager()
         # Instrumentation
@@ -145,7 +157,10 @@ class Workflow(metaclass=WorkflowMeta):
 
     @property
     def start_event_class(self) -> type[StartEvent]:
-        """Returns the StartEvent type used in this workflow."""
+        """The `StartEvent` subclass accepted by this workflow.
+
+        Determined by inspecting step input types.
+        """
         return self._start_event_class
 
     def _ensure_stop_event_class(self) -> type[RunResultT]:
@@ -173,67 +188,11 @@ class Workflow(metaclass=WorkflowMeta):
 
     @property
     def stop_event_class(self) -> type[RunResultT]:
-        """Returns the StopEvent type used in this workflow."""
+        """The `StopEvent` subclass produced by this workflow.
+
+        Determined by inspecting step return annotations.
+        """
         return self._stop_event_class
-
-    async def stream_events(self) -> AsyncGenerator[Event, None]:
-        """
-        Returns an async generator to consume any event that workflow steps decide to stream.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use `handler.stream_events()` instead, where `handler` is the return value of `workflow.run()`.
-
-        To be able to use this generator, the usual pattern is to wrap the `run` call in a background task using
-        `asyncio.create_task`, then enter a for loop like this:
-
-            wf = StreamingWorkflow()
-            r = asyncio.create_task(wf.run())
-
-            async for ev in wf.stream_events():
-                print(ev)
-
-            await r
-
-        New recommended pattern:
-            wf = StreamingWorkflow()
-            handler = wf.run()
-
-            async for ev in handler.stream_events():
-                print(ev)
-
-            await handler
-        """
-        warnings.warn(
-            "Workflow.stream_events() is deprecated and will be removed in a future version. "
-            "Use handler.stream_events() instead, where handler is the return value of workflow.run().",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        # In the typical streaming use case, `run()` is not awaited but wrapped in a asyncio.Task. Since we'll be
-        # consuming events produced by `run()`, we must give its Task the chance to run before entering the dequeueing
-        # loop.
-        await asyncio.sleep(0)
-
-        if len(self._contexts) > 1:
-            # We can't possibly know from what session we should stream events, raise an error.
-            msg = (
-                "This workflow has multiple concurrent runs in progress and cannot stream events. "
-                "To be able to stream events, make sure you call `run()` on this workflow only once."
-            )
-            raise WorkflowRuntimeError(msg)
-
-        # Enter the dequeuing loop.
-        ctx = next(iter(self._contexts))
-        while True:
-            ev = await ctx.streaming_queue.get()
-            if isinstance(ev, StopEvent):
-                break
-
-            yield ev
-
-        # remove context to free up room for the next stream_events call
-        self._contexts.remove(ctx)
 
     @classmethod
     def add_step(cls, func: Callable) -> None:
@@ -253,34 +212,13 @@ class Workflow(metaclass=WorkflowMeta):
 
         cls._step_functions[func.__name__] = func
 
-    def add_workflows(self, **workflows: "Workflow") -> None:
-        """
-        Adds one or more nested workflows to this workflow.
-
-        This method only accepts keyword arguments, and the name of the parameter
-        will be used as the name of the workflow.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        You can create a sub-workflow directly in the step function or in the workflow
-        class constructor.
-        """
-        warnings.warn(
-            "add_workflows() is deprecated and will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        for name, wf in workflows.items():
-            self._service_manager.add(name, wf)
-
     def _get_steps(self) -> dict[str, Callable]:
         """Returns all the steps, whether defined as methods or free functions."""
         return {**get_steps_from_instance(self), **self._step_functions}  # type: ignore[attr-defined]
 
     def _start(
         self,
-        stepwise: bool = False,
         ctx: Context | None = None,
-        checkpoint_callback: CheckpointCallback | None = None,
     ) -> Tuple[Context, str]:
         """
         sets up the queues and tasks for each declared step.
@@ -289,7 +227,7 @@ class Workflow(metaclass=WorkflowMeta):
         """
         run_id = str(uuid.uuid4())
         if ctx is None:
-            ctx = Context(self, stepwise=stepwise)
+            ctx = Context(self)
             self._contexts.add(ctx)
         else:
             # clean up the context from the previous run
@@ -320,11 +258,8 @@ class Workflow(metaclass=WorkflowMeta):
                     name=name,
                     step=step_func,
                     config=step_config,
-                    stepwise=stepwise,
                     verbose=self._verbose,
-                    checkpoint_callback=checkpoint_callback,
                     run_id=run_id,
-                    service_manager=self._service_manager,
                     resource_manager=self._resource_manager,
                 )
 
@@ -332,33 +267,6 @@ class Workflow(metaclass=WorkflowMeta):
         ctx.add_cancel_worker()
 
         return ctx, run_id
-
-    def send_event(self, message: Event, step: str | None = None) -> None:
-        """
-        Send an event to the workflow.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        """
-        warnings.warn(
-            "send_event() is deprecated and will be removed in a future version. Use ctx.send_event() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        msg = (
-            "Use a Context instance to send events from a step. "
-            "Make sure your step method or function takes a parameter of type Context like `ctx: Context` and "
-            "replace `self.send_event(...)` with `ctx.send_event(...)` in your code."
-        )
-
-        if len(self._contexts) > 1:
-            # We can't possibly know to what session we should send this event, raise an error.
-            raise WorkflowRuntimeError(msg)
-
-        # Emit a warning as this won't work for multiple run()s.
-        warnings.warn(msg)
-        ctx = next(iter(self._contexts))
-        ctx.send_event(message=message, step=step)
 
     def _get_start_event_instance(
         self, start_event: StartEvent | None, **kwargs: Any
@@ -391,37 +299,61 @@ class Workflow(metaclass=WorkflowMeta):
     def run(
         self,
         ctx: Context | None = None,
-        stepwise: bool = False,
-        checkpoint_callback: CheckpointCallback | None = None,
         start_event: StartEvent | None = None,
         **kwargs: Any,
     ) -> WorkflowHandler:
-        """Runs the workflow until completion."""
-        if checkpoint_callback:
-            warnings.warn(
-                "'checkpoint_callback' parameter is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+        """Run the workflow and return a handler for results and streaming.
 
-        if stepwise:
-            warnings.warn(
-                "'stepwise' execution is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+        This schedules the workflow execution in the background and returns a
+        [WorkflowHandler][workflows.handler.WorkflowHandler] that can be awaited
+        for the final result or used to stream intermediate events.
 
-        # Validate the workflow and determine HITL usage
-        uses_hitl = self._validate()
-        if uses_hitl and stepwise:
-            raise WorkflowRuntimeError(
-                "Human-in-the-loop is not supported with stepwise execution"
-            )
+        You may pass either a concrete `start_event` instance or keyword
+        arguments that will be used to construct the inferred
+        [StartEvent][workflows.events.StartEvent] subclass.
+
+        Args:
+            ctx (Context | None): Optional context to resume or share state
+                across runs. If omitted, a fresh context is created.
+            start_event (StartEvent | None): Optional explicit start event.
+            **kwargs (Any): Keyword args to initialize the start event when
+                `start_event` is not provided.
+
+        Returns:
+            WorkflowHandler: A future-like object to await the final result and
+            stream events.
+
+        Raises:
+            WorkflowValidationError: If validation fails and validation is
+                enabled.
+            WorkflowRuntimeError: If the start event cannot be created from kwargs.
+            WorkflowTimeoutError: If execution exceeds the configured timeout.
+
+        Examples:
+            ```python
+            # Create and run with kwargs
+            handler = MyFlow().run(topic="Pirates")
+
+            # Stream events
+            async for ev in handler.stream_events():
+                ...
+
+            # Await final result
+            result = await handler
+            ```
+
+            If you subclassed the start event, you can also directly pass it in:
+
+            ```python
+            result = await my_workflow.run(start_event=MyStartEvent(topic="Pirates"))
+            ```
+        """
+
+        # Validate the workflow
+        self._validate()
 
         # Start the machinery in a new Context or use the provided one
-        ctx, run_id = self._start(
-            ctx=ctx, stepwise=stepwise, checkpoint_callback=checkpoint_callback
-        )
+        ctx, run_id = self._start(ctx=ctx)
 
         result = WorkflowHandler(ctx=ctx, run_id=run_id)
 
@@ -496,49 +428,6 @@ class Workflow(metaclass=WorkflowMeta):
         asyncio.create_task(_run_workflow())
         return result
 
-    @dispatcher.span
-    def run_from(
-        self,
-        checkpoint: Checkpoint,
-        ctx_serializer: BaseSerializer | None = None,
-        checkpoint_callback: CheckpointCallback | None = None,
-        **kwargs: Any,
-    ) -> WorkflowHandler:
-        """
-        Run from a specified Checkpoint.
-
-        The `Context` snapshot contained in the checkpoint is loaded and used
-        to execute the `Workflow`.
-        """
-        warnings.warn(
-            "WorkflowCheckpointer is deprecated and will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        # load the `Context` from the checkpoint
-        ctx_serializer = ctx_serializer or JsonSerializer()
-        ctx = Context.from_dict(self, checkpoint.ctx_state, serializer=ctx_serializer)
-        handler: WorkflowHandler = self.run(
-            ctx=ctx, checkpoint_callback=checkpoint_callback, **kwargs
-        )
-
-        # only kick off the workflow if there are no in-progress events
-        # in-progress events are already started in self.run()
-        num_in_progress = sum(len(v) for v in ctx._in_progress.values())
-        if (
-            num_in_progress == 0
-            and handler.ctx is not None
-            and checkpoint.output_event is not None
-        ):
-            handler.ctx.send_event(checkpoint.output_event)
-
-        return handler
-
-    def is_done(self) -> bool:
-        """Checks if the workflow is done."""
-        return self._stepwise_context is None
-
     @step(num_workers=1)
     async def _done(self, ctx: Context, ev: StopEvent) -> None:
         """Tears down the whole workflow and stop execution."""
@@ -565,7 +454,6 @@ class Workflow(metaclass=WorkflowMeta):
 
         produced_events: set[type] = {self._start_event_class}
         consumed_events: set[type] = set()
-        requested_services: set[ServiceDefinition] = set()
 
         # Collect steps that incorrectly accept StopEvent
         steps_accepting_stop_event: list[str] = []
@@ -591,8 +479,6 @@ class Workflow(metaclass=WorkflowMeta):
                     continue
 
                 produced_events.add(event_type)
-
-            requested_services.update(step_config.requested_services)
 
         # Raise error if any steps incorrectly accept StopEvent
         if steps_accepting_stop_event:
@@ -638,17 +524,6 @@ class Workflow(metaclass=WorkflowMeta):
             raise WorkflowValidationError(
                 f"The following events are produced but never consumed: {names}"
             )
-
-        # Check all the requested services are available
-        required_service_names = {
-            sd.name for sd in requested_services if sd.default_value is None
-        }
-        if required_service_names:
-            avail_service_names = set(self._service_manager._services.keys())
-            missing = required_service_names - avail_service_names
-            if missing:
-                msg = f"The following services are not available: {', '.join(str(m) for m in missing)}"
-                raise WorkflowValidationError(msg)
 
         # Check if the workflow uses human-in-the-loop
         return (

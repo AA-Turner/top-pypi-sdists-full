@@ -2078,15 +2078,16 @@ type NodeCompareOperationItems = typing.Literal[
     "BRIGHTER",  # Brighter.True when the first input is brighter.
     "DARKER",  # Darker.True when the first input is darker.
 ]
-type NodeFilterItems = typing.Literal[
-    "SOFTEN",  # Soften.
-    "SHARPEN",  # Box Sharpen.An aggressive sharpening filter.
-    "SHARPEN_DIAMOND",  # Diamond Sharpen.A moderate sharpening filter.
-    "LAPLACE",  # Laplace.
-    "SOBEL",  # Sobel.
-    "PREWITT",  # Prewitt.
-    "KIRSCH",  # Kirsch.
-    "SHADOW",  # Shadow.
+type NodeCompositorExtensionItems = typing.Literal[
+    "CLIP",  # Clip.Areas outside of the image are filled with zero.
+    "EXTEND",  # Extend.Areas outside of the image are filled with the closest boundary pixel in the image.
+    "REPEAT",  # Repeat.Areas outside of the image are filled with repetitions of the image.
+]
+type NodeCompositorInterpolationItems = typing.Literal[
+    "NEAREST",  # Nearest.Use Nearest interpolation.
+    "BILINEAR",  # Bilinear.Use Bilinear interpolation.
+    "BICUBIC",  # Bicubic.Use Cubic B-Spline interpolation.
+    "ANISOTROPIC",  # Anisotropic.Use Anisotropic interpolation.
 ]
 type NodeFloatCompareItems = typing.Literal[
     "LESS_THAN",  # Less Than.True when the first input is smaller than second input.

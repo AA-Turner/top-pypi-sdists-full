@@ -125,6 +125,7 @@ from .extract_job import ExtractJob
 from .extract_job_create import ExtractJobCreate
 from .extract_job_create_data_schema_override import ExtractJobCreateDataSchemaOverride
 from .extract_job_create_data_schema_override_zero_value import ExtractJobCreateDataSchemaOverrideZeroValue
+from .extract_job_create_priority import ExtractJobCreatePriority
 from .extract_mode import ExtractMode
 from .extract_models import ExtractModels
 from .extract_resultset import ExtractResultset
@@ -199,6 +200,7 @@ from .job_record_with_usage_metrics import JobRecordWithUsageMetrics
 from .l_lama_parse_transform_config import LLamaParseTransformConfig
 from .legacy_parse_job_config import LegacyParseJobConfig
 from .license_info_response import LicenseInfoResponse
+from .llama_extract_feature_availability import LlamaExtractFeatureAvailability
 from .llama_extract_mode_availability import LlamaExtractModeAvailability
 from .llama_extract_mode_availability_status import LlamaExtractModeAvailabilityStatus
 from .llama_extract_settings import LlamaExtractSettings
@@ -365,9 +367,13 @@ from .retriever import Retriever
 from .retriever_create import RetrieverCreate
 from .retriever_pipeline import RetrieverPipeline
 from .role import Role
+from .schema_generation_availability import SchemaGenerationAvailability
+from .schema_generation_availability_status import SchemaGenerationAvailabilityStatus
 from .schema_relax_mode import SchemaRelaxMode
 from .semantic_chunking_config import SemanticChunkingConfig
 from .sentence_chunking_config import SentenceChunkingConfig
+from .sparse_model_config import SparseModelConfig
+from .sparse_model_type import SparseModelType
 from .src_app_schema_chat_chat_message import SrcAppSchemaChatChatMessage
 from .status_enum import StatusEnum
 from .struct_mode import StructMode
@@ -516,6 +522,7 @@ __all__ = [
     "ExtractJobCreate",
     "ExtractJobCreateDataSchemaOverride",
     "ExtractJobCreateDataSchemaOverrideZeroValue",
+    "ExtractJobCreatePriority",
     "ExtractMode",
     "ExtractModels",
     "ExtractResultset",
@@ -588,6 +595,7 @@ __all__ = [
     "LLamaParseTransformConfig",
     "LegacyParseJobConfig",
     "LicenseInfoResponse",
+    "LlamaExtractFeatureAvailability",
     "LlamaExtractModeAvailability",
     "LlamaExtractModeAvailabilityStatus",
     "LlamaExtractSettings",
@@ -742,9 +750,13 @@ __all__ = [
     "RetrieverCreate",
     "RetrieverPipeline",
     "Role",
+    "SchemaGenerationAvailability",
+    "SchemaGenerationAvailabilityStatus",
     "SchemaRelaxMode",
     "SemanticChunkingConfig",
     "SentenceChunkingConfig",
+    "SparseModelConfig",
+    "SparseModelType",
     "SrcAppSchemaChatChatMessage",
     "StatusEnum",
     "StructMode",

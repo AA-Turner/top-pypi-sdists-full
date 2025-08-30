@@ -112,6 +112,18 @@ class BillingMode(AWSProperty):
     }
 
 
+class CdcSpecification(AWSProperty):
+    """
+    `CdcSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cassandra-table-cdcspecification.html>`__
+    """
+
+    props: PropsDictType = {
+        "Status": (str, True),
+        "Tags": (Tags, False),
+        "ViewType": (str, False),
+    }
+
+
 class Column(AWSProperty):
     """
     `Column <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cassandra-table-column.html>`__
@@ -167,6 +179,7 @@ class Table(AWSObject):
     props: PropsDictType = {
         "AutoScalingSpecifications": (AutoScalingSpecification, False),
         "BillingMode": (BillingMode, False),
+        "CdcSpecification": (CdcSpecification, False),
         "ClientSideTimestampsEnabled": (boolean, False),
         "ClusteringKeyColumns": ([ClusteringKeyColumn], False),
         "DefaultTimeToLive": (integer, False),

@@ -687,7 +687,7 @@ class TasksApi:
         unblocked_at__lt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than value")] = None,
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
-        worker: Annotated[Optional[StrictStr], Field(description="Filter results where worker matches value")] = None,
+        worker: Optional[StrictStr] = None,
         worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
         worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -819,7 +819,7 @@ class TasksApi:
         :type unblocked_at__lte: datetime
         :param unblocked_at__range: Filter results where unblocked_at is between two comma separated values
         :type unblocked_at__range: List[datetime]
-        :param worker: Filter results where worker matches value
+        :param worker:
         :type worker: str
         :param worker__in: Filter results where worker is in a comma-separated list of values
         :type worker__in: List[str]
@@ -990,7 +990,7 @@ class TasksApi:
         unblocked_at__lt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than value")] = None,
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
-        worker: Annotated[Optional[StrictStr], Field(description="Filter results where worker matches value")] = None,
+        worker: Optional[StrictStr] = None,
         worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
         worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -1122,7 +1122,7 @@ class TasksApi:
         :type unblocked_at__lte: datetime
         :param unblocked_at__range: Filter results where unblocked_at is between two comma separated values
         :type unblocked_at__range: List[datetime]
-        :param worker: Filter results where worker matches value
+        :param worker:
         :type worker: str
         :param worker__in: Filter results where worker is in a comma-separated list of values
         :type worker__in: List[str]
@@ -1293,7 +1293,7 @@ class TasksApi:
         unblocked_at__lt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than value")] = None,
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
-        worker: Annotated[Optional[StrictStr], Field(description="Filter results where worker matches value")] = None,
+        worker: Optional[StrictStr] = None,
         worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
         worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -1425,7 +1425,7 @@ class TasksApi:
         :type unblocked_at__lte: datetime
         :param unblocked_at__range: Filter results where unblocked_at is between two comma separated values
         :type unblocked_at__range: List[datetime]
-        :param worker: Filter results where worker matches value
+        :param worker:
         :type worker: str
         :param worker__in: Filter results where worker is in a comma-separated list of values
         :type worker__in: List[str]

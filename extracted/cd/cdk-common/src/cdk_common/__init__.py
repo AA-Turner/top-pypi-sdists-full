@@ -5644,6 +5644,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSTRANSFORM_APPLICATION_DEPLOYMENT_POLICY = "AWSTRANSFORM_APPLICATION_DEPLOYMENT_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

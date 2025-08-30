@@ -5,8 +5,9 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.letta_message_union import LettaMessageUnion
+from ...types.letta_request_messages_item import LettaRequestMessagesItem
 from ...types.letta_response import LettaResponse
-from ...types.message_create import MessageCreate
+from ...types.letta_streaming_request_messages_item import LettaStreamingRequestMessagesItem
 from ...types.message_type import MessageType
 from .raw_client import AsyncRawMessagesClient, RawMessagesClient
 from .types.letta_streaming_response import LettaStreamingResponse
@@ -105,7 +106,7 @@ class MessagesClient:
         self,
         group_id: str,
         *,
-        messages: typing.Sequence[MessageCreate],
+        messages: typing.Sequence[LettaRequestMessagesItem],
         max_steps: typing.Optional[int] = OMIT,
         use_assistant_message: typing.Optional[bool] = OMIT,
         assistant_message_tool_name: typing.Optional[str] = OMIT,
@@ -122,7 +123,7 @@ class MessagesClient:
         ----------
         group_id : str
 
-        messages : typing.Sequence[MessageCreate]
+        messages : typing.Sequence[LettaRequestMessagesItem]
             The messages to be sent to the agent.
 
         max_steps : typing.Optional[int]
@@ -190,7 +191,7 @@ class MessagesClient:
         self,
         group_id: str,
         *,
-        messages: typing.Sequence[MessageCreate],
+        messages: typing.Sequence[LettaStreamingRequestMessagesItem],
         max_steps: typing.Optional[int] = OMIT,
         use_assistant_message: typing.Optional[bool] = OMIT,
         assistant_message_tool_name: typing.Optional[str] = OMIT,
@@ -211,7 +212,7 @@ class MessagesClient:
         ----------
         group_id : str
 
-        messages : typing.Sequence[MessageCreate]
+        messages : typing.Sequence[LettaStreamingRequestMessagesItem]
             The messages to be sent to the agent.
 
         max_steps : typing.Optional[int]
@@ -233,7 +234,7 @@ class MessagesClient:
             If set to True, enables reasoning before responses or tool calls from the agent.
 
         stream_tokens : typing.Optional[bool]
-            Flag to determine if individual tokens should be streamed. Set to True for token streaming (requires stream_steps = True).
+            Flag to determine if individual tokens should be streamed, rather than streaming per step.
 
         include_pings : typing.Optional[bool]
             Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts.
@@ -465,7 +466,7 @@ class AsyncMessagesClient:
         self,
         group_id: str,
         *,
-        messages: typing.Sequence[MessageCreate],
+        messages: typing.Sequence[LettaRequestMessagesItem],
         max_steps: typing.Optional[int] = OMIT,
         use_assistant_message: typing.Optional[bool] = OMIT,
         assistant_message_tool_name: typing.Optional[str] = OMIT,
@@ -482,7 +483,7 @@ class AsyncMessagesClient:
         ----------
         group_id : str
 
-        messages : typing.Sequence[MessageCreate]
+        messages : typing.Sequence[LettaRequestMessagesItem]
             The messages to be sent to the agent.
 
         max_steps : typing.Optional[int]
@@ -558,7 +559,7 @@ class AsyncMessagesClient:
         self,
         group_id: str,
         *,
-        messages: typing.Sequence[MessageCreate],
+        messages: typing.Sequence[LettaStreamingRequestMessagesItem],
         max_steps: typing.Optional[int] = OMIT,
         use_assistant_message: typing.Optional[bool] = OMIT,
         assistant_message_tool_name: typing.Optional[str] = OMIT,
@@ -579,7 +580,7 @@ class AsyncMessagesClient:
         ----------
         group_id : str
 
-        messages : typing.Sequence[MessageCreate]
+        messages : typing.Sequence[LettaStreamingRequestMessagesItem]
             The messages to be sent to the agent.
 
         max_steps : typing.Optional[int]
@@ -601,7 +602,7 @@ class AsyncMessagesClient:
             If set to True, enables reasoning before responses or tool calls from the agent.
 
         stream_tokens : typing.Optional[bool]
-            Flag to determine if individual tokens should be streamed. Set to True for token streaming (requires stream_steps = True).
+            Flag to determine if individual tokens should be streamed, rather than streaming per step.
 
         include_pings : typing.Optional[bool]
             Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts.

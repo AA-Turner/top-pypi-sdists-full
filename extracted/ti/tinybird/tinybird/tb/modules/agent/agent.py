@@ -23,6 +23,7 @@ from tinybird.tb.modules.agent.banner import display_banner
 from tinybird.tb.modules.agent.command_agent import CommandAgent
 from tinybird.tb.modules.agent.compactor import compact_messages
 from tinybird.tb.modules.agent.explore_agent import ExploreAgent
+from tinybird.tb.modules.agent.file_agent import FileAgent
 from tinybird.tb.modules.agent.memory import (
     clear_history,
     clear_messages,
@@ -185,6 +186,16 @@ class TinybirdAgent:
             workspace_id=workspace_id,
             project=self.project,
         )
+        self.file_agent = FileAgent(
+            dangerously_skip_permissions=self.dangerously_skip_permissions,
+            prompt_mode=prompt_mode,
+            thinking_animation=self.thinking_animation,
+            token=self.token,
+            user_token=self.user_token,
+            host=self.host,
+            workspace_id=workspace_id,
+            project=self.project,
+        )
 
         @self.agent.tool
         def manage_tests(ctx: RunContext[TinybirdAgentContext], task: str) -> str:
@@ -249,6 +260,19 @@ class TinybirdAgent:
             """
             user_input = f"Datasource name: {datasource_name}\nRows: {rows}\nData format: {data_format}\nTask: {task}"
             result = self.mock_agent.run(user_input, deps=ctx.deps, usage=ctx.usage)
+            return result.output or "No result returned"
+
+        @self.agent.tool
+        def manage_files(ctx: RunContext[TinybirdAgentContext], task: str) -> str:
+            """List file/folders and read any type of file in the current directory. Use this tool when you need to list or read non Tinybird project files (e.g. .txt, .md).
+
+            Args:
+                task (str): The task to solve. Required.
+
+            Returns:
+                str: The result of the task.
+            """
+            result = self.file_agent.run(task, deps=ctx.deps, usage=ctx.usage)
             return result.output or "No result returned"
 
         @self.agent.instructions

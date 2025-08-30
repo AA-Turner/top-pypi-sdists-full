@@ -213,7 +213,11 @@ from typing import (
     Literal,
 )
 
-from IPython.core.guarded_eval import guarded_eval, EvaluationContext
+from IPython.core.guarded_eval import (
+    guarded_eval,
+    EvaluationContext,
+    _validate_policy_overrides,
+)
 from IPython.core.error import TryNext
 from IPython.core.inputtransformer2 import ESC_MAGIC
 from IPython.core.latex_symbols import latex_symbols, reverse_latex_symbol
@@ -222,7 +226,6 @@ from IPython.utils import generics
 from IPython.utils.PyColorize import theme_table
 from IPython.utils.decorators import sphinx_options
 from IPython.utils.dir2 import dir2, get_real_method
-from IPython.utils.docs import GENERATING_DOCUMENTATION
 from IPython.utils.path import ensure_dir_exists
 from IPython.utils.process import arg_split
 from traitlets import (
@@ -953,7 +956,6 @@ class CompletionSplitter:
         return self._delim_re.split(cut_line)[-1]
 
 
-
 class Completer(Configurable):
 
     greedy = Bool(
@@ -1044,6 +1046,18 @@ class Completer(Configurable):
 
         """,
     ).tag(config=True)
+
+    @observe("evaluation")
+    def _evaluation_changed(self, _change):
+        _validate_policy_overrides(
+            policy_name=self.evaluation, policy_overrides=self.policy_overrides
+        )
+
+    @observe("policy_overrides")
+    def _policy_overrides_changed(self, _change):
+        _validate_policy_overrides(
+            policy_name=self.evaluation, policy_overrides=self.policy_overrides
+        )
 
     auto_import_method = DottedObjectName(
         default_value="importlib.import_module",
@@ -1313,14 +1327,19 @@ class Completer(Configurable):
                     ),
                 )
                 done = True
-            except Exception as e:
-                if self.debug:
-                    print("Evaluation exception", e)
+            except (SyntaxError, TypeError):
+                # TypeError can show up with something like `+ d`
+                # where `d` is a dictionary.
+
                 # trim the expression to remove any invalid prefix
                 # e.g. user starts `(d[`, so we get `expr = '(d'`,
                 # where parenthesis is not closed.
                 # TODO: make this faster by reusing parts of the computation?
                 expr = self._trim_expr(expr)
+            except Exception as e:
+                if self.debug:
+                    print("Evaluation exception", e)
+                done = True
         return obj
 
     @property
@@ -1330,6 +1349,7 @@ class Completer(Configurable):
         if not hasattr(self, "_auto_import_func"):
             self._auto_import_func = import_item(self.auto_import_method)
         return self._auto_import_func
+
 
 def get__all__entries(obj):
     """returns the strings in the __all__ attribute"""

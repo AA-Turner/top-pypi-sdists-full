@@ -371,10 +371,8 @@ class AbstractFigureAggregator(BaseFigure, ABC):
         )
 
         # -------------------- Set the hf_trace_data_props -------------------
-        # Parse the data types to an orjson compatible format
-        # NOTE: this can be removed once orjson supports f16
-        trace["x"] = self._parse_dtype_orjson(agg_x)
-        trace["y"] = self._parse_dtype_orjson(agg_y)
+        trace["x"] = agg_x
+        trace["y"] = agg_y
         trace["name"] = self._parse_trace_name(
             hf_trace_data, end_idx - start_idx, agg_x
         )
@@ -578,7 +576,7 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             A namedtuple which serves as a datacontainer.
 
         """
-        hf_x: np.ndarray = (
+        hf_x: np.ndarray | pd.Index = (
             # fmt: off
             (np.asarray(trace["x"]) if trace["x"] is not None else None)
             if hasattr(trace, "x") and hf_x is None
@@ -593,13 +591,13 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             else np.asarray(hf_x)
             # fmt: on
         )
+        if pd.core.dtypes.common.is_datetime64_any_dtype(hf_x):
+            hf_x = pd.Index(hf_x)
 
         hf_y = (
             trace["y"]
             if hasattr(trace, "y") and hf_y is None
-            else hf_y.values
-            if isinstance(hf_y, (pd.Series, pd.Index))
-            else hf_y
+            else hf_y.values if isinstance(hf_y, (pd.Series, pd.Index)) else hf_y
         )
         # NOTE: the if will not be triggered for a categorical series its values
         if not hasattr(hf_y, "dtype"):
@@ -608,17 +606,21 @@ class AbstractFigureAggregator(BaseFigure, ABC):
         hf_text = (
             hf_text
             if hf_text is not None
-            else trace["text"]
-            if hasattr(trace, "text") and trace["text"] is not None
-            else None
+            else (
+                trace["text"]
+                if hasattr(trace, "text") and trace["text"] is not None
+                else None
+            )
         )
 
         hf_hovertext = (
             hf_hovertext
             if hf_hovertext is not None
-            else trace["hovertext"]
-            if hasattr(trace, "hovertext") and trace["hovertext"] is not None
-            else None
+            else (
+                trace["hovertext"]
+                if hasattr(trace, "hovertext") and trace["hovertext"] is not None
+                else None
+            )
         )
 
         hf_marker_size = (
@@ -980,21 +982,21 @@ class AbstractFigureAggregator(BaseFigure, ABC):
         uuid_str = str(uuid4()) if trace.uid is None else trace.uid
         trace.uid = uuid_str
 
-        # construct the hf_data_container
-        # TODO in future version -> maybe regex on kwargs which start with `hf_`
-        dc = self._parse_get_trace_props(
-            trace,
-            hf_x,
-            hf_y,
-            hf_text,
-            hf_hovertext,
-            hf_marker_size,
-            hf_marker_color,
-        )
-
         # These traces will determine the autoscale its RANGE!
         #   -> so also store when `limit_to_view` is set.
         if trace["type"].lower() in self._high_frequency_traces:
+            # construct the hf_data_container
+            # TODO in future version -> maybe regex on kwargs which start with `hf_`
+            dc = self._parse_get_trace_props(
+                trace,
+                hf_x,
+                hf_y,
+                hf_text,
+                hf_hovertext,
+                hf_marker_size,
+                hf_marker_color,
+            )
+
             n_samples = len(dc.x)
             if n_samples > max_out_s or limit_to_view:
                 self._print(
@@ -1037,7 +1039,7 @@ class AbstractFigureAggregator(BaseFigure, ABC):
                     [trace], **self._add_trace_to_add_traces_kwargs(trace_kwargs)
                 )
 
-        return super(self._figure_class, self).add_traces(
+        return super().add_traces(
             [trace], **self._add_trace_to_add_traces_kwargs(trace_kwargs)
         )
 
@@ -1114,9 +1116,11 @@ class AbstractFigureAggregator(BaseFigure, ABC):
 
         # Convert each trace into a BaseTraceType object
         data = [
-            self._data_validator.validate_coerce(trace)[0]
-            if not isinstance(trace, BaseTraceType)
-            else trace
+            (
+                self._data_validator.validate_coerce(trace)[0]
+                if not isinstance(trace, BaseTraceType)
+                else trace
+            )
             for trace in data
         ]
 
@@ -1137,7 +1141,7 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             limit_to_views = [limit_to_views] * len(data)
 
         zipped = zip(data, max_n_samples, downsamplers, gap_handlers, limit_to_views)
-        for (i, (trace, max_out, downsampler, gap_handler, limit_to_view)) in enumerate(
+        for i, (trace, max_out, downsampler, gap_handler, limit_to_view) in enumerate(
             zipped
         ):
             if (
@@ -1169,7 +1173,7 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             assert trace is not None
             data[i] = trace
 
-        return super(self._figure_class, self).add_traces(data, **traces_kwargs)
+        return super().add_traces(data, **traces_kwargs)
 
     def _clear_figure(self):
         """Clear the current figure object its data and layout."""
@@ -1259,47 +1263,6 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             extra_layout_updates[f"{axis}.autorange"] = None
         return extra_layout_updates
 
-    def construct_update_data_patch(
-        self, relayout_data: dict
-    ) -> Union[dash.Patch, dash.no_update]:
-        """Construct the Patch of the to-be-updated front-end data, based on the layout
-        change.
-
-        Attention
-        ---------
-        This method is tightly coupled with Dash app callbacks. It takes the front-end
-        figure its ``relayoutData`` as input and returns the ``dash.Patch`` which needs
-        to be sent to the ``figure`` property for the corresponding ``dcc.Graph``.
-
-        Parameters
-        ----------
-        relayout_data: dict
-            A dict containing the ``relayoutData`` (i.e., the changed layout data) of
-            the corresponding front-end graph.
-
-        Returns
-        -------
-        dash.Patch:
-            The Patch object containing the figure updates which needs to be sent to
-            the front-end.
-
-        """
-        update_data = self._construct_update_data(relayout_data)
-        if not isinstance(update_data, list) or len(update_data) <= 1:
-            return dash.no_update
-
-        patched_figure = dash.Patch()  # create patch
-        for trace in update_data[1:]:  # skip first item as it contains the relayout
-            trace_index = trace.pop("index")  # the index of the corresponding trace
-            # All the other items are the trace properties which needs to be updated
-            for k, v in trace.items():
-                # NOTE: we need to use the `patched_figure` as a dict, and not
-                # `patched_figure.data` as the latter will replace **all** the
-                # data for the corresponding trace, and we just want to update the
-                # specific trace its properties.
-                patched_figure["data"][trace_index][k] = v
-        return patched_figure
-
     def _construct_update_data(
         self,
         relayout_data: dict,
@@ -1336,6 +1299,25 @@ class AbstractFigureAggregator(BaseFigure, ABC):
             # 1. Base case - there is an x-range specified in the front-end
             start_matches = self._re_matches(re.compile(r"xaxis\d*.range\[0]"), cl_k)
             stop_matches = self._re_matches(re.compile(r"xaxis\d*.range\[1]"), cl_k)
+
+            # related issue: https://github.com/predict-idlab/plotly-resampler/pull/336
+            # When the user sets x range via update_xaxes and the number of points in
+            # data exceeds the default_n_shown_samples, then after resetting the axes
+            # the relayout may only have "xaxis.range", instead of "xaxis.range[0]" and
+            # "xaxis.range[1]". If this happens, we need to manually add "xaxis.range[0]"
+            # and "xaxis.range[1]", otherwise resetting axes wouldn't work.
+            if not (start_matches and stop_matches):
+                range_matches = self._re_matches(re.compile(r"xaxis\d*.range"), cl_k)
+                for range_match in range_matches:
+                    x_range = relayout_data[range_match]
+                    start, stop = x_range
+                    start_match = range_match + "[0]"
+                    stop_match = range_match + "[1]"
+                    relayout_data[start_match] = start
+                    relayout_data[stop_match] = stop
+                    start_matches.append(start_match)
+                    stop_matches.append(stop_match)
+                    del x_range, start, stop, start_match, stop_match
             if start_matches and stop_matches:  # when both are not empty
                 for t_start_key, t_stop_key in zip(start_matches, stop_matches):
                     # Check if the xaxis<NUMB> part of xaxis<NUMB>.[0-1] matches
@@ -1399,17 +1381,6 @@ class AbstractFigureAggregator(BaseFigure, ABC):
 
             layout_traces_list.append(trace_reduced)
         return layout_traces_list
-
-    @staticmethod
-    def _parse_dtype_orjson(series: np.ndarray) -> np.ndarray:
-        """Verify the orjson compatibility of the series and convert it if needed."""
-        # NOTE:
-        #    * float16 and float128 aren't supported with latest orjson versions (3.8.1)
-        #    * this method assumes that the it will not get a float128 series
-        # -> this method can be removed if orjson supports float16
-        if series.dtype == np.float16:
-            return series.astype(np.float32)
-        return series
 
     @staticmethod
     def _re_matches(regex: re.Pattern, strings: Iterable[str]) -> List[str]:

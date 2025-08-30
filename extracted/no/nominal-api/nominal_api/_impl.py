@@ -19674,6 +19674,64 @@ includes metrics for check and violation review status.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), bool, self._return_none_for_unknown_union_types)
 
+    def archive_runs(self, auth_header: str, request: "scout_run_api_ArchiveRunsRequest") -> None:
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/archive-run'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def unarchive_runs(self, auth_header: str, request: "scout_run_api_UnarchiveRunsRequest") -> None:
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/unarchive-run'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
     def get_data_source_ref_name_and_type_list(self, auth_header: str, workspaces: List[str] = None) -> List["scout_run_api_RefNameAndType"]:
         """Returns the list of ref names that are in use across specified and authorized workspaces.
         """
@@ -76177,6 +76235,7 @@ scout_notebook_api_NotebookType.__module__ = "nominal_api.scout_notebook_api"
 class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     _and_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None
     _or_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None
+    _not_: Optional["scout_notebook_api_SearchNotebooksQuery"] = None
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
@@ -76189,12 +76248,15 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     _draft_state: Optional[bool] = None
     _archived: Optional[bool] = None
     _workspace: Optional[str] = None
+    _author_is_current_user: Optional["api_Empty"] = None
+    _author_rids: Optional[List[str]] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'and_': ConjureFieldDefinition('and', List[scout_notebook_api_SearchNotebooksQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_notebook_api_SearchNotebooksQuery]),
+            'not_': ConjureFieldDefinition('not', scout_notebook_api_SearchNotebooksQuery),
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
@@ -76206,13 +76268,16 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             'notebook_type': ConjureFieldDefinition('notebookType', scout_notebook_api_NotebookType),
             'draft_state': ConjureFieldDefinition('draftState', bool),
             'archived': ConjureFieldDefinition('archived', bool),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', api_Empty),
+            'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
         }
 
     def __init__(
             self,
             and_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None,
             or_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None,
+            not_: Optional["scout_notebook_api_SearchNotebooksQuery"] = None,
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
@@ -76225,10 +76290,12 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             draft_state: Optional[bool] = None,
             archived: Optional[bool] = None,
             workspace: Optional[str] = None,
+            author_is_current_user: Optional["api_Empty"] = None,
+            author_rids: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (asset_rid is not None) + (exact_asset_rids is not None) + (author_rid is not None) + (run_rid is not None) + (notebook_type is not None) + (draft_state is not None) + (archived is not None) + (workspace is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (asset_rid is not None) + (exact_asset_rids is not None) + (author_rid is not None) + (run_rid is not None) + (notebook_type is not None) + (draft_state is not None) + (archived is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -76237,6 +76304,9 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
             if exact_match is not None:
                 self._exact_match = exact_match
                 self._type = 'exactMatch'
@@ -76273,6 +76343,12 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if author_is_current_user is not None:
+                self._author_is_current_user = author_is_current_user
+                self._type = 'authorIsCurrentUser'
+            if author_rids is not None:
+                self._author_rids = author_rids
+                self._type = 'authorRids'
 
         elif type_of_union == 'and':
             if and_ is None:
@@ -76284,6 +76360,11 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
         elif type_of_union == 'exactMatch':
             if exact_match is None:
                 raise ValueError('a union value must not be None')
@@ -76344,6 +76425,16 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'authorIsCurrentUser':
+            if author_is_current_user is None:
+                raise ValueError('a union value must not be None')
+            self._author_is_current_user = author_is_current_user
+            self._type = 'authorIsCurrentUser'
+        elif type_of_union == 'authorRids':
+            if author_rids is None:
+                raise ValueError('a union value must not be None')
+            self._author_rids = author_rids
+            self._type = 'authorRids'
 
     @builtins.property
     def and_(self) -> Optional[List["scout_notebook_api_SearchNotebooksQuery"]]:
@@ -76352,6 +76443,10 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     @builtins.property
     def or_(self) -> Optional[List["scout_notebook_api_SearchNotebooksQuery"]]:
         return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["scout_notebook_api_SearchNotebooksQuery"]:
+        return self._not_
 
     @builtins.property
     def exact_match(self) -> Optional[str]:
@@ -76406,6 +76501,14 @@ To do a partial match, use an "and" on AssetRid queries.
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def author_is_current_user(self) -> Optional["api_Empty"]:
+        return self._author_is_current_user
+
+    @builtins.property
+    def author_rids(self) -> Optional[List[str]]:
+        return self._author_rids
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_notebook_api_SearchNotebooksQueryVisitor):
             raise ValueError('{} is not an instance of scout_notebook_api_SearchNotebooksQueryVisitor'.format(visitor.__class__.__name__))
@@ -76413,6 +76516,8 @@ To do a partial match, use an "and" on AssetRid queries.
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
         if self._type == 'exactMatch' and self.exact_match is not None:
             return visitor._exact_match(self.exact_match)
         if self._type == 'searchText' and self.search_text is not None:
@@ -76437,6 +76542,10 @@ To do a partial match, use an "and" on AssetRid queries.
             return visitor._archived(self.archived)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'authorIsCurrentUser' and self.author_is_current_user is not None:
+            return visitor._author_is_current_user(self.author_is_current_user)
+        if self._type == 'authorRids' and self.author_rids is not None:
+            return visitor._author_rids(self.author_rids)
 
 
 scout_notebook_api_SearchNotebooksQuery.__name__ = "SearchNotebooksQuery"
@@ -76452,6 +76561,10 @@ class scout_notebook_api_SearchNotebooksQueryVisitor:
 
     @abstractmethod
     def _or(self, or_: List["scout_notebook_api_SearchNotebooksQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "scout_notebook_api_SearchNotebooksQuery") -> Any:
         pass
 
     @abstractmethod
@@ -76500,6 +76613,14 @@ class scout_notebook_api_SearchNotebooksQueryVisitor:
 
     @abstractmethod
     def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _author_is_current_user(self, author_is_current_user: "api_Empty") -> Any:
+        pass
+
+    @abstractmethod
+    def _author_rids(self, author_rids: List[str]) -> Any:
         pass
 
 
@@ -77079,6 +77200,38 @@ class scout_run_api_AllRunsPropertiesAndLabelsResponse(ConjureBeanType):
 scout_run_api_AllRunsPropertiesAndLabelsResponse.__name__ = "AllRunsPropertiesAndLabelsResponse"
 scout_run_api_AllRunsPropertiesAndLabelsResponse.__qualname__ = "AllRunsPropertiesAndLabelsResponse"
 scout_run_api_AllRunsPropertiesAndLabelsResponse.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_ArchiveRunsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rids': ConjureFieldDefinition('rids', List[scout_run_api_RunRid]),
+            'include_linked_workbooks': ConjureFieldDefinition('includeLinkedWorkbooks', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_rids', '_include_linked_workbooks']
+
+    def __init__(self, rids: List[str], include_linked_workbooks: Optional[bool] = None) -> None:
+        self._rids = rids
+        self._include_linked_workbooks = include_linked_workbooks
+
+    @builtins.property
+    def rids(self) -> List[str]:
+        return self._rids
+
+    @builtins.property
+    def include_linked_workbooks(self) -> Optional[bool]:
+        """If true, all auto-archived workbooks that are linked to run will be unarchived as well.
+Defaults to false.
+        """
+        return self._include_linked_workbooks
+
+
+scout_run_api_ArchiveRunsRequest.__name__ = "ArchiveRunsRequest"
+scout_run_api_ArchiveRunsRequest.__qualname__ = "ArchiveRunsRequest"
+scout_run_api_ArchiveRunsRequest.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_ChannelMetadata(ConjureBeanType):
@@ -79055,6 +79208,38 @@ scout_run_api_TimeRangeFilter.__qualname__ = "TimeRangeFilter"
 scout_run_api_TimeRangeFilter.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_UnarchiveRunsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rids': ConjureFieldDefinition('rids', List[scout_run_api_RunRid]),
+            'include_linked_workbooks': ConjureFieldDefinition('includeLinkedWorkbooks', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_rids', '_include_linked_workbooks']
+
+    def __init__(self, rids: List[str], include_linked_workbooks: Optional[bool] = None) -> None:
+        self._rids = rids
+        self._include_linked_workbooks = include_linked_workbooks
+
+    @builtins.property
+    def rids(self) -> List[str]:
+        return self._rids
+
+    @builtins.property
+    def include_linked_workbooks(self) -> Optional[bool]:
+        """If true, all auto-archived workbooks that are linked to run will be unarchived as well.
+Defaults to false.
+        """
+        return self._include_linked_workbooks
+
+
+scout_run_api_UnarchiveRunsRequest.__name__ = "UnarchiveRunsRequest"
+scout_run_api_UnarchiveRunsRequest.__qualname__ = "UnarchiveRunsRequest"
+scout_run_api_UnarchiveRunsRequest.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_Unit(ConjureBeanType):
 
     @builtins.classmethod
@@ -79497,20 +79682,20 @@ class scout_savedviews_api_AssetSearchState(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'sort': ConjureFieldDefinition('sort', scout_asset_api_AssetSortOptions),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_asset_api_AssetSortOptions]),
             'query': ConjureFieldDefinition('query', scout_asset_api_SearchAssetsQuery),
             'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
         }
 
     __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_asset_api_SearchAssetsQuery", sort: "scout_asset_api_AssetSortOptions") -> None:
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_asset_api_SearchAssetsQuery", sort: Optional["scout_asset_api_AssetSortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
         self._archived_statuses = archived_statuses
 
     @builtins.property
-    def sort(self) -> "scout_asset_api_AssetSortOptions":
+    def sort(self) -> Optional["scout_asset_api_AssetSortOptions"]:
         return self._sort
 
     @builtins.property
@@ -79555,20 +79740,20 @@ class scout_savedviews_api_ChecklistSearchState(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'sort': ConjureFieldDefinition('sort', scout_checks_api_SortOptions),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_checks_api_SortOptions]),
             'query': ConjureFieldDefinition('query', scout_checks_api_ChecklistSearchQuery),
             'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
         }
 
     __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_checks_api_ChecklistSearchQuery", sort: "scout_checks_api_SortOptions") -> None:
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_checks_api_ChecklistSearchQuery", sort: Optional["scout_checks_api_SortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
         self._archived_statuses = archived_statuses
 
     @builtins.property
-    def sort(self) -> "scout_checks_api_SortOptions":
+    def sort(self) -> Optional["scout_checks_api_SortOptions"]:
         return self._sort
 
     @builtins.property
@@ -79779,6 +79964,8 @@ class scout_savedviews_api_ResourceType(ConjureEnumType):
     '''WORKBOOK'''
     CHECKLIST = 'CHECKLIST'
     '''CHECKLIST'''
+    TEMPLATE = 'TEMPLATE'
+    '''TEMPLATE'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -79796,20 +79983,20 @@ class scout_savedviews_api_RunSearchState(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'sort': ConjureFieldDefinition('sort', scout_run_api_SortOptions),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_run_api_SortOptions]),
             'query': ConjureFieldDefinition('query', scout_run_api_SearchQuery),
             'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
         }
 
     __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_run_api_SearchQuery", sort: "scout_run_api_SortOptions") -> None:
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_run_api_SearchQuery", sort: Optional["scout_run_api_SortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
         self._archived_statuses = archived_statuses
 
     @builtins.property
-    def sort(self) -> "scout_run_api_SortOptions":
+    def sort(self) -> Optional["scout_run_api_SortOptions"]:
         return self._sort
 
     @builtins.property
@@ -79831,29 +80018,60 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'metadata': ConjureFieldDefinition('metadata', scout_savedviews_api_SavedViewMetadata),
+            'search_state': ConjureFieldDefinition('searchState', scout_savedviews_api_SearchState),
+            'display_state': ConjureFieldDefinition('displayState', scout_savedviews_api_DisplayState)
+        }
+
+    __slots__: List[str] = ['_metadata', '_search_state', '_display_state']
+
+    def __init__(self, display_state: "scout_savedviews_api_DisplayState", metadata: "scout_savedviews_api_SavedViewMetadata", search_state: "scout_savedviews_api_SearchState") -> None:
+        self._metadata = metadata
+        self._search_state = search_state
+        self._display_state = display_state
+
+    @builtins.property
+    def metadata(self) -> "scout_savedviews_api_SavedViewMetadata":
+        return self._metadata
+
+    @builtins.property
+    def search_state(self) -> "scout_savedviews_api_SearchState":
+        return self._search_state
+
+    @builtins.property
+    def display_state(self) -> "scout_savedviews_api_DisplayState":
+        return self._display_state
+
+
+scout_savedviews_api_SavedView.__name__ = "SavedView"
+scout_savedviews_api_SavedView.__qualname__ = "SavedView"
+scout_savedviews_api_SavedView.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SavedViewMetadata(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
             'rid': ConjureFieldDefinition('rid', scout_rids_api_SavedViewRid),
             'resource_type': ConjureFieldDefinition('resourceType', scout_savedviews_api_ResourceType),
             'title': ConjureFieldDefinition('title', str),
             'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_api_Symbol]),
             'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_Color]),
-            'search_state': ConjureFieldDefinition('searchState', scout_savedviews_api_SearchState),
-            'display_state': ConjureFieldDefinition('displayState', scout_savedviews_api_DisplayState),
             'is_archived': ConjureFieldDefinition('isArchived', bool),
             'created_at': ConjureFieldDefinition('createdAt', str),
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'updated_at': ConjureFieldDefinition('updatedAt', str)
         }
 
-    __slots__: List[str] = ['_rid', '_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_is_archived', '_created_at', '_created_by', '_updated_at']
+    __slots__: List[str] = ['_rid', '_resource_type', '_title', '_symbol', '_color', '_is_archived', '_created_at', '_created_by', '_updated_at']
 
-    def __init__(self, created_at: str, created_by: str, display_state: "scout_savedviews_api_DisplayState", is_archived: bool, resource_type: "scout_savedviews_api_ResourceType", rid: str, search_state: "scout_savedviews_api_SearchState", title: str, updated_at: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None) -> None:
+    def __init__(self, created_at: str, created_by: str, is_archived: bool, resource_type: "scout_savedviews_api_ResourceType", rid: str, title: str, updated_at: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None) -> None:
         self._rid = rid
         self._resource_type = resource_type
         self._title = title
         self._symbol = symbol
         self._color = color
-        self._search_state = search_state
-        self._display_state = display_state
         self._is_archived = is_archived
         self._created_at = created_at
         self._created_by = created_by
@@ -79880,14 +80098,6 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
         return self._color
 
     @builtins.property
-    def search_state(self) -> "scout_savedviews_api_SearchState":
-        return self._search_state
-
-    @builtins.property
-    def display_state(self) -> "scout_savedviews_api_DisplayState":
-        return self._display_state
-
-    @builtins.property
     def is_archived(self) -> bool:
         return self._is_archived
 
@@ -79904,9 +80114,9 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
         return self._updated_at
 
 
-scout_savedviews_api_SavedView.__name__ = "SavedView"
-scout_savedviews_api_SavedView.__qualname__ = "SavedView"
-scout_savedviews_api_SavedView.__module__ = "nominal_api.scout_savedviews_api"
+scout_savedviews_api_SavedViewMetadata.__name__ = "SavedViewMetadata"
+scout_savedviews_api_SavedViewMetadata.__qualname__ = "SavedViewMetadata"
+scout_savedviews_api_SavedViewMetadata.__module__ = "nominal_api.scout_savedviews_api"
 
 
 class scout_savedviews_api_SavedViewSortOptions(ConjureBeanType):
@@ -80180,18 +80390,18 @@ class scout_savedviews_api_SearchSavedViewsResponse(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'saved_views': ConjureFieldDefinition('savedViews', List[scout_savedviews_api_SavedView]),
+            'saved_views': ConjureFieldDefinition('savedViews', List[scout_savedviews_api_SavedViewMetadata]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
         }
 
     __slots__: List[str] = ['_saved_views', '_next_page_token']
 
-    def __init__(self, saved_views: List["scout_savedviews_api_SavedView"], next_page_token: Optional[str] = None) -> None:
+    def __init__(self, saved_views: List["scout_savedviews_api_SavedViewMetadata"], next_page_token: Optional[str] = None) -> None:
         self._saved_views = saved_views
         self._next_page_token = next_page_token
 
     @builtins.property
-    def saved_views(self) -> List["scout_savedviews_api_SavedView"]:
+    def saved_views(self) -> List["scout_savedviews_api_SavedViewMetadata"]:
         return self._saved_views
 
     @builtins.property
@@ -80466,18 +80676,20 @@ class scout_savedviews_api_TemplateSearchState(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'sort': ConjureFieldDefinition('sort', scout_template_api_SortBy),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_template_api_SortBy]),
             'query': ConjureFieldDefinition('query', scout_template_api_SearchTemplatesQuery)
         }
 
     __slots__: List[str] = ['_sort', '_query']
 
-    def __init__(self, query: "scout_template_api_SearchTemplatesQuery", sort: "scout_template_api_SortBy") -> None:
+    def __init__(self, query: "scout_template_api_SearchTemplatesQuery", sort: Optional["scout_template_api_SortBy"] = None) -> None:
         self._sort = sort
         self._query = query
 
     @builtins.property
-    def sort(self) -> "scout_template_api_SortBy":
+    def sort(self) -> Optional["scout_template_api_SortBy"]:
+        """Sort for templates view. Uses BE-supplied default if empty.
+        """
         return self._sort
 
     @builtins.property
@@ -80725,18 +80937,18 @@ class scout_savedviews_api_WorkbookSearchState(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'sort': ConjureFieldDefinition('sort', scout_notebook_api_SortBy),
+            'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_notebook_api_SortBy]),
             'query': ConjureFieldDefinition('query', scout_notebook_api_SearchNotebooksQuery)
         }
 
     __slots__: List[str] = ['_sort', '_query']
 
-    def __init__(self, query: "scout_notebook_api_SearchNotebooksQuery", sort: "scout_notebook_api_SortBy") -> None:
+    def __init__(self, query: "scout_notebook_api_SearchNotebooksQuery", sort: Optional["scout_notebook_api_SortBy"] = None) -> None:
         self._sort = sort
         self._query = query
 
     @builtins.property
-    def sort(self) -> "scout_notebook_api_SortBy":
+    def sort(self) -> Optional["scout_notebook_api_SortBy"]:
         return self._sort
 
     @builtins.property
@@ -80997,6 +81209,7 @@ scout_template_api_SaveTemplateRequest.__module__ = "nominal_api.scout_template_
 class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     _and_: Optional[List["scout_template_api_SearchTemplatesQuery"]] = None
     _or_: Optional[List["scout_template_api_SearchTemplatesQuery"]] = None
+    _not_: Optional["scout_template_api_SearchTemplatesQuery"] = None
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
@@ -81005,12 +81218,15 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     _is_archived: Optional[bool] = None
     _is_published: Optional[bool] = None
     _workspace: Optional[str] = None
+    _author_is_current_user: Optional["api_Empty"] = None
+    _author_rids: Optional[List[str]] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'and_': ConjureFieldDefinition('and', List[scout_template_api_SearchTemplatesQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_template_api_SearchTemplatesQuery]),
+            'not_': ConjureFieldDefinition('not', scout_template_api_SearchTemplatesQuery),
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
@@ -81018,13 +81234,16 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'is_archived': ConjureFieldDefinition('isArchived', bool),
             'is_published': ConjureFieldDefinition('isPublished', bool),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', api_Empty),
+            'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
         }
 
     def __init__(
             self,
             and_: Optional[List["scout_template_api_SearchTemplatesQuery"]] = None,
             or_: Optional[List["scout_template_api_SearchTemplatesQuery"]] = None,
+            not_: Optional["scout_template_api_SearchTemplatesQuery"] = None,
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
@@ -81033,10 +81252,12 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             is_archived: Optional[bool] = None,
             is_published: Optional[bool] = None,
             workspace: Optional[str] = None,
+            author_is_current_user: Optional["api_Empty"] = None,
+            author_rids: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (created_by is not None) + (is_archived is not None) + (is_published is not None) + (workspace is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (created_by is not None) + (is_archived is not None) + (is_published is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -81045,6 +81266,9 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
             if exact_match is not None:
                 self._exact_match = exact_match
                 self._type = 'exactMatch'
@@ -81069,6 +81293,12 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if author_is_current_user is not None:
+                self._author_is_current_user = author_is_current_user
+                self._type = 'authorIsCurrentUser'
+            if author_rids is not None:
+                self._author_rids = author_rids
+                self._type = 'authorRids'
 
         elif type_of_union == 'and':
             if and_ is None:
@@ -81080,6 +81310,11 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
         elif type_of_union == 'exactMatch':
             if exact_match is None:
                 raise ValueError('a union value must not be None')
@@ -81120,6 +81355,16 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'authorIsCurrentUser':
+            if author_is_current_user is None:
+                raise ValueError('a union value must not be None')
+            self._author_is_current_user = author_is_current_user
+            self._type = 'authorIsCurrentUser'
+        elif type_of_union == 'authorRids':
+            if author_rids is None:
+                raise ValueError('a union value must not be None')
+            self._author_rids = author_rids
+            self._type = 'authorRids'
 
     @builtins.property
     def and_(self) -> Optional[List["scout_template_api_SearchTemplatesQuery"]]:
@@ -81128,6 +81373,10 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     @builtins.property
     def or_(self) -> Optional[List["scout_template_api_SearchTemplatesQuery"]]:
         return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["scout_template_api_SearchTemplatesQuery"]:
+        return self._not_
 
     @builtins.property
     def exact_match(self) -> Optional[str]:
@@ -81165,6 +81414,14 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def author_is_current_user(self) -> Optional["api_Empty"]:
+        return self._author_is_current_user
+
+    @builtins.property
+    def author_rids(self) -> Optional[List[str]]:
+        return self._author_rids
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_template_api_SearchTemplatesQueryVisitor):
             raise ValueError('{} is not an instance of scout_template_api_SearchTemplatesQueryVisitor'.format(visitor.__class__.__name__))
@@ -81172,6 +81429,8 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
         if self._type == 'exactMatch' and self.exact_match is not None:
             return visitor._exact_match(self.exact_match)
         if self._type == 'searchText' and self.search_text is not None:
@@ -81188,6 +81447,10 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             return visitor._is_published(self.is_published)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'authorIsCurrentUser' and self.author_is_current_user is not None:
+            return visitor._author_is_current_user(self.author_is_current_user)
+        if self._type == 'authorRids' and self.author_rids is not None:
+            return visitor._author_rids(self.author_rids)
 
 
 scout_template_api_SearchTemplatesQuery.__name__ = "SearchTemplatesQuery"
@@ -81203,6 +81466,10 @@ class scout_template_api_SearchTemplatesQueryVisitor:
 
     @abstractmethod
     def _or(self, or_: List["scout_template_api_SearchTemplatesQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "scout_template_api_SearchTemplatesQuery") -> Any:
         pass
 
     @abstractmethod
@@ -81235,6 +81502,14 @@ class scout_template_api_SearchTemplatesQueryVisitor:
 
     @abstractmethod
     def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _author_is_current_user(self, author_is_current_user: "api_Empty") -> Any:
+        pass
+
+    @abstractmethod
+    def _author_rids(self, author_rids: List[str]) -> Any:
         pass
 
 

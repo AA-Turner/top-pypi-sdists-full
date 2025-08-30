@@ -1,38 +1,10 @@
 Metadata-Version: 2.4
 Name: bokeh
-Version: 3.7.3
+Version: 3.8.0
 Summary: Interactive plots and applications in the browser from Python
 Author: Bokeh Team
 Author-email: info@bokeh.org
-License: Copyright (c) Anaconda, Inc., and Bokeh Contributors
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without modification,
-        are permitted provided that the following conditions are met:
-        
-        Redistributions of source code must retain the above copyright notice,
-        this list of conditions and the following disclaimer.
-        
-        Redistributions in binary form must reproduce the above copyright notice,
-        this list of conditions and the following disclaimer in the documentation
-        and/or other materials provided with the distribution.
-        
-        Neither the name of Anaconda nor the names of any contributors
-        may be used to endorse or promote products derived from this software
-        without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-        ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-        LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-        CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-        SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-        INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-        CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-        ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
-        THE POSSIBILITY OF SUCH DAMAGE.
-        
+License-Expression: BSD-3-Clause
 Project-URL: homepage, https://bokeh.org
 Project-URL: documentation, https://docs.bokeh.org
 Project-URL: repository, https://github.com/bokeh/bokeh
@@ -48,7 +20,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Legal Industry
 Classifier: Intended Audience :: Other Audience
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -252,7 +223,7 @@ If you would like to contribute to Bokeh, please review the [Contributor Guide](
 
 ### Fiscal Support
 
-The Bokeh project is grateful for [individual contributions](https://opencollective.com/bokeh), as well as for monetary support from the organizations and companies listed below:
+The Bokeh project is grateful for [individual contributions](https://opencollective.com/bokeh), as well as for present and past monetary support from the organizations and companies listed below:
 
 <table align="center">
 <tr>

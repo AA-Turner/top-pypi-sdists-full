@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-rerunfailures
-Version: 15.1
+Version: 16.0
 Summary: pytest plugin to re-run tests to eliminate flaky failures
 Author-email: Leah Klearman <lklrmn@gmail.com>
 License: MPL-2.0
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -63,7 +64,7 @@ Requirements
 You will need the following prerequisites in order to use pytest-rerunfailures:
 
 - Python 3.9+ or PyPy3
-- pytest 7.4 or newer
+- pytest 8.0 or newer
 
 This plugin can recover from a hard crash with the following optional
 prerequisites:
@@ -255,7 +256,6 @@ be marked as failed.
 Compatibility
 -------------
 
-* This plugin may *not* be used with class, module, and package level fixtures.
 * This plugin is *not* compatible with pytest-xdist's --looponfail flag.
 * This plugin is *not* compatible with the core --pdb flag.
 * This plugin is *not* compatible with the plugin
@@ -263,6 +263,21 @@ Compatibility
   ``pytest-rerunfailures`` or ``flaky`` but not both.
 
 .. END-COMPATIBILITY
+
+.. START-PRIORITY
+
+Priority
+-------------
+
+You can specify arguments in three places. So if you set the number of reruns in all three,
+which one takes priority?
+
+* Top priority is the marker, such as ``@pytest.mark.flaky(reruns=1)``
+* Second priority is what's specified on the command line, like ``--reruns=2``
+* Last priority is the ``pyproject.toml`` (or ``pytest.ini``) file setting, like ``reruns = 3``
+
+.. END-PRIORITY
+
 
 .. START-CONTRIBUTING
 
@@ -288,6 +303,27 @@ Development
 
 Changelog
 =========
+
+16.0 (2025-08-29)
+-----------------
+
+Breaking changes
+++++++++++++++++
+
+- Drop support for pytest < 8.
+
+Features
+++++++++
+
+- Add support for pytest 8.4.x.
+
+- Add support for upcoming Python 3.14.
+
+- Allow ``@pytest.mark.flaky(condition)`` to accept a callable or a string
+  to be evaluated. The evaluated string has access to the exception instance
+  via the ``error`` object.
+  (`#230 <https://github.com/pytest-dev/pytest-rerunfailures/issues/230>`_)
+
 
 15.1 (2025-05-08)
 -----------------

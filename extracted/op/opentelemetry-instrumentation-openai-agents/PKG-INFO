@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-openai-agents
-Version: 0.46.1
+Version: 0.46.2
 Summary: OpenTelemetry OpenAI Agents instrumentation
 License: Apache-2.0
 Author: Gal Kleinman

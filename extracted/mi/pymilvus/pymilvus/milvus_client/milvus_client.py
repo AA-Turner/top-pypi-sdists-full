@@ -250,10 +250,17 @@ class MilvusClient:
         """Upsert data into the collection.
 
         Args:
+            collection_name (str): Name of the collection to upsert into.
             data (List[Dict[str, any]]): A list of dicts to pass in. If list not provided, will
                 cast to list.
             timeout (float, optional): The timeout to use, will override init timeout. Defaults
                 to None.
+            partition_name (str, optional): Name of the partition to upsert into.
+            **kwargs (dict): Extra keyword arguments.
+
+                * *partial_update* (bool, optional): Whether this is a partial update operation.
+                    If True, only the specified fields will be updated while others remain unchanged
+                    Default is False.
 
         Raises:
             DataNotMatchException: If the data has missing fields an exception will be thrown.
@@ -459,7 +466,9 @@ class MilvusClient:
 
         if ids:
             try:
-                schema_dict = conn.describe_collection(collection_name, timeout=timeout, **kwargs)
+                schema_dict, _ = conn._get_schema_from_cache_or_remote(
+                    collection_name, timeout=timeout
+                )
             except Exception as ex:
                 logger.error("Failed to describe collection: %s", collection_name)
                 raise ex from ex

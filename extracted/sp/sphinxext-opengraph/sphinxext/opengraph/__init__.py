@@ -12,6 +12,11 @@ from sphinxext.opengraph._description_parser import get_description
 from sphinxext.opengraph._meta_parser import get_meta_description
 from sphinxext.opengraph._title_parser import get_title
 
+try:
+    from types import NoneType
+except ImportError:
+    NoneType = type(None)
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -31,8 +36,8 @@ except ImportError:
     create_social_card = None
     DEFAULT_SOCIAL_CONFIG = {}
 
-__version__ = '0.12.0'
-version_info = (0, 12, 0)
+__version__ = '0.13.0'
+version_info = (0, 13, 0)
 
 DEFAULT_DESCRIPTION_LENGTH = 200
 DEFAULT_DESCRIPTION_LENGTH_SOCIAL_CARDS = 160
@@ -326,17 +331,32 @@ def make_tag(property: str, content: str, type_: str = 'property') -> str:
 def setup(app: Sphinx) -> ExtensionMetadata:
     # ogp_site_url="" allows relative by default, even though it's not
     # officially supported by OGP.
-    app.add_config_value('ogp_site_url', '', 'html')
-    app.add_config_value('ogp_canonical_url', '', 'html')
-    app.add_config_value('ogp_description_length', DEFAULT_DESCRIPTION_LENGTH, 'html')
-    app.add_config_value('ogp_image', None, 'html')
-    app.add_config_value('ogp_image_alt', None, 'html')
-    app.add_config_value('ogp_use_first_image', False, 'html')
-    app.add_config_value('ogp_type', 'website', 'html')
-    app.add_config_value('ogp_site_name', None, 'html')
-    app.add_config_value('ogp_social_cards', None, 'html')
-    app.add_config_value('ogp_custom_meta_tags', (), 'html')
-    app.add_config_value('ogp_enable_meta_description', True, 'html')
+    app.add_config_value('ogp_site_url', '', 'html', types=frozenset({str}))
+    app.add_config_value('ogp_canonical_url', '', 'html', types=frozenset({str}))
+    app.add_config_value(
+        'ogp_description_length',
+        DEFAULT_DESCRIPTION_LENGTH,
+        'html',
+        types=frozenset({int}),
+    )
+    app.add_config_value('ogp_image', None, 'html', types=frozenset({str, NoneType}))
+    app.add_config_value(
+        'ogp_image_alt', None, 'html', types=frozenset({str, bool, NoneType})
+    )
+    app.add_config_value('ogp_use_first_image', False, 'html', types=frozenset({bool}))
+    app.add_config_value('ogp_type', 'website', 'html', types=frozenset({str}))
+    app.add_config_value(
+        'ogp_site_name', None, 'html', types=frozenset({str, bool, NoneType})
+    )
+    app.add_config_value(
+        'ogp_social_cards', None, 'html', types=frozenset({dict, NoneType})
+    )
+    app.add_config_value(
+        'ogp_custom_meta_tags', (), 'html', types=frozenset({list, tuple})
+    )
+    app.add_config_value(
+        'ogp_enable_meta_description', True, 'html', types=frozenset({bool})
+    )
 
     # Main Sphinx OpenGraph linking
     app.connect('html-page-context', html_page_context)

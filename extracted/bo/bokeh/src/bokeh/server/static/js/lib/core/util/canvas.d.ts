@@ -1,5 +1,12 @@
 import { BBox } from "./bbox";
 import type { OutputBackend } from "../enums";
+export declare const exportable: unique symbol;
+export interface Exportable {
+    [exportable]: boolean;
+    export(type?: "auto" | "png" | "svg", hidpi?: boolean): CanvasLayer;
+    readonly bbox: BBox;
+}
+export declare function is_Exportable<T>(obj: T): obj is T & Exportable;
 export type CanvasPatternRepetition = "repeat" | "repeat-x" | "repeat-y" | "no-repeat";
 export type Context2d = {
     createPattern(image: CanvasImageSource, repetition: CanvasPatternRepetition | null): CanvasPattern | null;

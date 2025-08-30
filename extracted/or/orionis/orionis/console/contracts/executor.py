@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 class IExecutor(ABC):
 
     @abstractmethod
-    def running(self, program: str, time: str = ''):
+    def running(self, program: str, time: str = '') -> None:
         """
         Logs the execution of a program in a "RUNNING" state with console output formatting.
 
@@ -33,7 +33,7 @@ class IExecutor(ABC):
         pass
 
     @abstractmethod
-    def done(self, program: str, time: str = ''):
+    def done(self, program: str, time: str = '') -> None:
         """
         Logs the execution of a program in a "DONE" state with console output formatting.
 
@@ -63,7 +63,7 @@ class IExecutor(ABC):
         pass
 
     @abstractmethod
-    def fail(self, program: str, time: str = ''):
+    def fail(self, program: str, time: str = '') -> None:
         """
         Logs the execution of a program in a "FAIL" state with console output formatting.
 
