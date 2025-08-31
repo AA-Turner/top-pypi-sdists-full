@@ -4,8 +4,9 @@ Simple example that counts the number of changes in an osm diff file.
 Shows how to detect the different kind of modifications and how to
 use the handler generator function instead of a handler class.
 """
-import osmium as o
+import osmium
 import sys
+
 
 class Stats:
 
@@ -31,7 +32,7 @@ class Stats:
 def main(osmfile):
     stats = {t: Stats() for t in 'nwr'}
 
-    for obj in o.FileProcessor(osmfile):
+    for obj in osmium.FileProcessor(osmfile):
         stats[obj.type_str()].add(obj)
 
     stats['n'].outstats("Nodes")
@@ -39,6 +40,7 @@ def main(osmfile):
     stats['r'].outstats("Relations")
 
     return 0
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

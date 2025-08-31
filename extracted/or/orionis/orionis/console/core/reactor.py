@@ -10,9 +10,9 @@ from orionis.console.contracts.cli_request import ICLIRequest
 from orionis.console.contracts.command import ICommand
 from orionis.console.contracts.reactor import IReactor
 from orionis.console.entities.command import Command
-from orionis.console.exceptions import CLIOrionisValueError
-from orionis.console.exceptions.cli_runtime_error import CLIOrionisRuntimeError
+from orionis.console.exceptions import CLIOrionisValueError, CLIOrionisRuntimeError
 from orionis.console.contracts.executor import IExecutor
+from orionis.console.exceptions import CLIOrionisTypeError
 from orionis.console.request.cli_request import CLIRequest
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
@@ -75,52 +75,81 @@ class Reactor(IReactor):
         # List to hold fluent command definitions
         self.__fluent_commands: List[ICommand] = []
 
-        # Flag to indicate whether commands have been loaded
-        self.__load_commands: bool = False
+        # Load core commands immediately upon initialization
+        self.__loadCoreCommands()
+        self.__load__core_commands: bool = True
+
+        # Load custom user-defined commands from the project's commands directory
+        self.__loadCustomCommands()
+        self.__load__custom_commands: bool = True
+
+        # Flag to track if fluent commands have been loaded
+        self.__load_fluent_commands: bool = False
 
     def __loadCommands(self) -> None:
         """
-        Loads all available commands for the console application.
+        Loads all available commands into the reactor's internal registry.
 
-        This method orchestrates the loading of both custom user-defined commands and
-        core framework commands into the reactor's internal command registry. It implements
-        a lazy loading pattern using an internal flag to ensure commands are loaded only
-        once during the reactor instance's lifetime, preventing duplicate registrations
-        and improving performance on subsequent calls.
+        This method ensures that all commands—custom user-defined, core framework, and fluent interface
+        commands—are loaded and registered in the reactor's internal command registry. It uses internal
+        flags to prevent duplicate loading and to optimize performance by ensuring each command set is
+        loaded only once per reactor instance.
 
-        The loading process follows a specific order: custom commands are loaded first,
-        followed by core framework commands. This ensures that custom commands can
-        potentially override core commands if they share the same signature, giving
-        users the flexibility to customize framework behavior.
+        The loading order is as follows:
+            1. Core commands (if not already loaded)
+            2. Custom user-defined commands (if not already loaded)
+            3. Fluent interface commands (if not already loaded)
+
+        This order allows custom commands to override core commands if they share the same signature,
+        and ensures that all available commands are discoverable and executable.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
         None
-            This method does not return any value. All discovered commands are
-            registered internally in the reactor's command registry and become
-            available for execution through the `call` and `callAsync` methods.
+            This method does not return any value. All discovered commands are registered
+            internally in the reactor's command registry and become available for execution.
 
         Notes
         -----
-        - Commands are loaded only once per reactor instance to prevent duplicates
-        - Custom commands are loaded before core commands to allow potential overrides
-        - The internal `__load_commands` flag tracks whether commands have been loaded
-        - Both loading methods handle their own error handling and validation
+        - Each command set is loaded only once per reactor instance.
+        - The internal flags `__load__core_commands`, `__load__custom_commands`, and
+          `__load_fluent_commands` track the loading state of each command set.
+        - Both loading methods handle their own error handling and validation.
         """
-        # Check if commands have already been loaded to prevent duplicate loading
-        if not self.__load_commands:
 
-            # Load custom user-defined commands from the project's commands directory
-            self.__loadCustomCommands()
-
-            # Load core framework commands that are bundled with Orionis
+        # Load core commands if they have not been loaded yet
+        if not self.__load__core_commands:
             self.__loadCoreCommands()
+            self.__load__core_commands = True
 
-            # Load commands defined using the fluent interface
+        # Load custom user-defined commands if they have not been loaded yet
+        if not self.__load__custom_commands:
+            self.__loadCustomCommands()
+            self.__load__custom_commands = True
+
+        # Load fluent interface commands if they have not been loaded yet
+        if not self.__load_fluent_commands:
             self.__loadFluentCommands()
+            self.__load_fluent_commands = True
 
-            # Set the flag to indicate that commands have been successfully loaded
-            self.__load_commands = True
+        # Check if commands have already been loaded to prevent duplicate loading
+        if not self.__load__core_commands:
+            self.__loadCoreCommands()
+            self.__load__core_commands = True
+
+        # Load custom user-defined commands if not already loaded
+        if not self.__load__custom_commands:
+            self.__loadCustomCommands()
+            self.__load__custom_commands = True
+
+        # Load fluent interface defined commands if not already loaded
+        if not self.__load_fluent_commands:
+            self.__loadFluentCommands()
+            self.__load_fluent_commands = True
 
     def __loadFluentCommands(self) -> None:
         """
@@ -210,39 +239,47 @@ class Reactor(IReactor):
                             f"Failed to read file '{file_path}' for fluent command loading: {e}"
                         ) from e
 
+        # Import Command entity here to avoid circular imports
+        from orionis.console.entities.command import Command as CommandEntity
+
         # Iterate through all fluent command definitions
         for f_command in self.__fluent_commands:
 
-            # Validate and extract required command attributes
-            signature, command_entity = f_command.get()
+            # If the fluent command has a get method, retrieve its signature and command entity
+            if hasattr(f_command, 'get') and callable(getattr(f_command, 'get')):
 
-            # Build the arguments dictionary from the CLIArgument instances
-            required_args: List[CLIArgument] = command_entity.args
+                # Get the signature and command entity from the fluent command
+                values = f_command.get()
+                signature: str = values[0]
+                command_entity: CommandEntity = values[1]
 
-            # Create an ArgumentParser instance to handle the command arguments
-            arg_parser = argparse.ArgumentParser(
-                usage=f"python -B reactor {signature} [options]",
-                description=f"Command [{signature}] : {command_entity.description}",
-                formatter_class=argparse.RawTextHelpFormatter,
-                add_help=True,
-                allow_abbrev=False,
-                exit_on_error=True,
-                prog=signature
-            )
+                # Build the arguments dictionary from the CLIArgument instances
+                required_args: List[CLIArgument] = command_entity.args
 
-            # Iterate through each CLIArgument and add it to the ArgumentParser
-            for arg in required_args:
-                arg.addToParser(arg_parser)
+                # Create an ArgumentParser instance to handle the command arguments
+                arg_parser = argparse.ArgumentParser(
+                    usage=f"python -B reactor {signature} [options]",
+                    description=f"Command [{signature}] : {command_entity.description}",
+                    formatter_class=argparse.RawTextHelpFormatter,
+                    add_help=True,
+                    allow_abbrev=False,
+                    exit_on_error=True,
+                    prog=signature
+                )
 
-            # Register the command in the internal registry with all its metadata
-            self.__commands[signature] = Command(
-                obj=command_entity.obj,
-                method=command_entity.method,
-                timestamps=command_entity.timestamps,
-                signature=signature,
-                description=command_entity.description,
-                args=arg_parser
-            )
+                # Iterate through each CLIArgument and add it to the ArgumentParser
+                for arg in required_args:
+                    arg.addToParser(arg_parser)
+
+                # Register the command in the internal registry with all its metadata
+                self.__commands[signature] = Command(
+                    obj=command_entity.obj,
+                    method=command_entity.method,
+                    timestamps=command_entity.timestamps,
+                    signature=signature,
+                    description=command_entity.description,
+                    args=arg_parser
+                )
 
     def __loadCoreCommands(self) -> None:
         """
@@ -293,9 +330,15 @@ class Reactor(IReactor):
         # Iterate through the core command classes and register them
         for obj in core_commands:
 
+            # Get the signature attribute from the command class
+            signature = getattr(obj, 'signature', None)
+
+            # Skip if signature is not defined
+            if signature is None:
+                continue
+
             # Validate and extract required command attributes
             timestamp = self.__ensureTimestamps(obj)
-            signature = getattr(obj, 'signature', None)
             description = self.__ensureDescription(obj)
             args = self.__ensureArguments(obj)
 
@@ -338,6 +381,8 @@ class Reactor(IReactor):
 
         # Iterate through the command path and load command modules
         for current_directory, _, files in os.walk(commands_path):
+
+            # Iterate through each file in the current directory
             for file in files:
 
                 # Only process Python files
@@ -418,7 +463,7 @@ class Reactor(IReactor):
 
         # Ensure the timestamps attribute is a boolean type
         if not isinstance(obj.timestamps, bool):
-            raise TypeError(f"Command class {obj.__name__} 'timestamps' must be a boolean.")
+            raise CLIOrionisTypeError(f"Command class {obj.__name__} 'timestamps' must be a boolean.")
 
         # Return timestamps value
         return obj.timestamps
@@ -444,24 +489,24 @@ class Reactor(IReactor):
 
         Raises
         ------
-        ValueError
+        CLIOrionisValueError
             If the command class lacks a 'signature' attribute, if the signature
             is an empty string, or if the signature doesn't match the required pattern.
-        TypeError
+        CLIOrionisTypeError
             If the 'signature' attribute is not a string.
         """
 
         # Check if the command class has a signature attribute
         if not hasattr(obj, 'signature'):
-            raise ValueError(f"Command class {obj.__name__} must have a 'signature' attribute.")
+            raise CLIOrionisValueError(f"Command class {obj.__name__} must have a 'signature' attribute.")
 
         # Ensure the signature attribute is a string type
         if not isinstance(obj.signature, str):
-            raise TypeError(f"Command class {obj.__name__} 'signature' must be a string.")
+            raise CLIOrionisTypeError(f"Command class {obj.__name__} 'signature' must be a string.")
 
         # Validate that the signature is not empty after stripping whitespace
         if obj.signature.strip() == '':
-            raise ValueError(f"Command class {obj.__name__} 'signature' cannot be an empty string.")
+            raise CLIOrionisValueError(f"Command class {obj.__name__} 'signature' cannot be an empty string.")
 
         # Define the regex pattern for valid signature format
         # Pattern allows: alphanumeric chars, underscores, colons
@@ -470,7 +515,7 @@ class Reactor(IReactor):
 
         # Validate the signature against the required pattern
         if not re.match(pattern, obj.signature):
-            raise ValueError(f"Command class {obj.__name__} 'signature' must contain only alphanumeric characters, underscores (_) and colons (:), cannot start or end with underscore or colon, and cannot start with a number.")
+            raise CLIOrionisValueError(f"Command class {obj.__name__} 'signature' must contain only alphanumeric characters, underscores (_) and colons (:), cannot start or end with underscore or colon, and cannot start with a number.")
 
         # Return signature
         return obj.signature.strip()
@@ -496,24 +541,24 @@ class Reactor(IReactor):
 
         Raises
         ------
-        ValueError
+        CLIOrionisValueError
             If the command class lacks a 'description' attribute or if the description
             is an empty string after stripping whitespace.
-        TypeError
+        CLIOrionisTypeError
             If the 'description' attribute is not a string type.
         """
 
         # Check if the command class has a description attribute
         if not hasattr(obj, 'description'):
-            raise ValueError(f"Command class {obj.__name__} must have a 'description' attribute.")
+            raise CLIOrionisValueError(f"Command class {obj.__name__} must have a 'description' attribute.")
 
         # Ensure the description attribute is a string type
         if not isinstance(obj.description, str):
-            raise TypeError(f"Command class {obj.__name__} 'description' must be a string.")
+            raise CLIOrionisTypeError(f"Command class {obj.__name__} 'description' must be a string.")
 
         # Validate that the description is not empty after stripping whitespace
         if obj.description.strip() == '':
-            raise ValueError(f"Command class {obj.__name__} 'description' cannot be an empty string.")
+            raise CLIOrionisValueError(f"Command class {obj.__name__} 'description' cannot be an empty string.")
 
         # Return description
         return obj.description.strip()
@@ -538,7 +583,7 @@ class Reactor(IReactor):
 
         Raises
         ------
-        TypeError
+        CLIOrionisTypeError
             If the 'arguments' attribute is not a list or contains non-CLIArgument instances.
         """
 
@@ -548,7 +593,7 @@ class Reactor(IReactor):
 
         # Ensure the arguments attribute is a list type
         if not isinstance(obj.arguments, list):
-            raise TypeError(f"Command class {obj.__name__} 'arguments' must be a list.")
+            raise CLIOrionisTypeError(f"Command class {obj.__name__} 'arguments' must be a list.")
 
         # If arguments is empty, return None
         if len(obj.arguments) == 0:
@@ -557,7 +602,7 @@ class Reactor(IReactor):
         # Validate that all items in the arguments list are CLIArgument instances
         for index, value in enumerate(obj.arguments):
             if not isinstance(value, CLIArgument):
-                raise TypeError(f"Command class {obj.__name__} 'arguments' must contain only CLIArgument instances, found '{type(value).__name__}' at index {index}.")
+                raise CLIOrionisTypeError(f"Command class {obj.__name__} 'arguments' must contain only CLIArgument instances, found '{type(value).__name__}' at index {index}.")
 
         # Build the arguments dictionary from the CLIArgument instances
         required_args: List[CLIArgument] = obj.arguments
@@ -669,7 +714,7 @@ class Reactor(IReactor):
 
         Raises
         ------
-        TypeError
+        CLIOrionisTypeError
             If the signature is not a string or if the handler is not a valid list.
         ValueError
             If the signature does not meet the required naming conventions.
@@ -680,11 +725,11 @@ class Reactor(IReactor):
 
         # Validate the handler parameter
         if len(handler) < 1 or not isinstance(handler, list):
-            raise TypeError("Handler must be a list with at least one element (the callable).")
+            raise CLIOrionisValueError("Handler must be a list with at least one element (the callable).")
 
         # Ensure the first element is a class
         if not hasattr(handler[0], '__call__') or not hasattr(handler[0], '__name__'):
-            raise TypeError("The first element of handler must be a class.")
+            raise CLIOrionisTypeError("The first element of handler must be a class.")
 
         # Create a new FluentCommand instance with the provided signature and handler
         f_command = FluentCommand(

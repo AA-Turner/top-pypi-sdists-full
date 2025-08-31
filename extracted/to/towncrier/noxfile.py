@@ -18,7 +18,7 @@ def pre_commit(session: nox.Session) -> None:
 
 
 # Keep list in-sync with ci.yml/test-linux & pyproject.toml
-@nox.session(python=["pypy3.8", "3.8", "3.9", "3.10", "3.11", "3.12"])
+@nox.session(python=["pypy3.10", "3.9", "3.10", "3.11", "3.12", "3.13"])
 def tests(session: nox.Session) -> None:
     session.env["PYTHONWARNDEFAULTENCODING"] = "1"
     session.install("Twisted", "coverage[toml]")
@@ -89,7 +89,7 @@ def docs(session: nox.Session) -> None:
 
 @nox.session
 def build(session: nox.Session) -> None:
-    session.install("build", "twine")
+    session.install("build", "twine", "pkginfo>=1.12.0")
 
     # If no argument is passed, build builds an sdist and then a wheel from
     # that sdist.

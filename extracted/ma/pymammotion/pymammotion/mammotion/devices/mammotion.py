@@ -139,9 +139,13 @@ class MammotionDeviceManager:
         if mammotion_device.has_ble():
             exists.replace_ble(mammotion_device.ble())
 
+    def has_device(self, mammotion_device_name: str) -> bool:
+        if self.devices.get(mammotion_device_name, None) is not None:
+            return True
+        return False
+
     def get_device(self, mammotion_device_name: str) -> MammotionMixedDeviceManager:
-        """Get a device."""
-        return self.devices.get(mammotion_device_name)
+        return self.devices[mammotion_device_name]
 
     async def remove_device(self, name: str) -> None:
         """Remove a device."""
@@ -229,8 +233,8 @@ class Mammotion:
     def add_cloud_devices(self, mqtt_client: MammotionCloud) -> None:
         """Add devices from cloud."""
         for device in mqtt_client.cloud_client.devices_by_account_response.data.data:
-            mower_device = self.device_manager.get_device(device.deviceName)
-            if device.deviceName.startswith(("Luba-", "Yuka-")) and mower_device is None:
+            has_device = self.device_manager.has_device(device.deviceName)
+            if device.deviceName.startswith(("Luba-", "Yuka-")) and not has_device:
                 mixed_device = MammotionMixedDeviceManager(
                     name=device.deviceName,
                     iot_id=device.iotId,
@@ -282,8 +286,8 @@ class Mammotion:
         return self.device_manager.get_device(name)
 
     def get_or_create_device_by_name(self, device: Device, mqtt_client: MammotionCloud) -> MammotionMixedDeviceManager:
-        if mow_device := self.device_manager.get_device(device.deviceName):
-            return mow_device
+        if self.device_manager.has_device(device.deviceName):
+            return self.device_manager.get_device(device.deviceName)
         mow_device = MammotionMixedDeviceManager(
             name=device.deviceName,
             iot_id=device.iotId,

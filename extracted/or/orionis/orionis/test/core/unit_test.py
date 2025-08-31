@@ -1090,6 +1090,7 @@ class UnitTest(IUnitTest):
                         module=ReflectionInstance(test).getModuleName(),
                         file_path=ReflectionInstance(test).getFile(),
                         doc_string=ReflectionInstance(test).getMethodDocstring(test._testMethodName),
+                        exception=err[1]
                     )
                 )
 
@@ -1112,6 +1113,7 @@ class UnitTest(IUnitTest):
                         module=ReflectionInstance(test).getModuleName(),
                         file_path=ReflectionInstance(test).getFile(),
                         doc_string=ReflectionInstance(test).getMethodDocstring(test._testMethodName),
+                        exception=err[1]
                     )
                 )
 
@@ -1225,6 +1227,19 @@ class UnitTest(IUnitTest):
         test_details = []
         for test_result in result.test_results:
             rst: TestResult = test_result
+
+            # Extraer información solo del último frame del traceback si existe
+            traceback_frames = []
+            if rst.exception and rst.exception.__traceback__:
+                tb = traceback.extract_tb(rst.exception.__traceback__)
+                for frame in tb:
+                    traceback_frames.append({
+                        'file': frame.filename,
+                        'line': frame.lineno,
+                        'function': frame.name,
+                        'code': frame.line
+                    })
+
             test_details.append({
                 'id': rst.id,
                 'class': rst.class_name,
@@ -1234,7 +1249,8 @@ class UnitTest(IUnitTest):
                 'error_message': rst.error_message,
                 'traceback': rst.traceback,
                 'file_path': rst.file_path,
-                'doc_string': rst.doc_string
+                'doc_string': rst.doc_string,
+                'traceback_frames': traceback_frames
             })
 
         # Calculate the number of passed tests

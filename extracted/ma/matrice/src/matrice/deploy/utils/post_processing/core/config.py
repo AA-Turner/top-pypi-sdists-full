@@ -691,6 +691,7 @@ class ConfigManager:
             'dwell' : None,
             'age_gender_detection': None,
             'wildlife_monitoring': None,
+            'pcb_defect_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1161,6 +1162,14 @@ class ConfigManager:
         try:
             from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
             return WildLifeMonitoringConfig
+        except ImportError:
+            return None
+    
+    def pcb_defect_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.pcb_defect_detection import PCBDefectConfig
+            return PCBDefectConfig
         except ImportError:
             return None
     
@@ -2288,6 +2297,22 @@ class ConfigManager:
                 **kwargs
             )
         
+        elif usecase == "pcb_defect_detection":
+            # Import here to avoid circular import
+            from ..usecases.pcb_defect_detection import PCBDefectConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = PCBDefectConfig(
+                category=category or "manufacturing",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
@@ -2796,6 +2821,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
             default_config = WildLifeMonitoringConfig()
+            return default_config.to_dict()
+    
+        elif usecase == "pcb_defect_detection":
+            # Import here to avoid circular import
+            from ..usecases.pcb_defect_detection import PCBDefectConfig
+            default_config = PCBDefectConfig()
             return default_config.to_dict()
         
         #Add all image based usecases here

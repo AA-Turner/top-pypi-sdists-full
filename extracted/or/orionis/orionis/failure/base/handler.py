@@ -1,3 +1,4 @@
+import traceback
 from typing import Any, List
 from orionis.console.contracts.cli_request import ICLIRequest
 from orionis.console.contracts.console import IConsole
@@ -33,12 +34,11 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         and wraps them in a `Throwable` object for consistent error handling and reporting.
         """
 
-        # Create and return a Throwable object with detailed exception information
         return Throwable(
-            classtype=type(exception),                              # The class/type of the exception
-            message=str(exception),                                 # The exception message as a string
-            args=exception.args,                                    # The arguments passed to the exception
-            traceback=getattr(exception, '__traceback__', None)     # The traceback object, if available
+            classtype=type(exception),                                          # The class/type of the exception
+            message=exception.args[0] if exception.args else str(exception),    # The exception message as a string
+            args=exception.args,                                                # The arguments passed to the exception
+            traceback=exception.__traceback__ or traceback.format_exc()         # The traceback object, if available
         )
 
     async def shouldIgnoreException(self, exception: BaseException) -> bool:

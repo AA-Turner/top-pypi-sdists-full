@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bubus
-Version: 1.5.5
+Version: 1.5.6
 Summary: Advanced Pydantic-powered event bus with async support
 Project-URL: Repository, https://github.com/browser-use/bubus
 Author: Nick Sweeting
@@ -42,11 +42,11 @@ import asyncio
 from bubus import EventBus, BaseEvent
 from your_auth_events import AuthRequestEvent, AuthResponseEvent
 
-class UserLoginEvent(BaseEvent):
+class UserLoginEvent(BaseEvent[str]):
     username: str
     is_admin: bool
 
-async def handle_login(event: UserLoginEvent):
+async def handle_login(event: UserLoginEvent) -> str:
     auth_request = await event.event_bus.dispatch(AuthRequestEvent(...))  # nested events supported
     auth_response = await event.event_bus.expect(AuthResponseEvent, timeout=30.0)
     return f"User {event.username} logged in admin={event.is_admin} with API response: {await auth_response.event_result()}"
@@ -993,6 +993,7 @@ uv run pytest tests/test_eventbus.py
 - https://github.com/n89nanda/pyeventbus
 - https://github.com/iunary/aioemit
 - https://github.com/dboslee/evently
+- https://github.com/faust-streaming/faust
 - https://github.com/ArcletProject/Letoderea
 - https://github.com/seanpar203/event-bus
 - https://github.com/n89nanda/pyeventbus

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: adlfs
-Version: 2024.12.0
+Version: 2025.8.0
 Summary: Access Azure Datalake Gen1 with fsspec and dask
 Maintainer-email: Greg Hayes <hayesgb@gmail.com>
 License: BSD
@@ -33,6 +33,7 @@ Requires-Dist: docker; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
 Requires-Dist: arrow; extra == "tests"
 Requires-Dist: dask[dataframe]; extra == "tests"
+Dynamic: license-file
 
 Filesystem interface to Azure-Datalake Gen1 and Gen2 Storage 
 ------------------------------------------------------------

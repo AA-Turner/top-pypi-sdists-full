@@ -1,6 +1,6 @@
 from typing import Any, List
 from orionis.console.contracts.cli_request import ICLIRequest
-from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
+from orionis.console.exceptions import CLIOrionisValueError
 
 class CLIRequest(ICLIRequest):
 

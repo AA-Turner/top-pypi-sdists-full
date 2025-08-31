@@ -185,7 +185,7 @@ def crossing_etched(
     positions = [(a, 0), (0, a), (-a, 0), (0, -a)]
     angles = [0, 90, 180, 270]
 
-    for i, (p, angle) in enumerate(zip(positions, angles)):
+    for i, (p, angle) in enumerate(zip(positions, angles, strict=False)):
         c.add_port(
             name=str(i),
             center=p,
@@ -236,7 +236,7 @@ def crossing45(
     crossing = gf.get_component(crossing)
 
     c = Component()
-    x = c << crossing
+    x = c.create_vinst(crossing)
     x.rotate(45)
 
     p_e = x.ports["o3"].center
@@ -268,10 +268,10 @@ def crossing45(
     )
     assert abs(bend.info["end_angle"] - end_angle) < tol, bend.info["end_angle"]
 
-    b_tr = c << bend
-    b_tl = c << bend
-    b_bl = c << bend
-    b_br = c << bend
+    b_tr = c.create_vinst(bend)
+    b_tl = c.create_vinst(bend)
+    b_bl = c.create_vinst(bend)
+    b_br = c.create_vinst(bend)
 
     b_tr.connect("o2", x.ports["o3"], mirror=True)
     b_tl.connect("o2", x.ports["o1"], mirror=True)
@@ -297,7 +297,3 @@ __all__ = [
     "crossing_etched",
     "crossing_linear_taper",
 ]
-
-if __name__ == "__main__":
-    c = crossing45()
-    c.show()

@@ -232,6 +232,7 @@ class ConstructLibraryCdktf(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -404,6 +405,7 @@ class ConstructLibraryCdktf(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -578,6 +580,7 @@ class ConstructLibraryCdktf(
             npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
+            npm_trusted_publishing=npm_trusted_publishing,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -691,6 +694,7 @@ class ConstructLibraryCdktf(
         "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
+        "npm_trusted_publishing": "npmTrustedPublishing",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -867,6 +871,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1039,6 +1044,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -1292,6 +1298,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -1524,6 +1531,8 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
             self._values["npm_token_secret"] = npm_token_secret
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -2457,6 +2466,17 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         '''
         result = self._values.get("npm_token_secret")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
@@ -3931,6 +3951,7 @@ def _typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,

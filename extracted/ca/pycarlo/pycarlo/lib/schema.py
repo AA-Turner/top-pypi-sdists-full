@@ -43118,6 +43118,7 @@ class Query(sgqlc.types.Type):
         "get_thresholds",
         "get_data_maintenance_entries",
         "get_data_maintenance_entries_by_monitor",
+        "get_data_maintenance_entries_by_mcon",
         "get_data_maintenance_holiday_codes",
         "get_data_maintenance_holiday_names",
         "get_table_columns_lineage",
@@ -49027,6 +49028,31 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_id` (`UUID!`): Monitor UUID
+    * `start_time` (`DateTime`): Start time of maintenance period
+    * `end_time` (`DateTime`): End time of maintenance period
+    """
+
+    get_data_maintenance_entries_by_mcon = sgqlc.types.Field(
+        sgqlc.types.list_of(DataMaintenanceEntry),
+        graphql_name="getDataMaintenanceEntriesByMcon",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+            )
+        ),
+    )
+    """(experimental) Fetch exclusion windows for the given MCON
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON
     * `start_time` (`DateTime`): Start time of maintenance period
     * `end_time` (`DateTime`): End time of maintenance period
     """

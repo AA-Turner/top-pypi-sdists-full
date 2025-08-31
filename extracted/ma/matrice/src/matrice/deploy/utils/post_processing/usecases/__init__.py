@@ -80,6 +80,7 @@ from .license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMoni
 from .dwell_detection import DwellConfig,DwellUseCase
 from .age_gender_detection import AgeGenderConfig,AgeGenderUseCase
 from .wildlife_monitoring import WildLifeMonitoringConfig, WildLifeMonitoringUseCase
+from .pcb_defect_detection import PCBDefectConfig, PCBDefectUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -160,6 +161,7 @@ __all__ = [
     'DwellUseCase',
     'AgeGenderUseCase',
     'WildLifeMonitoringUseCase',
+    'PCBDefectUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -237,6 +239,7 @@ __all__ = [
     'GasLeakDetectionConfig',
     'LicensePlateMonitorConfig',
     'WildLifeMonitoringConfig',
+    'PCBDefectConfig',
 
 
     #Put all IMAGE based usecase CONFIGS here

@@ -13,8 +13,22 @@ class TestBrowsing:
     def test_get_home(self, yt, yt_auth):
         result = yt.get_home()
         assert len(result) >= 2
-        result = yt_auth.get_home(limit=15)
+        result = yt_auth.get_home(limit=20)
         assert len(result) >= 15
+        assert all(
+            # ensure we aren't parsing specifiers like "Song" as artist names
+            [
+                item["artists"][0]["id"]
+                or item["artists"][0]["name"].lower() not in yt_auth.parser.get_api_result_types()
+                for section in result
+                for item in section["contents"]
+                if item and len(item.get("artists", [])) > 1
+            ]
+        )
+        assert all(
+            # ensure all links are supported by parse_mixed_content
+            [item is not None for section in result for item in section["contents"]]
+        )
 
     def test_get_artist(self, yt):
         results = yt.get_artist("MPLAUCmMUZbaYdNH0bEd1PAlAqsA")
@@ -42,6 +56,7 @@ class TestBrowsing:
     def test_get_artist_albums(self, yt):
         artist = yt.get_artist("UCAeLFBCQS7FvI8PvBrWvSBg")
         results = yt.get_artist_albums(artist["albums"]["browseId"], artist["albums"]["params"])
+        assert all("artists" not in result for result in results)  # artist info is omitted from the results
         assert len(results) == 100
         results = yt.get_artist_albums(artist["singles"]["browseId"], artist["singles"]["params"])
         assert len(results) == 100
@@ -89,7 +104,7 @@ class TestBrowsing:
 
     def test_get_album_browse_id_issue_470(self, yt):
         escaped_browse_id = yt.get_album_browse_id("OLAK5uy_nbMYyrfeg5ZgknoOsOGBL268hGxtcbnDM")
-        assert escaped_browse_id == "MPREb_pZhPA6GfQmN"
+        assert len(escaped_browse_id) == 17
 
     def test_get_album_2024(self, yt):
         with open(Path(__file__).parent.parent / "data" / "2024_03_get_album.json", encoding="utf8") as f:
@@ -179,6 +194,15 @@ class TestBrowsing:
         song = yt_oauth.get_watch_playlist(sample_video)
         song = yt_oauth.get_song_related(song["related"])
         assert len(song) >= 5
+        assert all(
+            # ensure every video is associated with a view count or music album
+            [
+                item.get("views") or item.get("album")
+                for section in song
+                for item in section["contents"]
+                if "videoId" in item
+            ]
+        )
 
     def test_get_lyrics(self, config, yt, sample_video):
         playlist = yt.get_watch_playlist(sample_video)

@@ -25,7 +25,7 @@ class APIException(fastapi.exceptions.HTTPException):
             error_data = {}
         self.error_data = error_data
         if kwargs_ is None:
-            kwargs_ = None
+            kwargs_ = {}
         self.kwargs_ = kwargs_
 
         self.error_common_so = ErrorCommonSO(

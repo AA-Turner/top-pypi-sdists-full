@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: typer-cli
-Version: 0.16.1
+Version: 0.17.3
 Summary: Typer, build great CLIs. Easy to code. Based on Python type hints.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 Classifier: Intended Audience :: Information Technology
@@ -30,7 +30,7 @@ Project-URL: Repository, https://github.com/fastapi/typer
 Project-URL: Issues, https://github.com/fastapi/typer/issues
 Project-URL: Changelog, https://typer.tiangolo.com/release-notes/
 Requires-Python: >=3.7
-Requires-Dist: typer==0.16.1
+Requires-Dist: typer==0.17.3
 Description-Content-Type: text/markdown
 
 <p align="center">

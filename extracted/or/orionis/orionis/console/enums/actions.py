@@ -2,42 +2,61 @@ from enum import Enum
 
 class ArgumentAction(Enum):
     """
-    Enumeration for valid argparse action types.
+    Enumeration of valid action types for use with Python's argparse module.
 
-    This enum provides a comprehensive list of all standard action types
-    that can be used with Python's argparse module when defining command
-    line arguments. Each enum member corresponds to a specific behavior
-    for how argument values should be processed and stored.
+    This enum defines all standard action types that can be assigned to command-line arguments
+    using argparse. Each member represents a specific way argparse processes and stores argument values.
+
+    Attributes
+    ----------
+    STORE : str
+        Stores the argument value directly.
+    STORE_CONST : str
+        Stores a constant value when the argument is specified.
+    STORE_TRUE : str
+        Stores True when the argument is specified.
+    STORE_FALSE : str
+        Stores False when the argument is specified.
+    APPEND : str
+        Appends each argument value to a list.
+    APPEND_CONST : str
+        Appends a constant value to a list when the argument is specified.
+    COUNT : str
+        Counts the number of times the argument is specified.
+    HELP : str
+        Displays the help message and exits.
+    VERSION : str
+        Displays version information and exits.
 
     Returns
     -------
     str
-        The string value representing the argparse action type.
+        The string value representing the corresponding argparse action type.
     """
 
-    # Store the argument value directly
+    # Stores the argument value directly
     STORE = "store"
 
-    # Store a constant value when the argument is specified
+    # Stores a constant value when the argument is specified
     STORE_CONST = "store_const"
 
-    # Store True when the argument is specified
+    # Stores True when the argument is specified
     STORE_TRUE = "store_true"
 
-    # Store False when the argument is specified
+    # Stores False when the argument is specified
     STORE_FALSE = "store_false"
 
-    # Append each argument value to a list
+    # Appends each argument value to a list
     APPEND = "append"
 
-    # Append a constant value to a list when the argument is specified
+    # Appends a constant value to a list when the argument is specified
     APPEND_CONST = "append_const"
 
-    # Count the number of times the argument is specified
+    # Counts the number of times the argument is specified
     COUNT = "count"
 
-    # Display help message and exit
+    # Displays the help message and exits the program
     HELP = "help"
 
-    # Display version information and exit
+    # Displays version information and exits the program
     VERSION = "version"

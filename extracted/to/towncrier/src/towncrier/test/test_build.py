@@ -3,6 +3,7 @@
 
 import os
 import tempfile
+import textwrap
 
 from datetime import date
 from pathlib import Path
@@ -15,7 +16,7 @@ from twisted.trial.unittest import TestCase
 
 from .._shell import cli
 from ..build import _main
-from .helpers import read, read_pkg_resource, with_git_project, with_project, write
+from .helpers import read, with_git_project, with_project, write
 
 
 class TestCli(TestCase):
@@ -1085,7 +1086,7 @@ class TestCli(TestCase):
 
             [20-01-2001] CUSTOM RELEASE for FooBarBaz version 7.8.9
 
-            ### Features
+            # Features
 
             - Adds levitation (#123)
 
@@ -1103,7 +1104,6 @@ class TestCli(TestCase):
         package = "foo"
         filename = "NEWS.md"
         title_format = "### [{project_date}] CUSTOM RELEASE for {name} version {version}"
-        template = "custom_template.md"
         """
     )
     def test_markdown_injected_after_header(self, runner):
@@ -1135,15 +1135,9 @@ class TestCli(TestCase):
             dedent=True,
         )
 
-        default_template = read_pkg_resource("templates/default.md")
-        write(
-            "custom_template.md",
-            contents=default_template.replace(
-                "### {{ definitions", "#### {{ definitions"
-            ),
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--yes"], catch_exceptions=False
         )
-
-        result = runner.invoke(_main, ["--date", "01-01-2001"], catch_exceptions=False)
 
         with open("foo/newsfragments/123.feature", "w") as f:
             f.write("Adds levitation")
@@ -1319,7 +1313,9 @@ class TestCli(TestCase):
             dedent=True,
         )
 
-        result = runner.invoke(_main, ["--date", "01-01-2001"], catch_exceptions=False)
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--yes"], catch_exceptions=False
+        )
         self.assertEqual(0, result.exit_code, result.output)
         output = read("NEWS.rst")
 
@@ -1373,7 +1369,9 @@ class TestCli(TestCase):
             dedent=True,
         )
 
-        result = runner.invoke(_main, ["--date", "01-01-2001"], catch_exceptions=False)
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--yes"], catch_exceptions=False
+        )
         self.assertEqual(0, result.exit_code, result.output)
         output = read("NEWS.md")
 
@@ -1387,7 +1385,7 @@ class TestCli(TestCase):
 
             # Foo 1.2.3 (01-01-2001)
 
-            ### Features
+            ## Features
 
             - Adds levitation (#123)
 
@@ -1425,7 +1423,9 @@ class TestCli(TestCase):
             dedent=True,
         )
 
-        result = runner.invoke(_main, ["--date", "01-01-2001"], catch_exceptions=False)
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--yes"], catch_exceptions=False
+        )
         self.assertEqual(0, result.exit_code, result.output)
         output = read("NEWS.md")
 
@@ -1437,7 +1437,7 @@ class TestCli(TestCase):
 
             # 1.2.3 (01-01-2001)
 
-            ### Features
+            ## Features
 
             - Adds levitation (#123)
             """
@@ -1607,7 +1607,7 @@ class TestCli(TestCase):
 
             # 7.8.9 (20-01-2001)
 
-            ### Misc
+            ## Misc
 
             - #123, #345
             - Another orphan misc still displayed!
@@ -1770,3 +1770,87 @@ class TestCli(TestCase):
             _main, ["--draft", "--date", "01-01-2001", "--version", "1.0.0"]
         )
         self.assertEqual(0, result.exit_code, result.output)
+
+    @with_project(
+        config="""
+        [tool.towncrier]
+        package = "foo"
+        title_format = "{version} - {project_date}"
+
+          [[tool.towncrier.type]]
+          directory = "feature"
+          name = "Feature"
+          # showcontent is not defined in TOML
+    """
+    )
+    def test_showcontent_default_toml_array(self, runner):
+        """
+        When configuring custom fragment types with a TOML array
+        a missing `showcontent` defaults to `true`.
+        """
+        write("foo/newsfragments/+new_feature.feature.md", "An exciting new feature!")
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--version", "1.0.0", "--yes"]
+        )
+        news = read("NEWS.rst")
+        expected = textwrap.dedent(
+            """\
+            1.0.0 - 01-01-2001
+            ==================
+
+            Feature
+            -------
+
+            - An exciting new feature!
+            """
+        )
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(expected, news, news)
+
+    @with_project(
+        config="""
+        [tool.towncrier]
+        package = "foo"
+        title_format = "{version} - {project_date}"
+
+          [[tool.towncrier.type]]
+          # The `FRAGMENT.feature` files have no explicit
+          # `directory` configuration.
+          name = "Feature"
+
+          [[tool.towncrier.type]]
+          directory = "deps"
+          name = "Dependency"
+        """
+    )
+    def test_directory_default_toml_array(self, runner):
+        """
+        When configuring custom fragment types with a TOML array
+        the `directory` key is optional. Its value is inferred
+        from the `name` configuration.
+        """
+        write("foo/newsfragments/+new_feature.feature.md", "An exciting new feature!")
+        write("foo/newsfragments/+bump_deps.deps.md", "We bumped our dependencies.")
+        result = runner.invoke(
+            _main, ["--date", "01-01-2001", "--version", "1.0.0", "--yes"]
+        )
+        news = read("NEWS.rst")
+        expected = textwrap.dedent(
+            """\
+            1.0.0 - 01-01-2001
+            ==================
+
+            Feature
+            -------
+
+            - An exciting new feature!
+
+
+            Dependency
+            ----------
+
+            - We bumped our dependencies.
+            """
+        )
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(expected, news, news)

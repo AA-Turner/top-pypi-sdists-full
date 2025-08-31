@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.21.2
+Version: 0.21.3
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -47,7 +47,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.8
-Requires-Dist: click!=8.0.0,>=7.1
+Requires-Dist: click>=8.0.1
 Requires-Dist: eval-type-backport; python_version < '3.10'
 Requires-Dist: gitpython!=3.1.29,>=1.0.0
 Requires-Dist: packaging

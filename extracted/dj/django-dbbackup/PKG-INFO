@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: django-dbbackup
-Version: 4.3.0
+Version: 5.0.0
 Summary: Management commands to help backup and restore a project database and media.
-Home-page: https://github.com/jazzband/django-dbbackup
-Author: Archmonger
-Author-email: archiethemonger@gmail.com
-License: BSD
-Keywords: django,database,media,backup,amazon,s3,dropbox,sqlite
+Project-URL: Changelog, https://archmonger.github.io/django-dbbackup /latest/changelog/
+Project-URL: Documentation, https://archmonger.github.io/django-dbbackup
+Project-URL: Source, https://github.com/Archmonger/django-dbbackup
+Author-email: Mark Bakhit <archiethemonger@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE.md
+Keywords: amazon,backup,database,django,dropbox,media,s3,sqlite
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Web Environment
 Classifier: Environment :: Console
-Classifier: Framework :: Django :: 3.2
+Classifier: Environment :: Web Environment
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
@@ -21,8 +22,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -32,88 +31,33 @@ Classifier: Topic :: Database
 Classifier: Topic :: System :: Archiving
 Classifier: Topic :: System :: Archiving :: Backup
 Classifier: Topic :: System :: Archiving :: Compression
-Requires-Python: >=3.7
-Description-Content-Type: text/x-rst
-License-File: LICENSE.txt
-License-File: AUTHORS.txt
-Requires-Dist: django>=3.2
-Requires-Dist: pytz
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Python: >=3.9
+Requires-Dist: django>=4.2
+Description-Content-Type: text/markdown
 
-Django Database Backup
-======================
+# Django DBBackup
 
-.. image:: https://github.com/jazzband/django-dbbackup/actions/workflows/build.yml/badge.svg
-        :target: https://github.com/jazzband/django-dbbackup/actions
+[![Build Status](https://github.com/Archmonger/django-dbbackup/actions/workflows/ci.yml/badge.svg)](https://github.com/Archmonger/django-dbbackup/actions)
 
-.. image:: https://readthedocs.org/projects/django-dbbackup/badge/?version=stable
-        :target: https://django-dbbackup.readthedocs.io/
-        :alt: Documentation Status
+This Django application provides management commands to help backup and restore your project database and media files with various storages such as Amazon S3, Dropbox, local file storage, or any Django-supported storage.
 
-.. image:: https://codecov.io/gh/jazzband/django-dbbackup/branch/master/graph/badge.svg?token=zaYmStcsuX
-        :target: https://codecov.io/gh/jazzband/django-dbbackup
+## Features
 
-.. image:: https://jazzband.co/static/img/badge.svg
-        :target: https://jazzband.co/
-        :alt: Jazzband
+-   Secure your backup with GPG signature and encryption.
+-   Archive with compression.
+-   Easily manage remote archiving.
+-   Keep your development database up to date.
+-   Set up automated backups with Crontab or Celery.
+-   Manually backup and restore via Django management commands.
 
-This Django application provides management commands to help backup and
-restore your project database and media files with various storages such as
-Amazon S3, Dropbox, local file storage or any Django storage.
+## Documentation
 
-It is made to:
+For more details, see the [official documentation](https://archmonger.github.io/django-dbbackup/).
 
-- Allow you to secure your backup with GPG signature and encryption
-- Archive with compression
-- Deal easily with remote archiving
-- Keep your development database up to date
-- Use Crontab or Celery to setup automated backups
-- Manually backup and restore via Django management commands
+## Why use DBBackup?
 
-Docs
-====
+DBBackup gives you a simple yet robust interface to backup, encrypt, transmit, and restore your database and media.
 
-See our official documentation at `Read The Docs`_.
+In a few words, it is a pipe between your Django project and your backups. It is written to be far more efficient than Django's [backup](https://docs.djangoproject.com/en/stable/ref/django-admin/)/[restore](https://docs.djangoproject.com/en/5.2/ref/django-admin/#loaddata) commands by using your database's native/standard/best procedure(s) or tool(s) to perform backups.
 
-Why use DBBackup
-================
-
-This software doesn't reinvent the wheel, in a few words it is a pipe between
-your Django project and your backup storage. It tries to use the traditional dump &
-restore mechanisms, apply compression and/or encryption and use the storage system you desire.
-
-It gives a simple interface to backup and restore your database or media
-files.
-
-Contributing
-============
-
-.. image:: https://jazzband.co/static/img/jazzband.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
-
-This is a `Jazzband <https://jazzband.co>`_ project. By contributing you agree
-to abide by the `Contributor Code of Conduct <https://jazzband.co/about/conduct>`_
-and follow the `guidelines <https://jazzband.co/about/guidelines>`_.
-
-All contribution are very welcomed, propositions, problems, bugs and
-enhancement are tracked with `GitHub issues`_ system and patches are submitted
-via `pull requests`_.
-
-We use GitHub Actions as continuous integration tools.
-
-.. _`Read The Docs`: https://django-dbbackup.readthedocs.org/
-.. _`GitHub issues`: https://github.com/jazzband/django-dbbackup/issues
-.. _`pull requests`: https://github.com/jazzband/django-dbbackup/pulls
-.. _Coveralls: https://coveralls.io/github/jazzband/django-dbbackup
+Ultimately, this helps simplify the task of "creating a backup" by removing the need for writing relational query commands, using complex tools, or creating scripts. Optionally, DBBackup can apply compression and/or encryption before transferring the data to nearly any storage system.

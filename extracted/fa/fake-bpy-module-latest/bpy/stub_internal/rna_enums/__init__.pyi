@@ -2571,6 +2571,7 @@ type PropertySubtypeItems = typing.Literal[
     "BYTE_STRING",  # Byte String.
     "PASSWORD",  # Password.A string that is displayed hidden ('********').
     "PIXEL",  # Pixel.A distance on screen.
+    "PIXEL_DIAMETER",  # Pixel.A distance on screen, specifically representing a diameter value.
     "UNSIGNED",  # Unsigned.
     "PERCENTAGE",  # Percentage.A percentage between 0 and 100.
     "FACTOR",  # Factor.A factor between 0.0 and 1.0.
@@ -2578,6 +2579,7 @@ type PropertySubtypeItems = typing.Literal[
     "TIME",  # Time (Scene Relative).Time specified in frames, converted to seconds based on scene frame rate.
     "TIME_ABSOLUTE",  # Time (Absolute).Time specified in seconds, independent of the scene.
     "DISTANCE",  # Distance.A distance between two points.
+    "DISTANCE_DIAMETER",  # Distance.A distance between two points, specifically representing a diameter value.
     "DISTANCE_CAMERA",  # Camera Distance.
     "POWER",  # Power.
     "TEMPERATURE",  # Temperature.
@@ -2620,6 +2622,7 @@ type PropertySubtypeNumberArrayItems = typing.Literal[
 ]
 type PropertySubtypeNumberItems = typing.Literal[
     "PIXEL",  # Pixel.A distance on screen.
+    "PIXEL_DIAMETER",  # Pixel.A distance on screen, specifically representing a diameter value.
     "UNSIGNED",  # Unsigned.
     "PERCENTAGE",  # Percentage.A percentage between 0 and 100.
     "FACTOR",  # Factor.A factor between 0.0 and 1.0.
@@ -2627,6 +2630,7 @@ type PropertySubtypeNumberItems = typing.Literal[
     "TIME",  # Time (Scene Relative).Time specified in frames, converted to seconds based on scene frame rate.
     "TIME_ABSOLUTE",  # Time (Absolute).Time specified in seconds, independent of the scene.
     "DISTANCE",  # Distance.A distance between two points.
+    "DISTANCE_DIAMETER",  # Distance.A distance between two points, specifically representing a diameter value.
     "DISTANCE_CAMERA",  # Camera Distance.
     "POWER",  # Power.
     "TEMPERATURE",  # Temperature.

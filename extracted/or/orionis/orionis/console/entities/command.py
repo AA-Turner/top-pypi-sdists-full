@@ -12,14 +12,16 @@ class Command(BaseEntity):
     ----------
     obj : Type
         The type or class associated with the command.
-    timestamps : bool
-        Whether timestamps are enabled for this command.
+    method : str, optional
+        The method name to be invoked on the object. Defaults to 'hanldle'.
+    timestamps : bool, optional
+        Whether timestamps are enabled for this command. Defaults to True.
     signature : str
         The signature string representing the command usage.
     description : str
         A brief description of what the command does.
     args : Optional[argparse.ArgumentParser], optional
-        Optional argument parser for command-line arguments.
+        Optional argument parser for command-line arguments. Defaults to None.
 
     Returns
     -------
@@ -30,11 +32,11 @@ class Command(BaseEntity):
     # The type or class associated with the command
     obj: Type
 
-    # The method name to be invoked on the object
+    # The method name to be invoked on the object (default: 'hanldle')
     method: str = 'hanldle'
 
-    # Indicates if timestamps are enabled for this command
-    timestamps: bool
+    # Indicates if timestamps are enabled for this command (default: True)
+    timestamps: bool = True
 
     # The command usage signature
     signature: str
@@ -42,5 +44,5 @@ class Command(BaseEntity):
     # Description of the command's purpose
     description: str
 
-    # Optional argument parser for command-line arguments
+    # Optional argument parser for command-line arguments (default: None)
     args: Optional[argparse.ArgumentParser] = None

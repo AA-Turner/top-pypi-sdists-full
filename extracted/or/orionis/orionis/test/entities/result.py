@@ -141,3 +141,11 @@ class TestResult:
             "description": "Docstring of the test, if applicable."
         }
     )
+
+    # The exception instance if an error occurred, otherwise None
+    exception: Optional[BaseException] = field(
+        default=None,
+        metadata={
+            "description": "The exception instance if an error occurred, otherwise None."
+        }
+    )

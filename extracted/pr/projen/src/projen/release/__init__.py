@@ -1664,6 +1664,7 @@ class MavenPublishOptions(CommonPublishOptions):
         "npm_provenance": "npmProvenance",
         "npm_token_secret": "npmTokenSecret",
         "registry": "registry",
+        "trusted_publishing": "trustedPublishing",
     },
 )
 class NpmPublishOptions(CommonPublishOptions):
@@ -1679,6 +1680,7 @@ class NpmPublishOptions(CommonPublishOptions):
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for npm release.
 
@@ -1686,11 +1688,12 @@ class NpmPublishOptions(CommonPublishOptions):
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - undefined
+        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
         :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
-        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - undefined
-        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
+        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
+        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
+        :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
 
         :stability: experimental
         '''
@@ -1709,6 +1712,7 @@ class NpmPublishOptions(CommonPublishOptions):
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if github_environment is not None:
             self._values["github_environment"] = github_environment
@@ -1728,6 +1732,8 @@ class NpmPublishOptions(CommonPublishOptions):
             self._values["npm_token_secret"] = npm_token_secret
         if registry is not None:
             self._values["registry"] = registry
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
 
     @builtins.property
     def github_environment(self) -> typing.Optional[builtins.str]:
@@ -1788,7 +1794,7 @@ class NpmPublishOptions(CommonPublishOptions):
     def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
         '''(experimental) Options for publishing npm package to AWS CodeArtifact.
 
-        :default: - undefined
+        :default: - package is not published to
 
         :stability: experimental
         '''
@@ -1826,7 +1832,9 @@ class NpmPublishOptions(CommonPublishOptions):
         Note that this component is using ``publib`` to publish packages,
         which is using npm internally and supports provenance statements independently of the package manager used.
 
-        :default: - undefined
+        Only works in supported CI/CD environments.
+
+        :default: - enabled for for public packages using trusted publishing, disabled otherwise
 
         :see: https://docs.npmjs.com/generating-provenance-statements
         :stability: experimental
@@ -1836,7 +1844,7 @@ class NpmPublishOptions(CommonPublishOptions):
 
     @builtins.property
     def npm_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret which contains the NPM token to use when publishing packages.
+        '''(experimental) GitHub secret which contains the NPM token to use for publishing packages.
 
         :default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
 
@@ -1865,6 +1873,21 @@ class NpmPublishOptions(CommonPublishOptions):
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically.
+        When used, ``npmTokenSecret`` will be ignored.
+
+        :default: - false
+
+        :see: https://docs.npmjs.com/trusted-publishers
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2297,6 +2320,7 @@ class Publisher(
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2304,11 +2328,12 @@ class Publisher(
     ) -> None:
         '''(experimental) Publishes artifacts from ``js/**`` to npm.
 
-        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - undefined
+        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
         :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
-        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - undefined
-        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
+        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
+        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
+        :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
@@ -2322,6 +2347,7 @@ class Publisher(
             npm_provenance=npm_provenance,
             npm_token_secret=npm_token_secret,
             registry=registry,
+            trusted_publishing=trusted_publishing,
             github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
@@ -2367,7 +2393,9 @@ class Publisher(
     def publish_to_py_pi(
         self,
         *,
+        attestations: typing.Optional[builtins.bool] = None,
         code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
@@ -2378,7 +2406,9 @@ class Publisher(
     ) -> None:
         '''(experimental) Publishes wheel artifacts from ``python`` to PyPI.
 
+        :param attestations: (experimental) Generate and publish cryptographic attestations for files uploaded to PyPI. Attestations provide package provenance and integrity an can be viewed on PyPI. They are only available when using a Trusted Publisher for publishing. Default: - enabled when using trusted publishing, otherwise not applicable
         :param code_artifact_options: (experimental) Options for publishing to AWS CodeArtifact. Default: - undefined
+        :param trusted_publishing: (experimental) Use PyPI trusted publishing instead of tokens or username & password. Needs to be setup in PyPI.
         :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
         :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
         :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
@@ -2390,7 +2420,9 @@ class Publisher(
         :stability: experimental
         '''
         options = PyPiPublishOptions(
+            attestations=attestations,
             code_artifact_options=code_artifact_options,
+            trusted_publishing=trusted_publishing,
             twine_password_secret=twine_password_secret,
             twine_registry_url=twine_registry_url,
             twine_username_secret=twine_username_secret,
@@ -2729,7 +2761,9 @@ class PublisherOptions:
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
+        "attestations": "attestations",
         "code_artifact_options": "codeArtifactOptions",
+        "trusted_publishing": "trustedPublishing",
         "twine_password_secret": "twinePasswordSecret",
         "twine_registry_url": "twineRegistryUrl",
         "twine_username_secret": "twineUsernameSecret",
@@ -2743,7 +2777,9 @@ class PyPiPublishOptions(CommonPublishOptions):
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        attestations: typing.Optional[builtins.bool] = None,
         code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
@@ -2754,7 +2790,9 @@ class PyPiPublishOptions(CommonPublishOptions):
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
+        :param attestations: (experimental) Generate and publish cryptographic attestations for files uploaded to PyPI. Attestations provide package provenance and integrity an can be viewed on PyPI. They are only available when using a Trusted Publisher for publishing. Default: - enabled when using trusted publishing, otherwise not applicable
         :param code_artifact_options: (experimental) Options for publishing to AWS CodeArtifact. Default: - undefined
+        :param trusted_publishing: (experimental) Use PyPI trusted publishing instead of tokens or username & password. Needs to be setup in PyPI.
         :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
         :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
         :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
@@ -2771,7 +2809,9 @@ class PyPiPublishOptions(CommonPublishOptions):
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
+            check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
             check_type(argname="argument twine_password_secret", value=twine_password_secret, expected_type=type_hints["twine_password_secret"])
             check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
             check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
@@ -2784,8 +2824,12 @@ class PyPiPublishOptions(CommonPublishOptions):
             self._values["pre_publish_steps"] = pre_publish_steps
         if publish_tools is not None:
             self._values["publish_tools"] = publish_tools
+        if attestations is not None:
+            self._values["attestations"] = attestations
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
         if twine_password_secret is not None:
             self._values["twine_password_secret"] = twine_password_secret
         if twine_registry_url is not None:
@@ -2849,6 +2893,21 @@ class PyPiPublishOptions(CommonPublishOptions):
         return typing.cast(typing.Optional[_Tools_75b93a2a], result)
 
     @builtins.property
+    def attestations(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate and publish cryptographic attestations for files uploaded to PyPI.
+
+        Attestations provide package provenance and integrity an can be viewed on PyPI.
+        They are only available when using a Trusted Publisher for publishing.
+
+        :default: - enabled when using trusted publishing, otherwise not applicable
+
+        :see: https://docs.pypi.org/attestations/producing-attestations/
+        :stability: experimental
+        '''
+        result = self._values.get("attestations")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
         '''(experimental) Options for publishing to AWS CodeArtifact.
 
@@ -2858,6 +2917,18 @@ class PyPiPublishOptions(CommonPublishOptions):
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional[CodeArtifactOptions], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use PyPI trusted publishing instead of tokens or username & password.
+
+        Needs to be setup in PyPI.
+
+        :see: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def twine_password_secret(self) -> typing.Optional[builtins.str]:
@@ -4167,6 +4238,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
         "npm_provenance": "npmProvenance",
         "npm_token_secret": "npmTokenSecret",
         "registry": "registry",
+        "trusted_publishing": "trustedPublishing",
     },
 )
 class JsiiReleaseNpm(NpmPublishOptions):
@@ -4182,17 +4254,19 @@ class JsiiReleaseNpm(NpmPublishOptions):
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - undefined
+        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
         :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
-        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - undefined
-        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
+        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
+        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
+        :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
 
         :deprecated: Use ``NpmPublishOptions`` instead.
 
@@ -4213,6 +4287,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if github_environment is not None:
             self._values["github_environment"] = github_environment
@@ -4232,6 +4307,8 @@ class JsiiReleaseNpm(NpmPublishOptions):
             self._values["npm_token_secret"] = npm_token_secret
         if registry is not None:
             self._values["registry"] = registry
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
 
     @builtins.property
     def github_environment(self) -> typing.Optional[builtins.str]:
@@ -4292,7 +4369,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
     def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
         '''(experimental) Options for publishing npm package to AWS CodeArtifact.
 
-        :default: - undefined
+        :default: - package is not published to
 
         :stability: experimental
         '''
@@ -4330,7 +4407,9 @@ class JsiiReleaseNpm(NpmPublishOptions):
         Note that this component is using ``publib`` to publish packages,
         which is using npm internally and supports provenance statements independently of the package manager used.
 
-        :default: - undefined
+        Only works in supported CI/CD environments.
+
+        :default: - enabled for for public packages using trusted publishing, disabled otherwise
 
         :see: https://docs.npmjs.com/generating-provenance-statements
         :stability: experimental
@@ -4340,7 +4419,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
 
     @builtins.property
     def npm_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret which contains the NPM token to use when publishing packages.
+        '''(experimental) GitHub secret which contains the NPM token to use for publishing packages.
 
         :default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
 
@@ -4369,6 +4448,21 @@ class JsiiReleaseNpm(NpmPublishOptions):
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically.
+        When used, ``npmTokenSecret`` will be ignored.
+
+        :default: - false
+
+        :see: https://docs.npmjs.com/trusted-publishers
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4536,7 +4630,9 @@ class JsiiReleaseNuget(NugetPublishOptions):
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
+        "attestations": "attestations",
         "code_artifact_options": "codeArtifactOptions",
+        "trusted_publishing": "trustedPublishing",
         "twine_password_secret": "twinePasswordSecret",
         "twine_registry_url": "twineRegistryUrl",
         "twine_username_secret": "twineUsernameSecret",
@@ -4550,7 +4646,9 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        attestations: typing.Optional[builtins.bool] = None,
         code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
@@ -4560,7 +4658,9 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
+        :param attestations: (experimental) Generate and publish cryptographic attestations for files uploaded to PyPI. Attestations provide package provenance and integrity an can be viewed on PyPI. They are only available when using a Trusted Publisher for publishing. Default: - enabled when using trusted publishing, otherwise not applicable
         :param code_artifact_options: (experimental) Options for publishing to AWS CodeArtifact. Default: - undefined
+        :param trusted_publishing: (experimental) Use PyPI trusted publishing instead of tokens or username & password. Needs to be setup in PyPI.
         :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
         :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
         :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
@@ -4579,7 +4679,9 @@ class JsiiReleasePyPi(PyPiPublishOptions):
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
+            check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
             check_type(argname="argument twine_password_secret", value=twine_password_secret, expected_type=type_hints["twine_password_secret"])
             check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
             check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
@@ -4592,8 +4694,12 @@ class JsiiReleasePyPi(PyPiPublishOptions):
             self._values["pre_publish_steps"] = pre_publish_steps
         if publish_tools is not None:
             self._values["publish_tools"] = publish_tools
+        if attestations is not None:
+            self._values["attestations"] = attestations
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
         if twine_password_secret is not None:
             self._values["twine_password_secret"] = twine_password_secret
         if twine_registry_url is not None:
@@ -4657,6 +4763,21 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         return typing.cast(typing.Optional[_Tools_75b93a2a], result)
 
     @builtins.property
+    def attestations(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate and publish cryptographic attestations for files uploaded to PyPI.
+
+        Attestations provide package provenance and integrity an can be viewed on PyPI.
+        They are only available when using a Trusted Publisher for publishing.
+
+        :default: - enabled when using trusted publishing, otherwise not applicable
+
+        :see: https://docs.pypi.org/attestations/producing-attestations/
+        :stability: experimental
+        '''
+        result = self._values.get("attestations")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
         '''(experimental) Options for publishing to AWS CodeArtifact.
 
@@ -4666,6 +4787,18 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional[CodeArtifactOptions], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use PyPI trusted publishing instead of tokens or username & password.
+
+        Needs to be setup in PyPI.
+
+        :see: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def twine_password_secret(self) -> typing.Optional[builtins.str]:
@@ -5541,6 +5674,7 @@ def _typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d2
     npm_provenance: typing.Optional[builtins.bool] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     registry: typing.Optional[builtins.str] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5614,7 +5748,9 @@ def _typecheckingstub__f90cd44def59be822b686bcd759d7f0a910b9936ca8acc0ef3e69cda5
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+    attestations: typing.Optional[builtins.bool] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
     twine_password_secret: typing.Optional[builtins.str] = None,
     twine_registry_url: typing.Optional[builtins.str] = None,
     twine_username_secret: typing.Optional[builtins.str] = None,
@@ -5755,6 +5891,7 @@ def _typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da674
     npm_provenance: typing.Optional[builtins.bool] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     registry: typing.Optional[builtins.str] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5777,7 +5914,9 @@ def _typecheckingstub__0fa7c01cc40634bf771011bf4e8ddb9e3be28efd1b3f15b5d0768a4e8
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+    attestations: typing.Optional[builtins.bool] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
     twine_password_secret: typing.Optional[builtins.str] = None,
     twine_registry_url: typing.Optional[builtins.str] = None,
     twine_username_secret: typing.Optional[builtins.str] = None,

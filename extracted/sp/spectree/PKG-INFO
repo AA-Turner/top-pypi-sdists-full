@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: spectree
-Version: 1.5.3
+Version: 1.5.4
 Summary: Generate OpenAPI document and validate request & response with Python annotations.
 Author-email: Keming Yang <kemingy94@gmail.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/0b01001001/spectree
 Project-URL: documentation, https://0b01001001.github.io/spectree/
 Project-URL: repository, https://github.com/0b01001001/spectree
 Project-URL: changelog, https://github.com/0b01001001/spectree/releases
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9

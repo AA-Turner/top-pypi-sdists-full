@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: textstat
-Version: 0.7.8
+Version: 0.7.10
 Summary: Calculate statistical features from text
 Home-page: https://github.com/textstat/textstat
 Author: Shivam Bansal, Chaitanya Aggarwal
@@ -22,7 +22,7 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyphen
-Requires-Dist: cmudict
+Requires-Dist: nltk
 Requires-Dist: setuptools
 Dynamic: author
 Dynamic: author-email
@@ -457,8 +457,8 @@ textstat.syllable_count(text)
 Returns the number of syllables present in the given text.
 
 Uses the Python module [Pyphen](https://github.com/Kozea/Pyphen)
-for syllable calculation in most languages, but defaults to 
-[cmudict](https://github.com/prosegrinder/python-cmudict) for
+for syllable calculation in most languages, but defaults to
+[nltk.corpus.cmudict](https://www.nltk.org/) for
 en_US.
 
 #### Lexicon Count

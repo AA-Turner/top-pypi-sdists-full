@@ -6,12 +6,20 @@ class SchedulerPaused(SchedulerEventData):
     """
     Represents an event triggered when the scheduler is paused.
 
-    This class is a data structure that inherits from `SchedulerEventData` 
-    and is used to encapsulate information related to the scheduler pause event.
+    This data class extends `SchedulerEventData` and encapsulates information
+    related to the scheduler pause event, such as the time at which the pause occurred.
 
     Attributes
     ----------
-    (Inherited from SchedulerEventData)
+    time : str
+        The time when the scheduler was paused, formatted as a string.
+    (Other attributes are inherited from SchedulerEventData.)
+
+    Returns
+    -------
+    SchedulerPaused
+        An instance of SchedulerPaused containing information about the pause event.
     """
 
-    time: str  # Time when the scheduler was paused
+    # The time when the scheduler was paused
+    time: str

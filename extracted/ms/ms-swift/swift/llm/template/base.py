@@ -304,7 +304,11 @@ class Template(ProcessorMixin):
             get_new_tokens: Callable[[int], List[int]]) -> Tuple[List[int], Optional[List[int]], Optional[List[float]]]:
         added_tokens_len = 0
         for i, idx in enumerate(replace_idx_list):
-            new_tokens = get_new_tokens(i)
+            try:
+                new_tokens = get_new_tokens(i)
+            except IndexError as e:
+                logger.warning(f'IndexError occurs in the _extend_tokens function: {e}.')
+                continue
             token_len = len(new_tokens)
             input_ids = input_ids[:idx + added_tokens_len] + new_tokens + input_ids[added_tokens_len + idx + 1:]
             if labels:
@@ -1058,6 +1062,7 @@ class Template(ProcessorMixin):
                     i += 1
                 pre_message['content'], tool_content = self.agent_template._format_tool_responses(
                     pre_content, messages[i_start:i + 1])
+                # where tool_content is a List.
                 messages[i_start:i + 1] = [{'role': 'tool', 'content': tool_content}]
                 i = i_start + 1
             elif pre_role == 'assistant' and role == 'assistant' or pre_role == 'user' and role == 'user':

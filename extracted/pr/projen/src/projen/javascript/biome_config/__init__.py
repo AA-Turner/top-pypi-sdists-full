@@ -1954,7 +1954,7 @@ class HtmlConfiguration:
         self,
         *,
         formatter: typing.Optional[typing.Union["HtmlFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
-        parser: typing.Any = None,
+        parser: typing.Optional[typing.Union["HtmlParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options applied to HTML files.
 
@@ -1966,6 +1966,8 @@ class HtmlConfiguration:
         '''
         if isinstance(formatter, dict):
             formatter = HtmlFormatterConfiguration(**formatter)
+        if isinstance(parser, dict):
+            parser = HtmlParserConfiguration(**parser)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded)
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
@@ -1987,14 +1989,14 @@ class HtmlConfiguration:
         return typing.cast(typing.Optional["HtmlFormatterConfiguration"], result)
 
     @builtins.property
-    def parser(self) -> typing.Any:
+    def parser(self) -> typing.Optional["HtmlParserConfiguration"]:
         '''(experimental) HTML parsing options.
 
         :stability: experimental
         :schema: HtmlConfiguration#parser
         '''
         result = self._values.get("parser")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional["HtmlParserConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2229,6 +2231,49 @@ class HtmlFormatterConfiguration:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.HtmlParserConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"interpolation": "interpolation"},
+)
+class HtmlParserConfiguration:
+    def __init__(self, *, interpolation: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Options that changes how the HTML parser behaves.
+
+        :param interpolation: (experimental) Enables the parsing of double text expressions such as ``{{ expression }}`` inside ``.html`` files.
+
+        :stability: experimental
+        :schema: HtmlParserConfiguration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37)
+            check_type(argname="argument interpolation", value=interpolation, expected_type=type_hints["interpolation"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if interpolation is not None:
+            self._values["interpolation"] = interpolation
+
+    @builtins.property
+    def interpolation(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables the parsing of double text expressions such as ``{{ expression }}`` inside ``.html`` files.
+
+        :stability: experimental
+        :schema: HtmlParserConfiguration#interpolation
+        '''
+        result = self._values.get("interpolation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HtmlParserConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.javascript.biome_config.IndentStyle")
 class IndentStyle(enum.Enum):
     '''
@@ -2445,6 +2490,7 @@ class JsConfiguration:
         "jsx_quote_style": "jsxQuoteStyle",
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
+        "operator_linebreak": "operatorLinebreak",
         "quote_properties": "quoteProperties",
         "quote_style": "quoteStyle",
         "semicolons": "semicolons",
@@ -2466,6 +2512,7 @@ class JsFormatterConfiguration:
         jsx_quote_style: typing.Optional["QuoteStyle"] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
+        operator_linebreak: typing.Optional["OperatorLinebreak"] = None,
         quote_properties: typing.Optional["QuoteProperties"] = None,
         quote_style: typing.Optional["QuoteStyle"] = None,
         semicolons: typing.Optional["Semicolons"] = None,
@@ -2484,6 +2531,7 @@ class JsFormatterConfiguration:
         :param jsx_quote_style: (experimental) The type of quotes used in JSX. Defaults to double. Default: double.
         :param line_ending: (experimental) The type of line ending applied to JavaScript (and its super languages) files.
         :param line_width: (experimental) What's the max width of a line applied to JavaScript (and its super languages) files. Defaults to 80. Default: 80.
+        :param operator_linebreak: (experimental) When breaking binary expressions into multiple lines, whether to break them before or after the binary operator. Defaults to "after". Default: after".
         :param quote_properties: (experimental) When properties in objects are quoted. Defaults to asNeeded. Default: asNeeded.
         :param quote_style: (experimental) The type of quotes used in JavaScript code. Defaults to double. Default: double.
         :param semicolons: (experimental) Whether the formatter prints semicolons for all statements or only in for statements where it is necessary because of ASI.
@@ -2505,6 +2553,7 @@ class JsFormatterConfiguration:
             check_type(argname="argument jsx_quote_style", value=jsx_quote_style, expected_type=type_hints["jsx_quote_style"])
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument operator_linebreak", value=operator_linebreak, expected_type=type_hints["operator_linebreak"])
             check_type(argname="argument quote_properties", value=quote_properties, expected_type=type_hints["quote_properties"])
             check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
             check_type(argname="argument semicolons", value=semicolons, expected_type=type_hints["semicolons"])
@@ -2532,6 +2581,8 @@ class JsFormatterConfiguration:
             self._values["line_ending"] = line_ending
         if line_width is not None:
             self._values["line_width"] = line_width
+        if operator_linebreak is not None:
+            self._values["operator_linebreak"] = operator_linebreak
         if quote_properties is not None:
             self._values["quote_properties"] = quote_properties
         if quote_style is not None:
@@ -2682,6 +2733,20 @@ class JsFormatterConfiguration:
         '''
         result = self._values.get("line_width")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def operator_linebreak(self) -> typing.Optional["OperatorLinebreak"]:
+        '''(experimental) When breaking binary expressions into multiple lines, whether to break them before or after the binary operator.
+
+        Defaults to "after".
+
+        :default: after".
+
+        :stability: experimental
+        :schema: JsFormatterConfiguration#operatorLinebreak
+        '''
+        result = self._values.get("operator_linebreak")
+        return typing.cast(typing.Optional["OperatorLinebreak"], result)
 
     @builtins.property
     def quote_properties(self) -> typing.Optional["QuoteProperties"]:
@@ -3463,6 +3528,25 @@ class LinterConfiguration:
         return "LinterConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.javascript.biome_config.OperatorLinebreak")
+class OperatorLinebreak(enum.Enum):
+    '''
+    :stability: experimental
+    :schema: OperatorLinebreak
+    '''
+
+    AFTER = "AFTER"
+    '''(experimental) after.
+
+    :stability: experimental
+    '''
+    BEFORE = "BEFORE"
+    '''(experimental) before.
+
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
@@ -4740,6 +4824,7 @@ __all__ = [
     "GritLinterConfiguration",
     "HtmlConfiguration",
     "HtmlFormatterConfiguration",
+    "HtmlParserConfiguration",
     "IndentStyle",
     "JsAssistConfiguration",
     "JsConfiguration",
@@ -4754,6 +4839,7 @@ __all__ = [
     "JsxRuntime",
     "LineEnding",
     "LinterConfiguration",
+    "OperatorLinebreak",
     "OverrideAssistConfiguration",
     "OverrideFilesConfiguration",
     "OverrideFormatterConfiguration",
@@ -4960,7 +5046,7 @@ def _typecheckingstub__4f328d623f0baa93f52695005ba45f28881c95ae610fde354116a44bc
 def _typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded(
     *,
     formatter: typing.Optional[typing.Union[HtmlFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-    parser: typing.Any = None,
+    parser: typing.Optional[typing.Union[HtmlParserConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4977,6 +5063,13 @@ def _typecheckingstub__bcbf243ebdc0f288a10a4e6b68dc5a1ff88f4d8abe5566f57f212bf10
     line_width: typing.Optional[jsii.Number] = None,
     self_close_void_elements: typing.Optional[SelfCloseVoidElements] = None,
     whitespace_sensitivity: typing.Optional[WhitespaceSensitivity] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37(
+    *,
+    interpolation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5013,6 +5106,7 @@ def _typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e0118365
     jsx_quote_style: typing.Optional[QuoteStyle] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
+    operator_linebreak: typing.Optional[OperatorLinebreak] = None,
     quote_properties: typing.Optional[QuoteProperties] = None,
     quote_style: typing.Optional[QuoteStyle] = None,
     semicolons: typing.Optional[Semicolons] = None,

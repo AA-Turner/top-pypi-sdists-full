@@ -8,28 +8,16 @@ import os
 import sys
 
 from subprocess import CalledProcessError
-from typing import Container
-from warnings import warn
 
 import click
 
 from ._builder import find_fragments
-from ._git import get_remote_branches, list_changed_files_compared_to_branch
 from ._settings import config_option_help, load_config_from_options
-
-
-def _get_default_compare_branch(branches: Container[str]) -> str | None:
-    if "origin/main" in branches:
-        return "origin/main"
-    if "origin/master" in branches:
-        warn(
-            'Using "origin/master" as default compare branch is deprecated '
-            "and will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return "origin/master"
-    return None
+from ._vcs import (
+    get_default_compare_branch,
+    get_remote_branches,
+    list_changed_files_compared_to_branch,
+)
 
 
 @click.command(name="check")
@@ -57,21 +45,33 @@ def _get_default_compare_branch(branches: Container[str]) -> str | None:
     metavar="FILE_PATH",
     help=config_option_help,
 )
-def _main(compare_with: str | None, directory: str | None, config: str | None) -> None:
+@click.option(
+    "--staged",
+    "staged",
+    is_flag=True,
+    default=False,
+    help="Include staged files as part of the branch checked in the --compare-with",
+)
+def _main(
+    compare_with: str | None, directory: str | None, config: str | None, staged: bool
+) -> None:
     """
     Check for new fragments on a branch.
     """
-    __main(compare_with, directory, config)
+    __main(compare_with, directory, config, staged)
 
 
 def __main(
-    comparewith: str | None, directory: str | None, config_path: str | None
+    comparewith: str | None,
+    directory: str | None,
+    config_path: str | None,
+    staged: bool,
 ) -> None:
     base_directory, config = load_config_from_options(directory, config_path)
 
     if comparewith is None:
-        comparewith = _get_default_compare_branch(
-            get_remote_branches(base_directory=base_directory)
+        comparewith = get_default_compare_branch(
+            base_directory, get_remote_branches(base_directory=base_directory)
         )
 
     if comparewith is None:
@@ -80,7 +80,7 @@ def __main(
 
     try:
         files_changed = list_changed_files_compared_to_branch(
-            base_directory, comparewith
+            base_directory, comparewith, staged
         )
     except CalledProcessError as e:
         click.echo("git produced output while failing:")

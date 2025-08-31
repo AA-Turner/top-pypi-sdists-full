@@ -9,13 +9,14 @@ import io
 import logging
 import os
 import re
+import sys
 import typing
 import warnings
 import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -38,6 +39,7 @@ from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
 from .utils import (
+    __version__,
     close_container_client,
     close_credential,
     close_service_client,
@@ -68,9 +70,11 @@ VERSIONED_BLOB_PROPERTIES = [
     "is_current_version",
 ]
 _ROOT_PATH = "/"
-_DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
+_DEFAULT_BLOCK_SIZE = 50 * 2**20
 
 _SOCKET_TIMEOUT_DEFAULT = object()
+
+_USER_AGENT = f"adlfs/{__version__}"
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -78,16 +82,12 @@ def make_callback(key, callback):
     if callback is None:
         return None
 
-    sent_total = False
-
     def wrapper(response):
-        nonlocal sent_total
-
         current = response.context.get(key)
         total = response.context["data_stream_total"]
         if current is None:
             return
-        if not sent_total and total is not None:
+        if total is not None:
             callback.set_size(total)
         callback.absolute_update(current)
 
@@ -122,6 +122,31 @@ def _coalesce_version_id(*args) -> Optional[str]:
         return version_ids.pop()
 
 
+def _create_aio_blob_service_client(
+    account_url: str,
+    location_mode: Optional[str] = None,
+    credential: Optional[str] = None,
+) -> AIOBlobServiceClient:
+    service_client_kwargs = {
+        "account_url": account_url,
+        "user_agent": _USER_AGENT,
+    }
+    if credential is not None:
+        service_client_kwargs["credential"] = credential
+    if location_mode is not None:
+        service_client_kwargs["_location_mode"] = location_mode
+    return AIOBlobServiceClient(**service_client_kwargs)
+
+
+def _create_aio_blob_service_client_from_connection_string(
+    connection_string: str,
+) -> AIOBlobServiceClient:
+    return AIOBlobServiceClient.from_connection_string(
+        conn_str=connection_string,
+        user_agent=_USER_AGENT,
+    )
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -153,8 +178,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
     blocksize: int
-        The block size to use for download/upload operations. Defaults to hardcoded value of
-        ``BlockBlobService.MAX_BLOCK_SIZE``
+        The block size to use for download/upload operations. Defaults to 50 MiB
     client_id: str
         Client ID to use when authenticating using an AD Service Principal client/secret.
     client_secret: str
@@ -477,8 +501,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         try:
             if self.connection_string is not None:
-                self.service_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.connection_string
+                self.service_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.connection_string,
+                    )
                 )
             elif self.account_name is not None:
                 if hasattr(self, "account_host"):
@@ -491,10 +517,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
-                        AIOBlobServiceClient(
+                        _create_aio_blob_service_client(
                             account_url=self.account_url,
+                            location_mode=self.location_mode,
                             credential=cred,
-                            _location_mode=self.location_mode,
                         )
                         for cred in creds
                         if cred is not None
@@ -502,15 +528,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 elif self.sas_token is not None:
                     if not self.sas_token.startswith("?"):
                         self.sas_token = f"?{self.sas_token}"
-                    self.service_client = AIOBlobServiceClient(
+                    self.service_client = _create_aio_blob_service_client(
                         account_url=self.account_url + self.sas_token,
-                        credential=None,
-                        _location_mode=self.location_mode,
+                        location_mode=self.location_mode,
                     )
                 else:
                     # Fall back to anonymous login, and assume public container
-                    self.service_client = AIOBlobServiceClient(
-                        account_url=self.account_url
+                    self.service_client = _create_aio_blob_service_client(
+                        account_url=self.account_url,
                     )
             else:
                 raise ValueError(
@@ -1838,7 +1863,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             What mode to open the file in - defaults to "rb"
 
         block_size: int
-            Size per block for multi-part downloads.
+            Size per block for multi-part uploads and downloads. This overrides the block_size parameter
+            and if not provided, defaults to the filesystem blocksize.
 
         autocommit: bool
             Whether or not to write to the destination directly
@@ -1854,6 +1880,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             is versioning aware and blob versioning is enabled on the releveant container.
         """
         logger.debug(f"_open:  {path}")
+        if block_size is None:
+            block_size = self.blocksize
         if not self.version_aware and version_id:
             raise ValueError(
                 "version_id cannot be specified if the filesystem "
@@ -1876,7 +1904,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2**20
+    DEFAULT_BLOCK_SIZE = _DEFAULT_BLOCK_SIZE
 
     def __init__(
         self,
@@ -2051,27 +2079,29 @@ class AzureBlobFile(AbstractBufferedFile):
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
                 self.container_client = [
-                    AIOBlobServiceClient(
+                    _create_aio_blob_service_client(
                         account_url=self.fs.account_url,
                         credential=cred,
-                        _location_mode=self.fs.location_mode,
+                        location_mode=self.fs.location_mode,
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                self.container_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.fs.connection_string
-                ).get_container_client(self.container_name)
+                self.container_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.fs.connection_string,
+                    ).get_container_client(self.container_name)
+                )
             elif self.fs.sas_token is not None:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url + self.fs.sas_token, credential=None
+                self.container_client = _create_aio_blob_service_client(
+                    account_url=self.fs.account_url + self.fs.sas_token,
+                    location_mode=self.fs.location_mode,
                 ).get_container_client(self.container_name)
             else:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url
+                self.container_client = _create_aio_blob_service_client(
+                    account_url=self.fs.account_url,
                 ).get_container_client(self.container_name)
-
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
@@ -2119,13 +2149,26 @@ class AzureBlobFile(AbstractBufferedFile):
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
-    def _get_chunks(self, data, chunk_size=1024**3):  # Keeping the chunk size as 1 GB
+    def _get_chunks(self, data):
         start = 0
         length = len(data)
         while start < length:
-            end = min(start + chunk_size, length)
-            yield data[start:end]
+            end = min(start + self.blocksize, length)
+            yield start, end
             start = end
+
+    async def _stage_block(self, data, start, end, block_id, semaphore):
+        async with semaphore:
+            if self._sdk_supports_memoryview_for_writes():
+                # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+                data = memoryview(data)
+            async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                await bc.stage_block(
+                    block_id=block_id,
+                    data=data[start:end],
+                    length=end - start,
+                )
+                return block_id
 
     async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -2140,23 +2183,22 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         data = self.buffer.getvalue()
         length = len(data)
-        block_id = self._get_block_id(self._block_list)
+        block_id = self._get_block_id()
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
             try:
-                for chunk in self._get_chunks(data):
-                    async with self.container_client.get_blob_client(
-                        blob=self.blob
-                    ) as bc:
-                        await bc.stage_block(
-                            block_id=block_id,
-                            data=chunk,
-                            length=len(chunk),
-                        )
-                        self._block_list.append(block_id)
-                        block_id = self._get_block_id(self._block_list)
+                max_concurrency = self.fs.max_concurrency or 1
+                semaphore = asyncio.Semaphore(max_concurrency)
+                tasks = []
+                for start, end in self._get_chunks(data):
+                    tasks.append(
+                        self._stage_block(data, start, end, block_id, semaphore)
+                    )
+                    block_id = self._get_block_id()
+                ids = await asyncio.gather(*tasks)
+                self._block_list.extend(ids)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2173,7 +2215,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
-                if block_id == self._get_block_id([]) and length == 0 and final:
+                if not self._block_list and length == 0 and final:
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
@@ -2212,8 +2254,8 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
     @staticmethod
-    def _get_block_id(block_list: List[str]) -> str:
-        return uuid4().hex if block_list else "0" * 32
+    def _get_block_id() -> str:
+        return uuid4().hex
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
 
@@ -2234,3 +2276,12 @@ class AzureBlobFile(AbstractBufferedFile):
         self.__dict__.update(state)
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
+
+    def _sdk_supports_memoryview_for_writes(self) -> bool:
+        # The SDK validates iterable bytes objects passed to its HTTP request layer
+        # expose an __iter__() method. However, memoryview objects did not expose an
+        # __iter__() method till Python 3.10.
+        #
+        # We still want to leverage memorviews when we can to avoid unnecessary copies. So
+        # we check the Python version to determine if we can use memoryviews for writes.
+        return sys.version_info >= (3, 10)

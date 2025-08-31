@@ -27,7 +27,7 @@ def add_bezier(
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
 ) -> None:
-    """Add new bezier curve
+    """Add new Bézier curve
 
         :type execution_context: int | str | None
         :type undo: bool | None

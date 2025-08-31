@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
@@ -361,60 +361,100 @@ class TestPrinter(ITestPrinter):
         # Print the summary table of test results
         self.summaryTable(summary)
 
-        # Group failed and errored tests by their test class
-        failures_by_class = {}
-        for test in summary["test_details"]:
+        # Print failed and errored tests
+        test_details: List[Dict] = summary.get("test_details", [])
+        for test in test_details:
+
+            # If there are no failures or errors, skip to the next test
             if test["status"] in (TestStatus.FAILED.name, TestStatus.ERRORED.name):
-                class_name = test["class"]
-                if class_name not in failures_by_class:
-                    failures_by_class[class_name] = []
-                failures_by_class[class_name].append(test)
 
-        # Display grouped failures and errors for each test class
-        for class_name, tests in failures_by_class.items():
+                # Print separator line before each test result with class name and method name
+                self.__rich_console.rule(title=f'🧪 {test["class"]}.{test["method"]}()', align="left")
 
-            # Print a panel with the class name as the header
-            class_panel = Panel.fit(
-                f"[bold]{class_name}[/bold]",
-                border_style="red",
-                padding=(0, 2)
-            )
-            self.__rich_console.print(class_panel)
+                # Add clickable file:line info if available
+                last_trace_frame = test.get('traceback_frames')
+                if last_trace_frame and last_trace_frame is not None:
 
-            for test in tests:
-                # Sanitize the traceback to show only relevant parts
-                traceback_str = self.__sanitizeTraceback(test['file_path'], test['traceback'])
+                    # Get the last frame details
+                    last_trace_frame: dict = last_trace_frame[-1]
+                    _file = last_trace_frame.get('file')
+                    _line = last_trace_frame.get('line')
+                    _code = last_trace_frame.get('code')
+                    _function = last_trace_frame.get('function')
 
-                # Create a syntax-highlighted panel for the traceback
-                syntax = Syntax(
-                    traceback_str,
-                    lexer="python",
-                    line_numbers=False,
-                    background_color="default",
-                    word_wrap=True,
-                    theme="monokai"
-                )
+                    # Print the file and line number if available
+                    text = Text("📂 ")
+                    text.append(f'{_file}:{_line}', style="underline blue")
+                    self.__rich_console.print(text)
 
-                # Choose icon and border color based on test status
-                icon = "❌" if test["status"] == TestStatus.FAILED.name else "💥"
-                border_color = "yellow" if test["status"] == TestStatus.FAILED.name else "red"
+                    # Print the error message with better formatting
+                    text = Text("Error in ", style="bold red")
+                    text.append(f'{_function}()', style="bold cyan")
+                    text.append(": ", style="bold red")
 
-                # Ensure execution time is never zero for display purposes
-                if not test['execution_time'] or test['execution_time'] == 0:
-                    test['execution_time'] = 0.001
+                    # Extract just the first line of the error message for cleaner display
+                    error_msg = test["error_message"] if test["error_message"] else "Unknown error"
+                    text.append(error_msg, style="red")
+                    self.__rich_console.print(text)
 
-                # Print the panel with traceback and test metadata
-                panel = Panel(
-                    syntax,
-                    title=f"{icon} {test['method']}",
-                    subtitle=f"Duration: {test['execution_time']:.3f}s",
-                    border_style=border_color,
-                    title_align="left",
-                    padding=(1, 1),
-                    subtitle_align="right",
-                    width=self.__panel_width
-                )
-                self.__rich_console.print(panel)
+                    # Print the code context (3 lines before and after the error)
+                    try:
+
+                        # Open the file and read its lines
+                        with open(_file, 'r', encoding='utf-8') as f:
+                            file_lines = f.readlines()
+
+                        # Convert to 0-based index
+                        error_line_num = int(_line) - 1
+                        start_line = max(0, error_line_num - 1)
+                        end_line = min(len(file_lines), error_line_num + 3)
+
+                        # Create a code block with syntax highlighting
+                        code_lines = []
+                        for i in range(start_line, end_line):
+                            line_num = i + 1
+                            line_content = file_lines[i].rstrip()
+                            if line_num == int(_line):
+                                # Highlight the error line
+                                code_lines.append(f"* {line_num:3d} | {line_content}")
+                            else:
+                                code_lines.append(f"  {line_num:3d} | {line_content}")
+
+                        code_block = '\n'.join(code_lines)
+                        syntax = Syntax(code_block, "python", theme="monokai", line_numbers=False)
+                        self.__rich_console.print(syntax)
+
+                    except (FileNotFoundError, ValueError, IndexError):
+
+                        # Fallback to original behavior if file cannot be read
+                        text = Text(f"{_line} | {_code}", style="dim")
+                        self.__rich_console.print(text)
+
+                else:
+
+                    # Print the file and line number if available
+                    text = Text("📂 ")
+                    text.append(f'{test["file_path"]}', style="underline blue")
+                    self.__rich_console.print(text)
+
+                    # Print the error message with better formatting
+                    text = Text("Error: ", style="bold red")
+                    text.append(f'{test["error_message"]}', style="red")
+                    self.__rich_console.print(text)
+
+                    # Print traceback if available
+                    if test["traceback"]:
+                        sanitized_traceback = self.__sanitizeTraceback(
+                            test_path=test["file_path"],
+                            traceback_test=test["traceback"]
+                        )
+                        syntax = Syntax(sanitized_traceback, "python", theme="monokai", line_numbers=False)
+                        self.__rich_console.print(syntax)
+
+                # Print a separator line after each test result
+                self.__rich_console.rule()
+
+                # Print one blank line after the results
                 self.__rich_console.line(1)
 
     def unittestResult(

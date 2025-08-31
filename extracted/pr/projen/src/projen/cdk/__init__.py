@@ -1538,6 +1538,7 @@ class JsiiProject(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1707,6 +1708,7 @@ class JsiiProject(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -1878,6 +1880,7 @@ class JsiiProject(
             npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
+            npm_trusted_publishing=npm_trusted_publishing,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -1991,6 +1994,7 @@ class JsiiProject(
         "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
+        "npm_trusted_publishing": "npmTrustedPublishing",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -2164,6 +2168,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2333,6 +2338,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -2581,6 +2587,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -2809,6 +2816,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
             self._values["npm_token_secret"] = npm_token_secret
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -3738,6 +3747,17 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("npm_token_secret")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
@@ -5110,7 +5130,9 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
+        "attestations": "attestations",
         "code_artifact_options": "codeArtifactOptions",
+        "trusted_publishing": "trustedPublishing",
         "twine_password_secret": "twinePasswordSecret",
         "twine_registry_url": "twineRegistryUrl",
         "twine_username_secret": "twineUsernameSecret",
@@ -5126,7 +5148,9 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        attestations: typing.Optional[builtins.bool] = None,
         code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_7236977a, typing.Dict[builtins.str, typing.Any]]] = None,
+        trusted_publishing: typing.Optional[builtins.bool] = None,
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
@@ -5138,7 +5162,9 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
+        :param attestations: (experimental) Generate and publish cryptographic attestations for files uploaded to PyPI. Attestations provide package provenance and integrity an can be viewed on PyPI. They are only available when using a Trusted Publisher for publishing. Default: - enabled when using trusted publishing, otherwise not applicable
         :param code_artifact_options: (experimental) Options for publishing to AWS CodeArtifact. Default: - undefined
+        :param trusted_publishing: (experimental) Use PyPI trusted publishing instead of tokens or username & password. Needs to be setup in PyPI.
         :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
         :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
         :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
@@ -5157,7 +5183,9 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
+            check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
             check_type(argname="argument twine_password_secret", value=twine_password_secret, expected_type=type_hints["twine_password_secret"])
             check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
             check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
@@ -5175,8 +5203,12 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
             self._values["pre_publish_steps"] = pre_publish_steps
         if publish_tools is not None:
             self._values["publish_tools"] = publish_tools
+        if attestations is not None:
+            self._values["attestations"] = attestations
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if trusted_publishing is not None:
+            self._values["trusted_publishing"] = trusted_publishing
         if twine_password_secret is not None:
             self._values["twine_password_secret"] = twine_password_secret
         if twine_registry_url is not None:
@@ -5240,6 +5272,21 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
         return typing.cast(typing.Optional[_Tools_75b93a2a], result)
 
     @builtins.property
+    def attestations(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate and publish cryptographic attestations for files uploaded to PyPI.
+
+        Attestations provide package provenance and integrity an can be viewed on PyPI.
+        They are only available when using a Trusted Publisher for publishing.
+
+        :default: - enabled when using trusted publishing, otherwise not applicable
+
+        :see: https://docs.pypi.org/attestations/producing-attestations/
+        :stability: experimental
+        '''
+        result = self._values.get("attestations")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def code_artifact_options(self) -> typing.Optional[_CodeArtifactOptions_7236977a]:
         '''(experimental) Options for publishing to AWS CodeArtifact.
 
@@ -5249,6 +5296,18 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional[_CodeArtifactOptions_7236977a], result)
+
+    @builtins.property
+    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use PyPI trusted publishing instead of tokens or username & password.
+
+        Needs to be setup in PyPI.
+
+        :see: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
+        :stability: experimental
+        '''
+        result = self._values.get("trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def twine_password_secret(self) -> typing.Optional[builtins.str]:
@@ -5466,6 +5525,7 @@ class ConstructLibrary(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5636,6 +5696,7 @@ class ConstructLibrary(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -5808,6 +5869,7 @@ class ConstructLibrary(
             npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
+            npm_trusted_publishing=npm_trusted_publishing,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -5928,6 +5990,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
+        "npm_trusted_publishing": "npmTrustedPublishing",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -6102,6 +6165,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6272,6 +6336,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -6523,6 +6588,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -6752,6 +6818,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
             self._values["npm_token_secret"] = npm_token_secret
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -7683,6 +7751,17 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("npm_token_secret")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
@@ -9281,6 +9360,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9402,7 +9482,9 @@ def _typecheckingstub__b9ccf41e184eae5eabcd38be0ea0cb88c9d6eb3d4f60d6bb85e4a7376
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+    attestations: typing.Optional[builtins.bool] = None,
     code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_7236977a, typing.Dict[builtins.str, typing.Any]]] = None,
+    trusted_publishing: typing.Optional[builtins.bool] = None,
     twine_password_secret: typing.Optional[builtins.str] = None,
     twine_registry_url: typing.Optional[builtins.str] = None,
     twine_username_secret: typing.Optional[builtins.str] = None,
@@ -9470,6 +9552,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,

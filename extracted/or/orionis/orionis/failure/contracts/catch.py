@@ -30,3 +30,4 @@ class ICatch(ABC):
         The exception is always reported using the exception handler and logger.
         If a valid kernel is provided, the exception details are rendered to the CLI.
         """
+        pass

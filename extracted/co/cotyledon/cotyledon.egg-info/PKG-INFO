@@ -1,12 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cotyledon
-Version: 2.0.0
+Version: 2.1.0
 Summary: Cotyledon provides a framework for defining long-running services.
 Author-email: Mehdi Abaakouk <sileht@sileht.net>
+License-Expression: Apache-2.0
 Project-URL: Home Page, https://github.com/sileht/cotyledon
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -28,6 +29,7 @@ Requires-Dist: oslo.config>=3.14.0; extra == "oslo"
 Provides-Extra: doc
 Requires-Dist: sphinx_rtd_theme; extra == "doc"
 Requires-Dist: sphinx; extra == "doc"
+Dynamic: license-file
 
 ===============================
 Cotyledon

@@ -205,7 +205,7 @@ Bugfixes
 
         expected_output = """# MyProject 1.0 (never)
 
-### Features
+## Features
 
 - Fun! (baz)
 - Foo added. (#2, #9, #72)
@@ -213,7 +213,7 @@ Bugfixes
   here (#3)
 - Stuff! (#4)
 
-### Misc
+## Misc
 
 - bar, #1, #9, #142
 
@@ -254,7 +254,7 @@ No significant changes.
         # Also test with custom issue format
         expected_output = """# MyProject 1.0 (never)
 
-### Features
+## Features
 
 - Fun! ([baz])
 - Foo added. ([2], [9], [72])
@@ -269,7 +269,7 @@ No significant changes.
 [9]: https://github.com/twisted/towncrier/issues/9
 [72]: https://github.com/twisted/towncrier/issues/72
 
-### Misc
+## Misc
 
 - [bar], [1], [9], [142]
 
@@ -459,6 +459,77 @@ Features
             definitions,
             ["-", "~"],
             wrap=False,
+            versiondata={"name": "MyProject", "version": "1.0", "date": "never"},
+        )
+        self.assertEqual(output, expected_output)
+
+    def test_trailing_block(self) -> None:
+        """
+        Make sure a newline gets inserted before appending the issue number, if the
+        newsfragment ends with an indented block.
+        """
+
+        fragments = {
+            "": {
+                (
+                    "1",
+                    "feature",
+                    0,
+                ): (
+                    "this fragment has a trailing code block::\n\n"
+                    "    def foo(): ...\n\n"
+                    "   \n"
+                    "    def bar(): ..."
+                ),
+                (
+                    "2",
+                    "feature",
+                    0,
+                ): (
+                    "this block is not trailing::\n\n"
+                    "    def foo(): ...\n"
+                    "    def bar(): ...\n\n"
+                    "so we can append the issue number directly after this"
+                ),
+            }
+        }
+        # the line with 3 spaces (and nothing else) is stripped
+        expected_output = """MyProject 1.0 (never)
+=====================
+
+Features
+--------
+
+- this fragment has a trailing code block::
+
+      def foo(): ...
+
+
+      def bar(): ...
+
+  (#1)
+- this block is not trailing::
+
+      def foo(): ...
+      def bar(): ...
+
+  so we can append the issue number directly after this (#2)
+
+
+"""
+
+        definitions = {
+            "feature": {"name": "Features", "showcontent": True},
+        }
+        template = read_pkg_resource("templates/default.rst")
+        fragments_split = split_fragments(fragments, definitions)
+        output = render_fragments(
+            template,
+            None,
+            fragments_split,
+            definitions,
+            ["-", "~"],
+            wrap=True,
             versiondata={"name": "MyProject", "version": "1.0", "date": "never"},
         )
         self.assertEqual(output, expected_output)

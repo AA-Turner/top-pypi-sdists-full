@@ -6,19 +6,19 @@ class SchedulerResumed(SchedulerEventData):
     """
     Represents an event triggered when the scheduler is resumed.
 
-    This class is a specialized data structure that inherits from
-    `SchedulerEventData` and is used to encapsulate information
-    about the resumption of the scheduler.
+    This data class extends `SchedulerEventData` and is used to encapsulate
+    information about the scheduler's resumption event.
 
     Attributes
     ----------
-    (Inherited from SchedulerEventData)
+    time : str
+        The time when the scheduler was resumed.
 
     Returns
     -------
     SchedulerResumed
-        An instance of the `SchedulerResumed` class representing
-        the resumed scheduler event.
+        An instance containing information about the resumed scheduler event.
     """
 
-    time: str  # The time when the scheduler was resumed
+    # The time when the scheduler was resumed
+    time: str

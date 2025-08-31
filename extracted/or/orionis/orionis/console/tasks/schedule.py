@@ -33,7 +33,7 @@ from orionis.console.entities.scheduler_started import SchedulerStarted
 from orionis.console.entities.event import Event as EventEntity
 from orionis.console.enums.listener import ListeningEvent
 from orionis.console.exceptions import CLIOrionisRuntimeError
-from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
+from orionis.console.exceptions import CLIOrionisValueError
 from orionis.console.request.cli_request import CLIRequest
 from orionis.failure.contracts.catch import ICatch
 from orionis.foundation.contracts.application import IApplication
@@ -1389,7 +1389,7 @@ class Schedule(ISchedule):
 
         Raises
         ------
-        ValueError
+        CLIOrionisValueError
             If the 'at' parameter is not a valid datetime object or 'wait' is not boolean,
             or if the scheduled time is not in the future.
         CLIOrionisRuntimeError
@@ -1398,11 +1398,11 @@ class Schedule(ISchedule):
 
         # Validate that the 'at' parameter is a datetime object
         if not isinstance(at, datetime):
-            raise ValueError("The 'at' parameter must be a datetime object.")
+            raise CLIOrionisValueError("The 'at' parameter must be a datetime object.")
 
         # Validate that the 'wait' parameter is a boolean
         if not isinstance(wait, bool):
-            raise ValueError("The 'wait' parameter must be a boolean value.")
+            raise CLIOrionisValueError("The 'wait' parameter must be a boolean value.")
 
         # Define an async function to shut down the scheduler
         async def schedule_shutdown():

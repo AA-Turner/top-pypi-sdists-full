@@ -2236,7 +2236,7 @@ class Jest(
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Default: - no extra options
         :param ignore_patterns: (deprecated) Defines ``testPathIgnorePatterns`` and ``coveragePathIgnorePatterns``. Default: ["/node_modules/"]
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
-        :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. Default: - installs the latest jest version
+        :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
         :param junit_reporting: (experimental) Result processing with jest-junit. Output directory is ``test-reports/``. Default: true
         :param pass_with_no_tests: (experimental) Pass with no tests. Default: - true
         :param preserve_default_reporters: (experimental) Preserve the default Jest reporter when additional reporters are added. Default: true
@@ -3844,7 +3844,7 @@ class JestOptions:
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Default: - no extra options
         :param ignore_patterns: (deprecated) Defines ``testPathIgnorePatterns`` and ``coveragePathIgnorePatterns``. Default: ["/node_modules/"]
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
-        :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. Default: - installs the latest jest version
+        :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
         :param junit_reporting: (experimental) Result processing with jest-junit. Output directory is ``test-reports/``. Default: true
         :param pass_with_no_tests: (experimental) Pass with no tests. Default: - true
         :param preserve_default_reporters: (experimental) Preserve the default Jest reporter when additional reporters are added. Default: true
@@ -3968,6 +3968,8 @@ class JestOptions:
         '''(experimental) The version of jest to use.
 
         Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those.
+
+        With Jest 30 ts-jest version 29 is used (if Typescript in use)
 
         :default: - installs the latest jest version
 
@@ -4273,6 +4275,7 @@ class NodePackage(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional["NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4314,6 +4317,7 @@ class NodePackage(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -4359,6 +4363,7 @@ class NodePackage(
             npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
+            npm_trusted_publishing=npm_trusted_publishing,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -4927,6 +4932,7 @@ class NodePackageManager(enum.Enum):
         "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
+        "npm_trusted_publishing": "npmTrustedPublishing",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -4971,6 +4977,7 @@ class NodePackageOptions:
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[NodePackageManager] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5011,6 +5018,7 @@ class NodePackageOptions:
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -5060,6 +5068,7 @@ class NodePackageOptions:
             check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -5126,6 +5135,8 @@ class NodePackageOptions:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
             self._values["npm_token_secret"] = npm_token_secret
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -5513,6 +5524,17 @@ class NodePackageOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def package_manager(self) -> typing.Optional[NodePackageManager]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
@@ -5761,6 +5783,7 @@ class NodeProject(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[NodePackageManager] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5896,6 +5919,7 @@ class NodeProject(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -6033,6 +6057,7 @@ class NodeProject(
             npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
+            npm_trusted_publishing=npm_trusted_publishing,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -6624,6 +6649,7 @@ class NodeProject(
         "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
+        "npm_trusted_publishing": "npmTrustedPublishing",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -6767,6 +6793,7 @@ class NodeProjectOptions(
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
         package_manager: typing.Optional[NodePackageManager] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6902,6 +6929,7 @@ class NodeProjectOptions(
         :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
+        :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -7094,6 +7122,7 @@ class NodeProjectOptions(
             check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -7285,6 +7314,8 @@ class NodeProjectOptions(
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
             self._values["npm_token_secret"] = npm_token_secret
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -8152,6 +8183,17 @@ class NodeProjectOptions(
         '''
         result = self._values.get("npm_token_secret")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def package_manager(self) -> typing.Optional[NodePackageManager]:
@@ -16690,6 +16732,7 @@ def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -16827,6 +16870,7 @@ def _typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c27803467
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -16991,6 +17035,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
     package_manager: typing.Optional[NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,

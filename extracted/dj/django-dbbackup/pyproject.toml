@@ -1,7 +1,222 @@
-[tool.black]
-target-version = ['py37']
-extend-exclude = 'migrations'
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
 
-[tool.isort]
-profile = 'black'
-skip = 'migrations'
+[project]
+name = "django-dbbackup"
+description = "Management commands to help backup and restore a project database and media."
+readme = "README.md"
+keywords = [
+  "django",
+  "database",
+  "media",
+  "backup",
+  "amazon",
+  "s3",
+  "dropbox",
+  "sqlite",
+]
+license = "BSD-3-Clause"
+authors = [{ name = "Mark Bakhit", email = "archiethemonger@gmail.com" }]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Environment :: Console",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: BSD License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Topic :: System :: Archiving",
+  "Topic :: System :: Archiving :: Backup",
+  "Topic :: System :: Archiving :: Compression",
+]
+dependencies = ["django>=4.2"]
+dynamic = ["version"]
+urls.Changelog = "https://archmonger.github.io/django-dbbackup /latest/changelog/"
+urls.Documentation = "https://archmonger.github.io/django-dbbackup"
+urls.Source = "https://github.com/Archmonger/django-dbbackup"
+
+[tool.hatch.version]
+path = "dbbackup/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/dbbackup"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["dbbackup"]
+
+[tool.hatch.metadata]
+license-files = { paths = ["LICENSE.md"] }
+
+[tool.hatch.envs.default]
+installer = "uv"
+
+# >>> Hatch Test Suite <<<
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+  "coverage",
+  "django-storages",
+  "psycopg2-binary",
+  "python-dotenv",
+  "python-gnupg>=0.5.0",
+  "testfixtures",
+]
+matrix-name-format = "{variable}-{value}"
+
+[tool.hatch.envs.hatch-test.env-vars]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+
+# Django 4.2
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12"]
+django = ["4.2"]
+
+# Django 5.0
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+django = ["5.0"]
+
+# Django 5.1
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13"]
+django = ["5.1"]
+
+# Django 5.2
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13"]
+django = ["5.2"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.django.dependencies = [
+  { if = [
+    "4.2",
+  ], value = "django>=4.2,<4.3" },
+  { if = [
+    "5.0",
+  ], value = "django>=5.0,<5.1" },
+  { if = [
+    "5.1",
+  ], value = "django>=5.1,<5.2" },
+  { if = [
+    "5.2",
+  ], value = "django>=5.2,<5.3" },
+]
+
+# >>> Documentation Scripts <<<
+
+[tool.hatch.envs.docs]
+template = "docs"
+detached = true
+dependencies = [
+  "mkdocs",
+  "mkdocs-git-revision-date-localized-plugin",
+  "mkdocs-material",
+  "mkdocs-include-markdown-plugin",
+  "linkcheckmd",
+  "mkdocs-spellcheck[all]",
+  "mkdocs-git-authors-plugin",
+  "mkdocs-minify-plugin",
+  "mike",
+]
+
+[tool.hatch.envs.docs.scripts]
+serve = ["cd docs && mkdocs serve"]
+build = ["cd docs && mkdocs build --strict"]
+linkcheck = [
+  "linkcheckMarkdown docs/ -v -r",
+  "linkcheckMarkdown README.md -v -r",
+  "linkcheckMarkdown CHANGELOG.md -v -r",
+]
+deploy_latest = ["cd docs && mike deploy --push --update-aliases {args} latest"]
+deploy_develop = ["cd docs && mike deploy --push develop"]
+
+# >>> Pre-commit Environment <<<
+
+[tool.hatch.envs.precommit]
+template = "pre-commit"
+detached = true
+dependencies = ["pre-commit>=3,<4"]
+
+[tool.hatch.envs.precommit.scripts]
+check = ["pre-commit run --all-files"]
+update = ["pre-commit autoupdate"]
+
+# >>> CLI workflow tests <<<
+
+[tool.hatch.envs.functional]
+extra-dependencies = [
+  "coverage",
+  "django-storages",
+  "python-dotenv",
+  "python-gnupg>=0.5.0",
+  "testfixtures",
+  "django",
+  "psycopg2-binary",
+  # "mysqlclient",
+]
+
+[tool.hatch.envs.functional.env-vars]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+STORAGE = "django.core.files.storage.FileSystemStorage"
+STORAGE_LOCATION = "tmp/backups/"
+STORAGE_OPTIONS = "location=tmp/backups/"
+MEDIA_ROOT = "tmp/media/"
+DB_NAME = "tmp/test_db.sqlite3"
+
+[tool.hatch.envs.functional.scripts]
+all = [
+  "hatch run functional:sqlite --all {args}",
+  "hatch run functional:postgres --all {args}",
+]
+sqlite = ["python scripts/sqlite_live_test.py {args}"]
+postgres = ["python scripts/postgres_live_test.py {args}"]
+
+# >>> Generic Tools <<<
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = [".eggs/*", ".tox/*", ".venv/*", "build/*", "*/migrations/*"]
+format.preview = true
+lint.extend-ignore = [
+  "B028",    # No explicit `stacklevel` keyword argument found in warning function call
+  "DTZ005",  # `datetime.datetime.now()` called without a `tz` argument
+  "DTZ007",  # Naive datetime constructed using `datetime.datetime.strptime()` without %z
+  "ARG001",  # Unused function argument
+  "ARG002",  # Unused method argument
+  "ARG005",  # Unused lambda argument
+  "PLR2004", # Magic value used in comparison
+  "PLW2901", # Variable is being overwritten within a `for` loop
+  "S608",    # Possible SQL injection vector through string-based query construction
+  "FBT001",  # Boolean-typed positional argument in function definitio
+  "FBT002",  # Boolean default positional argument in function definition
+  "SLF001",  # Private member accessed
+  "E402",    # Module import not at top of file
+  "S101",    # Use of assert detected.
+  "S105",    # Use of hardcoded password
+]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+
+[tool.coverage]
+run.relative_files = true
+run.branch = true
+run.parallel = true
+run.source = ["dbbackup/"]
+paths.source = ["dbbackup/"]
+report.show_missing = true

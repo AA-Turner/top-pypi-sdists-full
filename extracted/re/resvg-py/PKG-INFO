@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: resvg_py
-Version: 0.2.2
+Version: 0.2.3
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
-Author: baseplate-admin
 Author-email: baseplate-admin <61817579+baseplate-admin@users.noreply.github.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

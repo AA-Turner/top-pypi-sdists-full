@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from orionis.console.contracts.schedule import ISchedule
-from orionis.console.entities.job_error import JobError
+from orionis.console.entities.scheduler_error import SchedulerError
 from orionis.console.entities.scheduler_paused import SchedulerPaused
 from orionis.console.entities.scheduler_resumed import SchedulerResumed
 from orionis.console.entities.scheduler_shutdown import SchedulerShutdown
@@ -157,17 +157,17 @@ class IBaseScheduler(ABC):
         pass
 
     @abstractmethod
-    async def onError(self, event: JobError, schedule: ISchedule):
+    async def onError(self, event: SchedulerError, schedule: ISchedule):
         """
         Handles the event triggered when a job encounters an error during execution.
 
-        This method is invoked when a job fails due to an exception. It processes the `JobError`
+        This method is invoked when a job fails due to an exception. It processes the `SchedulerError`
         event and performs any necessary actions, such as logging the error details or notifying
         relevant systems about the failure.
 
         Parameters
         ----------
-        event : JobError
+        event : SchedulerError
             The event object containing details about the job error, including the job ID,
             the exception that occurred, and any relevant metadata.
         schedule : ISchedule

@@ -6,13 +6,8 @@ import logging
 from argparse import RawTextHelpFormatter
 import sys
 
-if sys.platform != 'win32':
-    import resource
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import resource
+import pickle
 
 from django.conf import settings
 from django.db import transaction, connection
@@ -22,9 +17,19 @@ from django.core.exceptions import ValidationError
 
 import progressbar
 
-from ...exceptions import *
-from ...signals import *
-from ...settings import *
+from ...settings import (
+    COUNTRY_SOURCES, REGION_SOURCES, SUBREGION_SOURCES, CITY_SOURCES,
+    TRANSLATION_SOURCES, DATA_DIR, TRANSLATION_LANGUAGES,
+    ICountry, IRegion, ISubRegion, ICity, IAlternate
+)
+from ...signals import (
+    country_items_pre_import, region_items_pre_import,
+    subregion_items_pre_import, city_items_pre_import,
+    translation_items_pre_import, country_items_post_import,
+    region_items_post_import, subregion_items_post_import,
+    city_items_post_import
+)
+from ...exceptions import InvalidItems
 from ...geonames import Geonames
 from ...loading import get_cities_models
 from ...validators import timezone_validator
@@ -691,6 +696,10 @@ It is possible to force the import of files which weren't downloaded using the
                 alternate_names = ';'.join(sorted(alternate_names))
                 if model.alternate_names != alternate_names:
                     model.alternate_names = alternate_names
+                    save = True
+
+                if model.translations != geoname_data:
+                    model.translations = geoname_data
                     save = True
 
                 if save:

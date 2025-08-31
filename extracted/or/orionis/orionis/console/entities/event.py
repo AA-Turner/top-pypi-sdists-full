@@ -9,30 +9,37 @@ from orionis.console.contracts.schedule_event_listener import IScheduleEventList
 @dataclass(kw_only=True)
 class Event:
     """
-    Represents an event with scheduling and execution details.
+    Represents a scheduled event with configuration for execution, timing, and event handling.
 
-    Attributes
+    Parameters
     ----------
     signature : str
-        The unique identifier or signature of the event, used to distinguish it from other events.
-    args : Optional[List[str]]
-        A list of arguments associated with the event. Defaults to an empty list if not provided.
-    purpose : Optional[str]
-        A brief description of the event's purpose or intent. Can be None if not specified.
-    random_delay : Optional[int]
-        An optional random delay (in seconds) to be applied before the event is triggered. Can be None.
-    start_date : Optional[datetime]
-        The start date and time for the event. If None, the event starts immediately or based on the trigger.
-    end_date : Optional[datetime]
-        The end date and time for the event. If None, the event does not have a defined end time.
-    trigger : Optional[Union[CronTrigger, DateTrigger, IntervalTrigger]]
-        The trigger mechanism for the event, which determines when and how the event is executed.
-        Can be a CronTrigger, DateTrigger, or IntervalTrigger. Defaults to None.
-    details : Optional[str]
-        Additional details or metadata about the event. Can be None if not specified.
-    listener : Optional[IScheduleEventListener]
-        An optional listener object that implements the IScheduleEventListener interface.
-        This listener can handle event-specific logic. Defaults to None.
+        Unique identifier or signature for the event.
+    args : Optional[List[str]], default: []
+        List of arguments to be passed to the event.
+    purpose : Optional[str], default: None
+        Short description of the event's purpose.
+    random_delay : Optional[int], default: None
+        Random delay in seconds before the event is triggered.
+    start_date : Optional[datetime], default: None
+        The date and time when the event becomes active.
+    end_date : Optional[datetime], default: None
+        The date and time when the event is no longer active.
+    trigger : Optional[Union[CronTrigger, DateTrigger, IntervalTrigger]], default: None
+        Trigger mechanism that determines when the event is executed.
+    details : Optional[str], default: None
+        Additional metadata or information about the event.
+    listener : Optional[IScheduleEventListener], default: None
+        Listener object implementing IScheduleEventListener for event-specific logic.
+    max_instances : int, default: 1
+        Maximum number of concurrent instances allowed for the event.
+    misfire_grace_time : Optional[int], default: None
+        Grace period in seconds for handling misfired events.
+
+    Returns
+    -------
+    Event
+        An instance of the Event class with the specified configuration.
     """
 
     # Unique identifier for the event
@@ -66,4 +73,4 @@ class Event:
     max_instances: int = 1
 
     # Grace time in seconds for misfired events
-    misfire_grace_time : Optional[int] = None
+    misfire_grace_time: Optional[int] = None

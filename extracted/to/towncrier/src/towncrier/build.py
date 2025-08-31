@@ -8,6 +8,7 @@ Build a combined news file from news fragments.
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 from datetime import date
@@ -17,7 +18,7 @@ import click
 
 from click import Context, Option, UsageError
 
-from towncrier import _git
+from towncrier import _vcs
 
 from ._builder import find_fragments, render_fragments, split_fragments
 from ._project import get_project_name, get_version
@@ -213,6 +214,16 @@ def __main(
     # in the template.
     render_title = config.title_format == ""
 
+    # Add format-specific context to the template
+    md_header_level = 1
+    if is_markdown:
+        if config.title_format:
+            m = re.search(r"^#+(?=\s)", config.title_format, re.MULTILINE)
+            lvl = len(m[0]) if m else 0
+        else:  # TODO: derive from template or make configurable?
+            lvl = 1 if render_title else 0
+        md_header_level = lvl
+
     rendered = render_fragments(
         # The 0th underline is used for the top line
         template,
@@ -225,6 +236,7 @@ def __main(
         top_underline=config.underlines[0],
         all_bullets=config.all_bullets,
         render_title=render_title,
+        md_header_level=md_header_level,
     )
 
     if config.title_format:
@@ -270,7 +282,7 @@ def __main(
     )
 
     click.echo("Staging newsfile...", err=to_err)
-    _git.stage_newsfile(base_directory, news_file)
+    _vcs.stage_newsfile(base_directory, news_file)
 
     if should_remove_fragment_files(
         fragment_filenames,
@@ -278,7 +290,7 @@ def __main(
         answer_keep,
     ):
         click.echo("Removing news fragments...", err=to_err)
-        _git.remove_files(fragment_filenames)
+        _vcs.remove_files(base_directory, fragment_filenames)
 
     click.echo("Done!", err=to_err)
 

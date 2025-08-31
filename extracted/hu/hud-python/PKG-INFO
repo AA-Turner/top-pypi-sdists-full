@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.4.14
+Version: 0.4.16
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -43,9 +43,10 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.34.1
 Requires-Dist: opentelemetry-instrumentation-mcp>=0.44.1
 Requires-Dist: opentelemetry-sdk>=1.34.1
 Requires-Dist: pathspec>=0.12.1
+Requires-Dist: prompt-toolkit==3.0.51
 Requires-Dist: pydantic-settings<3,>=2
 Requires-Dist: pydantic<3,>=2
-Requires-Dist: questionary>=1.10.0
+Requires-Dist: questionary==2.1.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: toml>=0.10.2
 Requires-Dist: typer>=0.9.0
@@ -160,7 +161,7 @@ pip install -e "hud-python[dev]"
 ```
 
 > See [docs.hud.so](https://docs.hud.so), or add docs to any MCP client:
-> `claude mcp add docs-hud https://docs.hud.so/mcp`
+> `claude mcp add --transport http docs-hud https://docs.hud.so/mcp`
 
 ## Quickstart
 

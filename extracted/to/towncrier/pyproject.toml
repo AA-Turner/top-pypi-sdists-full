@@ -9,7 +9,7 @@ name = "towncrier"
 # For RC    - 23.11.0rc1  (release candidate starts at 1)
 # For final - 23.11.0
 # make sure to follow PEP440
-version = "24.8.0"
+version = "25.8.0"
 description = "Building newsfiles for your project."
 readme = "README.rst"
 license = "MIT"
@@ -20,15 +20,15 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "click",
     "importlib-resources>=5; python_version<'3.10'",
@@ -63,7 +63,10 @@ Distribution = "https://pypi.org/project/towncrier"
 exclude = [
     "admin",
     "bin",
-    "docs",
+    ".github",
+    ".git-blame-ignore-revs",
+    ".pre-commit-config.yaml",
+    ".pre-commit-hooks.yaml",
     ".readthedocs.yaml",
     "src/towncrier/newsfragments",
 ]
@@ -157,10 +160,13 @@ source = ["src", ".nox/tests-*/**/site-packages"]
 
 [tool.coverage.report]
 show_missing = true
-skip_covered = true
+skip_covered = false
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
+    # Empty functions of a Protocol definition (used in _vcs.py) can never be
+    # executed. Ignoring them.
+    ": \\.\\.\\.$",
 ]
 omit = [
     "src/towncrier/__main__.py",

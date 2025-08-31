@@ -3024,6 +3024,22 @@ l_bot_msg_open = {
     "zh": "ᯅ 发布",
     "ar": "ᯅ منشور",
 }
+l_bot_off_handler_done = {
+    'ru': "👩🏽‍💻 <b>@{0}</b>-@tg-приложение выключено",
+    'en': "👩🏽‍💻 <b>@{0}</b>-bot is turned off",
+    'es': "👩🏽‍💻 <b>@{0}</b>-bot está desactivado",
+    'fr': "👩🏽‍💻 <b>@{0}</b>-bot est désactivé",
+    'zh': "👩🏽‍💻 <b>@{0}</b>-机器人已关闭",
+    'ar': "👩🏽‍💻 <b>@{0}</b>-تم إيقاف تشغيل الروبوت",
+}
+l_parse_text = {
+    'ru': "👩🏽‍💻 <b>Готово!</b> Парсинг пользователей (<u>{0}</u>) @{1}-бота\n\n<blockquote>👩🏽‍💻 <b>Команды</b>:\n/cmd - все команды\n/parse     <i>все пользователи бота</i>\n<code>/parse utm</code>   <i>utm-рефералы</i>\n<code>/parse ban</code>    <i>ban-пользователи</i>\n<code>/parse old</code>    <i>старые id-пользователи</i>\n<code>/parse admin</code>    <i>admin-пользователи</i>\n<code>/parse promo</code>    <i>promo-пользователи</i>\n<code>/parse premium</code>    <i>premium-пользователи</i>\n<code>/parse 1</code>    <i>кто лайкнул пост #1</i></blockquote>",
+    'en': "👩🏽‍💻 <b>Done!</b> Parsing users (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Commands</b>:\n/cmd-all commands\n/parse <i>all bot users</i>\n<code>/parse utm</code> <i>utm referrals</i>\n<code>/parse ban</code> <i>ban-users</i>\n<code>/parse old</code> <i>old id-users</i>\n<code>/parse admin</code> <i>admin-users</i>\n<code>/parse promo</code> <i>promo-users</i>\n<code>/parse premium</code> <i>premium-users </i>\n<code>/parse 1</code> <i>who liked post #1</i>",
+    'es': "👩🏽‍💻 <b>¡Listo!</b> Analizando usuarios (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Comandos</b>:\n/cmd-todos los comandos\n/parse <i>todos los usuarios del bot</i>\n<code>/parse utm</code> <i>referencias utm</i>\n<code>/parse ban </code> <i>prohibir usuarios</i>\n<code>/parse old</code> <i>antiguos usuarios de id</i>\n<code>/parse admin</code> < i>usuarios-admin</i>\n<code>/parse promo</code> <i>usuarios-promo</i>\n<code>/parse premium</code> <i>usuarios premium < /i>\n<code>/parse 1</code> <i>a quién le gustó la publicación n.° 1</i>",
+    'fr': "👩🏽‍💻 <b>Terminé !</b> Analyse des utilisateurs (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Commandes</b> :\n/cmd-toutes les commandes\n/parse <i>tous les utilisateurs du bot</i>\n<code>/parse utm</code> <i>références utm</i>\n<code>/parse ban </code> <i>ban-users</i>\n<code>/analyser les anciens</code> <i>anciens identifiants d'utilisateurs</i>\n<code>/analyser l'administrateur</code> < i>utilisateurs-admin</i>\n<code>/parse promo</code> <i>utilisateurs-promo</i>\n<code>/parse premium</code> <i>utilisateurs premium < /i>\n<code>/parse 1</code> <i>qui a aimé le post n°1</i>",
+    'zh': "👩🏽‍💻 <b>完成！</b> 解析用户 (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>命令</b>：\n/cmd-所有命令\n/parse <i>所有机器人用户</i>\n<code>/parse utm</code> <i>utm 推荐</i>\n<code>/parse ban </code> <i>禁止用户</i>\n<code>/parse old</code> <i>旧id-users</i>\n<code>/parse admin</code> < i>admin-users</i>\n<code>/parse promo</code> <i>promo-users</i>\n<code>/parse premium</code> <i>premium-users < /i>\n<code>/parse 1</code> <i>谁喜欢帖子 #1</i>",
+    'ar': "👩🏽‍💻 <b>تم!</b> تحليل المستخدمين (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>الأوامر</b>:\n/cmd-جميع الأوامر\n/parse <i>جميع مستخدمي الروبوت</i>\n<code>/parse utm</code> <i>إحالات utm</i>\n<code>/parseban </code> <i>حظر المستخدمين</i>\n<code>/parse old</code> <i>مستخدمو المعرفات القديمة</i>\n<code>/parse admin</code> <<i>المستخدمون الإداريون</i>\n<code>/parse promo</code> <i>المستخدمون الترويجيون</i>\n<code>/parse premium</code> <i>المستخدمون المميزون < /i>\n<code>/parse 1</code> <i>من أبدى إعجابه بالمشاركة رقم 1</i>",
+}
 l_bot_business_self = {
     "ru": "👩🏽‍💻 Такое сообщение нельзя послать себе, только другим",
     "en": "👩🏽‍💻 You cannot send such a message to yourself, only to others",

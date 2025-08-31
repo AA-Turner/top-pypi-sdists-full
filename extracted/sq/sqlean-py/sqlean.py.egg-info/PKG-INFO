@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlean.py
-Version: 3.50.4.2
+Version: 3.50.4.3
 Summary: sqlite3 with extensions
 Home-page: https://github.com/nalgeon/sqlean.py
 Author: Anton Zhiyanov

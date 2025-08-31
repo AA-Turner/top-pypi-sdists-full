@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tsfresh
-Version: 0.21.0
+Version: 0.21.1
 Summary: tsfresh extracts relevant characteristics from time series
 Home-page: https://github.com/blue-yonder/tsfresh
 Author: Maximilian Christ, Nils Braun, Julius Neuffer, Andreas W. Kempa-Liehr

@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass, field
 from typing import Any, Optional, List, Type, Union, Dict
 from orionis.console.enums.actions import ArgumentAction
-from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
+from orionis.console.exceptions import CLIOrionisValueError
 
 @dataclass(kw_only=True, frozen=True, slots=True)
 class CLIArgument:

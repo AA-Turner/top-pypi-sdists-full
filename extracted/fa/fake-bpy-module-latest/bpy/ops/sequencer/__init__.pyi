@@ -755,8 +755,8 @@ def image_strip_add(
     skip_locked_or_muted_channels: bool | None = True,
     fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None = "FIT",
     set_view_transform: bool | None = True,
-    use_placeholders: bool | None = False,
     use_sequence_detection: bool | None = True,
+    use_placeholders: bool | None = False,
 ) -> None:
     """Add an image or image sequence to the sequencer
 
@@ -862,10 +862,10 @@ def image_strip_add(
         :type fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None
         :param set_view_transform: Set View Transform, Set appropriate view transform based on media color space
         :type set_view_transform: bool | None
-        :param use_placeholders: Use Placeholders, Reserve placeholder frames for missing frames of the image sequence
-        :type use_placeholders: bool | None
         :param use_sequence_detection: Detect Sequences, Automatically detect animated sequences in selected images (based on file names)
         :type use_sequence_detection: bool | None
+        :param use_placeholders: Use Placeholders, Reserve placeholder frames for missing frames of the image sequence
+        :type use_placeholders: bool | None
     """
 
 def images_separate(

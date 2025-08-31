@@ -23,7 +23,6 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import _bpy_types
 import bpy.types
 import mathutils
 
@@ -1616,7 +1615,7 @@ class BMesh:
 
     def from_mesh(
         self,
-        mesh: _bpy_types.Mesh,
+        mesh: bpy.types.Mesh,
         *,
         face_normals: bool = True,
         vertex_normals: bool = True,
@@ -1626,7 +1625,7 @@ class BMesh:
         """Initialize this bmesh from existing mesh data-block.
 
         :param mesh: The mesh data to load.
-        :type mesh: _bpy_types.Mesh
+        :type mesh: bpy.types.Mesh
         :param face_normals:
         :type face_normals: bool
         :param vertex_normals:
@@ -1639,7 +1638,7 @@ class BMesh:
 
     def from_object(
         self,
-        object: _bpy_types.Object,
+        object: bpy.types.Object,
         depsgraph: bpy.types.Depsgraph,
         *,
         cage: bool = False,
@@ -1649,7 +1648,7 @@ class BMesh:
         """Initialize this bmesh from existing object data-block (only meshes are currently supported).
 
         :param object: The object data to load.
-        :type object: _bpy_types.Object
+        :type object: bpy.types.Object
         :param depsgraph:
         :type depsgraph: bpy.types.Depsgraph
         :param cage: Get the mesh as a deformed cage.
@@ -1673,11 +1672,11 @@ class BMesh:
     def select_flush_mode(self) -> None:
         """flush selection based on the current mode current `BMesh.select_mode`."""
 
-    def to_mesh(self, mesh: _bpy_types.Mesh) -> None:
+    def to_mesh(self, mesh: bpy.types.Mesh) -> None:
         """Writes this BMesh data into an existing Mesh data-block.
 
         :param mesh: The mesh data to write into.
-        :type mesh: _bpy_types.Mesh
+        :type mesh: bpy.types.Mesh
         """
 
     def transform(
