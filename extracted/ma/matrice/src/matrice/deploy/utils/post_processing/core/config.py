@@ -620,6 +620,165 @@ class CarServiceConfig(BaseConfig):
             errors.extend(self.alert_config.validate())
         
         return errors
+    
+
+@dataclass
+class LineConfig:
+    """Configuration for line crossing detection."""
+    
+    # Line definition
+    points: List[List[float]] = field(default_factory=list)  # Two points defining the line [[x1, y1], [x2, y2]]
+    
+    # Line-specific settings
+    side1_label: str = field(default_factory=lambda: "Side1")  # Label for one side of the line
+    side2_label: str = field(default_factory=lambda: "Side2")  # Label for the other side of the line
+    crossing_categories: List[str] = field(default_factory=list)  # Categories to track for crossing
+    
+    def validate(self) -> List[str]:
+        """Validate line configuration."""
+        errors = []
+        
+        # Validate line points
+        if len(self.points) != 2:
+            errors.append("points must contain exactly 2 points")
+        
+        for i, point in enumerate(self.points):
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                errors.append(f"Point {i} must have exactly 2 coordinates [x, y]")
+            for j, coord in enumerate(point):
+                if not isinstance(coord, (int, float)):
+                    errors.append(f"Point {i} coordinate {j} must be a number")
+        
+        # Validate side labels
+        if not self.side1_label:
+            errors.append("side1_label must be a non-empty string")
+        if not self.side2_label:
+            errors.append("side2_label must be a non-empty string")
+        if self.side1_label == self.side2_label:
+            errors.append("side1_label and side2_label must be different")
+        
+        # Validate crossing categories
+        if not self.crossing_categories:
+            errors.append("crossing_categories cannot be empty")
+        
+        return errors
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "points": self.points,
+            "side1_label": self.side1_label,
+            "side2_label": self.side2_label,
+            "crossing_categories": self.crossing_categories
+        }
+    
+    # --- Legacy/dict-like compatibility helpers ---
+    def _as_legacy_dict(self) -> Dict[str, Any]:
+        return {
+            "points": self.points,
+            "side1_label": self.side1_label,
+            "side2_label": self.side2_label,
+            "crossing_categories": self.crossing_categories
+        }
+    
+    def __getitem__(self, key: str) -> Any:  # Support config.line_config['points']
+        return self._as_legacy_dict()[key]
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._as_legacy_dict().get(key, default)
+    
+    def keys(self):
+        return self._as_legacy_dict().keys()
+    
+    def items(self):
+        return self._as_legacy_dict().items()
+    
+    def __contains__(self, key: object) -> bool:
+        return key in self._as_legacy_dict()
+    
+    def __iter__(self):
+        return iter(self._as_legacy_dict())
+    
+    def __len__(self) -> int:
+        return len(self._as_legacy_dict())
+    
+
+@dataclass
+class PeopleTrackingConfig:
+    """Configuration for the People Tracking Use Case."""
+
+    confidence_threshold: float = field(default_factory=lambda: 0.5)  # Minimum confidence for detections
+    
+    # Category identification
+    person_categories: List[str] = field(default_factory=lambda: [])  # Categories representing people
+    
+    # Zone configuration
+    zone_config: Optional[ZoneConfig] = None  # Zone definitions and thresholds
+    
+    # Line crossing configuration
+    line_config: Optional[LineConfig] = None  # Line crossing definitions and labels
+    
+    # Tracking configuration
+    tracking_config: Optional[TrackingConfig] = None  # Tracking parameters
+    
+    # Alert configuration
+    alert_config: Optional[AlertConfig] = None  # Alert thresholds and settings
+    
+    # Category mapping
+    index_to_category: Dict[int, str] = field(default_factory=dict)  # Map model indices to categories
+    
+    # Additional analytics options
+    enable_analytics: bool = field(default_factory=lambda: True)  # Enable business analytics
+    enable_zone_analytics: bool = field(default_factory=lambda: False)  # Enable zone-specific analytics
+    enable_crossing_analytics: bool = field(default_factory=lambda: False)  # Enable line crossing analytics
+    
+    def validate(self) -> List[str]:
+        """Validate people tracking configuration."""
+        errors = []
+        
+        
+        # Validate person categories
+        if not self.person_categories:
+            errors.append("person_categories cannot be empty")
+        
+        # Validate index_to_category
+        if self.index_to_category:
+            for index, category in self.index_to_category.items():
+                if not isinstance(index, int):
+                    errors.append(f"index_to_category key '{index}' must be an integer")
+                if not isinstance(category, str) or not category:
+                    errors.append(f"index_to_category value for key '{index}' must be a non-empty string")
+        
+        # Validate nested configurations
+        if self.zone_config:
+            try:
+                zone_errors = self.zone_config.validate()
+                errors.extend(zone_errors)
+            except AttributeError:
+                errors.append("zone_config must have a validate method")
+        
+        if self.line_config:
+            try:
+                line_errors = self.line_config.validate()
+                errors.extend(line_errors)
+            except AttributeError:
+                errors.append("line_config must have a validate method")
+        
+        if self.tracking_config:
+            try:
+                tracking_errors = self.tracking_config.validate()
+                errors.extend(tracking_errors)
+            except AttributeError:
+                errors.append("tracking_config must have a validate method")
+        
+        if self.alert_config:
+            try:
+                alert_errors = self.alert_config.validate()
+                errors.extend(alert_errors)
+            except AttributeError:
+                errors.append("alert_config must have a validate method")
+        
+        return errors
 
 
 class ConfigManager:
@@ -691,6 +850,7 @@ class ConfigManager:
             'dwell' : None,
             'age_gender_detection': None,
             'wildlife_monitoring': None,
+            'people_tracking' : PeopleTrackingConfig,
             'pcb_defect_detection': None,
 
             #Put all image based usecases here::
@@ -1248,6 +1408,25 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = PeopleCountingConfig(
+                category=category or "general",
+                usecase=usecase,
+                zone_config=zone_config,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+
+        if usecase == "people_tracking":
+            # Handle nested configurations
+            zone_config = kwargs.pop("zone_config", None)
+            if zone_config and isinstance(zone_config, dict):
+                zone_config = ZoneConfig(**zone_config)
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = PeopleTrackingConfig(
                 category=category or "general",
                 usecase=usecase,
                 zone_config=zone_config,

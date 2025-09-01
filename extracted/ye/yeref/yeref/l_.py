@@ -2889,12 +2889,12 @@ l_bot_btn2 = {
     "ar": "💨 الاشتراك",
 }
 l_bot_welcome = {
-    "ru": "🌱 <b>{0}</b>, добро пожаловать в #нейро-конструктор <b>@tg</b>-приложений:\\n\\n<blockquote>▪️монетизация и интеграции\\n▪️нейро-перевод/оповещения\\n▪️маркетплейс и геймификация\\n▪️нейро-генерация приложений\\n▪️веб-мини/нейро-постинг</blockquote>",
-    "en": "🌱 <b>{0}</b>, welcome to the #neuro-constructor of <b>@tg</b>-applications:\\n\\n<blockquote>▪️monetization and integrations\\n▪️neuro-translation/notifications\\n▪️marketplace and gamification\\n▪️neuro-generation of applications\\n▪️web-mini/neuro-posting</blockquote>",
-    "es": "🌱 <b>{0}</b>, bienvenido al #neuro-constructor de <b>@tg</b>-aplicaciones:\\n\\n<blockquote>▪️monetización e integraciones\\n▪️neuro-traducción/notificaciones\\n▪️marketplace y gamificación\\n▪️neuro-generación de aplicaciones\\n▪️web-mini/neuro-posting</blockquote>",
-    "fr": "🌱 <b>{0}</b>, bienvenue dans le #neuro-constructor des <b>@tg</b>-applications:\\n\\n<blockquote>▪️monétisation et intégrations\\n▪️neuro-traduction/notifications\\n▪️marketplace et gamification\\n▪️neuro-génération d'applications\\n▪️web-mini/neuro-posting</blockquote>",
-    "zh": "🌱 <b>{0}</b>，欢迎来到 #neuro-constructor 的 <b>@tg</b>-应用:\\n\\n<blockquote>▪️变现与集成\\n▪️神经翻译/通知\\n▪️市场与游戏化\\n▪️神经生成应用\\n▪️网页-迷你/神经发布</blockquote>",
-    "ar": "🌱 <b>{0}</b>، مرحبًا بك في #neuro-constructor لتطبيقات <b>@tg</b>:\\n\\n<blockquote>▪️تحقيق الدخل والتكاملات\\n▪️الترجمة العصبية/الإشعارات\\n▪️السوق والتلعيب\\n▪️التوليد العصبي للتطبيقات\\n▪️الويب-ميني/النشر العصبي</blockquote>",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в #нейро-конструктор <b>@tg</b>-приложений:\n\n<blockquote>▪️монетизация и интеграции\n▪️нейро-перевод/оповещения\n▪️маркетплейс и геймификация\n▪️нейро-генерация приложений\n▪️веб-мини/нейро-постинг</blockquote>",
+    "en": "🌱 <b>{0}</b>, welcome to the #neuro-constructor of <b>@tg</b>-applications:\n\n<blockquote>▪️monetization and integrations\n▪️neuro-translation/notifications\n▪️marketplace and gamification\n▪️neuro-generation of applications\n▪️web-mini/neuro-posting</blockquote>",
+    "es": "🌱 <b>{0}</b>, bienvenido al #neuro-constructor de <b>@tg</b>-aplicaciones:\n\n<blockquote>▪️monetización e integraciones\n▪️neuro-traducción/notificaciones\n▪️marketplace y gamificación\n▪️neuro-generación de aplicaciones\n▪️web-mini/neuro-posting</blockquote>",
+    "fr": "🌱 <b>{0}</b>, bienvenue dans le #neuro-constructor des <b>@tg</b>-applications:\n\n<blockquote>▪️monétisation et intégrations\n▪️neuro-traduction/notifications\n▪️marketplace et gamification\n▪️neuro-génération d'applications\n▪️web-mini/neuro-posting</blockquote>",
+    "zh": "🌱 <b>{0}</b>，欢迎来到 #neuro-constructor 的 <b>@tg</b>-应用:\n\n<blockquote>▪️变现与集成\n▪️神经翻译/通知\n▪️市场与游戏化\n▪️神经生成应用\n▪️网页-迷你/神经发布</blockquote>",
+    "ar": "🌱 <b>{0}</b>، مرحبًا بك في #neuro-constructor لتطبيقات <b>@tg</b>:\n\n<blockquote>▪️تحقيق الدخل والتكاملات\n▪️الترجمة العصبية/الإشعارات\n▪️السوق والتلعيب\n▪️التوليد العصبي للتطبيقات\n▪️الويب-ميني/النشر العصبي</blockquote>",
 }
 l_wait_for_translate_bot = {
     "ru": "👩🏽‍💻 <b>Перевод</b> {0}-бота на <i>{1}</i>-язык\n\n#длительность 0мин",
@@ -2921,12 +2921,12 @@ l_payment_successful = {
     "ar": "👩🏽‍💻 <b>المستخدم</b> {0} 💰قام بدفع مبلغ {1} {2}",
 }
 l_create_view_web = {
-    "ru": "👩🏽‍💻 <b>Скрытая</b> ссылка на веб-страницу: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>Подлинная</b> телеграм-ссылка: <code>{0}</code>",
-    "en": "👩🏽‍💻 <b>Hidden</b> link to the web page: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>Genuine</b> Telegram link: <code>{0}</code>",
-    "es": "👩🏽‍💻 <b>Oculto</b> enlace a la página web: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>Enlace genuino</b> de Telegram: <code>{0}</code>",
-    "fr": "👩🏽‍💻 <b>Caché</b> lien vers la page Web: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>Lien Telegram authentique</b>: <code>{0}</code>",
-    "zh": "👩🏽‍💻 <b>隐藏</b> 的网页链接: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>真实的</b> Telegram 链接: <code>{0}</code>",
-    "ar": "👩🏽‍💻 <b>الرابط المخفي</b> لصفحة الويب: <a href='{0}'>@{1}/web</a>\\n\\n👩🏽‍💻 <b>الرابط الأصلي</b> لتليجرام: <code>{0}</code>"
+    "ru": "👩🏽‍💻 <b>Скрытая</b> ссылка на веб-страницу: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Подлинная</b> телеграм-ссылка: <code>{0}</code>",
+    "en": "👩🏽‍💻 <b>Hidden</b> link to the web page: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Genuine</b> Telegram link: <code>{0}</code>",
+    "es": "👩🏽‍💻 <b>Oculto</b> enlace a la página web: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Enlace genuino</b> de Telegram: <code>{0}</code>",
+    "fr": "👩🏽‍💻 <b>Caché</b> lien vers la page Web: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Lien Telegram authentique</b>: <code>{0}</code>",
+    "zh": "👩🏽‍💻 <b>隐藏</b> 的网页链接: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>真实的</b> Telegram 链接: <code>{0}</code>",
+    "ar": "👩🏽‍💻 <b>الرابط المخفي</b> لصفحة الويب: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>الرابط الأصلي</b> لتليجرام: <code>{0}</code>"
 }
 l_admin_answer = {
     "ru": "👩🏽‍💻 <b>Администратор</b>: {0} to {1}:\n\n{2}",

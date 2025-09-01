@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250828
+Version: 1.0.0.dev20250831
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -20,6 +22,8 @@ Classifier: Topic :: System :: Distributed Computing
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wheel<0.46.0
+Requires-Dist: setuptools
+Requires-Dist: pip
 Requires-Dist: cachetools
 Requires-Dist: click<8.2.0,>=7.0
 Requires-Dist: colorama
@@ -59,6 +63,7 @@ Requires-Dist: gitpython
 Requires-Dist: types-paramiko
 Requires-Dist: alembic
 Requires-Dist: aiohttp
+Requires-Dist: anyio
 Provides-Extra: aws
 Requires-Dist: awscli>=1.27.10; extra == "aws"
 Requires-Dist: botocore>=1.29.10; extra == "aws"
@@ -73,7 +78,6 @@ Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "azure"
 Requires-Dist: azure-storage-blob>=12.23.1; extra == "azure"
 Requires-Dist: msgraph-sdk; extra == "azure"
 Requires-Dist: msrestazure; extra == "azure"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "azure"
 Provides-Extra: gcp
 Requires-Dist: google-api-python-client>=2.69.0; extra == "gcp"
 Requires-Dist: google-cloud-storage; extra == "gcp"
@@ -97,7 +101,6 @@ Provides-Extra: scp
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "scp"
 Provides-Extra: oci
 Requires-Dist: oci; extra == "oci"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "oci"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "kubernetes"
 Requires-Dist: websockets; extra == "kubernetes"
@@ -136,66 +139,51 @@ Requires-Dist: sqlalchemy_adapter; extra == "server"
 Requires-Dist: passlib; extra == "server"
 Requires-Dist: pyjwt; extra == "server"
 Requires-Dist: aiohttp; extra == "server"
+Requires-Dist: anyio; extra == "server"
 Requires-Dist: grpcio>=1.63.0; extra == "server"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "server"
 Provides-Extra: all
-Requires-Dist: awscli>=1.27.10; extra == "all"
-Requires-Dist: botocore>=1.29.10; extra == "all"
-Requires-Dist: boto3>=1.26.1; extra == "all"
-Requires-Dist: colorama<0.4.5; extra == "all"
-Requires-Dist: azure-cli>=2.65.0; extra == "all"
-Requires-Dist: azure-core>=1.31.0; extra == "all"
-Requires-Dist: azure-identity>=1.19.0; extra == "all"
-Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
-Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
-Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
-Requires-Dist: msgraph-sdk; extra == "all"
-Requires-Dist: msrestazure; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
-Requires-Dist: google-cloud-storage; extra == "all"
-Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
-Requires-Dist: ibm-cloud-sdk-core; extra == "all"
-Requires-Dist: ibm-vpc; extra == "all"
-Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
-Requires-Dist: ibm-cos-sdk; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: docker; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: awscli>=1.27.10; extra == "all"
-Requires-Dist: botocore>=1.29.10; extra == "all"
-Requires-Dist: boto3>=1.26.1; extra == "all"
-Requires-Dist: colorama<0.4.5; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: oci; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
-Requires-Dist: websockets; extra == "all"
-Requires-Dist: python-dateutil; extra == "all"
-Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
-Requires-Dist: websockets; extra == "all"
-Requires-Dist: python-dateutil; extra == "all"
-Requires-Dist: grpcio>=1.63.0; extra == "all"
-Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
-Requires-Dist: runpod>=1.6.1; extra == "all"
-Requires-Dist: cudo-compute>=0.1.10; extra == "all"
-Requires-Dist: pydo>=0.3.0; extra == "all"
-Requires-Dist: azure-core>=1.24.0; extra == "all"
-Requires-Dist: azure-common; extra == "all"
-Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
-Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
-Requires-Dist: nebius>=0.2.47; extra == "all"
-Requires-Dist: awscli>=1.27.10; extra == "all"
-Requires-Dist: botocore>=1.29.10; extra == "all"
-Requires-Dist: boto3>=1.26.1; extra == "all"
-Requires-Dist: colorama<0.4.5; extra == "all"
-Requires-Dist: casbin; extra == "all"
 Requires-Dist: sqlalchemy_adapter; extra == "all"
-Requires-Dist: passlib; extra == "all"
-Requires-Dist: pyjwt; extra == "all"
-Requires-Dist: aiohttp; extra == "all"
+Requires-Dist: colorama<0.4.5; extra == "all"
+Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
+Requires-Dist: msgraph-sdk; extra == "all"
+Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
+Requires-Dist: docker; extra == "all"
+Requires-Dist: msrestazure; extra == "all"
+Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
+Requires-Dist: pydo>=0.3.0; extra == "all"
+Requires-Dist: python-dateutil; extra == "all"
+Requires-Dist: oci; extra == "all"
+Requires-Dist: awscli>=1.27.10; extra == "all"
+Requires-Dist: ibm-cloud-sdk-core; extra == "all"
+Requires-Dist: casbin; extra == "all"
+Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
+Requires-Dist: boto3>=1.26.1; extra == "all"
+Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
+Requires-Dist: websockets; extra == "all"
+Requires-Dist: azure-core>=1.24.0; extra == "all"
+Requires-Dist: cudo-compute>=0.1.10; extra == "all"
+Requires-Dist: botocore>=1.29.10; extra == "all"
+Requires-Dist: anyio; extra == "all"
+Requires-Dist: azure-core>=1.31.0; extra == "all"
+Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
 Requires-Dist: grpcio>=1.63.0; extra == "all"
+Requires-Dist: azure-identity>=1.19.0; extra == "all"
+Requires-Dist: passlib; extra == "all"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
+Requires-Dist: azure-common; extra == "all"
+Requires-Dist: aiohttp; extra == "all"
+Requires-Dist: runpod>=1.6.1; extra == "all"
+Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
+Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
+Requires-Dist: pyjwt; extra == "all"
+Requires-Dist: nebius>=0.2.47; extra == "all"
+Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
+Requires-Dist: ibm-vpc; extra == "all"
+Requires-Dist: azure-cli>=2.65.0; extra == "all"
+Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: ibm-cos-sdk; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

@@ -37,7 +37,7 @@ class DirectoryProvider(ServiceProvider):
             This method does not return any value.
         """
         # Bind IDirectory to Directory as a singleton with a specific alias
-        self.app.singleton(IDirectory, Directory, alias="x-orionis.services.file.contracts.directory")
+        self.app.singleton(IDirectory, Directory, alias=f"x-{IDirectory.__module__}.{IDirectory.__name__}")
 
     def boot(self) -> None:
         """

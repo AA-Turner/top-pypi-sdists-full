@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Pydantic
-Version: 0.13.1
+Version: 0.13.2
 Summary: Flask extension for integration with Pydantic library.
 Author: Jiri Bauer
 Maintainer-email: Pallets <contact@palletsprojects.com>
@@ -358,6 +358,10 @@ Feature requests and pull requests are welcome. For major changes, please open a
   ```bash
   python3 -m venv venv
   source venv/bin/activate
+  ```
+- install runtime dependencies
+  ```bash
+  python3 -m pip install -e .
   ```
 - install development requirements
   ```bash

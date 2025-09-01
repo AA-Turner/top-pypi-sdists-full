@@ -21,9 +21,15 @@ from pinecone_plugins.assistant.data.core.client.model.context_request import Co
 from pinecone_plugins.assistant.data.core.client.model.error_response import ErrorResponse
 from pinecone_plugins.assistant.data.core.client.model.error_response_error import ErrorResponseError
 from pinecone_plugins.assistant.data.core.client.model.highlight_model import HighlightModel
+from pinecone_plugins.assistant.data.core.client.model.image_model import ImageModel
 from pinecone_plugins.assistant.data.core.client.model.inline_response200 import InlineResponse200
 from pinecone_plugins.assistant.data.core.client.model.message_model import MessageModel
+from pinecone_plugins.assistant.data.core.client.model.multi_modal_content_blocks_model import MultiModalContentBlocksModel
+from pinecone_plugins.assistant.data.core.client.model.multi_modal_content_image_block_model import MultiModalContentImageBlockModel
+from pinecone_plugins.assistant.data.core.client.model.multi_modal_content_text_block_model import MultiModalContentTextBlockModel
+from pinecone_plugins.assistant.data.core.client.model.multi_modal_snippet_model import MultiModalSnippetModel
 from pinecone_plugins.assistant.data.core.client.model.reference_model import ReferenceModel
 from pinecone_plugins.assistant.data.core.client.model.search_completions import SearchCompletions
 from pinecone_plugins.assistant.data.core.client.model.snippet_model import SnippetModel
+from pinecone_plugins.assistant.data.core.client.model.text_snippet_model import TextSnippetModel
 from pinecone_plugins.assistant.data.core.client.model.usage_model import UsageModel

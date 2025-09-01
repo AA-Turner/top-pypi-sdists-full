@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.test.contracts.unit_test import IUnitTest
 
 class Test(Facade):
 
@@ -15,8 +16,8 @@ class Test(Facade):
         Returns
         -------
         str
-            The service container binding key "x-orionis.test.core.unit_test"
+            The service container binding key "x-orionis.test.contracts.unit_test.IUnitTest"
             used to resolve the testing component implementation.
         """
 
-        return "x-orionis.test.core.unit_test"
+        return f"x-{IUnitTest.__module__}.{IUnitTest.__name__}"

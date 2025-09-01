@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.0.2
+Version: 3.0.3
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License-Expression: MIT
@@ -16,7 +16,7 @@ Requires-Dist: backoff>=2.2
 Requires-Dist: joblib~=1.3
 Requires-Dist: openai>=0.28.1
 Requires-Dist: regex>=2023.10.3
-Requires-Dist: ujson>=5.8.0
+Requires-Dist: orjson>=3.9.0
 Requires-Dist: tqdm>=4.66.1
 Requires-Dist: requests>=2.31.0
 Requires-Dist: optuna>=3.4.0
@@ -33,7 +33,7 @@ Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: rich>=13.7.1
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: xxhash>=3.5.0
-Requires-Dist: gepa[dspy]==0.0.4
+Requires-Dist: gepa[dspy]==0.0.7
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: weaviate
@@ -119,7 +119,7 @@ If you're looking to understand the underlying research, this is a set of our pa
 [Dec'23] [DSPy Assertions: Computational Constraints for Self-Refining Language Model Pipelines](https://arxiv.org/abs/2312.13382)   
 [Dec'22] [Demonstrate-Search-Predict: Composing Retrieval & Language Models for Knowledge-Intensive NLP](https://arxiv.org/abs/2212.14024.pdf)
 
-To stay up to date or learn more, follow [@lateinteraction](https://twitter.com/lateinteraction) on Twitter.
+To stay up to date or learn more, follow [@DSPyOSS](https://twitter.com/DSPyOSS) on Twitter or the DSPy page on LinkedIn.
 
 The **DSPy** logo is designed by **Chuyi Zhang**.
 

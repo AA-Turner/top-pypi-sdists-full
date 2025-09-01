@@ -1,24 +1,18 @@
 Metadata-Version: 2.4
 Name: rocketchat_API
-Version: 1.35.2
+Version: 1.36.0
 Summary: Python API wrapper for Rocket.Chat
-Home-page: https://github.com/jadolg/rocketchat_API
-Author: Jorge Alberto Díaz Orozco
-Author-email: diazorozcoj@gmail.com
-License: MIT
+Author-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
+Maintainer-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/jadolg/rocketchat_API
+Project-URL: Issues, https://github.com/jadolg/rocketchat_API/issues
+Keywords: rocketchat,api,wrapper,rest
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests
 Requires-Dist: packaging
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 ## rocketchat_API
 Python API wrapper for [Rocket.Chat](https://developer.rocket.chat/reference/api/rest-api/)

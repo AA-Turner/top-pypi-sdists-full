@@ -33,7 +33,7 @@ class ScheduleProvider(ServiceProvider):
             This method does not return any value.
         """
         # Bind Scheduler as a singleton to the ISchedule interface with an alias
-        self.app.singleton(ISchedule, Schedule, alias="x-orionis.console.contracts.schedule")
+        self.app.singleton(ISchedule, Schedule, alias=f"x-{ISchedule.__module__}.{ISchedule.__name__}")
 
     def boot(self) -> None:
         """

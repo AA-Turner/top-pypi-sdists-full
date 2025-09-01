@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.23 15:00:00                  #
+# Updated Date: 2025.08.30 06:00:00                  #
 # ================================================== #
 
 from typing import Optional
@@ -111,6 +111,7 @@ class Text:
         # if prev ctx is not empty, then copy input name to current ctx
         if prev_ctx is not None and prev_ctx.sub_call is True:  # sub_call = sent from expert
             ctx.input_name = prev_ctx.input_name
+
         if reply:
             ctx.extra["sub_reply"] = True  # mark as sub reply in extra data
 
@@ -238,7 +239,7 @@ class Text:
         """
         core = self.window.core
         stream = core.config.get("stream")
-        if mode in (MODE_AGENT_LLAMA, MODE_AUDIO):
+        if mode in (MODE_AGENT_LLAMA):
             return False  # TODO: check if this is correct in agent
         elif mode == MODE_LLAMA_INDEX:
             if core.config.get("llama.idx.mode") == "retrieval":

@@ -6,16 +6,19 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import resource
-from . import core_v1
 from . import runtime
+from . import core_v1
 from . import meta_v1
+from . import resource
 
 
 @dataclass
 class AllocatedDeviceStatus(DictMixin):
     r"""AllocatedDeviceStatus contains the status of an allocated device, if the
       driver chooses to report it. This may include driver-specific information.
+      
+      The combination of Driver, Pool, Device, and ShareID must match the
+      corresponding key in Status.Allocation.Devices.
 
       **parameters**
 
@@ -36,6 +39,7 @@ class AllocatedDeviceStatus(DictMixin):
       * **data** ``Optional[runtime.RawExtension]`` - Data contains arbitrary driver-specific data.
         The length of the raw data must be smaller or equal to 10 Ki.
       * **networkData** ``Optional[NetworkDeviceData]`` - NetworkData contains network-related information specific to the device.
+      * **shareID** ``Optional[str]`` - ShareID uniquely identifies an individual allocation share of the device.
     """
     device: 'str'
     driver: 'str'
@@ -43,6 +47,7 @@ class AllocatedDeviceStatus(DictMixin):
     conditions: 'Optional[List[meta_v1.Condition]]' = None
     data: 'Optional[runtime.RawExtension]' = None
     networkData: 'Optional[NetworkDeviceData]' = None
+    shareID: 'Optional[str]' = None
 
 
 @dataclass
@@ -51,10 +56,15 @@ class AllocationResult(DictMixin):
 
       **parameters**
 
+      * **allocationTimestamp** ``Optional[meta_v1.Time]`` - AllocationTimestamp stores the time when the resources were allocated. This
+        field is not guaranteed to be set, in which case that time is unknown.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gate.
       * **devices** ``Optional[DeviceAllocationResult]`` - Devices is the result of allocating devices.
       * **nodeSelector** ``Optional[core_v1.NodeSelector]`` - NodeSelector defines where the allocated resources are available. If unset,
         they are available everywhere.
     """
+    allocationTimestamp: 'Optional[meta_v1.Time]' = None
     devices: 'Optional[DeviceAllocationResult]' = None
     nodeSelector: 'Optional[core_v1.NodeSelector]' = None
 
@@ -76,6 +86,9 @@ class CELDeviceSelector(DictMixin):
            (e.g. device.attributes["dra.example.com"] evaluates to an object with all
            of the attributes which were prefixed by "dra.example.com".
          - capacity (map[string]object): the device's capacities, grouped by prefix.
+         - allowMultipleAllocations (bool): the allowMultipleAllocations property of
+        the device
+           (v1.34+ with the DRAConsumableCapacity feature enabled).
         Example: Consider a device with driver="dra.example.com", which exposes two
         attributes named "model" and "ext.example.com/family" and which exposes one
         capacity named "modules". This input to this expression would have the
@@ -105,6 +118,104 @@ class CELDeviceSelector(DictMixin):
         evaluating it is also limited based on the estimated number of logical steps.
     """
     expression: 'str'
+
+
+@dataclass
+class CapacityRequestPolicy(DictMixin):
+    r"""CapacityRequestPolicy defines how requests consume device capacity.
+      
+      Must not set more than one ValidRequestValues.
+
+      **parameters**
+
+      * **default** ``Optional[resource.Quantity]`` - Default specifies how much of this capacity is consumed by a request that does
+        not contain an entry for it in DeviceRequest's Capacity.
+      * **validRange** ``Optional[CapacityRequestPolicyRange]`` - ValidRange defines an acceptable quantity value range in consuming requests.
+        If this field is set, Default must be defined and it must fall within the
+        defined ValidRange.
+        If the requested amount does not fall within the defined range, the request
+        violates the policy, and this device cannot be allocated.
+        If the request doesn't contain this capacity entry, Default value is used.
+      * **validValues** ``Optional[List[resource.Quantity]]`` - ValidValues defines a set of acceptable quantity values in consuming requests.
+        Must not contain more than 10 entries. Must be sorted in ascending order.
+        If this field is set, Default must be defined and it must be included in
+        ValidValues list.
+        If the requested amount does not match any valid value but smaller than some
+        valid values, the scheduler calculates the smallest valid value that is
+        greater than or equal to the request. That is: min(ceil(requestedValue) ∈
+        validValues), where requestedValue ≤ max(validValues).
+        If the requested amount exceeds all valid values, the request violates the
+        policy, and this device cannot be allocated.
+    """
+    default: 'Optional[resource.Quantity]' = None
+    validRange: 'Optional[CapacityRequestPolicyRange]' = None
+    validValues: 'Optional[List[resource.Quantity]]' = None
+
+
+@dataclass
+class CapacityRequestPolicyRange(DictMixin):
+    r"""CapacityRequestPolicyRange defines a valid range for consumable capacity
+      values.
+      
+        - If the requested amount is less than Min, it is rounded up to the Min
+      value.
+        - If Step is set and the requested amount is between Min and Max but not
+      aligned with Step,
+          it will be rounded up to the next value equal to Min + (n * Step).
+        - If Step is not set, the requested amount is used as-is if it falls within
+      the range Min to Max (if set).
+        - If the requested or rounded amount exceeds Max (if set), the request does
+      not satisfy the policy,
+          and the device cannot be allocated.
+
+      **parameters**
+
+      * **min** ``resource.Quantity`` - Min specifies the minimum capacity allowed for a consumption request.
+        Min must be greater than or equal to zero, and less than or equal to the
+        capacity value. requestPolicy.default must be more than or equal to the
+        minimum.
+      * **max** ``Optional[resource.Quantity]`` - Max defines the upper limit for capacity that can be requested.
+        Max must be less than or equal to the capacity value. Min and
+        requestPolicy.default must be less than or equal to the maximum.
+      * **step** ``Optional[resource.Quantity]`` - Step defines the step size between valid capacity amounts within the range.
+        Max (if set) and requestPolicy.default must be a multiple of Step. Min + Step
+        must be less than or equal to the capacity value.
+    """
+    min: 'resource.Quantity'
+    max: 'Optional[resource.Quantity]' = None
+    step: 'Optional[resource.Quantity]' = None
+
+
+@dataclass
+class CapacityRequirements(DictMixin):
+    r"""CapacityRequirements defines the capacity requirements for a specific device
+      request.
+
+      **parameters**
+
+      * **requests** ``Optional[dict]`` - Requests represent individual device resource requests for distinct resources,
+        all of which must be provided by the device.
+        This value is used as an additional filtering condition against the available
+        capacity on the device. This is semantically equivalent to a CEL selector with
+        `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >=
+        0`. For example,
+        device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >=
+        0.
+        When a requestPolicy is defined, the requested amount is adjusted upward to
+        the nearest valid value based on the policy. If the requested amount cannot be
+        adjusted to a valid value—because it exceeds what the requestPolicy allows—
+        the device is considered ineligible for allocation.
+        For any capacity that is not explicitly requested: - If no requestPolicy is
+        set, the default consumed capacity is equal to the full device capacity
+          (i.e., the whole device is claimed).
+        - If a requestPolicy is set, the default consumed capacity is determined
+        according to that policy.
+        If the device allows multiple allocation, the aggregated amount across all
+        requests must not exceed the capacity value. The consumed capacity, which may
+        be adjusted based on the requestPolicy if defined, is recorded in the resource
+        claim’s status.devices[*].consumedCapacity field.
+    """
+    requests: 'Optional[dict]' = None
 
 
 @dataclass
@@ -150,9 +261,35 @@ class Device(DictMixin):
       * **allNodes** ``Optional[bool]`` - AllNodes indicates that all nodes have access to the device.
         Must only be set if Spec.PerDeviceNodeSelection is set to true. At most one of
         NodeName, NodeSelector and AllNodes can be set.
+      * **allowMultipleAllocations** ``Optional[bool]`` - AllowMultipleAllocations marks whether the device is allowed to be allocated
+        to multiple DeviceRequests.
+        If AllowMultipleAllocations is set to true, the device can be allocated more
+        than once, and all of its capacity is consumable, regardless of whether the
+        requestPolicy is defined or not.
       * **attributes** ``Optional[dict]`` - Attributes defines the set of attributes for this device. The name of each
         attribute must be unique in that set.
         The maximum number of attributes and capacities combined is 32.
+      * **bindingConditions** ``Optional[List[str]]`` - BindingConditions defines the conditions for proceeding with binding. All of
+        these conditions must be set in the per-device status conditions with a value
+        of True to proceed with binding the pod to the node while scheduling the pod.
+        The maximum number of binding conditions is 4.
+        The conditions must be a valid condition type string.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gates.
+      * **bindingFailureConditions** ``Optional[List[str]]`` - BindingFailureConditions defines the conditions for binding failure. They may
+        be set in the per-device status conditions. If any is set to "True", a binding
+        failure occurred.
+        The maximum number of binding failure conditions is 4.
+        The conditions must be a valid condition type string.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gates.
+      * **bindsToNode** ``Optional[bool]`` - BindsToNode indicates if the usage of an allocation involving this device has
+        to be limited to exactly the node that was chosen when allocating the claim.
+        If set to true, the scheduler will set the
+        ResourceClaim.Status.Allocation.NodeSelector to match the node where the
+        allocation was made.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gates.
       * **capacity** ``Optional[dict]`` - Capacity defines the set of capacities for this device. The name of each
         capacity must be unique in that set.
         The maximum number of attributes and capacities combined is 32.
@@ -175,7 +312,11 @@ class Device(DictMixin):
     """
     name: 'str'
     allNodes: 'Optional[bool]' = None
+    allowMultipleAllocations: 'Optional[bool]' = None
     attributes: 'Optional[dict]' = None
+    bindingConditions: 'Optional[List[str]]' = None
+    bindingFailureConditions: 'Optional[List[str]]' = None
+    bindsToNode: 'Optional[bool]' = None
     capacity: 'Optional[dict]' = None
     consumesCounters: 'Optional[List[DeviceCounterConsumption]]' = None
     nodeName: 'Optional[str]' = None
@@ -245,9 +386,20 @@ class DeviceCapacity(DictMixin):
 
       **parameters**
 
-      * **value** ``resource.Quantity`` - Value defines how much of a certain device capacity is available.
+      * **value** ``resource.Quantity`` - Value defines how much of a certain capacity that device has.
+        This field reflects the fixed total capacity and does not change. The consumed
+        amount is tracked separately by scheduler and does not affect this value.
+      * **requestPolicy** ``Optional[CapacityRequestPolicy]`` - RequestPolicy defines how this DeviceCapacity must be consumed when the device
+        is allowed to be shared by multiple allocations.
+        The Device must have allowMultipleAllocations set to true in order to set a
+        requestPolicy.
+        If unset, capacity requests are unconstrained: requests can consume any amount
+        of capacity, as long as the total consumed across all allocations does not
+        exceed the device's defined capacity. If request is also unset, default is the
+        full capacity value.
     """
     value: 'resource.Quantity'
+    requestPolicy: 'Optional[CapacityRequestPolicy]' = None
 
 
 @dataclass
@@ -372,9 +524,19 @@ class DeviceClassSpec(DictMixin):
         driver.
         They are passed to the driver, but are not considered while allocating the
         claim.
+      * **extendedResourceName** ``Optional[str]`` - ExtendedResourceName is the extended resource name for the devices of this
+        class. The devices of this class can be used to satisfy a pod's extended
+        resource requests. It has the same format as the name of a pod's extended
+        resource. It should be unique among all the device classes in a cluster. If
+        two device classes have the same name, then the class created later is picked
+        to satisfy a pod's extended resource requests. If two classes are created at
+        the same time, then the name of the class lexicographically sorted first is
+        picked.
+        This is an alpha field.
       * **selectors** ``Optional[List[DeviceSelector]]`` - Each selector must be satisfied by a device which is claimed via this class.
     """
     config: 'Optional[List[DeviceClassConfiguration]]' = None
+    extendedResourceName: 'Optional[str]' = None
     selectors: 'Optional[List[DeviceSelector]]' = None
 
 
@@ -384,6 +546,14 @@ class DeviceConstraint(DictMixin):
 
       **parameters**
 
+      * **distinctAttribute** ``Optional[str]`` - DistinctAttribute requires that all devices in question have this attribute
+        and that its type and value are unique across those devices.
+        This acts as the inverse of MatchAttribute.
+        This constraint is used to avoid allocating multiple requests to the same
+        device by ensuring attribute-level differentiation.
+        This is useful for scenarios where resource requests must be fulfilled by
+        separate physical devices. For example, a container requests two network
+        interfaces that must be allocated from two different physical NICs.
       * **matchAttribute** ``Optional[str]`` - MatchAttribute requires that all devices in question have this attribute and
         that its type and value are the same across those devices.
         For example, if you specified "dra.example.com/numa" (a hypothetical
@@ -400,6 +570,7 @@ class DeviceConstraint(DictMixin):
         include the subrequest using the format <main request>[/<subrequest>]. If just
         the main request is given, the constraint applies to all subrequests.
     """
+    distinctAttribute: 'Optional[str]' = None
     matchAttribute: 'Optional[str]' = None
     requests: 'Optional[List[str]]' = None
 
@@ -483,6 +654,25 @@ class DeviceRequestAllocationResult(DictMixin):
         This is an alpha field and requires enabling the DRAAdminAccess feature gate.
         Admin access is disabled if this field is unset or set to false, otherwise it
         is enabled.
+      * **bindingConditions** ``Optional[List[str]]`` - BindingConditions contains a copy of the BindingConditions from the
+        corresponding ResourceSlice at the time of allocation.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gates.
+      * **bindingFailureConditions** ``Optional[List[str]]`` - BindingFailureConditions contains a copy of the BindingFailureConditions from
+        the corresponding ResourceSlice at the time of allocation.
+        This is an alpha field and requires enabling the DRADeviceBindingConditions
+        and DRAResourceClaimDeviceStatus feature gates.
+      * **consumedCapacity** ``Optional[dict]`` - ConsumedCapacity tracks the amount of capacity consumed per device as part of
+        the claim request. The consumed amount may differ from the requested amount:
+        it is rounded up to the nearest valid value based on the device’s
+        requestPolicy if applicable (i.e., may not be less than the requested amount).
+        The total consumed capacity for each device must not exceed the
+        DeviceCapacity's Value.
+        This field is populated only for devices that allow multiple allocations. All
+        capacity entries are included, even if the consumed amount is zero.
+      * **shareID** ``Optional[str]`` - ShareID uniquely identifies an individual allocation share of the device, used
+        when the device supports multiple simultaneous allocations. It serves as an
+        additional map key to differentiate concurrent shares of the same device.
       * **tolerations** ``Optional[List[DeviceToleration]]`` - A copy of all tolerations specified in the request at the time when the device
         got allocated.
         The maximum number of tolerations is 16.
@@ -493,6 +683,10 @@ class DeviceRequestAllocationResult(DictMixin):
     pool: 'str'
     request: 'str'
     adminAccess: 'Optional[bool]' = None
+    bindingConditions: 'Optional[List[str]]' = None
+    bindingFailureConditions: 'Optional[List[str]]' = None
+    consumedCapacity: 'Optional[dict]' = None
+    shareID: 'Optional[str]' = None
     tolerations: 'Optional[List[DeviceToleration]]' = None
 
 
@@ -544,6 +738,15 @@ class DeviceSubRequest(DictMixin):
         other subrequests must specify this field.
         More modes may get added in the future. Clients must refuse to handle requests
         with unknown modes.
+      * **capacity** ``Optional[CapacityRequirements]`` - Capacity define resource requirements against each capacity.
+        If this field is unset and the device supports multiple allocations, the
+        default value will be applied to each capacity according to requestPolicy. For
+        the capacity that has no requestPolicy, default is the full capacity value.
+        Applies to each device allocation. If Count > 1, the request fails if there
+        aren't enough devices that meet the requirements. If AllocationMode is set to
+        All, the request fails if there are devices that otherwise match the request,
+        and have this capacity, with a value >= the requested amount, but which cannot
+        be allocated to this request.
       * **count** ``Optional[int]`` - Count is used only when the count mode is "ExactCount". Must be greater than
         zero. If AllocationMode is ExactCount and this field is not specified, the
         default is one.
@@ -564,6 +767,7 @@ class DeviceSubRequest(DictMixin):
     deviceClassName: 'str'
     name: 'str'
     allocationMode: 'Optional[str]' = None
+    capacity: 'Optional[CapacityRequirements]' = None
     count: 'Optional[int]' = None
     selectors: 'Optional[List[DeviceSelector]]' = None
     tolerations: 'Optional[List[DeviceToleration]]' = None
@@ -658,6 +862,15 @@ class ExactDeviceRequest(DictMixin):
         other requests must specify this field.
         More modes may get added in the future. Clients must refuse to handle requests
         with unknown modes.
+      * **capacity** ``Optional[CapacityRequirements]`` - Capacity define resource requirements against each capacity.
+        If this field is unset and the device supports multiple allocations, the
+        default value will be applied to each capacity according to requestPolicy. For
+        the capacity that has no requestPolicy, default is the full capacity value.
+        Applies to each device allocation. If Count > 1, the request fails if there
+        aren't enough devices that meet the requirements. If AllocationMode is set to
+        All, the request fails if there are devices that otherwise match the request,
+        and have this capacity, with a value >= the requested amount, but which cannot
+        be allocated to this request.
       * **count** ``Optional[int]`` - Count is used only when the count mode is "ExactCount". Must be greater than
         zero. If AllocationMode is ExactCount and this field is not specified, the
         default is one.
@@ -678,6 +891,7 @@ class ExactDeviceRequest(DictMixin):
     deviceClassName: 'str'
     adminAccess: 'Optional[bool]' = None
     allocationMode: 'Optional[str]' = None
+    capacity: 'Optional[CapacityRequirements]' = None
     count: 'Optional[int]' = None
     selectors: 'Optional[List[DeviceSelector]]' = None
     tolerations: 'Optional[List[DeviceToleration]]' = None

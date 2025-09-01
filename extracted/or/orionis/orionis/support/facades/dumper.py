@@ -1,3 +1,4 @@
+from orionis.console.contracts.debug import IDebug
 from orionis.container.facades.facade import Facade
 
 class Dumper(Facade):
@@ -14,9 +15,9 @@ class Dumper(Facade):
         Returns
         -------
         str
-            The service container binding key "x-orionis.console.dumper.dump"
+            The service container binding key "x-orionis.console.contracts.debug.IDebug"
             that identifies the dumper service instance.
         """
 
         # Return the specific binding key for the dumper service in the container
-        return "x-orionis.console.dumper.dump"
+        return f"x-{IDebug.__module__}.{IDebug.__name__}"

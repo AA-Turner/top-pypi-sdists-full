@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import core_v1
 from . import runtime
+from . import core_v1
 from . import meta_v1
 from . import util_intstr
 
@@ -574,7 +574,7 @@ class RollingUpdateDaemonSet(DictMixin):
         launching new pods on 30% of nodes. Once an updated pod is available (Ready
         for at least minReadySeconds) the old DaemonSet pod on that node is marked
         deleted. If the old pod becomes unavailable for any reason (Ready transitions
-        to false, is evicted, or is drained) an updated pod is immediatedly created on
+        to false, is evicted, or is drained) an updated pod is immediately created on
         that node without considering surge limits. Allowing surge implies the
         possibility that the resources consumed by the daemonset on any given node can
         double if the readiness check fails, and so resource intensive daemonsets

@@ -361,10 +361,9 @@ class Container(IContainer):
         if alias:
             IsValidAlias(alias)
 
-        # Extract the module and class name for the alias
+        # Cretate a default alias if none provided
         else:
-            rf_asbtract = ReflectionAbstract(abstract)
-            alias = rf_asbtract.getModuleWithClassName()
+            alias = f"{abstract.__module__}.{abstract.__name__}"
 
         # If the service is already registered, drop it
         self.drop(abstract, alias)
@@ -446,8 +445,7 @@ class Container(IContainer):
         if alias:
             IsValidAlias(alias)
         else:
-            rf_asbtract = ReflectionAbstract(abstract)
-            alias = rf_asbtract.getModuleWithClassName()
+            alias = f"{abstract.__module__}.{abstract.__name__}"
 
         # If the service is already registered, drop it
         self.drop(abstract, alias)
@@ -529,8 +527,7 @@ class Container(IContainer):
         if alias:
             IsValidAlias(alias)
         else:
-            rf_asbtract = ReflectionAbstract(abstract)
-            alias = rf_asbtract.getModuleWithClassName()
+            alias = f"{abstract.__module__}.{abstract.__name__}"
 
         # If the service is already registered, drop it
         self.drop(abstract, alias)
@@ -617,8 +614,7 @@ class Container(IContainer):
         if alias:
             IsValidAlias(alias)
         else:
-            rf_asbtract = ReflectionAbstract(abstract)
-            alias = rf_asbtract.getModuleWithClassName()
+            alias = f"{abstract.__module__}.{abstract.__name__}"
 
         # If the service is already registered in container bindings, drop it
         self.drop(abstract, alias)
@@ -708,8 +704,7 @@ class Container(IContainer):
             if alias:
                 IsValidAlias(alias)
             else:
-                rf_asbtract = ReflectionAbstract(abstract)
-                alias = rf_asbtract.getModuleWithClassName()
+                alias = f"{abstract.__module__}.{abstract.__name__}"
 
             # If the service is already registered, drop it
             self.drop(abstract, alias)

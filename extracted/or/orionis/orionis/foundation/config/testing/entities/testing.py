@@ -94,14 +94,6 @@ class Testing(BaseEntity):
         }
     )
 
-    base_path: str = field(
-        default = 'tests',
-        metadata = {
-            "description": "The base directory where tests are located. Default is 'tests'.",
-            "default": 'tests'
-        }
-    )
-
     folder_path: str | list = field(
         default = '*',
         metadata = {
@@ -235,12 +227,6 @@ class Testing(BaseEntity):
         if not isinstance(self.throw_exception, bool):
             raise OrionisIntegrityException(
                 f"Invalid type for 'throw_exception': {type(self.throw_exception).__name__}. It must be a boolean (True or False)."
-            )
-
-        # Validate base_path attribute
-        if not isinstance(self.base_path, str):
-            raise OrionisIntegrityException(
-                f"Invalid type for 'base_path': {type(self.base_path).__name__}. It must be a string representing the base directory for tests."
             )
 
         # Validate folder_path attribute

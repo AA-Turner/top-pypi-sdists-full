@@ -39,10 +39,10 @@ class KernelCLI(IKernelCLI):
 
         # Retrieve and initialize the reactor instance from the application container.
         # The reactor is responsible for dispatching CLI commands.
-        self.__reactor: IReactor = app.make('x-orionis.console.core.reactor')
+        self.__reactor: IReactor = app.make(IReactor)
 
         # Retrieve and initialize the catch instance from the application container.
-        self.__catch: ICatch = app.make('x-orionis.failure.catch')
+        self.__catch: ICatch = app.make(ICatch)
 
     def handle(self, args: List[str] = []) -> None:
         """

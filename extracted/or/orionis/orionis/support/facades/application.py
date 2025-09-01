@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.foundation.contracts.application import IApplication
 
 class Application(Facade):
 
@@ -15,9 +16,9 @@ class Application(Facade):
         Returns
         -------
         str
-            The string identifier 'x-orionis.services.log.log_service' used as the
+            The string identifier "x-orionis.foundation.contracts.application.IApplication" used as the
             binding key to resolve the console service from the service container.
         """
 
         # Return the predefined binding key for the console output service
-        return "x-orionis.services.log.log_service"
+        return f"x-{IApplication.__module__}.{IApplication.__name__}"

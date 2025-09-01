@@ -27,7 +27,8 @@ from .config import (
     AlertConfig,
     ConfigManager,
     config_manager,
-    ConfigValidationError
+    ConfigValidationError,
+    PeopleTrackingConfig
 )
 
 # Note: Use case imports have been removed from this file to avoid circular imports.
@@ -57,5 +58,6 @@ __all__ = [
     'AlertConfig',
     'ConfigManager',
     'config_manager',
-    'ConfigValidationError'
+    'ConfigValidationError',
+    'PeopleTrackingConfig',
 ]

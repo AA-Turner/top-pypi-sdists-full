@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sspilib
-Version: 0.3.1
+Version: 0.4.0
 Summary: SSPI API bindings for Python
 Author-email: Jordan Borean <jborean93@gmail.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE

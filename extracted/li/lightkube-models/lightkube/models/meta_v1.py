@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from datetime import datetime
 from . import runtime
 from typing import Dict
+from datetime import datetime
 
 
 @dataclass

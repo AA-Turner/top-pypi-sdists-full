@@ -89,7 +89,7 @@ def uv_1960_to_xy(uv: VectorLike) -> Vector:
     return [0.0, 0.0] if denom == 0 else [(3 * u) / denom, (2 * v) / denom]
 
 
-def pq_st2084_oetf(
+def inverse_eotf_st2084(
     values: VectorLike,
     c1: float = C1,
     c2: float = C2,
@@ -97,7 +97,7 @@ def pq_st2084_oetf(
     m1: float = M1,
     m2: float = M2
 ) -> Vector:
-    """Perceptual quantizer (SMPTE ST 2084) - OETF."""
+    """Perceptual quantizer (SMPTE ST 2084) - inverse EOTF."""
 
     adjusted = []
     for c in values:
@@ -106,7 +106,7 @@ def pq_st2084_oetf(
     return adjusted
 
 
-def pq_st2084_eotf(
+def eotf_st2084(
     values: VectorLike,
     c1: float = C1,
     c2: float = C2,
@@ -153,7 +153,7 @@ def scale100(coords: Vector) -> Vector:
 
 
 def scale1(coords: Vector) -> Vector:
-    """Scale from 1 to 100."""
+    """Scale from 100 to 1."""
 
     return [c * 0.01 for c in coords]
 

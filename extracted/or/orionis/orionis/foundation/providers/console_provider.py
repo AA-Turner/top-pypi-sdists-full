@@ -37,7 +37,7 @@ class ConsoleProvider(ServiceProvider):
             modifying the application's service container.
         """
 
-        self.app.transient(IConsole, Console, alias="x-orionis.console.output.console")
+        self.app.transient(IConsole, Console, alias=f"x-{IConsole.__module__}.{IConsole.__name__}")
 
     def boot(self) -> None:
         """

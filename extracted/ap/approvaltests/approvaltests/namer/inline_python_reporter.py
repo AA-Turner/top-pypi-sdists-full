@@ -6,9 +6,7 @@ from typing import Callable, Optional
 from typing_extensions import override
 
 from approvaltests import Reporter, StackFrameNamer
-from approvaltests.inline.markers import (
-    PRESERVE_LEADING_WHITESPACE_MARKER,
-)
+from approvaltests.inline.markers import PRESERVE_LEADING_WHITESPACE_MARKER
 from approvaltests.inline.split_code import SplitCode
 
 
@@ -91,11 +89,12 @@ class InlinePythonReporter(Reporter):
         after_docstring_comment: str = "",
     ) -> str:
         split_code = SplitCode.on_method(code, method_name)
-        after = split_code.after_method
-        return (
-            f"{split_code.before_method}\n"
-            f'{split_code.tab}"""\n'
-            f"{split_code.indent(received_text)}\n"
-            f'{split_code.tab}"""{after_docstring_comment}\n'
-            f"{after}"
+        return "\n".join(
+            [
+                split_code.before_method,
+                split_code.tab + '"""',
+                split_code.indent(received_text),
+                split_code.tab + '"""' + after_docstring_comment,
+                split_code.after_method,
+            ]
         )

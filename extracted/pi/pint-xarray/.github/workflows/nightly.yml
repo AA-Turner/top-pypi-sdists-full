@@ -8,7 +8,6 @@ on:
     branches: [main]
   schedule:
     - cron: "0 0 * * *" # Daily "At 00:00" UTC
-
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +24,7 @@ jobs:
     outputs:
       triggered: ${{ steps.detect-trigger.outputs.trigger-found }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       - uses: xarray-contrib/ci-trigger@v1.2
@@ -50,11 +49,6 @@ jobs:
         )
       )
 
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-
     outputs:
       artifacts_availability: ${{ steps.status.outputs.ARTIFACTS_AVAILABLE }}
 
@@ -63,38 +57,32 @@ jobs:
 
     steps:
       - name: checkout the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # need to fetch all tags to get a correct version
           fetch-depth: 0 # fetch all branches and tags
 
-      - name: setup python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: install dependencies
+      - name: remove lockfile
         run: |
-          python -m pip install -r ci/requirements.txt
-          python -m pip install pytest-reportlog
+          rm pixi.lock
 
-      - name: install upstream-dev dependencies
-        run: bash ci/install-upstream-dev.sh
+      - name: setup environment
+        uses: prefix-dev/setup-pixi@fef5c9568ca6c4ff7707bf840ab0692ba3f08293 # 0.9.0
+        with:
+          environments: "nightly"
+          locked: false
+          frozen: false
+          cache: false
 
-      - name: install pint-xarray
-        run: python -m pip install .
-
-      - name: show versions
-        run: python -m pip list
+      - name: import pint-xarray
+        run: |
+          pixi run -e nightly python -c 'import pint_xarray'
 
       - name: run tests
         if: success()
         id: status
         run: |
-          python -m pytest -rf --report-log=pytest-log.jsonl
+          pixi run -e nightly tests -rf --report-log=pytest-log.jsonl
 
       - name: report failures
         if: |

@@ -692,7 +692,7 @@ class IApplication(IContainer):
     @abstractmethod
     def setBasePath(
         self,
-        basePath: str | Path
+        basePath: Path
     ) -> 'IApplication':
         """
         Set the base path for the application.
@@ -703,7 +703,7 @@ class IApplication(IContainer):
 
         Parameters
         ----------
-        basePath : str or Path
+        basePath : Path
             The base path to set for the application. It can be a string or a Path object.
 
         Returns
@@ -716,7 +716,7 @@ class IApplication(IContainer):
     @abstractmethod
     def getBasePath(
         self
-    ) -> str | Path:
+    ) -> Path:
         """
         Get the base path of the application.
 
@@ -725,7 +725,7 @@ class IApplication(IContainer):
 
         Returns
         -------
-        str or Path
+        Path
             The base path of the application as a string or Path object, or None if not set.
         """
         pass

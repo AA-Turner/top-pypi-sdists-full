@@ -14973,6 +14973,17 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
+async def send_request_async(url_, json_):
+    try:
+        print(f"{url_=}")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=url_, json=json_) as response:
+                await response.json()
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
 async def post_offer(bot, data, BASE_P):
     try:
         for item in data:

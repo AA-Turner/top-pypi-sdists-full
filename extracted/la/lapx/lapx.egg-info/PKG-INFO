@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lapx
-Version: 0.5.11.post1
+Version: 0.5.12
 Summary: Linear Assignment Problem solver (LAPJV/LAPMOD).
 Home-page: https://github.com/rathaROG/lapx
 Author: rathaROG
@@ -11,7 +11,6 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
@@ -34,6 +33,17 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.6
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 🆕 December 1, 2024: The original [`lap`](https://github.com/gatagat/lap) and [`lapx`](https://github.com/rathaROG/lapx) have been merged.
 
@@ -78,7 +88,7 @@ pip install lapx
 | Python 3.8 | AMD64 | x86_64/aarch64 | x86_64/arm64 |
 | Python 3.9-3.13 ¹ | AMD64/ARM64 ² | x86_64/aarch64 | x86_64/arm64 |
 
-<sup>¹ v0.5.10+ supports numpy v2.x for Python 3.9-3.13. 🆕 </sup><br>
+<sup>¹ v0.5.10+ supports both numpy 1.x and 2.x for Python 3.8-3.13. 🆕 </sup><br>
 <sup>² Windows ARM64 is experimental.</sup><br>
 
 <details><summary>Other options</summary>

@@ -16,3 +16,35 @@ class ClusterTrustBundle(res.GlobalResource, m_certificates_v1alpha1.ClusterTrus
         verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
     )
 
+
+class PodCertificateRequestStatus(res.NamespacedSubResource, m_certificates_v1alpha1.PodCertificateRequest):
+    """* **Extends**: ``models.certificates_v1alpha1.PodCertificateRequest``
+       * **Type**: Namespaced Resource
+       * **Accepted client methods**: `get`, `patch`, `replace`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('certificates.k8s.io', 'v1alpha1', 'PodCertificateRequest'),
+        parent=res.ResourceDef('certificates.k8s.io', 'v1alpha1', 'PodCertificateRequest'),
+        plural='podcertificaterequests',
+        verbs=['get', 'patch', 'put'],
+        action='status',
+    )
+
+
+class PodCertificateRequest(res.NamespacedResourceG, m_certificates_v1alpha1.PodCertificateRequest):
+    """* **Extends**: ``models.certificates_v1alpha1.PodCertificateRequest``
+       * **Type**: Namespaced Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list` all, `watch` all, `list`, `patch`, `create`, `replace`, `watch`
+
+       **Subresources**:
+
+       * **Status**: ``PodCertificateRequestStatus``
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('certificates.k8s.io', 'v1alpha1', 'PodCertificateRequest'),
+        plural='podcertificaterequests',
+        verbs=['delete', 'deletecollection', 'get', 'global_list', 'global_watch', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+
+    Status: ClassVar = PodCertificateRequestStatus
+

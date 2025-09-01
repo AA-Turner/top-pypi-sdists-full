@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.console.contracts.reactor import IReactor
 
 class Reactor(Facade):
 
@@ -15,8 +16,8 @@ class Reactor(Facade):
         Returns
         -------
         str
-            The service container binding key "x-orionis.console.core.reactor"
+            The service container binding key "x-orionis.console.contracts.reactor.IReactor"
             used to resolve the testing component implementation.
         """
 
-        return "x-orionis.console.core.reactor"
+        return f"x-{IReactor.__module__}.{IReactor.__name__}"

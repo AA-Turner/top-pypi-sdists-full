@@ -43,10 +43,10 @@ from ._compat import (
     is_hetero_tuple,
     is_literal,
     is_mapping,
+    is_mutable_sequence,
     is_mutable_set,
     is_optional,
     is_protocol,
-    is_sequence,
     is_tuple,
     is_typeddict,
     is_union_type,
@@ -54,8 +54,10 @@ from ._compat import (
 )
 from .cols import (
     defaultdict_structure_factory,
+    homogenous_tuple_structure_factory,
     is_defaultdict,
     is_namedtuple,
+    is_sequence,
     iterable_unstructure_factory,
     list_structure_factory,
     mapping_structure_factory,
@@ -271,14 +273,19 @@ class BaseConverter:
                 ),
                 (is_literal, self._structure_simple_literal),
                 (is_literal_containing_enums, self._structure_enum_literal),
-                (is_sequence, list_structure_factory, "extended"),
+                (is_sequence, homogenous_tuple_structure_factory, "extended"),
+                (is_mutable_sequence, list_structure_factory, "extended"),
                 (is_deque, self._structure_deque),
                 (is_mutable_set, self._structure_set),
                 (is_frozenset, self._structure_frozenset),
                 (is_tuple, self._structure_tuple),
                 (is_namedtuple, namedtuple_structure_factory, "extended"),
                 (is_mapping, self._structure_dict),
-                (is_supported_union, self._gen_attrs_union_structure, True),
+                *(
+                    [(is_supported_union, self._gen_attrs_union_structure, True)]
+                    if unstruct_strat is UnstructureStrategy.AS_DICT
+                    else []
+                ),
                 (is_optional, self._structure_optional),
                 (
                     lambda t: is_union_type(t) and t in self._union_struct_registry,
@@ -1034,6 +1041,7 @@ class Converter(BaseConverter):
         "forbid_extra_keys",
         "omit_if_default",
         "type_overrides",
+        "use_alias",
     )
 
     def __init__(
@@ -1050,6 +1058,7 @@ class Converter(BaseConverter):
         structure_fallback_factory: HookFactory[StructureHook] = lambda t: raise_error(
             None, t
         ),
+        use_alias: bool = False,
     ):
         """
         :param detailed_validation: Whether to use a slightly slower mode for detailed
@@ -1058,12 +1067,15 @@ class Converter(BaseConverter):
             registered unstructuring hooks match.
         :param structure_fallback_factory: A hook factory to be called when no
             registered structuring hooks match.
+        :param use_alias: Whether to use the field alias instead of the field name as
+            the un/structured dictionary key by default.
 
         ..  versionadded:: 23.2.0 *unstructure_fallback_factory*
         ..  versionadded:: 23.2.0 *structure_fallback_factory*
         ..  versionchanged:: 24.2.0
             The default `structure_fallback_factory` now raises errors for missing handlers
             more eagerly, surfacing problems earlier.
+        ..  versionadded:: 25.2.0 *use_alias*
         """
         super().__init__(
             dict_factory=dict_factory,
@@ -1076,6 +1088,7 @@ class Converter(BaseConverter):
         self.omit_if_default = omit_if_default
         self.forbid_extra_keys = forbid_extra_keys
         self.type_overrides = dict(type_overrides)
+        self.use_alias = use_alias
 
         unstruct_collection_overrides = {
             get_origin(k) or k: v for k, v in unstruct_collection_overrides.items()
@@ -1246,7 +1259,7 @@ class Converter(BaseConverter):
         attribs = fields(origin or cl)
         if attrs_has(cl) and any(isinstance(a.type, str) for a in attribs):
             # PEP 563 annotations - need to be resolved.
-            resolve_types(cl)
+            resolve_types(origin or cl)
         attrib_overrides = {
             a.name: self.type_overrides[a.type]
             for a in attribs
@@ -1299,6 +1312,7 @@ class Converter(BaseConverter):
             _cattrs_forbid_extra_keys=self.forbid_extra_keys,
             _cattrs_prefer_attrib_converters=self._prefer_attrib_converters,
             _cattrs_detailed_validation=self.detailed_validation,
+            _cattrs_use_alias=self.use_alias,
             **attrib_overrides,
         )
 
@@ -1377,6 +1391,7 @@ class Converter(BaseConverter):
         unstruct_collection_overrides: Mapping[type, UnstructureHook] | None = None,
         prefer_attrib_converters: bool | None = None,
         detailed_validation: bool | None = None,
+        use_alias: bool | None = None,
     ) -> Self:
         """Create a copy of the converter, keeping all existing custom hooks.
 
@@ -1416,6 +1431,7 @@ class Converter(BaseConverter):
                 if detailed_validation is not None
                 else self.detailed_validation
             ),
+            use_alias=(use_alias if use_alias is not None else self.use_alias),
         )
 
         self._unstructure_func.copy_to(

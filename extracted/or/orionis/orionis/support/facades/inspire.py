@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.services.inspirational.contracts.inspire import IInspire
 
 class Inspire(Facade):
 
@@ -15,9 +16,9 @@ class Inspire(Facade):
         Returns
         -------
         str
-            The service container binding key 'x-orionis.services.inspirational.inspire'
+            The service container binding key 'x-orionis.services.inspirational.contracts.inspire.IInspire'
             used to resolve the inspirational service instance.
         """
 
         # Return the service container binding key for the inspirational service
-        return "x-orionis.services.inspirational.inspire"
+        return f"x-{IInspire.__module__}.{IInspire.__name__}"

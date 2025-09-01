@@ -54,7 +54,7 @@ class DumperProvider(ServiceProvider):
             modifying the application container's service registry.
         """
 
-        self.app.transient(IDebug, Debug, alias="x-orionis.console.dumper.dump")
+        self.app.transient(IDebug, Debug, alias=f"x-{IDebug.__module__}.{IDebug.__name__}")
 
     def boot(self) -> None:
         """

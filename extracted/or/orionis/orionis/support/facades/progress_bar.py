@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.console.contracts.progress_bar import IProgressBar
 
 class ProgressBar(Facade):
 
@@ -14,8 +15,8 @@ class ProgressBar(Facade):
         Returns
         -------
         str
-            The service container binding key 'x-orionis.console.dynamic.progress_bar'
+            The service container binding key 'x-orionis.console.contracts.progress_bar.IProgressBar
             used to retrieve the progress bar service instance.
         """
 
-        return "x-orionis.console.dynamic.progress_bar"
+        return f"x-{IProgressBar.__module__}.{IProgressBar.__name__}"

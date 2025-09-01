@@ -17,7 +17,10 @@ from .config import (
     ZoneConfig,
     TrackingConfig,
     AlertConfig,
-    config_manager
+    config_manager,
+    PeopleTrackingConfig,
+    LineConfig,
+
 )
 
 # Note: BasicCountingTrackingConfig import moved to function level to avoid circular imports
@@ -81,6 +84,120 @@ def create_people_counting_config(
         **kwargs
     )
 
+
+def create_people_tracking_config(
+    confidence_threshold: float = 0.5,
+    zones: Optional[Dict[str, List[List[float]]]] = None,
+    line_config: Optional[Dict[str, Any]] = None,
+    person_categories: Optional[List[str]] = None,
+    enable_tracking: bool = True,
+    enable_unique_counting: bool = True,
+    time_window_minutes: int = 60,
+    count_thresholds: Optional[Dict[str, int]] = None,
+    occupancy_thresholds: Optional[Dict[str, int]] = None,
+    crossing_thresholds: Optional[Dict[str, int]] = None,
+    enable_smoothing: bool = False,
+    smoothing_algorithm: str = "kalman",
+    smoothing_window_size: int = 5,
+    smoothing_cooldown_frames: int = 10,
+    smoothing_confidence_range_factor: float = 0.2,
+    category: str = "general",
+    alert_type: Optional[List[str]] = None,
+    alert_value: Optional[List[str]] = None,
+    alert_incident_category: Optional[List[str]] = None,
+    **kwargs
+) -> PeopleTrackingConfig:
+    """
+    Create a people tracking configuration with sensible defaults.
+    
+    Args:
+        confidence_threshold: Minimum confidence for detections (0.0-1.0)
+        zones: Dictionary of zone_name -> polygon points [[x1,y1], [x2,y2], ...]
+        line_config: Dictionary defining line crossing configuration (e.g., {"points": [[x1,y1], [x2,y2]], "side1_label": "Outside", "side2_label": "Inside"})
+        person_categories: List of category names that represent people
+        enable_tracking: Whether to enable object tracking
+        enable_unique_counting: Whether to enable unique people counting
+        time_window_minutes: Time window for tracking statistics
+        count_thresholds: Dictionary of category -> max_count for alerts
+        occupancy_thresholds: Dictionary of zone_name -> max_count for zone occupancy alerts
+        crossing_thresholds: Dictionary of direction (e.g., 'side1_to_side2') -> max_count for line crossing alerts
+        enable_smoothing: Whether to enable bounding box smoothing
+        smoothing_algorithm: Algorithm for smoothing (e.g., 'kalman')
+        smoothing_window_size: Number of frames for smoothing window
+        smoothing_cooldown_frames: Frames to wait before re-smoothing
+        smoothing_confidence_range_factor: Factor for confidence range in smoothing
+        category: Use case category
+        alert_type: List of alert types (e.g., ['email', 'sms'])
+        alert_value: List of alert values corresponding to alert types (e.g., ['user@example.com'])
+        alert_incident_category: List of alert incident categories (e.g., ['Tracking Alert'])
+        **kwargs: Additional configuration parameters
+        
+    Returns:
+        PeopleTrackingConfig: Configured people tracking configuration
+        
+    Example:
+        config = create_people_tracking_config(
+            confidence_threshold=0.6,
+            zones={
+                "entrance": [[0, 0], [100, 0], [100, 100], [0, 100]],
+                "exit": [[200, 0], [300, 0], [300, 100], [200, 100]]
+            },
+            line_config={
+                "points": [[100, 200], [300, 200]],
+                "side1_label": "Outside",
+                "side2_label": "Inside"
+            },
+            count_thresholds={"all": 10},
+            occupancy_thresholds={"entrance": 5, "exit": 3},
+            crossing_thresholds={"side1_to_side2": 2, "side2_to_side1": 2},
+            enable_tracking=True,
+            enable_smoothing=True
+        )
+    """
+    # Create zone configuration if zones provided
+    zone_config = None
+    if zones:
+        zone_config = ZoneConfig(zones=zones)
+    
+    # Create line configuration if line_config provided
+    line_config_obj = None
+    if line_config:
+        line_config_obj = LineConfig(
+            points=line_config.get("points", []),
+            side1_label=line_config.get("side1_label", "Side A"),
+            side2_label=line_config.get("side2_label", "Side B")
+        )
+    
+    # Create alert configuration if any thresholds provided
+    alert_config = None
+    if count_thresholds or occupancy_thresholds or crossing_thresholds or alert_type or alert_value or alert_incident_category:
+        alert_config = AlertConfig(
+            count_thresholds=count_thresholds or {},
+            occupancy_thresholds=occupancy_thresholds or {},
+            crossing_thresholds=crossing_thresholds or {},
+            alert_type=alert_type or ["Default"],
+            alert_value=alert_value or ["JSON"],
+            alert_incident_category=alert_incident_category or ["Incident Detection Alert"]
+        )
+    
+    return PeopleTrackingConfig(
+        category=category,
+        usecase="people_tracking",
+        confidence_threshold=confidence_threshold,
+        zone_config=zone_config,
+        line_config=line_config_obj,
+        person_categories=person_categories or ["person", "people"],
+        enable_tracking=enable_tracking,
+        enable_unique_counting=enable_unique_counting,
+        time_window_minutes=time_window_minutes,
+        alert_config=alert_config,
+        enable_smoothing=enable_smoothing,
+        smoothing_algorithm=smoothing_algorithm,
+        smoothing_window_size=smoothing_window_size,
+        smoothing_cooldown_frames=smoothing_cooldown_frames,
+        smoothing_confidence_range_factor=smoothing_confidence_range_factor,
+        **kwargs
+    )
 
 def create_intrusion_detection_config(
     confidence_threshold: float = 0.5,
@@ -582,6 +699,8 @@ def create_config_from_template(
             return create_advanced_customer_service_config(**overrides)
         elif usecase == "basic_counting_tracking":
             return create_basic_counting_tracking_config(**overrides)
+        elif usecase == "people_tracking":
+            return create_people_tracking_config(**overrides)
         else:
             raise ValueError(f"Unsupported use case: {usecase}")
 

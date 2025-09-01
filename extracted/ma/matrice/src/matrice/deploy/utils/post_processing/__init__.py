@@ -122,6 +122,7 @@ from .usecases.gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectio
 from .usecases.license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
 from .usecases.dwell_detection import DwellConfig,DwellUseCase
 from .usecases.age_gender_detection import AgeGenderConfig, AgeGenderUseCase
+from .usecases.people_tracking import PeopleTrackingConfig,PeopleTrackingUseCase
 from .usecases.wildlife_monitoring import WildLifeMonitoringConfig, WildLifeMonitoringUseCase
 from .usecases.pcb_defect_detection import PCBDefectConfig, PCBDefectUseCase
 
@@ -269,6 +270,7 @@ _gas_leak_detection = GasLeakDetectionUseCase()
 _license_plate_monitor = LicensePlateMonitorUseCase()
 _dwell = DwellUseCase()
 _age_gender_detection = AgeGenderUseCase()
+_people_tracking = PeopleTrackingUseCase()
 _wildlife_monitoring = WildLifeMonitoringUseCase()
 _pcb_defect_detection = PCBDefectUseCase()
 
@@ -348,6 +350,7 @@ registry.register_use_case(_license_plate_monitor.category, _license_plate_monit
 registry.register_use_case(_dwell.category, _dwell.name, DwellUseCase)
 registry.register_use_case(_face_recognition.category, _face_recognition.name, FaceRecognitionEmbeddingUseCase)
 registry.register_use_case(_age_gender_detection.category, _age_gender_detection.name, AgeDetectionUseCase)
+registry.register_use_case(_people_tracking.category, _people_tracking.name, PeopleTrackingUseCase)
 registry.register_use_case(_wildlife_monitoring.category, _wildlife_monitoring.name, WildLifeMonitoringUseCase)
 registry.register_use_case(_pcb_defect_detection.category, _pcb_defect_detection.name, PCBDefectUseCase)
 

@@ -6,13 +6,13 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.06 19:00:00                  #
+# Updated Date: 2025.08.31 23:00:00                  #
 # ================================================== #
 
 import threading
 from typing import Any, Dict, Optional, Union, List
 
-from PySide6.QtCore import QObject, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QApplication
 
 from pygpt_net.core.types import (
@@ -23,7 +23,7 @@ from pygpt_net.core.types import (
     MODE_EXPERT,
     MODE_LLAMA_INDEX,
 )
-from pygpt_net.core.events import KernelEvent, RenderEvent, BaseEvent
+from pygpt_net.core.events import KernelEvent, RenderEvent, BaseEvent, RealtimeEvent, Event
 from pygpt_net.core.bridge.context import BridgeContext
 from pygpt_net.item.ctx import CtxItem
 from pygpt_net.utils import trans
@@ -95,6 +95,13 @@ class Kernel:
             KernelEvent.INPUT_USER,
             KernelEvent.FORCE_CALL,
             KernelEvent.STATUS,
+            Event.AUDIO_INPUT_RECORD_TOGGLE,
+            RealtimeEvent.RT_INPUT_AUDIO_DELTA,
+            RealtimeEvent.RT_INPUT_AUDIO_MANUAL_STOP,
+            RealtimeEvent.RT_INPUT_AUDIO_MANUAL_START,
+            RealtimeEvent.RT_OUTPUT_AUDIO_COMMIT,
+            RealtimeEvent.RT_OUTPUT_TURN_END,
+            RealtimeEvent.RT_OUTPUT_READY,
         ]
 
     def init(self):
@@ -281,6 +288,7 @@ class Kernel:
         self.window.dispatch(KernelEvent(KernelEvent.TERMINATE))
         self.stop(exit=True)
         self.window.controller.plugins.destroy()
+        self.window.controller.realtime.shutdown()
 
     def stop(self, exit: bool = False):
         """

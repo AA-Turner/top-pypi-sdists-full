@@ -54,7 +54,7 @@ class ConsoleExecuteProvider(ServiceProvider):
             registering the executor service binding in the application container.
         """
 
-        self.app.transient(IExecutor, Executor, alias="x-orionis.console.output.executor")
+        self.app.transient(IExecutor, Executor, alias=f"x-{IExecutor.__module__}.{IExecutor.__name__}")
 
     def boot(self) -> None:
         """

@@ -18,6 +18,7 @@ from textual._text_area_theme import TextAreaTheme
 from textual._tree_sitter import TREE_SITTER, get_language
 from textual.cache import LRUCache
 from textual.color import Color
+from textual.content import Content
 from textual.document._document import (
     Document,
     DocumentBase,
@@ -36,6 +37,7 @@ from textual.document._syntax_aware_document import (
 from textual.document._wrapped_document import WrappedDocument
 from textual.expand_tabs import expand_tabs_inline, expand_text_tabs_from_widths
 from textual.screen import Screen
+from textual.style import Style as ContentStyle
 
 if TYPE_CHECKING:
     from tree_sitter import Language, Query
@@ -143,6 +145,14 @@ TextArea {
         background: $foreground 30%;
     }
 
+    & .text-area--suggestion {
+        color: $text-muted;
+    }
+
+    & .text-area--placeholder {
+        color: $text 40%;
+    }
+
     &:focus {
         border: tall $border;
     }
@@ -183,6 +193,8 @@ TextArea {
         "text-area--cursor-line",
         "text-area--selection",
         "text-area--matching-bracket",
+        "text-area--suggestion",
+        "text-area--placeholder",
     }
     """
     `TextArea` offers some component classes which can be used to style aspects of the widget.
@@ -197,6 +209,8 @@ TextArea {
     | `text-area--cursor-line` | Target the line the cursor is on. |
     | `text-area--selection` | Target the current selection. |
     | `text-area--matching-bracket` | Target matching brackets. |
+    | `text-area--suggestion` | Target the text set in the `suggestion` reactive. |
+    | `text-area--placeholder` | Target the placeholder text. |
     """
 
     BINDINGS = [
@@ -392,6 +406,15 @@ TextArea {
     """Indicates where the cursor is in the blink cycle. If it's currently
     not visible due to blinking, this is False."""
 
+    suggestion: Reactive[str] = reactive("")
+    """A suggestion for auto-complete (pressing right will insert it)."""
+
+    hide_suggestion_on_blur: Reactive[bool] = reactive(True)
+    """Hide suggestion when the TextArea does not have focus."""
+
+    placeholder: Reactive[str | Content] = reactive("")
+    """Text to show when the text area has no content."""
+
     @dataclass
     class Changed(Message):
         """Posted when the content inside the TextArea changes.
@@ -443,6 +466,7 @@ TextArea {
         tooltip: RenderableType | None = None,
         compact: bool = False,
         highlight_cursor_line: bool = True,
+        placeholder: str | Content = "",
     ) -> None:
         """Construct a new `TextArea`.
 
@@ -464,6 +488,7 @@ TextArea {
             tooltip: Optional tooltip.
             compact: Enable compact style (without borders).
             highlight_cursor_line: Highlight the line under the cursor.
+            placeholder: Text to display when there is not content.
         """
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
 
@@ -524,6 +549,7 @@ TextArea {
         self.set_reactive(TextArea.show_line_numbers, show_line_numbers)
         self.set_reactive(TextArea.line_number_start, line_number_start)
         self.set_reactive(TextArea.highlight_cursor_line, highlight_cursor_line)
+        self.set_reactive(TextArea.placeholder, placeholder)
 
         self._line_cache: LRUCache[tuple, Strip] = LRUCache(1024)
 
@@ -565,6 +591,7 @@ TextArea {
         tooltip: RenderableType | None = None,
         compact: bool = False,
         highlight_cursor_line: bool = True,
+        placeholder: str | Content = "",
     ) -> TextArea:
         """Construct a new `TextArea` with sensible defaults for editing code.
 
@@ -607,6 +634,7 @@ TextArea {
             tooltip=tooltip,
             compact=compact,
             highlight_cursor_line=highlight_cursor_line,
+            placeholder=placeholder,
         )
 
     @staticmethod
@@ -632,6 +660,10 @@ TextArea {
 
     def notify_style_update(self) -> None:
         self._line_cache.clear()
+        super().notify_style_update()
+
+    def update_suggestion(self) -> None:
+        """A hook to update the [`suggestion`][textual.widgets.TextArea.suggestion] attribute."""
 
     def check_consume_key(self, key: str, character: str | None = None) -> bool:
         """Check if the widget may consume the given key.
@@ -1045,6 +1077,7 @@ TextArea {
         self.history.clear()
         self._set_document(text, self.language)
         self.post_message(self.Changed(self).set_sender(self))
+        self.update_suggestion()
 
     def _on_resize(self) -> None:
         self._rewrap_and_refresh_virtual_size()
@@ -1173,6 +1206,25 @@ TextArea {
         Returns:
             A rendered line.
         """
+        if y == 0 and not self.text and self.placeholder:
+            style = self.get_visual_style("text-area--placeholder")
+            content = (
+                Content(self.placeholder)
+                if isinstance(self.placeholder, str)
+                else self.placeholder
+            )
+            content = content.stylize(style)
+            if self._draw_cursor:
+                theme = self._theme
+                cursor_style = theme.cursor_style if theme else None
+                if cursor_style:
+                    content = content.stylize(
+                        ContentStyle.from_rich_style(cursor_style), 0, 1
+                    )
+            return Strip(
+                content.render_segments(self.visual_style), content.cell_length
+            )
+
         scroll_x, scroll_y = self.scroll_offset
         absolute_y = scroll_y + y
         selection = self.selection
@@ -1201,6 +1253,7 @@ TextArea {
             self.show_line_numbers,
             self.read_only,
             self.show_cursor,
+            self.suggestion,
         )
         if (cached_line := self._line_cache.get(cache_key)) is not None:
             return cached_line
@@ -1218,6 +1271,11 @@ TextArea {
             A rendered line.
         """
         theme = self._theme
+        base_style = (
+            theme.base_style
+            if theme and theme.base_style is not None
+            else self.rich_style
+        )
 
         wrapped_document = self.wrapped_document
         scroll_x, scroll_y = self.scroll_offset
@@ -1229,7 +1287,7 @@ TextArea {
         out_of_bounds = y_offset >= wrapped_document.height
 
         if out_of_bounds:
-            return Strip.blank(self.size.width)
+            return Strip.blank(self.size.width, base_style)
 
         # Get the line corresponding to this offset
         try:
@@ -1238,7 +1296,7 @@ TextArea {
             line_info = None
 
         if line_info is None:
-            return Strip.blank(self.size.width)
+            return Strip.blank(self.size.width, base_style)
 
         line_index, section_offset = line_info
 
@@ -1332,6 +1390,16 @@ TextArea {
                         cursor_column + 1,
                     )
 
+            if self.suggestion and (self.has_focus or not self.hide_suggestion_on_blur):
+                suggestion_style = self.get_component_rich_style(
+                    "text-area--suggestion"
+                )
+                line = Text.assemble(
+                    line[:cursor_column],
+                    (self.suggestion, suggestion_style),
+                    line[cursor_column:],
+                )
+
             if draw_cursor:
                 cursor_style = theme.cursor_style if theme else None
                 if cursor_style:
@@ -1418,11 +1486,7 @@ TextArea {
         text_strip = text_strip.extend_cell_length(target_width, line_style)
         strip = Strip.join([Strip(gutter, cell_length=gutter_width), text_strip])
 
-        return strip.apply_style(
-            theme.base_style
-            if theme and theme.base_style is not None
-            else self.rich_style
-        )
+        return strip.apply_style(base_style)
 
     @property
     def text(self) -> str:
@@ -1474,6 +1538,10 @@ TextArea {
             Data relating to the edit that may be useful. The data returned
             may be different depending on the edit performed.
         """
+        if self.suggestion.startswith(edit.text):
+            self.suggestion = self.suggestion[len(edit.text) :]
+        else:
+            self.suggestion = ""
         old_gutter_width = self.gutter_width
         result = edit.do(self)
         self.history.record(edit)
@@ -1492,6 +1560,7 @@ TextArea {
         edit.after(self)
         self._build_highlight_map()
         self.post_message(self.Changed(self))
+        self.update_suggestion()
         return result
 
     def undo(self) -> None:
@@ -1555,6 +1624,7 @@ TextArea {
             edit.after(self)
         self._build_highlight_map()
         self.post_message(self.Changed(self))
+        self.update_suggestion()
 
     def _redo_batch(self, edits: Sequence[Edit]) -> None:
         """Redo a batch of Edits in order.
@@ -1603,6 +1673,7 @@ TextArea {
             edit.after(self)
         self._build_highlight_map()
         self.post_message(self.Changed(self))
+        self.update_suggestion()
 
     async def _on_key(self, event: events.Key) -> None:
         """Handle key presses which correspond to document inserts."""
@@ -1725,12 +1796,14 @@ TextArea {
         """Reset the cursor blink timer."""
         if self.cursor_blink:
             self._cursor_visible = True
-            self.blink_timer.reset()
+            if self.is_mounted:
+                self.blink_timer.reset()
 
     def _pause_blink(self, visible: bool = True) -> None:
         """Pause the cursor blinking but ensure it stays visible."""
         self._cursor_visible = visible
-        self.blink_timer.pause()
+        if self.is_mounted:
+            self.blink_timer.pause()
 
     async def _on_mouse_down(self, event: events.MouseDown) -> None:
         """Update the cursor position, and begin a selection using the mouse."""
@@ -2029,6 +2102,9 @@ TextArea {
         """
         if not self._has_cursor:
             self.scroll_right()
+            return
+        if self.suggestion:
+            self.insert(self.suggestion)
             return
         target = (
             self.get_cursor_right_location()

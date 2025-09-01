@@ -30,7 +30,7 @@ class CathcProvider(ServiceProvider):
         """
 
         # Bind ICatch to Catch as a singleton with a specific alias
-        self.app.singleton(ICatch, Catch, alias="x-orionis.failure.catch")
+        self.app.singleton(ICatch, Catch, alias=f"x-{ICatch.__module__}.{ICatch.__name__}")
 
     def boot(self) -> None:
         """

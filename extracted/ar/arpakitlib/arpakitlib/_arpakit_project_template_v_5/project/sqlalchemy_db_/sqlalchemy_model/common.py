@@ -96,12 +96,14 @@ class SimpleDBM(BaseDBM):
         return f"{self.id}--{self.long_id}"
 
     @property
-    def sdp_id_and_long_id(self) -> str:
-        return self.id_and_long_id
-
-    @property
     def entity_name(self) -> str:
         return self.__class__.__name__.removesuffix("DBM")
+
+    # ---SDP---
+
+    @property
+    def sdp_id_and_long_id(self) -> str:
+        return self.id_and_long_id
 
     @property
     def sdp_entity_name(self) -> str:

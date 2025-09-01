@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.services.file.contracts.directory import IDirectory
 
 class Directory(Facade):
 
@@ -14,8 +15,8 @@ class Directory(Facade):
         Returns
         -------
         str
-            The service container binding key 'x-orionis.services.file.contracts.directory'
+            The service container binding key 'x-orionis.services.file.contracts.directory.IDirectory'
             that identifies the workers service implementation.
         """
 
-        return "x-orionis.services.file.contracts.directory"
+        return f"x-{IDirectory.__module__}.{IDirectory.__name__}"

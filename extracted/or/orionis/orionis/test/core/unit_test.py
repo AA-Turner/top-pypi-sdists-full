@@ -492,12 +492,21 @@ class UnitTest(IUnitTest):
         OrionisTestFailureException
             If the test suite execution fails and throw_exception is True.
         """
+
+        # Length of all tests in the suite
+        total_tests = len(list(self.__flattenTestSuite(self.__suite)))
+
+        # If no tests are found, print a message and return early
+        if total_tests == 0:
+            self.__printer.zeroTestsMessage()
+            return
+
         # Record the start time in nanoseconds
         start_time = time.time_ns()
 
         # Print the start message with test suite details
         self.__printer.startMessage(
-            length_tests=len(list(self.__flattenTestSuite(self.__suite))),
+            length_tests=total_tests,
             execution_mode=self.__execution_mode,
             max_workers=self.__max_workers
         )

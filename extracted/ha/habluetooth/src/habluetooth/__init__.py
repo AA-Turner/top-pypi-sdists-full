@@ -1,4 +1,4 @@
-__version__ = "5.2.1"
+__version__ = "5.3.0"
 
 from .advertisement_tracker import (
     TRACKER_BUFFERING_WOBBLE_SECONDS,
@@ -23,6 +23,7 @@ from .models import (
     HaScannerModeChange,
     HaScannerRegistration,
     HaScannerRegistrationEvent,
+    HaScannerType,
 )
 from .scanner import BluetoothScanningMode, HaScanner, ScannerStartError
 from .scanner_device import BluetoothScannerDevice
@@ -63,6 +64,7 @@ __all__ = [
     "HaScannerModeChange",
     "HaScannerRegistration",
     "HaScannerRegistrationEvent",
+    "HaScannerType",
     "ScannerStartError",
     "discovered_device_advertisement_data_from_dict",
     "discovered_device_advertisement_data_to_dict",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: markdown_pdf
-Version: 1.7
+Version: 1.8
 Summary: Markdown to pdf renderer
 Author-email: Vitaly Bogomolov <mail@vitaly-bogomolov.ru>
 License: GNU Affero General Public License v3
@@ -132,6 +132,16 @@ Save to file.
 
 ```python
 pdf.save("guide.pdf")
+```
+
+Or save to file-like object.
+
+```python
+import io
+
+out = io.BytesIO()
+pdf.save_bytes(out)
+assert out.getbuffer().nbytes > 0
 ```
 
 ![Pdf](img/with_toc.png)

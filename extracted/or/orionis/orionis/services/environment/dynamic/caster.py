@@ -658,12 +658,12 @@ class EnvironmentCaster(IEnvironmentCaster):
 
             # Ensure the evaluated object is a list
             if not isinstance(parsed, list):
-                raise ValueError("Value is not a list")
+                raise OrionisEnvironmentValueError("Value is not a list")
 
             # Return the parsed list if successful
             return parsed
 
-        except (ValueError, SyntaxError) as e:
+        except (OrionisEnvironmentValueError, ValueError, SyntaxError) as e:
 
             # Raise a custom exception if conversion fails
             raise OrionisEnvironmentValueException(f"Cannot convert '{value}' to list: {str(e)}")
@@ -735,12 +735,12 @@ class EnvironmentCaster(IEnvironmentCaster):
 
             # Ensure the evaluated object is a dictionary
             if not isinstance(parsed, dict):
-                raise ValueError("Value is not a dict")
+                raise OrionisEnvironmentValueError("Value is not a dict")
 
             # Return the parsed dictionary if successful
             return parsed
 
-        except (ValueError, SyntaxError) as e:
+        except (OrionisEnvironmentValueError, ValueError, SyntaxError) as e:
 
             # Raise a custom exception if conversion fails
             raise OrionisEnvironmentValueException(f"Cannot convert '{value}' to dict: {str(e)}")
@@ -806,12 +806,12 @@ class EnvironmentCaster(IEnvironmentCaster):
 
             # Ensure the evaluated object is a tuple
             if not isinstance(parsed, tuple):
-                raise ValueError("Value is not a tuple")
+                raise OrionisEnvironmentValueError("Value is not a tuple")
 
             # Return the parsed tuple if successful
             return parsed
 
-        except (ValueError, SyntaxError) as e:
+        except (OrionisEnvironmentValueError, ValueError, SyntaxError) as e:
 
             # Raise a custom exception if conversion fails
             raise OrionisEnvironmentValueException(f"Cannot convert '{value}' to tuple: {str(e)}")
@@ -877,12 +877,12 @@ class EnvironmentCaster(IEnvironmentCaster):
 
             # Ensure the evaluated object is a set
             if not isinstance(parsed, set):
-                raise ValueError("Value is not a set")
+                raise OrionisEnvironmentValueError("Value is not a set")
 
             # Return the parsed set if successful
             return parsed
 
-        except (ValueError, SyntaxError) as e:
+        except (OrionisEnvironmentValueError, ValueError, SyntaxError) as e:
 
             # Raise a custom exception if conversion fails
             raise OrionisEnvironmentValueException(f"Cannot convert '{value}' to set: {str(e)}")

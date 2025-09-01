@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: itables
-Version: 2.4.5
+Version: 2.5.1
 Summary: Pandas and Polar DataFrames as interactive DataTables
 Project-URL: Homepage, https://mwouts.github.io/itables/
 Project-URL: Documentation, https://mwouts.github.io/itables
@@ -60,11 +60,14 @@ Requires-Dist: pytz; extra == 'all'
 Requires-Dist: shiny; extra == 'all'
 Requires-Dist: shinywidgets; extra == 'all'
 Requires-Dist: streamlit; extra == 'all'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'all'
 Requires-Dist: traitlets; extra == 'all'
 Requires-Dist: typeguard>=4.4.1; extra == 'all'
 Requires-Dist: world-bank-data; extra == 'all'
 Provides-Extra: check-type
 Requires-Dist: typeguard>=4.4.1; extra == 'check-type'
+Provides-Extra: config
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'config'
 Provides-Extra: dash
 Requires-Dist: dash; extra == 'dash'
 Provides-Extra: dev
@@ -85,6 +88,7 @@ Requires-Dist: requests; extra == 'dev'
 Requires-Dist: shiny; extra == 'dev'
 Requires-Dist: shinywidgets; extra == 'dev'
 Requires-Dist: streamlit; extra == 'dev'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: traitlets; extra == 'dev'
 Requires-Dist: typeguard>=4.4.1; extra == 'dev'
 Requires-Dist: watchfiles; extra == 'dev'
@@ -119,6 +123,7 @@ Requires-Dist: requests; extra == 'test'
 Requires-Dist: shiny; extra == 'test'
 Requires-Dist: shinywidgets; extra == 'test'
 Requires-Dist: streamlit; extra == 'test'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'test'
 Requires-Dist: traitlets; extra == 'test'
 Requires-Dist: typeguard>=4.4.1; extra == 'test'
 Requires-Dist: world-bank-data; extra == 'test'

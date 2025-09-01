@@ -92,9 +92,19 @@ def test_enum_to_dict() -> None:
         no_striping=NoStriping.NO_STRIPING_A,
     )
 
-    print(ArithmeticOperator.PLUS.proto_name)
-
     assert msg.to_dict() == {
         "arithmeticOperator": "ARITHMETIC_OPERATOR_PLUS",  # The original proto name must be preserved
         "noStriping": "NO_STRIPING_A",
     }
+
+    assert EnumMessage.from_dict(msg.to_dict()) == msg
+
+
+def test_unknown_variant_to_dict() -> None:
+    from tests.outputs.enum.enum import NewVersion, NewVersionMessage, OldVersionMessage
+
+    serialized = bytes(NewVersionMessage(new_version=NewVersion.V3))
+
+    deserialized = OldVersionMessage.parse(serialized)
+
+    assert deserialized.to_dict() == {"oldVersion": 3}

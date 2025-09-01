@@ -5,9 +5,14 @@ from abc import ABCMeta, abstractmethod
 from . import algebra as alg
 import functools
 from .types import Matrix, VectorLike, Vector, Plugin
+from typing import cast
 
 # From CIE 2004 Colorimetry T.3 and T.8
 # B from https://en.wikipedia.org/wiki/Standard_illuminant#White_point
+# ACES white point provided via ACES documentation
+# `ASTM-E308-D65` provided by the associated paper.
+# Many systems use 4 decimals instead of 5, particularly for D65 and D50 (most commonly used);
+# we use 4 for D50 and D65 to match CSS, etc.
 WHITES = {
     "2deg": {
         "A": (0.44758, 0.40745),
@@ -17,6 +22,8 @@ WHITES = {
         "D55": (0.33243, 0.34744),
         "D65": (0.31270, 0.32900),  # Use 4 digits like everyone
         "D75": (0.29903, 0.31488),
+        "ACES-D60": (0.32168, 0.33767),
+        "ASTM-E308-D65": cast('tuple[float, float]', tuple(util.xyz_to_xyY([0.95047, 1.0, 1.08883])[:-1])),
         "E": (1 / 3, 1 / 3),
         "F2": (0.37210, 0.37510),
         "F7": (0.31290, 0.32920),
@@ -36,7 +43,7 @@ WHITES = {
         "F3": (0.41761, 0.38324),
         "F11": (0.38541, 0.37123)
     }
-}
+}  # type: dict[str, dict[str, tuple[float, float]]]
 
 
 def calc_adaptation_matrices(

@@ -176,10 +176,14 @@ class StreamChatResponseMessageEnd(BaseStreamChatResponseChunk):
 class ContextOptions(BaseDataclass):
     top_k: Optional[int] = None
     snippet_size: Optional[int] = None
+    multimodal: Optional[bool] = None
+    include_binary_content: Optional[bool] = None
 
     @classmethod
     def from_dict(cls, d: dict):
         return cls(
             top_k=d.get("top_k"),
-            snippet_size=d.get("snippet_size")
+            snippet_size=d.get("snippet_size"),
+            multimodal=d.get("multimodal"),
+            include_binary_content=d.get("include_binary_content")
         )

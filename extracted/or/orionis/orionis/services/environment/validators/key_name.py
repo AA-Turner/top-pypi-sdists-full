@@ -1,5 +1,5 @@
 import re
-from orionis.services.environment.exceptions.value import OrionisEnvironmentValueError
+from orionis.services.environment.exceptions import OrionisEnvironmentValueError
 
 class __ValidateKeyName:
 

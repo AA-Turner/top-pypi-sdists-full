@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import webbrowser
+from asyncio import Future
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -17,7 +19,8 @@ from mcp.shared.auth import (
 from mcp.shared.auth import (
     OAuthToken as OAuthToken,
 )
-from pydantic import AnyHttpUrl, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, TypeAdapter, ValidationError
+from uvicorn.server import Server
 
 from fastmcp import settings as fastmcp_global_settings
 from fastmcp.client.oauth_callback import (
@@ -29,6 +32,17 @@ from fastmcp.utilities.logging import get_logger
 __all__ = ["OAuth"]
 
 logger = get_logger(__name__)
+
+
+class StoredToken(BaseModel):
+    """Token storage format with absolute expiry time."""
+
+    token_payload: OAuthToken
+    expires_at: datetime | None
+
+
+# Create TypeAdapter at module level for efficient parsing
+stored_token_adapter = TypeAdapter(StoredToken)
 
 
 def default_cache_dir() -> Path:
@@ -75,13 +89,28 @@ class FileTokenStorage(TokenStorage):
         path = self._get_file_path("tokens")
 
         try:
-            tokens = OAuthToken.model_validate_json(path.read_text())
-            # now = datetime.datetime.now(datetime.timezone.utc)
-            # if tokens.expires_at is not None and tokens.expires_at <= now:
-            #     logger.debug(f"Token expired for {self.get_base_url(self.server_url)}")
-            #     return None
-            return tokens
-        except (FileNotFoundError, json.JSONDecodeError, ValidationError) as e:
+            # Parse JSON and validate as StoredToken
+            stored = stored_token_adapter.validate_json(path.read_text())
+
+            # Check if token is expired
+            if stored.expires_at is not None:
+                now = datetime.now(timezone.utc)
+                if now >= stored.expires_at:
+                    logger.debug(
+                        f"Token expired for {self.get_base_url(self.server_url)}"
+                    )
+                    return None
+
+                # Recalculate expires_in to be correct relative to now
+                if stored.token_payload.expires_in is not None:
+                    remaining = stored.expires_at - now
+                    stored.token_payload.expires_in = max(
+                        0, int(remaining.total_seconds())
+                    )
+
+            return stored.token_payload
+
+        except (FileNotFoundError, ValidationError) as e:
             logger.debug(
                 f"Could not load tokens for {self.get_base_url(self.server_url)}: {e}"
             )
@@ -90,7 +119,18 @@ class FileTokenStorage(TokenStorage):
     async def set_tokens(self, tokens: OAuthToken) -> None:
         """Save tokens to file storage."""
         path = self._get_file_path("tokens")
-        path.write_text(tokens.model_dump_json(indent=2))
+
+        # Calculate absolute expiry time if expires_in is present
+        expires_at = None
+        if tokens.expires_in is not None:
+            expires_at = datetime.now(timezone.utc) + timedelta(
+                seconds=tokens.expires_in
+            )
+
+        # Create StoredToken and save using Pydantic serialization
+        stored = StoredToken(token_payload=tokens, expires_at=expires_at)
+
+        path.write_text(stored.model_dump_json(indent=2))
         logger.debug(f"Saved tokens for {self.get_base_url(self.server_url)}")
 
     async def get_client_info(self) -> OAuthClientInformationFull | None:
@@ -215,8 +255,13 @@ class OAuth(OAuthClientProvider):
         self.redirect_port = callback_port or find_available_port()
         redirect_uri = f"http://localhost:{self.redirect_port}/callback"
 
+        scopes_str: str
         if isinstance(scopes, list):
-            scopes = " ".join(scopes)
+            scopes_str = " ".join(scopes)
+        elif scopes is not None:
+            scopes_str = str(scopes)
+        else:
+            scopes_str = ""
 
         client_metadata = OAuthClientMetadata(
             client_name=client_name,
@@ -224,7 +269,7 @@ class OAuth(OAuthClientProvider):
             grant_types=["authorization_code", "refresh_token"],
             response_types=["code"],
             # token_endpoint_auth_method="client_secret_post",
-            scope=scopes,
+            scope=scopes_str,
             **(additional_client_metadata or {}),
         )
 
@@ -245,6 +290,15 @@ class OAuth(OAuthClientProvider):
             callback_handler=self.callback_handler,
         )
 
+    async def _initialize(self) -> None:
+        """Load stored tokens and client info, properly setting token expiry."""
+        # Call parent's _initialize to load tokens and client info
+        await super()._initialize()
+
+        # If tokens were loaded and have expires_in, update the context's token_expiry_time
+        if self.context.current_tokens and self.context.current_tokens.expires_in:
+            self.context.update_token_expiry(self.context.current_tokens)
+
     async def redirect_handler(self, authorization_url: str) -> None:
         """Open browser for authorization."""
         logger.info(f"OAuth authorization URL: {authorization_url}")
@@ -253,10 +307,10 @@ class OAuth(OAuthClientProvider):
     async def callback_handler(self) -> tuple[str, str | None]:
         """Handle OAuth callback and return (auth_code, state)."""
         # Create a future to capture the OAuth response
-        response_future = asyncio.get_running_loop().create_future()
+        response_future: Future[Any] = asyncio.get_running_loop().create_future()
 
         # Create server with the future
-        server = create_oauth_callback_server(
+        server: Server = create_oauth_callback_server(
             port=self.redirect_port,
             server_url=self.server_base_url,
             response_future=response_future,
@@ -280,3 +334,5 @@ class OAuth(OAuthClientProvider):
                 server.should_exit = True
                 await asyncio.sleep(0.1)  # Allow server to shutdown gracefully
                 tg.cancel_scope.cancel()
+
+        raise RuntimeError("OAuth callback handler could not be started")

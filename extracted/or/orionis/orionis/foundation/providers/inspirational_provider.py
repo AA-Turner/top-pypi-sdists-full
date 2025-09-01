@@ -50,7 +50,7 @@ class InspirationalProvider(ServiceProvider):
             return any value.
         """
 
-        self.app.transient(IInspire, Inspire, alias="x-orionis.services.inspirational.inspire")
+        self.app.transient(IInspire, Inspire, alias=f"x-{IInspire.__module__}.{IInspire.__name__}")
 
     def boot(self) -> None:
         """

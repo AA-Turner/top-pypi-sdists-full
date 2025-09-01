@@ -84,3 +84,15 @@ class VolumeAttachment(res.GlobalResource, m_storage_v1.VolumeAttachment):
 
     Status: ClassVar = VolumeAttachmentStatus
 
+
+class VolumeAttributesClass(res.GlobalResource, m_storage_v1.VolumeAttributesClass):
+    """* **Extends**: ``models.storage_v1.VolumeAttributesClass``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('storage.k8s.io', 'v1', 'VolumeAttributesClass'),
+        plural='volumeattributesclasses',
+        verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
+    )
+

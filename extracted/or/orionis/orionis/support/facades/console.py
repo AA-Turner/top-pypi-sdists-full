@@ -1,3 +1,4 @@
+from orionis.console.contracts.console import IConsole
 from orionis.container.facades.facade import Facade
 
 class Console(Facade):
@@ -15,9 +16,9 @@ class Console(Facade):
         Returns
         -------
         str
-            The string identifier 'x-orionis.console.output.console' used as the
+            The string identifier 'x-orionis.console.contracts.console.IConsole' used as the
             binding key to resolve the console service from the service container.
         """
 
         # Return the predefined binding key for the console output service
-        return "x-orionis.console.output.console"
+        return f"x-{IConsole.__module__}.{IConsole.__name__}"

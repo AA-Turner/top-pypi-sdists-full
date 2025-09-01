@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import resource
 from . import util_intstr
+from . import meta_v1
 
 
 @dataclass
@@ -744,11 +744,10 @@ class Container(DictMixin):
         https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell
       * **env** ``Optional[List[EnvVar]]`` - List of environment variables to set in the container. Cannot be updated.
       * **envFrom** ``Optional[List[EnvFromSource]]`` - List of sources to populate environment variables in the container. The keys
-        defined within a source must be a C_IDENTIFIER. All invalid keys will be
-        reported as an event when the container is starting. When a key exists in
-        multiple sources, the value associated with the last source will take
-        precedence. Values defined by an Env with a duplicate key will take
-        precedence. Cannot be updated.
+        defined within a source may consist of any printable ASCII characters except
+        '='. When a key exists in multiple sources, the value associated with the last
+        source will take precedence. Values defined by an Env with a duplicate key
+        will take precedence. Cannot be updated.
       * **image** ``Optional[str]`` - Container image name. More info:
         https://kubernetes.io/docs/concepts/containers/images This field is optional
         to allow higher level config management to default or override container
@@ -774,19 +773,26 @@ class Container(DictMixin):
       * **resources** ``Optional[ResourceRequirements]`` - Compute Resources required by this container. Cannot be updated. More info:
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
       * **restartPolicy** ``Optional[str]`` - RestartPolicy defines the restart behavior of individual containers in a pod.
-        This field may only be set for init containers, and the only allowed value is
-        "Always". For non-init containers or when this field is not specified, the
-        restart behavior is defined by the Pod's restart policy and the container
-        type. Setting the RestartPolicy as "Always" for the init container will have
-        the following effect: this init container will be continually restarted on
-        exit until all regular containers have terminated. Once all regular containers
-        have completed, all init containers with restartPolicy "Always" will be shut
-        down. This lifecycle differs from normal init containers and is often referred
-        to as a "sidecar" container. Although this init container still starts in the
-        init container sequence, it does not wait for the container to complete before
-        proceeding to the next init container. Instead, the next init container starts
-        immediately after this init container is started, or after any startupProbe
-        has successfully completed.
+        This overrides the pod-level restart policy. When this field is not specified,
+        the restart behavior is defined by the Pod's restart policy and the container
+        type. Additionally, setting the RestartPolicy as "Always" for the init
+        container will have the following effect: this init container will be
+        continually restarted on exit until all regular containers have terminated.
+        Once all regular containers have completed, all init containers with
+        restartPolicy "Always" will be shut down. This lifecycle differs from normal
+        init containers and is often referred to as a "sidecar" container. Although
+        this init container still starts in the init container sequence, it does not
+        wait for the container to complete before proceeding to the next init
+        container. Instead, the next init container starts immediately after this init
+        container is started, or after any startupProbe has successfully completed.
+      * **restartPolicyRules** ``Optional[List[ContainerRestartRule]]`` - Represents a list of rules to be checked to determine if the container should
+        be restarted on exit. The rules are evaluated in order. Once a rule matches a
+        container exit condition, the remaining rules are ignored. If no rule matches
+        the container exit condition, the Container-level restart policy determines
+        the whether the container is restarted or not. Constraints on the rules: - At
+        most 20 rules are allowed. - Rules can have the same action. - Identical rules
+        are not forbidden in validations. When rules are specified, container MUST set
+        RestartPolicy explicitly even it if matches the Pod's RestartPolicy.
       * **securityContext** ``Optional[SecurityContext]`` - SecurityContext defines the security options the container should be run with.
         If set, the fields of SecurityContext override the equivalent fields of
         PodSecurityContext. More info:
@@ -844,6 +850,7 @@ class Container(DictMixin):
     resizePolicy: 'Optional[List[ContainerResizePolicy]]' = None
     resources: 'Optional[ResourceRequirements]' = None
     restartPolicy: 'Optional[str]' = None
+    restartPolicyRules: 'Optional[List[ContainerRestartRule]]' = None
     securityContext: 'Optional[SecurityContext]' = None
     startupProbe: 'Optional[Probe]' = None
     stdin: 'Optional[bool]' = None
@@ -854,6 +861,23 @@ class Container(DictMixin):
     volumeDevices: 'Optional[List[VolumeDevice]]' = None
     volumeMounts: 'Optional[List[VolumeMount]]' = None
     workingDir: 'Optional[str]' = None
+
+
+@dataclass
+class ContainerExtendedResourceRequest(DictMixin):
+    r"""ContainerExtendedResourceRequest has the mapping of container name, extended
+      resource name to the device request name.
+
+      **parameters**
+
+      * **containerName** ``str`` - The name of the container requesting resources.
+      * **requestName** ``str`` - The name of the request in the special ResourceClaim which corresponds to the
+        extended resource.
+      * **resourceName** ``str`` - The name of the extended resource in that container which gets backed by DRA.
+    """
+    containerName: 'str'
+    requestName: 'str'
+    resourceName: 'str'
 
 
 @dataclass
@@ -908,6 +932,40 @@ class ContainerResizePolicy(DictMixin):
     """
     resourceName: 'str'
     restartPolicy: 'str'
+
+
+@dataclass
+class ContainerRestartRule(DictMixin):
+    r"""ContainerRestartRule describes how a container exit is handled.
+
+      **parameters**
+
+      * **action** ``str`` - Specifies the action taken on a container exit if the requirements are
+        satisfied. The only possible value is "Restart" to restart the container.
+      * **exitCodes** ``Optional[ContainerRestartRuleOnExitCodes]`` - Represents the exit codes to check on container exits.
+    """
+    action: 'str'
+    exitCodes: 'Optional[ContainerRestartRuleOnExitCodes]' = None
+
+
+@dataclass
+class ContainerRestartRuleOnExitCodes(DictMixin):
+    r"""ContainerRestartRuleOnExitCodes describes the condition for handling an exited
+      container based on its exit codes.
+
+      **parameters**
+
+      * **operator** ``str`` - Represents the relationship between the container exit code(s) and the
+        specified values. Possible values are: - In: the requirement is satisfied if
+        the container exit code is in the
+          set of specified values.
+        - NotIn: the requirement is satisfied if the container exit code is
+          not in the set of specified values.
+      * **values** ``Optional[List[int]]`` - Specifies the set of values to check for container exit codes. At most 255
+        elements are allowed.
+    """
+    operator: 'str'
+    values: 'Optional[List[int]]' = None
 
 
 @dataclass
@@ -1326,8 +1384,8 @@ class EnvFromSource(DictMixin):
       **parameters**
 
       * **configMapRef** ``Optional[ConfigMapEnvSource]`` - The ConfigMap to select from
-      * **prefix** ``Optional[str]`` - Optional text to prepend to the name of each environment variable. Must be a
-        C_IDENTIFIER.
+      * **prefix** ``Optional[str]`` - Optional text to prepend to the name of each environment variable. May consist
+        of any printable ASCII characters except '='.
       * **secretRef** ``Optional[SecretEnvSource]`` - The Secret to select from
     """
     configMapRef: 'Optional[ConfigMapEnvSource]' = None
@@ -1341,7 +1399,8 @@ class EnvVar(DictMixin):
 
       **parameters**
 
-      * **name** ``str`` - Name of the environment variable. Must be a C_IDENTIFIER.
+      * **name** ``str`` - Name of the environment variable. May consist of any printable ASCII
+        characters except '='.
       * **value** ``Optional[str]`` - Variable references $(VAR_NAME) are expanded using the previously defined
         environment variables in the container and any service environment variables.
         If a variable cannot be resolved, the reference in the input string will be
@@ -1367,6 +1426,8 @@ class EnvVarSource(DictMixin):
       * **fieldRef** ``Optional[ObjectFieldSelector]`` - Selects a field of the pod: supports metadata.name, metadata.namespace,
         `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`, spec.nodeName,
         spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+      * **fileKeyRef** ``Optional[FileKeySelector]`` - FileKeyRef selects a key of the env file. Requires the EnvFiles feature gate
+        to be enabled.
       * **resourceFieldRef** ``Optional[ResourceFieldSelector]`` - Selects a resource of the container: only resources limits and requests
         (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu,
         requests.memory and requests.ephemeral-storage) are currently supported.
@@ -1374,6 +1435,7 @@ class EnvVarSource(DictMixin):
     """
     configMapKeyRef: 'Optional[ConfigMapKeySelector]' = None
     fieldRef: 'Optional[ObjectFieldSelector]' = None
+    fileKeyRef: 'Optional[FileKeySelector]' = None
     resourceFieldRef: 'Optional[ResourceFieldSelector]' = None
     secretKeyRef: 'Optional[SecretKeySelector]' = None
 
@@ -1413,11 +1475,10 @@ class EphemeralContainer(DictMixin):
         https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell
       * **env** ``Optional[List[EnvVar]]`` - List of environment variables to set in the container. Cannot be updated.
       * **envFrom** ``Optional[List[EnvFromSource]]`` - List of sources to populate environment variables in the container. The keys
-        defined within a source must be a C_IDENTIFIER. All invalid keys will be
-        reported as an event when the container is starting. When a key exists in
-        multiple sources, the value associated with the last source will take
-        precedence. Values defined by an Env with a duplicate key will take
-        precedence. Cannot be updated.
+        defined within a source may consist of any printable ASCII characters except
+        '='. When a key exists in multiple sources, the value associated with the last
+        source will take precedence. Values defined by an Env with a duplicate key
+        will take precedence. Cannot be updated.
       * **image** ``Optional[str]`` - Container image name. More info:
         https://kubernetes.io/docs/concepts/containers/images
       * **imagePullPolicy** ``Optional[str]`` - Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if
@@ -1431,8 +1492,9 @@ class EphemeralContainer(DictMixin):
       * **resources** ``Optional[ResourceRequirements]`` - Resources are not allowed for ephemeral containers. Ephemeral containers use
         spare resources already allocated to the pod.
       * **restartPolicy** ``Optional[str]`` - Restart policy for the container to manage the restart behavior of each
-        container within a pod. This may only be set for init containers. You cannot
-        set this field on ephemeral containers.
+        container within a pod. You cannot set this field on ephemeral containers.
+      * **restartPolicyRules** ``Optional[List[ContainerRestartRule]]`` - Represents a list of rules to be checked to determine if the container should
+        be restarted on exit. You cannot set this field on ephemeral containers.
       * **securityContext** ``Optional[SecurityContext]`` - Optional: SecurityContext defines the security options the ephemeral container
         should be run with. If set, the fields of SecurityContext override the
         equivalent fields of PodSecurityContext.
@@ -1490,6 +1552,7 @@ class EphemeralContainer(DictMixin):
     resizePolicy: 'Optional[List[ContainerResizePolicy]]' = None
     resources: 'Optional[ResourceRequirements]' = None
     restartPolicy: 'Optional[str]' = None
+    restartPolicyRules: 'Optional[List[ContainerRestartRule]]' = None
     securityContext: 'Optional[SecurityContext]' = None
     startupProbe: 'Optional[Probe]' = None
     stdin: 'Optional[bool]' = None
@@ -1688,6 +1751,32 @@ class FCVolumeSource(DictMixin):
 
 
 @dataclass
+class FileKeySelector(DictMixin):
+    r"""FileKeySelector selects a key of the env file.
+
+      **parameters**
+
+      * **key** ``str`` - The key within the env file. An invalid key will prevent the pod from
+        starting. The keys defined within a source may consist of any printable ASCII
+        characters except '='. During Alpha stage of the EnvFiles feature gate, the
+        key size is limited to 128 characters.
+      * **path** ``str`` - The path within the volume from which to select the file. Must be relative and
+        may not contain the '..' path or start with '..'.
+      * **volumeName** ``str`` - The name of the volume mount containing the env file.
+      * **optional** ``Optional[bool]`` - Specify whether the file or its key must be defined. If the file or key does
+        not exist, then the env var is not published. If optional is set to true and
+        the specified key does not exist, the environment variable will not be set in
+        the Pod's containers.
+        If optional is set to false and the specified key does not exist, an error
+        will be returned during Pod creation.
+    """
+    key: 'str'
+    path: 'str'
+    volumeName: 'str'
+    optional: 'Optional[bool]' = None
+
+
+@dataclass
 class FlexPersistentVolumeSource(DictMixin):
     r"""FlexPersistentVolumeSource represents a generic persistent volume resource
       that is provisioned/attached using an exec based plugin.
@@ -1860,8 +1949,7 @@ class GlusterfsVolumeSource(DictMixin):
 
       **parameters**
 
-      * **endpoints** ``str`` - endpoints is the endpoint name that details Glusterfs topology. More info:
-        https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod
+      * **endpoints** ``str`` - endpoints is the endpoint name that details Glusterfs topology.
       * **path** ``str`` - path is the Glusterfs volume path. More info:
         https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod
       * **readOnly** ``Optional[bool]`` - readOnly here will force the Glusterfs volume to be mounted with read-only
@@ -3128,16 +3216,13 @@ class PersistentVolumeClaimSpec(DictMixin):
         this claim. If specified, the CSI driver will create or update the volume with
         the attributes defined in the corresponding VolumeAttributesClass. This has a
         different purpose than storageClassName, it can be changed after the claim is
-        created. An empty string value means that no VolumeAttributesClass will be
-        applied to the claim but it's not allowed to reset this field to empty string
-        once it is set. If unspecified and the PersistentVolumeClaim is unbound, the
-        default VolumeAttributesClass will be set by the persistentvolume controller
-        if it exists. If the resource referred to by volumeAttributesClass does not
+        created. An empty string or nil value indicates that no VolumeAttributesClass
+        will be applied to the claim. If the claim enters an Infeasible error state,
+        this field can be reset to its previous value (including nil) to cancel the
+        modification. If the resource referred to by volumeAttributesClass does not
         exist, this PersistentVolumeClaim will be set to a Pending state, as reflected
         by the modifyVolumeStatus field, until such as a resource exists. More info:
-        https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Beta)
-        Using this field requires the VolumeAttributesClass feature gate to be enabled
-        (off by default).
+        https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
       * **volumeMode** ``Optional[str]`` - volumeMode defines what type of volume is required by the claim. Value of
         Filesystem is implied when not included in claim spec.
       * **volumeName** ``Optional[str]`` - volumeName is the binding reference to the PersistentVolume backing this
@@ -3236,12 +3321,10 @@ class PersistentVolumeClaimStatus(DictMixin):
         'Resizing'.
       * **currentVolumeAttributesClassName** ``Optional[str]`` - currentVolumeAttributesClassName is the current name of the
         VolumeAttributesClass the PVC is using. When unset, there is no
-        VolumeAttributeClass applied to this PersistentVolumeClaim This is a beta
-        field and requires enabling VolumeAttributesClass feature (off by default).
+        VolumeAttributeClass applied to this PersistentVolumeClaim
       * **modifyVolumeStatus** ``Optional[ModifyVolumeStatus]`` - ModifyVolumeStatus represents the status object of ControllerModifyVolume
         operation. When this is unset, there is no ModifyVolume operation being
-        attempted. This is a beta field and requires enabling VolumeAttributesClass
-        feature (off by default).
+        attempted.
       * **phase** ``Optional[str]`` - phase represents the current phase of PersistentVolumeClaim.
     """
     accessModes: 'Optional[List[str]]' = None
@@ -3423,8 +3506,7 @@ class PersistentVolumeSpec(DictMixin):
         can be changed by the CSI driver after a volume has been updated successfully
         to a new class. For an unbound PersistentVolume, the volumeAttributesClassName
         will be matched with unbound PersistentVolumeClaims during the binding
-        process. This is a beta field and requires enabling VolumeAttributesClass
-        feature (off by default).
+        process.
       * **volumeMode** ``Optional[str]`` - volumeMode defines if a volume is intended to be used with a formatted
         filesystem or to remain in raw block state. Value of Filesystem is implied
         when not included in spec.
@@ -3628,9 +3710,9 @@ class PodAntiAffinity(DictMixin):
         is the one with the greatest sum of weights, i.e. for each node that meets all
         of the scheduling requirements (resource request, requiredDuringScheduling
         anti-affinity expressions, etc.), compute a sum by iterating through the
-        elements of this field and adding "weight" to the sum if the node has pods
-        which matches the corresponding podAffinityTerm; the node(s) with the highest
-        sum are the most preferred.
+        elements of this field and subtracting "weight" from the sum if the node has
+        pods which matches the corresponding podAffinityTerm; the node(s) with the
+        highest sum are the most preferred.
       * **requiredDuringSchedulingIgnoredDuringExecution** ``Optional[List[PodAffinityTerm]]`` - If the anti-affinity requirements specified by this field are not met at
         scheduling time, the pod will not be scheduled onto the node. If the
         anti-affinity requirements specified by this field cease to be met at some
@@ -3641,6 +3723,55 @@ class PodAntiAffinity(DictMixin):
     """
     preferredDuringSchedulingIgnoredDuringExecution: 'Optional[List[WeightedPodAffinityTerm]]' = None
     requiredDuringSchedulingIgnoredDuringExecution: 'Optional[List[PodAffinityTerm]]' = None
+
+
+@dataclass
+class PodCertificateProjection(DictMixin):
+    r"""PodCertificateProjection provides a private key and X.509 certificate in the
+      pod filesystem.
+
+      **parameters**
+
+      * **keyType** ``str`` - The type of keypair Kubelet will generate for the pod.
+        Valid values are "RSA3072", "RSA4096", "ECDSAP256", "ECDSAP384", "ECDSAP521",
+        and "ED25519".
+      * **signerName** ``str`` - Kubelet's generated CSRs will be addressed to this signer.
+      * **certificateChainPath** ``Optional[str]`` - Write the certificate chain at this path in the projected volume.
+        Most applications should use credentialBundlePath.  When using keyPath and
+        certificateChainPath, your application needs to check that the key and leaf
+        certificate are consistent, because it is possible to read the files
+        mid-rotation.
+      * **credentialBundlePath** ``Optional[str]`` - Write the credential bundle at this path in the projected volume.
+        The credential bundle is a single file that contains multiple PEM blocks. The
+        first PEM block is a PRIVATE KEY block, containing a PKCS#8 private key.
+        The remaining blocks are CERTIFICATE blocks, containing the issued certificate
+        chain from the signer (leaf and any intermediates).
+        Using credentialBundlePath lets your Pod's application code make a single
+        atomic read that retrieves a consistent key and certificate chain.  If you
+        project them to separate files, your application code will need to
+        additionally check that the leaf certificate was issued to the key.
+      * **keyPath** ``Optional[str]`` - Write the key at this path in the projected volume.
+        Most applications should use credentialBundlePath.  When using keyPath and
+        certificateChainPath, your application needs to check that the key and leaf
+        certificate are consistent, because it is possible to read the files
+        mid-rotation.
+      * **maxExpirationSeconds** ``Optional[int]`` - maxExpirationSeconds is the maximum lifetime permitted for the certificate.
+        Kubelet copies this value verbatim into the PodCertificateRequests it
+        generates for this projection.
+        If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver will
+        reject values shorter than 3600 (1 hour).  The maximum allowable value is
+        7862400 (91 days).
+        The signer implementation is then free to issue a certificate with any
+        lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600 seconds
+        (1 hour).  This constraint is enforced by kube-apiserver. `kubernetes.io`
+        signers will never issue certificates with a lifetime longer than 24 hours.
+    """
+    keyType: 'str'
+    signerName: 'str'
+    certificateChainPath: 'Optional[str]' = None
+    credentialBundlePath: 'Optional[str]' = None
+    keyPath: 'Optional[str]' = None
+    maxExpirationSeconds: 'Optional[int]' = None
 
 
 @dataclass
@@ -3703,6 +3834,23 @@ class PodDNSConfigOption(DictMixin):
     """
     name: 'Optional[str]' = None
     value: 'Optional[str]' = None
+
+
+@dataclass
+class PodExtendedResourceClaimStatus(DictMixin):
+    r"""PodExtendedResourceClaimStatus is stored in the PodStatus for the extended
+      resource requests backed by DRA. It stores the generated name for the
+      corresponding special ResourceClaim created by the scheduler.
+
+      **parameters**
+
+      * **requestMappings** ``List[ContainerExtendedResourceRequest]`` - RequestMappings identifies the mapping of <container, extended resource backed
+        by DRA> to  device request in the generated ResourceClaim.
+      * **resourceClaimName** ``str`` - ResourceClaimName is the name of the ResourceClaim that was generated for the
+        Pod in the namespace of the Pod.
+    """
+    requestMappings: 'List[ContainerExtendedResourceRequest]'
+    resourceClaimName: 'str'
 
 
 @dataclass
@@ -3981,9 +4129,11 @@ class PodSpec(DictMixin):
       * **hostAliases** ``Optional[List[HostAlias]]`` - HostAliases is an optional list of hosts and IPs that will be injected into
         the pod's hosts file if specified.
       * **hostIPC** ``Optional[bool]`` - Use the host's ipc namespace. Optional: Default to false.
-      * **hostNetwork** ``Optional[bool]`` - Host networking requested for this pod. Use the host's network namespace. If
-        this option is set, the ports that will be used must be specified. Default to
-        false.
+      * **hostNetwork** ``Optional[bool]`` - Host networking requested for this pod. Use the host's network namespace. When
+        using HostNetwork you should specify ports so the scheduler is aware. When
+        `hostNetwork` is true, specified `hostPort` fields in port definitions must
+        match `containerPort`, and unspecified `hostPort` fields in port definitions
+        are defaulted to match `containerPort`. Default to false.
       * **hostPID** ``Optional[bool]`` - Use the host's pid namespace. Optional: Default to false.
       * **hostUsers** ``Optional[bool]`` - Use the host's user namespace. Optional: Default to true. If set to true or
         not present, the pod will be run in the host user namespace, useful for when
@@ -3995,6 +4145,14 @@ class PodSpec(DictMixin):
         and is only honored by servers that enable the UserNamespacesSupport feature.
       * **hostname** ``Optional[str]`` - Specifies the hostname of the Pod If not specified, the pod's hostname will be
         set to a system-defined value.
+      * **hostnameOverride** ``Optional[str]`` - HostnameOverride specifies an explicit override for the pod's hostname as
+        perceived by the pod. This field only specifies the pod's hostname and does
+        not affect its DNS records. When this field is set to a non-empty string: - It
+        takes precedence over the values set in `hostname` and `subdomain`. - The
+        Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or
+        set to false. - `hostNetwork` must be set to false.
+        This field must be a valid DNS subdomain as defined in RFC 1123 and contain at
+        most 64 characters. Requires the HostnameOverride feature gate to be enabled.
       * **imagePullSecrets** ``Optional[List[LocalObjectReference]]`` - ImagePullSecrets is an optional list of references to secrets in the same
         namespace to use for pulling any of the images used by this PodSpec. If
         specified, these secrets will be passed to individual puller implementations
@@ -4027,7 +4185,7 @@ class PodSpec(DictMixin):
         If the OS field is set to linux, the following fields must be unset:
         -securityContext.windowsOptions
         If the OS field is set to windows, following fields must be unset: -
-        spec.hostPID - spec.hostIPC - spec.hostUsers -
+        spec.hostPID - spec.hostIPC - spec.hostUsers - spec.resources -
         spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions -
         spec.securityContext.seccompProfile - spec.securityContext.fsGroup -
         spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls -
@@ -4076,8 +4234,9 @@ class PodSpec(DictMixin):
         feature gate.
         This field is immutable.
       * **resources** ``Optional[ResourceRequirements]`` - Resources is the total amount of CPU and Memory resources required by all
-        containers in the pod. It supports specifying Requests and Limits for "cpu"
-        and "memory" resource names only. ResourceClaims are not supported.
+        containers in the pod. It supports specifying Requests and Limits for "cpu",
+        "memory" and "hugepages-" resource names only. ResourceClaims are not
+        supported.
         This field enables fine-grained control over resource allocation for the
         entire pod, allowing resource sharing among containers in a pod.
         This is an alpha field and requires enabling the PodLevelResources feature
@@ -4151,6 +4310,7 @@ class PodSpec(DictMixin):
     hostPID: 'Optional[bool]' = None
     hostUsers: 'Optional[bool]' = None
     hostname: 'Optional[str]' = None
+    hostnameOverride: 'Optional[str]' = None
     imagePullSecrets: 'Optional[List[LocalObjectReference]]' = None
     initContainers: 'Optional[List[Container]]' = None
     nodeName: 'Optional[str]' = None
@@ -4203,6 +4363,7 @@ class PodStatus(DictMixin):
         the list has duplicate names, the behavior of various Kubernetes components is
         not defined and those statuses might be ignored. More info:
         https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
+      * **extendedResourceClaimStatus** ``Optional[PodExtendedResourceClaimStatus]`` - Status of extended resource claim backed by DRA.
       * **hostIP** ``Optional[str]`` - hostIP holds the IP address of the host to which the pod is assigned. Empty if
         the pod has not started yet. A pod can be assigned to a node that has a
         problem in kubelet which in turns mean that HostIP will not be updated even if
@@ -4277,6 +4438,7 @@ class PodStatus(DictMixin):
     conditions: 'Optional[List[PodCondition]]' = None
     containerStatuses: 'Optional[List[ContainerStatus]]' = None
     ephemeralContainerStatuses: 'Optional[List[ContainerStatus]]' = None
+    extendedResourceClaimStatus: 'Optional[PodExtendedResourceClaimStatus]' = None
     hostIP: 'Optional[str]' = None
     hostIPs: 'Optional[List[HostIP]]' = None
     initContainerStatuses: 'Optional[List[ContainerStatus]]' = None
@@ -4891,8 +5053,7 @@ class ResourceRequirements(DictMixin):
 
       * **claims** ``Optional[List[ResourceClaim]]`` - Claims lists the names of resources, defined in spec.resourceClaims, that are
         used by this container.
-        This is an alpha field and requires enabling the DynamicResourceAllocation
-        feature gate.
+        This field depends on the DynamicResourceAllocation feature gate.
         This field is immutable. It can only be set for containers.
       * **limits** ``Optional[dict]`` - Limits describes the maximum amount of compute resources allowed. More info:
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -5883,8 +6044,7 @@ class Taint(DictMixin):
       * **effect** ``str`` - Required. The effect of the taint on pods that do not tolerate the taint.
         Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
       * **key** ``str`` - Required. The taint key to be applied to a node.
-      * **timeAdded** ``Optional[meta_v1.Time]`` - TimeAdded represents the time at which the taint was added. It is only written
-        for NoExecute taints.
+      * **timeAdded** ``Optional[meta_v1.Time]`` - TimeAdded represents the time at which the taint was added.
       * **value** ``Optional[str]`` - The taint value corresponding to the taint key.
     """
     effect: 'str'
@@ -6163,8 +6323,7 @@ class Volume(DictMixin):
         EmptyDir into the Pod's container.
       * **glusterfs** ``Optional[GlusterfsVolumeSource]`` - glusterfs represents a Glusterfs mount on the host that shares a pod's
         lifetime. Deprecated: Glusterfs is deprecated and the in-tree glusterfs type
-        is no longer supported. More info:
-        https://examples.k8s.io/volumes/glusterfs/README.md
+        is no longer supported.
       * **hostPath** ``Optional[HostPathVolumeSource]`` - hostPath represents a pre-existing file or directory on the host machine that
         is directly exposed to the container. This is generally used for system agents
         or other privileged things that are allowed to see the host machine. Most
@@ -6195,7 +6354,7 @@ class Volume(DictMixin):
         spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
       * **iscsi** ``Optional[ISCSIVolumeSource]`` - iscsi represents an ISCSI Disk resource that is attached to a kubelet's host
         machine and then exposed to the pod. More info:
-        https://examples.k8s.io/volumes/iscsi/README.md
+        https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
       * **nfs** ``Optional[NFSVolumeSource]`` - nfs represents an NFS mount on the host that shares a pod's lifetime More
         info: https://kubernetes.io/docs/concepts/storage/volumes#nfs
       * **persistentVolumeClaim** ``Optional[PersistentVolumeClaimVolumeSource]`` - persistentVolumeClaimVolumeSource represents a reference to a
@@ -6214,7 +6373,7 @@ class Volume(DictMixin):
         supported.
       * **rbd** ``Optional[RBDVolumeSource]`` - rbd represents a Rados Block Device mount on the host that shares a pod's
         lifetime. Deprecated: RBD is deprecated and the in-tree rbd type is no longer
-        supported. More info: https://examples.k8s.io/volumes/rbd/README.md
+        supported.
       * **scaleIO** ``Optional[ScaleIOVolumeSource]`` - scaleIO represents a ScaleIO persistent volume attached and mounted on
         Kubernetes nodes. Deprecated: ScaleIO is deprecated and the in-tree scaleIO
         type is no longer supported.
@@ -6369,6 +6528,30 @@ class VolumeProjection(DictMixin):
         over time.
       * **configMap** ``Optional[ConfigMapProjection]`` - configMap information about the configMap data to project
       * **downwardAPI** ``Optional[DownwardAPIProjection]`` - downwardAPI information about the downwardAPI data to project
+      * **podCertificate** ``Optional[PodCertificateProjection]`` - Projects an auto-rotating credential bundle (private key and certificate
+        chain) that the pod can use either as a TLS client or server.
+        Kubelet generates a private key and uses it to send a PodCertificateRequest to
+        the named signer.  Once the signer approves the request and issues a
+        certificate chain, Kubelet writes the key and certificate chain to the pod
+        filesystem.  The pod does not start until certificates have been issued for
+        each podCertificate projected volume source in its spec.
+        Kubelet will begin trying to rotate the certificate at the time indicated by
+        the signer using the PodCertificateRequest.Status.BeginRefreshAt timestamp.
+        Kubelet can write a single file, indicated by the credentialBundlePath field,
+        or separate files, indicated by the keyPath and certificateChainPath fields.
+        The credential bundle is a single file in PEM format.  The first PEM entry is
+        the private key (in PKCS#8 format), and the remaining PEM entries are the
+        certificate chain issued by the signer (typically, signers will return their
+        certificate chain in leaf-to-root order).
+        Prefer using the credential bundle format, since your application code can
+        read it atomically.  If you use keyPath and certificateChainPath, your
+        application must make two separate file reads. If these coincide with a
+        certificate rotation, it is possible that the private key and leaf certificate
+        you read may not correspond to each other.  Your application will need to
+        check for this condition, and re-read until they are consistent.
+        The named signer controls chooses the format of the certificate it issues;
+        consult the signer implementation's documentation to learn how to use the
+        certificates it issues.
       * **secret** ``Optional[SecretProjection]`` - secret information about the secret data to project
       * **serviceAccountToken** ``Optional[ServiceAccountTokenProjection]`` - serviceAccountToken is information about the serviceAccountToken data to
         project
@@ -6376,6 +6559,7 @@ class VolumeProjection(DictMixin):
     clusterTrustBundle: 'Optional[ClusterTrustBundleProjection]' = None
     configMap: 'Optional[ConfigMapProjection]' = None
     downwardAPI: 'Optional[DownwardAPIProjection]' = None
+    podCertificate: 'Optional[PodCertificateProjection]' = None
     secret: 'Optional[SecretProjection]' = None
     serviceAccountToken: 'Optional[ServiceAccountTokenProjection]' = None
 

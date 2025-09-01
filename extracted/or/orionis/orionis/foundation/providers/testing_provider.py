@@ -59,7 +59,7 @@ class TestingProvider(ServiceProvider):
 
         # Register the UnitTest service as a singleton in the application container.
         # The service is bound to the IUnitTest interface and can be resolved using the alias.
-        self.app.singleton(IUnitTest, UnitTest, alias="x-orionis.test.core.unit_test")
+        self.app.singleton(IUnitTest, UnitTest, alias=f"x-{IUnitTest.__module__}.{IUnitTest.__name__}")
 
     def boot(self) -> None:
         """

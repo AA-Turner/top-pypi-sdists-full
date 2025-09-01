@@ -94,6 +94,7 @@ from textual.await_remove import AwaitRemove
 from textual.binding import Binding, BindingsMap, BindingType, Keymap
 from textual.command import CommandListItem, CommandPalette, Provider, SimpleProvider
 from textual.compose import compose
+from textual.content import Content
 from textual.css.errors import StylesheetError
 from textual.css.query import NoMatches
 from textual.css.stylesheet import RulesMap, Stylesheet
@@ -813,6 +814,8 @@ class App(Generic[ReturnType], DOMNode):
         self._resize_event: events.Resize | None = None
         """A pending resize event, sent on idle."""
 
+        self._size: Size | None = None
+
         self._css_update_count: int = 0
         """Incremented when CSS is invalidated."""
 
@@ -841,6 +844,14 @@ class App(Generic[ReturnType], DOMNode):
                         tooltip="Open the command palette",
                     )
                 )
+
+    def get_line_filters(self) -> Sequence[LineFilter]:
+        """Get currently enabled line filters.
+
+        Returns:
+            A list of [LineFilter][textual.filters.LineFilter] instances.
+        """
+        return [filter for filter in self._filters if filter.enabled]
 
     @property
     def _is_devtools_connected(self) -> bool:
@@ -962,6 +973,27 @@ class App(Generic[ReturnType], DOMNode):
         text copied from elsewhere in the OS.
         """
         return self._clipboard
+
+    def format_title(self, title: str, sub_title: str) -> Content:
+        """Format the title for display.
+
+        Args:
+            title: The title.
+            sub_title: The sub title.
+
+        Returns:
+            Content instance with title and subtitle.
+        """
+        title_content = Content(title)
+        sub_title_content = Content(sub_title)
+        if sub_title_content:
+            return Content.assemble(
+                title_content,
+                (" — ", "dim"),
+                sub_title_content.stylize("dim"),
+            )
+        else:
+            return title_content
 
     @contextmanager
     def batch_update(self) -> Generator[None, None, None]:
@@ -1524,6 +1556,8 @@ class App(Generic[ReturnType], DOMNode):
         Returns:
             Size of the terminal.
         """
+        if self._size is not None:
+            return self._size
         if self._driver is not None and self._driver._size is not None:
             width, height = self._driver._size
         else:
@@ -2768,6 +2802,7 @@ class App(Generic[ReturnType], DOMNode):
 
         next_screen._push_result_callback(message_pump, callback, future)
         self._load_screen_css(next_screen)
+        next_screen._update_auto_focus()
         self._screen_stack.append(next_screen)
         next_screen.post_message(events.ScreenResume())
         self.log.system(f"{self.screen} is current (PUSHED)")
@@ -3159,7 +3194,6 @@ class App(Generic[ReturnType], DOMNode):
         terminal_size: tuple[int, int] | None = None,
         message_hook: Callable[[Message], None] | None = None,
     ) -> None:
-
         self._thread_init()
 
         async def app_prelude() -> bool:
@@ -3286,8 +3320,9 @@ class App(Generic[ReturnType], DOMNode):
                         if self._driver.is_inline:
                             cursor_x, cursor_y = self._previous_cursor_position
                             self._driver.write(
-                                Control.move(-cursor_x, -cursor_y + 1).segment.text
+                                Control.move(-cursor_x, -cursor_y).segment.text
                             )
+                            self._driver.flush()
                             if inline_no_clear and not self.app._exit_renderables:
                                 console = Console()
                                 try:
@@ -3296,9 +3331,7 @@ class App(Generic[ReturnType], DOMNode):
                                     console.print()
                             else:
                                 self._driver.write(
-                                    Control.move(
-                                        -cursor_x, -self.INLINE_PADDING - 1
-                                    ).segment.text
+                                    Control.move(0, -self.INLINE_PADDING).segment.text
                                 )
 
                         driver.stop_application_mode()
@@ -4106,6 +4139,7 @@ class App(Generic[ReturnType], DOMNode):
 
     async def _on_resize(self, event: events.Resize) -> None:
         event.stop()
+        self._size = event.size
         self._resize_event = event
 
     async def _on_app_focus(self, event: events.AppFocus) -> None:

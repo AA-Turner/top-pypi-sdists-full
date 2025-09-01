@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.3.2
+Version: 10.4.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -80,6 +80,14 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content :: Wiki
@@ -278,9 +286,33 @@ Roadmap
 Current Release Changes
 =======================
 
-* Add support for zghwiktionary, madwikisource, rkiwiki, minwikibooks
-  (T391769, T392501, T395501, T399787)
-* i18n updates
+* Apply client-side filtering for *maxsize* in misermode in
+  Site.allpages()(T402995)
+* Add filter_func()and filter_item()
+  filter function in APIGeneratorBase
+  and modify `generator` property to implement filtering in
+  `APIGeneratorBase` subclasses (T402995)
+* All parameters of Site.allpages()
+  except *start* must be given as keyword arguments.
+* Add support for bewwiktionary (T402136)
+* Add user-agent header to eventstreamsrequests (T402796)
+* Update i18n
+* Save global options in bot.global_args(T250034)
+* Update pluralforms from unicode.org (T114978)
+* Add textlib.SectionListto hold textlib.Content.sections(T401464)
+* pywikibot.Coordinateparameters are keyword only
+* Add *strict* parameter to Site.unconnected_pages()
+  and pagegenerators.UnconnectedPageGenerator
+  (T401699)
+* Raise ValueError if a VAR_POSITIONAL parameter like *\*args* is used with
+  tools.deprecate_positionalsdecorator
+* Add get_value_at_timestamp()API
+  to pywikibot.ItemPage(T400612)
+* Clean up setupmodule (T396356)
+* Implement pywikibot.ItemPage.get_best_claim(T400610)
+* Add *expiry* parameter to BasePage.watch()and
+  Site.watch(); fix the methods to return False if
+  page is missing and no expiry is set (T330839)
 
 
 Deprecations
@@ -289,11 +321,16 @@ Deprecations
 Pending removal in Pywikibot 13
 -------------------------------
 
-* 10.3.0: throttle.Trottle.getDelayand throttle.Trottle.setDelayswere renamed; the
-  old methods will be removed (T289318)
-* 10.3.0: throttle.Trottle.next_multiplicityattribute is unused and will be removed
+* 10.4.0: Require all parameters of Site.allpages()
+  except *start* to be keyword arguments.
+* 10.4.0: Positional arguments of pywikibot.Coordinateare deprecated and must be given as
+  keyword arguments.
+* 10.3.0: throttle.Throttle.getDelayand throttle.Throttle.setDelayswere renamed to
+  get_delay()and set_delays()
+  ; the old methods will be removed (T289318)
+* 10.3.0: throttle.Throttle.next_multiplicityattribute is unused and will be removed
   (T289318)
-* 10.3.0: *requestsize* parameter of throttle.Trottlecall is deprecated and will be
+* 10.3.0: *requestsize* parameter of throttle.Throttlecall is deprecated and will be
   dropped (T289318)
 * 10.3.0: textlib.to_latin_digitswill be removed in favour of
   textlib.to_ascii_digits, ``NON_LATIN_DIGITS`` of userinterfaces.transliteration

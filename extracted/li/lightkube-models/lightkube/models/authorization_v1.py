@@ -146,13 +146,9 @@ class ResourceAttributes(DictMixin):
 
       * **fieldSelector** ``Optional[FieldSelectorAttributes]`` - fieldSelector describes the limitation on access based on field.  It can only
         limit access, not broaden it.
-        This field  is alpha-level. To use this field, you must enable the
-        `AuthorizeWithSelectors` feature gate (disabled by default).
       * **group** ``Optional[str]`` - Group is the API Group of the Resource.  "*" means all.
       * **labelSelector** ``Optional[LabelSelectorAttributes]`` - labelSelector describes the limitation on access based on labels.  It can only
         limit access, not broaden it.
-        This field  is alpha-level. To use this field, you must enable the
-        `AuthorizeWithSelectors` feature gate (disabled by default).
       * **name** ``Optional[str]`` - Name is the name of the resource being requested for a "get" or deleted for a
         "delete". "" (empty) means all.
       * **namespace** ``Optional[str]`` - Namespace is the namespace of the action being requested.  Currently, there is

@@ -72,6 +72,7 @@ class AssistantModel:
         self,
         file_path: str,
         metadata: Optional[dict[str, any]] = None,
+        multimodal: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> FileModel:
         """
@@ -82,6 +83,9 @@ class AssistantModel:
 
         :param metadata: Optional metadata dictionary to be attached to the file.
         :type metadata: Optional[dict[str, any]], optional
+
+        :param multimodal: Optional flag to opt in to multimodal file processing (PDFs only). Can be either `true` or `false`. Default is `false`.
+        :type multimodal: bool, optional
 
         :param timeout: Specify the number of seconds to wait until file processing is done. If None, wait indefinitely; if >=0, time out after this many seconds;
             if -1, return immediately and do not wait. Default: None
@@ -109,7 +113,7 @@ class AssistantModel:
         """
         try:
             with open(file_path, "rb") as file:
-                return self._upload_file_stream(file, metadata, timeout)
+                return self._upload_file_stream(file, metadata, multimodal, timeout)
         except FileNotFoundError:
             raise Exception(f"Error: The file at {file_path} was not found.")
         except IOError:
@@ -120,6 +124,7 @@ class AssistantModel:
             stream: BytesIO,
             file_name: str,
             metadata: Optional[dict[str, any]] = None,
+            multimodal: Optional[bool] = None,
             timeout: Optional[int] = None,
     ) -> FileModel:
         """
@@ -135,6 +140,9 @@ class AssistantModel:
 
         :param metadata: Optional metadata dictionary to be attached to the file.
         :type metadata: Optional[dict[str, any]], optional
+
+        :param multimodal: Optional flag to opt in to multimodal file processing (PDFs only). Can be either `true` or `false`. Default is `false`.
+        :type multimodal: bool, optional
 
         :param timeout: Specify the number of seconds to wait until file processing is done. If None, wait indefinitely; if >=0, time out after this many seconds;
             if -1, return immediately and do not wait. Default: None
@@ -162,26 +170,26 @@ class AssistantModel:
          'updated_on': '2024-06-02T19:48:00Z'}
         """
         stream.name = file_name
-        return self._upload_file_stream(stream, metadata, timeout)
+        return self._upload_file_stream(stream, metadata, multimodal, timeout)
 
 
     def _upload_file_stream(
         self,
         file_stream: BinaryIO,
         metadata: Optional[dict[str, any]] = None,
+        multimodal: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> FileModel:
-            upload_resp = (
-                self._assistant_data_api.upload_file(
-                    assistant_name=self.assistant.name,
-                    file=file_stream,
-                    metadata=json.dumps(metadata),
-                )
-                if metadata
-                else self._assistant_data_api.upload_file(
-                    assistant_name=self.assistant.name, file=file_stream
-                )
-            )
+            kwargs = {
+                "assistant_name": self.assistant.name,
+                "file": file_stream,
+            }
+            if metadata:
+                kwargs["metadata"] = json.dumps(metadata)
+            if multimodal is not None:
+                kwargs["multimodal"] = str(multimodal).lower()
+            
+            upload_resp = self._assistant_data_api.upload_file(**kwargs)
 
             # wait for status
             if timeout == -1:
@@ -587,10 +595,14 @@ class AssistantModel:
             ContextOptions:
                 - top_k: int, the number of context snippets to use. Default is 16. Maximum is 64.
                 - snippet_size: int, the maximum context snippet size. Default is 2048 tokens. Minimum is 512 tokens. Maximum is 8192 tokens.
+                - multimodal: bool, whether or not to send image-related context snippets to the LLM. If `false`, only text context snippets are sent. Default is True.
+                - include_binary_content: bool, if image-related context snippets are sent to the LLM, this field determines whether or not they should include base64 image data. If `false`, only the image caption is sent. Only available when `multimodal=true`. Default is True.
             
             Alternatively, you can pass a dictionary with the following keys:
                 - top_k: int, the number of context snippets to use.
                 - snippet_size: int, the maximum context snippet size.
+                - multimodal: bool, whether or not to send image-related context snippets to the LLM. If `false`, only text context snippets are sent. Default is True.
+                - include_binary_content: bool, if image-related context snippets are sent to the LLM, this field determines whether or not they should include base64 image data. If `false`, only the image caption is sent. Only available when `multimodal=true`. Default is True.
 
         :return:
         The default result is a ChatModel with the following format:
@@ -632,7 +644,7 @@ class AssistantModel:
         - StreamChatResponseCitation
             {'type': 'citation', 'id': '0000000000000000116990b44044d21e', 'model': 'gpt-4o-2024-11-20', 'citation': {'position': 247, 'references': [{'id': 's0', 'file': {'status': 'Available', 'id': '985edb6c-f649-4334-8f14-9a16b7039ab6',
             'name': 'PEPSICO_2022_10K.pdf', 'size': 2993516, 'metadata': None, 'updated_on': '2024-08-08T15:41:58.839846634Z', 'created_on': '2024-08-08T15:41:07.427879083Z', 'percent_done': 0.0,
-            'signed_url': 'example.com'}, 'pages': [32]}]}}
+            'signed_url': 'example.com', 'multimodal': false}, 'pages': [32]}]}}
         - StreamChatResponseMessageEnd
             {'type': 'message_end', 'id': '0000000000000000116990b44044d21e', 'model': 'gpt-4o-2024-11-20', 'finish_reason': 'stop', 'usage': {'prompt_tokens': 1, 'completion_tokens': 1, 'total_tokens': 2}}
 
@@ -737,6 +749,10 @@ class AssistantModel:
                 options["top_k"] = context_options.top_k
             if context_options.snippet_size is not None:
                 options["snippet_size"] = context_options.snippet_size
+            if context_options.multimodal is not None:
+                options["multimodal"] = context_options.multimodal
+            if context_options.include_binary_content is not None:
+                options["include_binary_content"] = context_options.include_binary_content
             if options:
                 kwargs["context_options"] = ContextOptionsModel(**options)
 
@@ -771,6 +787,10 @@ class AssistantModel:
                 options["top_k"] = context_options.top_k
             if context_options.snippet_size is not None:
                 options["snippet_size"] = context_options.snippet_size
+            if context_options.multimodal is not None:
+                options["multimodal"] = context_options.multimodal
+            if context_options.include_binary_content is not None:
+                options["include_binary_content"] = context_options.include_binary_content
             if options:
                 content["context_options"] = options
 
@@ -811,6 +831,8 @@ class AssistantModel:
         filter: Optional[dict[str, any]] = None,
         top_k: Optional[int] = None,
         snippet_size: Optional[int] = None,
+        multimodal: Optional[bool] = None,
+        include_binary_content: Optional[bool] = None
     ):
         """
         Performs a context request to the following assistant.
@@ -840,7 +862,13 @@ class AssistantModel:
 
         :param snippet_size: Optional integer to specify the maximum context snippet size. Default is 2048 tokens. Minimum is 512 tokens. Maximum is 8192 tokens.
         :type snippet_size: Optional[int] (default None)
-        
+
+        :param multimodal: Optional bool to specify whether or not to retrieve image-related context snippets. If `false`, only text snippets are returned. Default is True.
+        :type multimodal: Optional[bool] (default None)
+
+        :param include_binary_content: Optional bool, if image-related context snippets are returned, this field determines whether or not they should include base64 image data. If `false`, only the image captions are returned. Only available when `multimodal=true`. Default is True.
+        :type include_binary_content: Optional[bool] (default None)
+
         :return:
         The default result is a ContextResponse with the following format:
 
@@ -860,7 +888,8 @@ class AssistantModel:
                   "status": "Available",
                   "created_on": "2024-11-13T14:59:53.369365582Z",
                   "updated_on": "2024-11-13T14:59:55.369365582Z",
-                  "signed_url": "https://storage.googleapis.com/..."
+                  "signed_url": "https://storage.googleapis.com/...",
+                  "multimodal": false
                 },
                 "pages": [1]
               }
@@ -896,6 +925,10 @@ class AssistantModel:
             kwargs["top_k"] = top_k
         if snippet_size is not None:
             kwargs["snippet_size"] = snippet_size
+        if multimodal is not None:
+            kwargs["multimodal"] = multimodal
+        if include_binary_content is not None:
+            kwargs["include_binary_content"] = include_binary_content
 
         context_request = ContextRequest(
             **kwargs

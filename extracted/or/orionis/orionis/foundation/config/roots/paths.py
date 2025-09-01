@@ -238,14 +238,22 @@ class Paths(BaseEntity):
         }
     )
 
+    tests : str = field(
+        default_factory = lambda: str((Path.cwd() / 'tests').resolve()),
+        metadata = {
+            'description': 'Directory containing test files.',
+            'default': lambda: str((Path.cwd() / 'tests').resolve())
+        }
+    )
+
     def __post_init__(self) -> None:
         """
-        Post-initialization hook to validate path attributes.
+        Post-initialization hook to validate and normalize path attributes.
 
         This method is called automatically after the dataclass is initialized.
-        It ensures that all attributes representing paths are of type `str`.
-        If any attribute is not a string, an `OrionisIntegrityException` is raised
-        to prevent invalid configuration.
+        It ensures that all path-related attributes of the class are stored as strings.
+        If any attribute is a `pathlib.Path`, it is converted to a string. If any attribute
+        cannot be converted to a string, an `OrionisIntegrityException` is raised.
 
         Parameters
         ----------
@@ -255,21 +263,26 @@ class Paths(BaseEntity):
         Returns
         -------
         None
-            This method does not return any value.
+            This method does not return any value. It modifies the instance in place if necessary.
 
         Raises
         ------
         OrionisIntegrityException
-            If any attribute is not of type `str`.
+            If any attribute is not a string after conversion.
         """
-        super().__post_init__()  # Call the parent class's post-init if defined
 
-        # Iterate over all dataclass fields to validate their types
+        # Call the parent class's __post_init__ if it exists
+        super().__post_init__()
+
+        # Iterate over all dataclass fields to validate and normalize their values
         for field_ in fields(self):
             value = getattr(self, field_.name)
-            # Check if the field value is not a string
+            # Convert Path objects to strings
+            if isinstance(value, Path):
+                object.__setattr__(self, field_.name, str(value))
+                value = str(value)
+            # Raise an exception if the value is not a string
             if not isinstance(value, str):
-                # Raise an exception if the type is invalid
                 raise OrionisIntegrityException(
                     f"Invalid type for '{field_.name}': expected str, got {type(value).__name__}"
                 )

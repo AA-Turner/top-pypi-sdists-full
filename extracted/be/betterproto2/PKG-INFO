@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: betterproto2
-Version: 0.7.1
+Version: 0.8.0
 Summary: A better Protobuf / gRPC generator & library
 Project-URL: Documentation, https://betterproto.github.io/python-betterproto2/
 Project-URL: Repository, https://github.com/betterproto/python-betterproto2

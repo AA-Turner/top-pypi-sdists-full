@@ -57,8 +57,7 @@ class ReactorProvider(ServiceProvider):
 
         # Register the Reactor service with the application container
         # as a singleton, allowing it to be resolved throughout the application lifecycle
-        self.app.singleton(IReactor, Reactor, alias="x-orionis.console.core.reactor")
-
+        self.app.singleton(IReactor, Reactor, alias=f"x-{IReactor.__module__}.{IReactor.__name__}")
     def boot(self) -> None:
         """
         Perform post-registration initialization for the reactor management service.

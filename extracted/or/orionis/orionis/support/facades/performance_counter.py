@@ -1,4 +1,5 @@
 from orionis.container.facades.facade import Facade
+from orionis.support.performance.contracts.counter import IPerformanceCounter
 
 class PerformanceCounter(Facade):
 
@@ -14,8 +15,8 @@ class PerformanceCounter(Facade):
         Returns
         -------
         str
-            The service container binding key 'x-orionis.support.performance.counter'
+            The service container binding key 'x-orionis.support.performance.contracts.counter.IPerformanceCounter
             that identifies the workers service implementation.
         """
 
-        return "x-orionis.support.performance.counter"
+        return f"x-{IPerformanceCounter.__module__}.{IPerformanceCounter.__name__}"

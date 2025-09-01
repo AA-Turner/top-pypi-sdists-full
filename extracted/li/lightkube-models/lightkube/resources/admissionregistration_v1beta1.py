@@ -5,46 +5,26 @@ from ..core import resource as res
 from ..models import admissionregistration_v1beta1 as m_admissionregistration_v1beta1
 
 
-class ValidatingAdmissionPolicyStatus(res.GlobalSubResource, m_admissionregistration_v1beta1.ValidatingAdmissionPolicy):
-    """* **Extends**: ``models.admissionregistration_v1beta1.ValidatingAdmissionPolicy``
-       * **Type**: Global Resource
-       * **Accepted client methods**: `get`, `patch`, `replace`
-    """
-    _api_info = res.ApiInfo(
-        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'ValidatingAdmissionPolicy'),
-        parent=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'ValidatingAdmissionPolicy'),
-        plural='validatingadmissionpolicies',
-        verbs=['get', 'patch', 'put'],
-        action='status',
-    )
-
-
-class ValidatingAdmissionPolicy(res.GlobalResource, m_admissionregistration_v1beta1.ValidatingAdmissionPolicy):
-    """* **Extends**: ``models.admissionregistration_v1beta1.ValidatingAdmissionPolicy``
+class MutatingAdmissionPolicy(res.GlobalResource, m_admissionregistration_v1beta1.MutatingAdmissionPolicy):
+    """* **Extends**: ``models.admissionregistration_v1beta1.MutatingAdmissionPolicy``
        * **Type**: Global Resource
        * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
-
-       **Subresources**:
-
-       * **Status**: ``ValidatingAdmissionPolicyStatus``
     """
     _api_info = res.ApiInfo(
-        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'ValidatingAdmissionPolicy'),
-        plural='validatingadmissionpolicies',
+        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'MutatingAdmissionPolicy'),
+        plural='mutatingadmissionpolicies',
         verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
     )
 
-    Status: ClassVar = ValidatingAdmissionPolicyStatus
 
-
-class ValidatingAdmissionPolicyBinding(res.GlobalResource, m_admissionregistration_v1beta1.ValidatingAdmissionPolicyBinding):
-    """* **Extends**: ``models.admissionregistration_v1beta1.ValidatingAdmissionPolicyBinding``
+class MutatingAdmissionPolicyBinding(res.GlobalResource, m_admissionregistration_v1beta1.MutatingAdmissionPolicyBinding):
+    """* **Extends**: ``models.admissionregistration_v1beta1.MutatingAdmissionPolicyBinding``
        * **Type**: Global Resource
        * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
     """
     _api_info = res.ApiInfo(
-        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'ValidatingAdmissionPolicyBinding'),
-        plural='validatingadmissionpolicybindings',
+        resource=res.ResourceDef('admissionregistration.k8s.io', 'v1beta1', 'MutatingAdmissionPolicyBinding'),
+        plural='mutatingadmissionpolicybindings',
         verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
     )
 

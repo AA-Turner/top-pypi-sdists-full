@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydoclint"
-version = "0.6.10"
+version = "0.6.11"
 description = "A Python docstring linter that checks arguments, returns, yields, and raises sections"
 readme = "README.md"
 license = {text = "MIT"}
@@ -41,10 +41,6 @@ exclude = ["tests*", "testing*"]
 [tool.isort]
 multi_line_output = 3
 include_trailing_comma = true
-
-[tool.cercis]
-wrap-line-with-long-string = true
-extend-exclude = 'tests/data'
 
 [tool.pydoclint]
 style = 'numpy'

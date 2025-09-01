@@ -1,0 +1,33 @@
+services:
+  rocketchat:
+    image: rocketchat/rocket.chat:${ROCKET_CHAT_VERSION:-latest}
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo:27017/rocketchat?replicaSet=rs0
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local?replicaSet=rs0
+      - OVERWRITE_SETTING_API_Enable_Rate_Limiter=false
+      - OVERWRITE_SETTING_Accounts_TwoFactorAuthentication_Enforce_Password_Fallback=false
+      - CREATE_TOKENS_FOR_USERS=true
+      - ROCKETCHAT_LICENSE=${ROCKETCHAT_LICENSE}
+      - LICENSE_DEBUG=true
+    depends_on:
+      - mongo
+    ports:
+      - "3000:3000"
+
+  mongo:
+    image: docker.io/bitnami/mongodb:6.0
+    restart: always
+    environment:
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_REPLICA_SET_NAME: rs0
+      MONGODB_PORT_NUMBER: 27017
+      MONGODB_INITIAL_PRIMARY_HOST: mongodb
+      MONGODB_INITIAL_PRIMARY_PORT_NUMBER: 27017
+      MONGODB_ADVERTISED_HOSTNAME: mongo
+      MONGODB_ENABLE_JOURNAL: true
+      ALLOW_EMPTY_PASSWORD: yes

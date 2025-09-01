@@ -1,3 +1,4 @@
+from orionis.console.contracts.executor import IExecutor
 from orionis.container.facades.facade import Facade
 
 class ConsoleExecutor(Facade):
@@ -15,10 +16,10 @@ class ConsoleExecutor(Facade):
         Returns
         -------
         str
-            The string identifier 'x-orionis.console.output.executor' used as
+            The string identifier 'x-orionis.console.contracts.executor.IExecutor' used as
             the binding key to locate and resolve the executor service instance
             from the dependency injection container.
         """
 
         # Return the predefined binding key for the executor service
-        return "x-orionis.console.output.executor"
+        return f"x-{IExecutor.__module__}.{IExecutor.__name__}"

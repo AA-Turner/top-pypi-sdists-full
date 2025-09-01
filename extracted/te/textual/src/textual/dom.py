@@ -10,7 +10,6 @@ import re
 import threading
 from functools import lru_cache, partial
 from inspect import getfile
-from operator import attrgetter
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -407,6 +406,15 @@ class DOMNode(MessagePump):
             The node's children.
         """
         return self._nodes
+
+    @property
+    def displayed_children(self) -> Sequence[Widget]:
+        """The displayed children (where node.display==True).
+
+        Returns:
+            A sequence of widgets.
+        """
+        return self._nodes.displayed
 
     @property
     def is_empty(self) -> bool:
@@ -1146,26 +1154,12 @@ class DOMNode(MessagePump):
 
     @property
     def background_colors(self) -> tuple[Color, Color]:
-        """The background color and the color of the parent's background.
-
-        Returns:
-            `(<background color>, <color>)`
-        """
-        base_background = background = BLACK
-        for node in reversed(self.ancestors_with_self):
-            styles = node.styles
-            base_background = background
-            background += styles.background.tint(styles.background_tint)
-        return (base_background, background)
-
-    @property
-    def _opacity_background_colors(self) -> tuple[Color, Color]:
         """Background colors adjusted for opacity.
 
         Returns:
             `(<background color>, <color>)`
         """
-        base_background = background = BLACK
+        base_background = background = Color(0, 0, 0, 0)
         opacity = 1.0
         for node in reversed(self.ancestors_with_self):
             styles = node.styles
@@ -1228,15 +1222,6 @@ class DOMNode(MessagePump):
         while (node := node._parent) is not None:
             add_node(node)
         return cast("list[DOMNode]", nodes)
-
-    @property
-    def displayed_children(self) -> list[Widget]:
-        """The child nodes which will be displayed.
-
-        Returns:
-            A list of nodes.
-        """
-        return list(filter(attrgetter("display"), self._nodes))
 
     def watch(
         self,
@@ -1729,7 +1714,7 @@ class DOMNode(MessagePump):
 
         Should be called whenever CSS classes / pseudo classes change.
         """
-        if not self.is_attached:
+        if not self.is_attached or not self.screen.is_mounted:
             return
         try:
             self.app.update_styles(self)

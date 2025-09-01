@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.27 07:00:00                  #
+# Updated Date: 2025.08.31 23:00:00                  #
 # ================================================== #
 
 import os
@@ -42,6 +42,30 @@ class Audio:
         self.update()
         if self.window.core.config.get("audio.input.continuous", False):
             self.window.ui.plugin_addon['audio.input.btn'].continuous.setChecked(True)
+
+        if self.window.core.config.get("audio.input.auto_turn", False):
+            self.window.ui.nodes['audio.auto_turn'].box.setChecked(True)
+
+    def execute_input_stop(self):
+        """Execute input stop (from UI)"""
+        self.window.dispatch(Event(Event.AUDIO_INPUT_RECORD_TOGGLE, {
+            "state": False,
+            "auto": True,  # do not emit manual event
+        }))
+
+    def is_recording(self) -> bool:
+        """
+        Check if audio input is recording
+
+        :return: True if recording
+        """
+        return self.window.core.plugins.get("audio_input").is_recording()
+
+    def toggle_auto_turn(self):
+        """Toggle auto turn setting"""
+        value = self.window.ui.nodes['audio.auto_turn'].box.isChecked()
+        self.window.core.config.set("audio.input.auto_turn", value)
+        self.window.core.config.save()
 
     def toggle_input(
             self,

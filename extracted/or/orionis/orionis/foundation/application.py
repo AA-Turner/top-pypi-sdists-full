@@ -1,7 +1,7 @@
 import asyncio
 import time
 from pathlib import Path
-from typing import Any, List, Type
+from typing import Any, List, Type, Dict
 from orionis.console.contracts.base_scheduler import IBaseScheduler
 from orionis.console.base.scheduler import BaseScheduler
 from orionis.container.container import Container
@@ -23,7 +23,6 @@ from orionis.foundation.config.startup import Configuration
 from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.foundation.contracts.application import IApplication
 from orionis.foundation.exceptions import OrionisTypeError, OrionisRuntimeError, OrionisValueError
-from orionis.foundation.providers.logger_provider import LoggerProvider
 from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.log.contracts.log_service import ILogger
 
@@ -186,34 +185,37 @@ class Application(Container, IApplication):
         providers are registered.
         """
         # Import core framework providers
-        from orionis.foundation.providers.console_provider import ConsoleProvider
-        from orionis.foundation.providers.dumper_provider import DumperProvider
-        from orionis.foundation.providers.progress_bar_provider import ProgressBarProvider
-        from orionis.foundation.providers.workers_provider import WorkersProvider
-        from orionis.foundation.providers.testing_provider import TestingProvider
-        from orionis.foundation.providers.inspirational_provider import InspirationalProvider
-        from orionis.foundation.providers.executor_provider import ConsoleExecuteProvider
-        from orionis.foundation.providers.reactor_provider import ReactorProvider
-        from orionis.foundation.providers.performance_counter_provider import PerformanceCounterProvider
-        from orionis.foundation.providers.scheduler_provider import ScheduleProvider
         from orionis.foundation.providers.catch_provider import CathcProvider
+        from orionis.foundation.providers.cli_request_provider import CLRequestProvider
+        from orionis.foundation.providers.console_provider import ConsoleProvider
         from orionis.foundation.providers.directory_provider import DirectoryProvider
+        from orionis.foundation.providers.dumper_provider import DumperProvider
+        from orionis.foundation.providers.executor_provider import ConsoleExecuteProvider
+        from orionis.foundation.providers.inspirational_provider import InspirationalProvider
+        from orionis.foundation.providers.logger_provider import LoggerProvider
+        from orionis.foundation.providers.performance_counter_provider import PerformanceCounterProvider
+        from orionis.foundation.providers.progress_bar_provider import ProgressBarProvider
+        from orionis.foundation.providers.reactor_provider import ReactorProvider
+        from orionis.foundation.providers.scheduler_provider import ScheduleProvider
+        from orionis.foundation.providers.testing_provider import TestingProvider
+        from orionis.foundation.providers.workers_provider import WorkersProvider
 
         # Core framework providers
         core_providers = [
-            ConsoleProvider,
-            DumperProvider,
-            ProgressBarProvider,
-            WorkersProvider,
-            LoggerProvider,
-            TestingProvider,
-            InspirationalProvider,
-            ConsoleExecuteProvider,
-            ReactorProvider,
-            PerformanceCounterProvider,
-            ScheduleProvider,
             CathcProvider,
-            DirectoryProvider
+            CLRequestProvider,
+            ConsoleProvider,
+            DirectoryProvider,
+            DumperProvider,
+            ConsoleExecuteProvider,
+            InspirationalProvider,
+            LoggerProvider,
+            PerformanceCounterProvider,
+            ProgressBarProvider,
+            ReactorProvider,
+            ScheduleProvider,
+            TestingProvider,
+            WorkersProvider
         ]
 
         # Register each core provider
@@ -257,6 +259,8 @@ class Application(Container, IApplication):
 
         # Add each provider class
         for provider_cls in providers:
+
+            # Register the provider
             self.addProvider(provider_cls)
 
         # Return self instance for method chaining
@@ -628,88 +632,88 @@ class Application(Container, IApplication):
         """
 
         # Convert dataclass instances to dictionaries
-        from orionis.services.introspection.dataclass.attributes import attributes
+        from orionis.services.introspection.dataclass.extractor import extractor
 
         # Load app configurator
         if (isinstance(app, type) and issubclass(app, App)):
-            app = attributes(app)
+            app = extractor(app)
         if not isinstance(app, (App, dict)):
             raise OrionisTypeError(f"Expected App instance or dict, got {type(app).__name__}")
         self.loadConfigApp(app)
 
         # Load auth configurator
         if (isinstance(auth, type) and issubclass(auth, Auth)):
-            auth = attributes(auth)
+            auth = extractor(auth)
         if not isinstance(auth, (Auth, dict)):
             raise OrionisTypeError(f"Expected Auth instance or dict, got {type(auth).__name__}")
         self.loadConfigAuth(auth)
 
         # Load cache configurator
         if (isinstance(cache, type) and issubclass(cache, Cache)):
-            cache = attributes(cache)
+            cache = extractor(cache)
         if not isinstance(cache, (Cache, dict)):
             raise OrionisTypeError(f"Expected Cache instance or dict, got {type(cache).__name__}")
         self.loadConfigCache(cache)
 
         # Load cors configurator
         if (isinstance(cors, type) and issubclass(cors, Cors)):
-            cors = attributes(cors)
+            cors = extractor(cors)
         if not isinstance(cors, (Cors, dict)):
             raise OrionisTypeError(f"Expected Cors instance or dict, got {type(cors).__name__}")
         self.loadConfigCors(cors)
 
         # Load database configurator
         if (isinstance(database, type) and issubclass(database, Database)):
-            database = attributes(database)
+            database = extractor(database)
         if not isinstance(database, (Database, dict)):
             raise OrionisTypeError(f"Expected Database instance or dict, got {type(database).__name__}")
         self.loadConfigDatabase(database)
 
         # Load filesystems configurator
         if (isinstance(filesystems, type) and issubclass(filesystems, Filesystems)):
-            filesystems = attributes(filesystems)
+            filesystems = extractor(filesystems)
         if not isinstance(filesystems, (Filesystems, dict)):
             raise OrionisTypeError(f"Expected Filesystems instance or dict, got {type(filesystems).__name__}")
         self.loadConfigFilesystems(filesystems)
 
         # Load logging configurator
         if (isinstance(logging, type) and issubclass(logging, Logging)):
-            logging = attributes(logging)
+            logging = extractor(logging)
         if not isinstance(logging, (Logging, dict)):
             raise OrionisTypeError(f"Expected Logging instance or dict, got {type(logging).__name__}")
         self.loadConfigLogging(logging)
 
         # Load mail configurator
         if (isinstance(mail, type) and issubclass(mail, Mail)):
-            mail = attributes(mail)
+            mail = extractor(mail)
         if not isinstance(mail, (Mail, dict)):
             raise OrionisTypeError(f"Expected Mail instance or dict, got {type(mail).__name__}")
         self.loadConfigMail(mail)
 
         # Load paths configurator
         if (isinstance(path, type) and issubclass(path, Paths)):
-            path = attributes(path)
+            path = extractor(path)
         if not isinstance(path, (Paths, dict)):
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(path).__name__}")
         self.loadPaths(path)
 
         # Load queue configurator
         if (isinstance(queue, type) and issubclass(queue, Queue)):
-            queue = attributes(queue)
+            queue = extractor(queue)
         if not isinstance(queue, (Queue, dict)):
             raise OrionisTypeError(f"Expected Queue instance or dict, got {type(queue).__name__}")
         self.loadConfigQueue(queue)
 
         # Load session configurator
         if (isinstance(session, type) and issubclass(session, Session)):
-            session = attributes(session)
+            session = extractor(session)
         if not isinstance(session, (Session, dict)):
             raise OrionisTypeError(f"Expected Session instance or dict, got {type(session).__name__}")
         self.loadConfigSession(session)
 
         # Load testing configurator
         if (isinstance(testing, type) and issubclass(testing, Testing)):
-            testing = attributes(testing)
+            testing = extractor(testing)
         if not isinstance(testing, (Testing, dict)):
             raise OrionisTypeError(f"Expected Testing instance or dict, got {type(testing).__name__}")
         self.loadConfigTesting(testing)
@@ -1449,7 +1453,8 @@ class Application(Container, IApplication):
         sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
         cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
         testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
-        storage: str | Path = (Path.cwd() / 'storage').resolve()
+        storage: str | Path = (Path.cwd() / 'storage').resolve(),
+        tests: str | Path = (Path.cwd() / 'tests').resolve()
     ) -> 'Application':
         """
         Set and resolve application directory paths using keyword arguments.
@@ -1553,7 +1558,8 @@ class Application(Container, IApplication):
             'sessions' : str(sessions),
             'cache' : str(cache),
             'testing' : str(testing),
-            'storage' : str(storage)
+            'storage' : str(storage),
+            'tests' : str(tests)
         }
 
         # Return self instance for method chaining
@@ -1597,17 +1603,16 @@ class Application(Container, IApplication):
         if not isinstance(paths, (Paths, dict)):
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(paths).__name__}")
 
+        # Always ensure 'root' path is set
+        base_path = {'root': self.__bootstrap_base_path or str(Path.cwd().resolve())}
+
         # If paths is a dict, convert it to Paths instance
         if isinstance(paths, dict):
-            paths.update({
-                'root': self.__bootstrap_base_path or str(Path.cwd().resolve())
-            })
+            paths.update(base_path)
             paths = Paths(**paths).toDict()
         elif isinstance(paths, Paths):
             paths = paths.toDict()
-            paths.update({
-                'root': self.__bootstrap_base_path or str(Path.cwd().resolve())
-            })
+            paths.update(base_path)
 
         # Store the configuration
         self.__configurators['path'] = paths
@@ -1617,49 +1622,63 @@ class Application(Container, IApplication):
 
     def setBasePath(
         self,
-        basePath: str | Path
+        basePath: Path
     ) -> 'Application':
         """
         Set the base path for the application.
 
         This method allows setting the base path of the application, which is
         used as the root directory for all relative paths in the application.
-        The provided basePath is resolved to an absolute path.
+        The provided basePath must be a Path object.
 
         Parameters
         ----------
-        basePath : str or Path
-            The base path to set for the application. It can be a string or a Path object.
+        basePath : Path
+            The base path to set for the application. It must be a Path object.
 
         Returns
         -------
         Application
             The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If basePath is not a Path instance.
         """
 
+        # If basePath is a string, convert to Path
+        if isinstance(basePath, str):
+            basePath = Path(basePath)
+
+        if not isinstance(basePath, Path):
+            raise OrionisTypeError("basePath must be a Path object or a string convertible to Path.")
+
         # Resolve and store the base path as a string
-        self.__bootstrap_base_path = str(Path(basePath).resolve())
+        self.__bootstrap_base_path = str(basePath.resolve())
 
         # Return self instance for method chaining
         return self
 
     def getBasePath(
         self
-    ) -> str | Path:
+    ) -> Path:
         """
         Get the base path of the application.
 
         This method returns the base path that was previously set using setBasePath().
-        If no base path has been set, it returns None.
+        If no base path has been set, it returns the current working directory as a Path object.
 
         Returns
         -------
-        str or Path
-            The base path of the application as a string or Path object, or None if not set.
+        Path
+            The base path of the application as a Path object.
         """
 
-        # Return the base path if set, otherwise None
-        return self.__bootstrap_base_path if self.__bootstrap_base_path else Path.cwd().resolve()
+        # Always return a Path object
+        if self.__bootstrap_base_path:
+            return Path(self.__bootstrap_base_path)
+        return Path.cwd().resolve()
 
     def setConfigQueue(
         self,
@@ -2024,14 +2043,20 @@ class Application(Container, IApplication):
         path() method instead.
         """
 
+        # Create a local copy of the configuration to avoid mutation
+        local_config = self.__config.copy()
+
+        # Remove 'path' from local copy to prevent mutation
+        if 'path' in local_config:
+            del local_config['path']
+
         # Ensure the application is booted before accessing configuration
-        if not self.__config:
+        if not local_config:
             raise OrionisRuntimeError("Application configuration is not initialized. Please call create() before accessing configuration.")
 
         # Return the entire configuration if key is None, except for paths
         if key is None:
-            del self.__config['path']
-            return self.__config
+            return local_config
 
         # If key is None, raise an error to prevent ambiguity
         if not isinstance(key, str):
@@ -2041,7 +2066,7 @@ class Application(Container, IApplication):
         parts = key.split('.')
 
         # Start with the full config
-        config_value = self.__config
+        config_value = local_config
 
         # Traverse the config dictionary based on the key parts
         for part in parts:
@@ -2066,38 +2091,40 @@ class Application(Container, IApplication):
         self,
         key: str = None,
         default: Any = None
-    ) -> str:
+    ) -> Path | dict:
         """
         Retrieve application path configuration values using dot notation.
 
-        This method provides access to the application's path configuration settings
-        with support for nested value retrieval using dot notation. It can return
-        either a specific path value or the entire paths configuration dictionary.
+        This method provides access to the application's path configuration settings,
+        supporting retrieval of either a specific path value or the entire paths
+        configuration dictionary. If a key is provided, it returns the corresponding
+        path as a `Path` object. If no key is provided, it returns a dictionary
+        mapping all path configuration keys to their resolved `Path` objects.
 
         Parameters
         ----------
         key : str, optional
             Dot-notated key specifying the path configuration to retrieve (e.g.,
-            "console_commands", "storage.logs"). If None, returns the entire
-            paths configuration dictionary. Default is None.
+            "console", "storage.logs"). If None, returns the entire paths
+            configuration dictionary. Default is None.
         default : Any, optional
             Value to return if the specified key is not found in the path
             configuration. Default is None.
 
         Returns
         -------
-        str
-            The path configuration value corresponding to the given key, the entire
-            paths dictionary if key is None, or the default value if the key is
-            not found.
+        Path or dict
+            If `key` is provided and found, returns the resolved `Path` object for that key.
+            If `key` is None, returns a dictionary mapping all path keys to their `Path` objects.
+            If `key` is not found, returns `default` if specified, otherwise `None`.
 
         Raises
         ------
         OrionisRuntimeError
             If the application configuration has not been initialized. This occurs
-            when path() is called before create().
+            when `path()` is called before `create()`.
         OrionisValueError
-            If the provided key parameter is not a string type.
+            If the provided `key` parameter is not a string type.
 
         Notes
         -----
@@ -2107,37 +2134,35 @@ class Application(Container, IApplication):
         application configuration.
         """
 
+        # Create a local copy of the path configuration to avoid mutation
+        local_path_config = self.__config.get('path', {}).copy() if self.__config else {}
+
         # Ensure the application is booted before accessing configuration
-        if not self.__config:
-            raise OrionisRuntimeError("Application configuration is not initialized. Please call create() before accessing path configuration.")
+        if not local_path_config:
+            raise OrionisRuntimeError(
+                "Application configuration is not initialized. Please call create() before accessing path configuration."
+            )
 
-        # Return the entire configuration if key is None, except for paths
+        # If no key is provided, return all paths as a dictionary of Path objects
         if key is None:
-            return self.__config['path']
+            path_resolved: Dict[str, Path] = {}
+            for k, v in local_path_config.items():
+                # Convert each path string to a Path object
+                path_resolved[k] = Path(v)
+            return path_resolved
 
-        # If key is None, raise an error to prevent ambiguity
+        # Ensure the key is a string
         if not isinstance(key, str):
-            raise OrionisValueError("Key must be a string. Use path() without arguments to get the entire paths configuration.")
+            raise OrionisValueError(
+                "Key must be a string. Use path() without arguments to get the entire paths configuration."
+            )
 
-        # Split the key by dot notation
-        parts = key.split('.')
+        # Direct key match: return the resolved Path object if the key exists
+        if key in local_path_config:
+            return Path(local_path_config[key])
 
-        # Start with the full config
-        config_value = self.__config['path']
-
-        # Traverse the config dictionary based on the key parts
-        for part in parts:
-
-            # If part is not in config_value, return default
-            if isinstance(config_value, dict) and part in config_value:
-                config_value = config_value[part]
-
-            # If part is not found, return default value
-            else:
-                return default
-
-        # Return the final configuration value
-        return config_value
+        # If the key is not found, return the default value (if provided), else None
+        return default if default is not None else None
 
     # === Application Creation Method ===
     # The create() method is responsible for bootstrapping the application.
@@ -2178,7 +2203,7 @@ class Application(Container, IApplication):
         if not self.__booted:
 
             # Register the application instance in the container
-            self.instance(IApplication, self, alias="x-orionis.foundation.application", enforce_decoupling='X-ORIONIS')
+            self.instance(IApplication, self, alias=f"x-{IApplication.__module__}.{IApplication.__name__}", enforce_decoupling='x-orionis')
 
             # Load configuration if not already set
             self.__loadConfig()
@@ -2192,7 +2217,7 @@ class Application(Container, IApplication):
             self.__loadFrameworksKernel()
 
             # Retrieve logger and console instances from the container
-            logger: ILogger = self.make('x-orionis.services.log.log_service')
+            logger: ILogger = self.make(ILogger)
 
             # Calculate elapsed time in milliseconds since application start
             elapsed_ms = (time.time_ns() - self.startAt) // 1_000_000

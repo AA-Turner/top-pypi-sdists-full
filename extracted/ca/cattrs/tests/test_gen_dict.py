@@ -1,6 +1,7 @@
 """Tests for generated dict functions."""
 
-from typing import Dict, Type
+from math import ceil
+from typing import Annotated, Dict, Literal, Type, Union
 
 import pytest
 from attrs import NOTHING, Factory, define, field, frozen
@@ -107,7 +108,9 @@ def test_nodefs_generated_unstructuring_cl(
 
 @given(
     one_of(just(BaseConverter), just(Converter)),
-    nested_classes() | simple_classes() | simple_typed_dataclasses(),
+    nested_classes()
+    | simple_classes(min_attrs=1)
+    | simple_typed_dataclasses(min_attrs=1),
 )
 def test_individual_overrides(converter_cls, cl_and_vals):
     """
@@ -117,7 +120,9 @@ def test_individual_overrides(converter_cls, cl_and_vals):
     converter = converter_cls()
     cl, vals, kwargs = cl_and_vals
 
-    for attr in adapted_fields(cl):
+    fields = adapted_fields(cl)
+
+    for attr in fields:
         if attr.default is not NOTHING:
             break
     else:
@@ -141,7 +146,7 @@ def test_individual_overrides(converter_cls, cl_and_vals):
     assert "Hyp" not in repr(res)
     assert "Factory" not in repr(res)
 
-    for attr, val in zip(adapted_fields(cl), vals):
+    for attr, val in zip(fields, vals):
         if attr.name == chosen_name:
             assert attr.name in res
         elif attr.default is not NOTHING:
@@ -316,7 +321,6 @@ def test_omitting_structure(detailed_validation: bool):
 
 def test_type_names_with_quotes():
     """Types with quote characters in their reprs should work."""
-    from typing import Annotated, Literal, Union
 
     converter = Converter()
 
@@ -332,7 +336,6 @@ def test_type_names_with_quotes():
 
 def test_overriding_struct_hook(converter: BaseConverter) -> None:
     """Overriding structure hooks works."""
-    from math import ceil
 
     @define
     class A:

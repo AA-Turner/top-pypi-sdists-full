@@ -61,6 +61,9 @@ fastapi-test = [
 fpdf2 = [
   "fpdf2 >=2.8.3, <2.9",
 ]
+gitpython = [
+  "gitpython >=3.1.45, <3.2",
+]
 hashlib-test = [
   "orjson",
 ]
@@ -68,7 +71,7 @@ http-test = [
   "orjson",
 ]
 hypothesis = [
-  "hypothesis >=6.138.6, <6.139",
+  "hypothesis >=6.138.8, <6.139",
 ]
 hypothesis-test = [
   "libcst",
@@ -142,6 +145,12 @@ pqdm = [
 ]
 psutil = [
   "psutil >=7.0.0, <7.1",
+]
+pydantic-settings = [
+  "pydantic-settings",
+]
+pydantic-settings-sops = [
+  "pydantic-settings-sops",
 ]
 pyinstrument = [
   "pyinstrument >=5.1.0, <5.2",
@@ -233,7 +242,7 @@ dependencies = [
 name = "dycw-utilities"
 readme = "README.md"
 requires-python = ">= 3.12"
-version = "0.166.5"
+version = "0.166.9"
 
 [project.entry-points.pytest11]
 pytest-randomly = "utilities.pytest_plugins.pytest_randomly"
@@ -245,7 +254,7 @@ logging = [
 ]
 test = [
   "dycw-pytest-only >=2.1.1, <2.2",
-  "hypothesis >=6.138.6, <6.139",
+  "hypothesis >=6.138.8, <6.139",
   "pytest >=8.4.1, <8.5",
   "pytest-asyncio >=1.1.0, <1.2",
   "pytest-cov >=6.2.1, <6.3",
@@ -266,7 +275,7 @@ test = [
 # bump-my-version
 [tool.bumpversion]
 allow_dirty = true
-current_version = "0.166.5"
+current_version = "0.166.9"
 
 [[tool.bumpversion.files]]
 filename = "src/utilities/__init__.py"

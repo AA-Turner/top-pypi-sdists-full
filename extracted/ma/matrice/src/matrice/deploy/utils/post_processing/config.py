@@ -56,6 +56,7 @@ APP_NAME_TO_USECASE = {
     "cell_microscopy_segmentation": "cell_microscopy_segmentation",
     "Dwell Detection": "dwell",
     "age_gender_detection": "age_gender_detection",
+    "People Tracking" : "people_tracking",
     "wildlife_monitoring": "wildlife_monitoring",
     "pcb_defect_detection": "pcb_defect_detection",
 }
@@ -118,6 +119,8 @@ APP_NAME_TO_CATEGORY = {
     "cell_microscopy_segmentation" : "healthcare",
     "Dwell Detection": "general",
     "age_gender_detection": "age_gender_detection",
+    "People Tracking" : "general",
+    
     "wildlife_monitoring": "environmental",
     "pcb_defect_detection": "manufacturing",
 }

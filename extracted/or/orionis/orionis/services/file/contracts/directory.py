@@ -350,3 +350,15 @@ class IDirectory(ABC):
             The path to the storage directory.
         """
         pass
+
+    @abstractmethod
+    def tests(self) -> Path:
+        """
+        Get the tests directory path.
+
+        Returns
+        -------
+        Path
+            The path to the tests directory.
+        """
+        pass

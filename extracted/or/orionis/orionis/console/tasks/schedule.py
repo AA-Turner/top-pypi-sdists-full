@@ -87,7 +87,7 @@ class Schedule(ISchedule):
             logger.disabled = True
 
         # Initialize the logger from the application instance.
-        self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
+        self.__logger: ILogger = self.__app.make(ILogger)
 
         # Store the reactor instance for command management.
         self.__reactor: IReactor = reactor
@@ -111,7 +111,7 @@ class Schedule(ISchedule):
         self._stopEvent: Optional[asyncio.Event] = None
 
         # Retrieve and initialize the catch instance from the application container.
-        self.__catch: ICatch = app.make('x-orionis.failure.catch')
+        self.__catch: ICatch = app.make(ICatch)
 
     def __getCurrentTime(
         self

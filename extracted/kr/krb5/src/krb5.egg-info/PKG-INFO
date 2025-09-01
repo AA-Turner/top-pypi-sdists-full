@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: krb5
-Version: 0.7.1
+Version: 0.8.0
 Summary: Kerberos API bindings for Python
 Home-page: https://github.com/jborean93/pykrb5
 Author: Jordan Borean
@@ -8,17 +8,17 @@ Author-email: jborean93@gmail.com
 License: MIT
 Keywords: krb5,kerberos
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # Python Kerberos 5 Library
 
@@ -35,7 +35,7 @@ Due to the complex nature of this API it is highly recommended to use something 
   * [MIT Kebreros](https://web.mit.edu/kerberos/) - Minimum 1.17
   * [Heimdal](https://github.com/heimdal/heimdal)
 * A C compiler, such as GCC
-* Python 3.6+
+* Python 3.9+
 
 _Note: macOS includes their own implementation of Heimdal and a compiler isn't needed on that platform if installing from the wheel._
 

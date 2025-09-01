@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import core_v1
+from . import meta_v1
 
 
 @dataclass
@@ -225,7 +225,9 @@ class JobSpec(DictMixin):
         positive integer. If a Job is suspended (at creation or through an update),
         this timer will effectively be stopped and reset when the Job is resumed
         again.
-      * **backoffLimit** ``Optional[int]`` - Specifies the number of retries before marking this job failed. Defaults to 6
+      * **backoffLimit** ``Optional[int]`` - Specifies the number of retries before marking this job failed. Defaults to 6,
+        unless backoffLimitPerIndex (only Indexed Job) is specified. When
+        backoffLimitPerIndex is specified, backoffLimit defaults to 2147483647.
       * **backoffLimitPerIndex** ``Optional[int]`` - Specifies the limit for the number of retries within an index before marking
         this index as failed. When enabled the number of failures per index is kept in
         the pod's batch.kubernetes.io/job-index-failure-count annotation. It can only
@@ -299,8 +301,7 @@ class JobSpec(DictMixin):
           Failed or Succeeded) before creating a replacement Pod.
         When using podFailurePolicy, Failed is the the only allowed value.
         TerminatingOrFailed and Failed are allowed values when podFailurePolicy is not
-        in use. This is an beta field. To use this, enable the JobPodReplacementPolicy
-        feature toggle. This is on by default.
+        in use.
       * **selector** ``Optional[meta_v1.LabelSelector]`` - A label query over pods that should match the pod count. Normally, the system
         sets this field for you. More info:
         https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
@@ -547,11 +548,11 @@ class SuccessPolicy(DictMixin):
 
       * **rules** ``List[SuccessPolicyRule]`` - rules represents the list of alternative rules for the declaring the Jobs as
         successful before `.status.succeeded >= .spec.completions`. Once any of the
-        rules are met, the "SucceededCriteriaMet" condition is added, and the
-        lingering pods are removed. The terminal state for such a Job has the
-        "Complete" condition. Additionally, these rules are evaluated in order; Once
-        the Job meets one of the rules, other rules are ignored. At most 20 elements
-        are allowed.
+        rules are met, the "SuccessCriteriaMet" condition is added, and the lingering
+        pods are removed. The terminal state for such a Job has the "Complete"
+        condition. Additionally, these rules are evaluated in order; Once the Job
+        meets one of the rules, other rules are ignored. At most 20 elements are
+        allowed.
     """
     rules: 'List[SuccessPolicyRule]'
 

@@ -313,6 +313,17 @@ def get_string_info_from_declarative_base(class_: type[DeclarativeBase]):
     return res
 
 
+def get_string_info_from_declarative_base_2(class_: type[DeclarativeBase]) -> str:
+    lines: list[str] = []
+    for cls in class_.__subclasses__():
+        if hasattr(cls, "__tablename__"):
+            lines.append(f"Table: {cls.__tablename__}")
+            mapper = inspect(cls)
+            for column in mapper.columns:
+                lines.append(f"   - {column.name} ({column.type})")
+    return "\n".join(lines)
+
+
 def __example():
     pass
 

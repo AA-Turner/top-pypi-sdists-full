@@ -16,6 +16,7 @@ class FileModel(BaseDataclass):
     signed_url: str
     error_message: Optional[str]
     size: int
+    multimodal: bool
 
     @classmethod
     def from_dict(cls, d: dict):
@@ -29,7 +30,8 @@ class FileModel(BaseDataclass):
             percent_done=d.get("percent_done"),
             signed_url=d.get("signed_url"),
             error_message=d.get("error_message"),
-            size=d.get("size")
+            size=d.get("size"),
+            multimodal=d.get("multimodal")
         )
 
     @classmethod
@@ -44,5 +46,6 @@ class FileModel(BaseDataclass):
             percent_done=file_model.percent_done,
             signed_url=file_model.signed_url,
             error_message=file_model.error_message,
-            size=file_model.size
+            size=file_model.size,
+            multimodal=file_model.multimodal
         )

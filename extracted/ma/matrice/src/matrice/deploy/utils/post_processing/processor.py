@@ -27,7 +27,8 @@ from .core.config import (
     IntrusionConfig,
     ProximityConfig,
     config_manager,
-    ConfigValidationError
+    ConfigValidationError,
+    PeopleTrackingConfig
 )
 from .usecases import (
     PeopleCountingUseCase,
@@ -100,6 +101,8 @@ from .usecases import (
     LicensePlateMonitorUseCase,
     DwellUseCase,
     AgeGenderUseCase,
+    PeopleTrackingUseCase,
+
     WildLifeMonitoringUseCase,
     PCBDefectUseCase,
 
@@ -250,6 +253,7 @@ class PostProcessor:
         registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
         registry.register_use_case("general", "dwell", DwellUseCase)
         registry.register_use_case("age_gender_detection", "age_gender_detection", AgeGenderUseCase)
+        registry.register_use_case("general", "people_tracking", PeopleTrackingUseCase)
         registry.register_use_case("environmental", "wildlife_monitoring", WildLifeMonitoringUseCase)
         registry.register_use_case("manufacturing", "pcb_defect_detection", PCBDefectUseCase)
 
@@ -452,6 +456,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config,context, stream_info)
             elif isinstance(use_case, AgeGenderUseCase):
                 result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
+            # elif isinstance(use_case, PeopleTrackingUseCase):
+            #     result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
             elif isinstance(use_case, WildLifeMonitoringUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, PCBDefectUseCase):
@@ -530,6 +536,8 @@ class PostProcessor:
                     category = "sales"
                 elif usecase in ["color_detection", "video_color_classification"]:
                     category = "visual_appearance"
+                elif usecase == "people_tracking":
+                    category = "general"
                 else:
                     category = "general"  # Default fallback
             

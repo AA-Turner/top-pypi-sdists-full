@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-s3transfer
-Version: 0.13.0
+Version: 0.13.1
 Summary: Type annotations and code completion for s3transfer
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License: MIT License

@@ -109,3 +109,179 @@ class ClusterTrustBundleSpec(DictMixin):
     signerName: 'Optional[str]' = None
 
 
+@dataclass
+class PodCertificateRequest(DictMixin):
+    r"""PodCertificateRequest encodes a pod requesting a certificate from a given
+      signer.
+      
+      Kubelets use this API to implement podCertificate projected volumes
+
+      **parameters**
+
+      * **spec** ``PodCertificateRequestSpec`` - spec contains the details about the certificate being requested.
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata contains the object metadata.
+      * **status** ``Optional[PodCertificateRequestStatus]`` - status contains the issued certificate, and a standard set of conditions.
+    """
+    spec: 'PodCertificateRequestSpec'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    status: 'Optional[PodCertificateRequestStatus]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'certificates.k8s.io/v1alpha1'
+        self.kind = 'PodCertificateRequest'
+
+
+@dataclass
+class PodCertificateRequestList(DictMixin):
+    r"""PodCertificateRequestList is a collection of PodCertificateRequest objects
+
+      **parameters**
+
+      * **items** ``List[PodCertificateRequest]`` - items is a collection of PodCertificateRequest objects
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata contains the list metadata.
+    """
+    items: 'List[PodCertificateRequest]'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ListMeta]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'certificates.k8s.io/v1alpha1'
+        self.kind = 'PodCertificateRequestList'
+
+
+@dataclass
+class PodCertificateRequestSpec(DictMixin):
+    r"""PodCertificateRequestSpec describes the certificate request.  All fields are
+      immutable after creation.
+
+      **parameters**
+
+      * **nodeName** ``str`` - nodeName is the name of the node the pod is assigned to.
+      * **nodeUID** ``str`` - nodeUID is the UID of the node the pod is assigned to.
+      * **pkixPublicKey** ``str`` - pkixPublicKey is the PKIX-serialized public key the signer will issue the
+        certificate to.
+        The key must be one of RSA3072, RSA4096, ECDSAP256, ECDSAP384, ECDSAP521, or
+        ED25519. Note that this list may be expanded in the future.
+        Signer implementations do not need to support all key types supported by
+        kube-apiserver and kubelet.  If a signer does not support the key type used
+        for a given PodCertificateRequest, it must deny the request by setting a
+        status.conditions entry with a type of "Denied" and a reason of
+        "UnsupportedKeyType". It may also suggest a key type that it does support in
+        the message field.
+      * **podName** ``str`` - podName is the name of the pod into which the certificate will be mounted.
+      * **podUID** ``str`` - podUID is the UID of the pod into which the certificate will be mounted.
+      * **proofOfPossession** ``str`` - proofOfPossession proves that the requesting kubelet holds the private key
+        corresponding to pkixPublicKey.
+        It is contructed by signing the ASCII bytes of the pod's UID using
+        `pkixPublicKey`.
+        kube-apiserver validates the proof of possession during creation of the
+        PodCertificateRequest.
+        If the key is an RSA key, then the signature is over the ASCII bytes of the
+        pod UID, using RSASSA-PSS from RFC 8017 (as implemented by the golang function
+        crypto/rsa.SignPSS with nil options).
+        If the key is an ECDSA key, then the signature is as described by [SEC 1,
+        Version 2.0](https://www.secg.org/sec1-v2.pdf) (as implemented by the golang
+        library function crypto/ecdsa.SignASN1)
+        If the key is an ED25519 key, the the signature is as described by the
+        [ED25519 Specification](https://ed25519.cr.yp.to/) (as implemented by the
+        golang library crypto/ed25519.Sign).
+      * **serviceAccountName** ``str`` - serviceAccountName is the name of the service account the pod is running as.
+      * **serviceAccountUID** ``str`` - serviceAccountUID is the UID of the service account the pod is running as.
+      * **signerName** ``str`` - signerName indicates the requested signer.
+        All signer names beginning with `kubernetes.io` are reserved for use by the
+        Kubernetes project.  There is currently one well-known signer documented by
+        the Kubernetes project, `kubernetes.io/kube-apiserver-client-pod`, which will
+        issue client certificates understood by kube-apiserver.  It is currently
+        unimplemented.
+      * **maxExpirationSeconds** ``Optional[int]`` - maxExpirationSeconds is the maximum lifetime permitted for the certificate.
+        If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver will
+        reject values shorter than 3600 (1 hour).  The maximum allowable value is
+        7862400 (91 days).
+        The signer implementation is then free to issue a certificate with any
+        lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600 seconds
+        (1 hour).  This constraint is enforced by kube-apiserver. `kubernetes.io`
+        signers will never issue certificates with a lifetime longer than 24 hours.
+    """
+    nodeName: 'str'
+    nodeUID: 'str'
+    pkixPublicKey: 'str'
+    podName: 'str'
+    podUID: 'str'
+    proofOfPossession: 'str'
+    serviceAccountName: 'str'
+    serviceAccountUID: 'str'
+    signerName: 'str'
+    maxExpirationSeconds: 'Optional[int]' = None
+
+
+@dataclass
+class PodCertificateRequestStatus(DictMixin):
+    r"""PodCertificateRequestStatus describes the status of the request, and holds the
+      certificate data if the request is issued.
+
+      **parameters**
+
+      * **beginRefreshAt** ``Optional[meta_v1.Time]`` - beginRefreshAt is the time at which the kubelet should begin trying to refresh
+        the certificate.  This field is set via the /status subresource, and must be
+        set at the same time as certificateChain.  Once populated, this field is
+        immutable.
+        This field is only a hint.  Kubelet may start refreshing before or after this
+        time if necessary.
+      * **certificateChain** ``Optional[str]`` - certificateChain is populated with an issued certificate by the signer. This
+        field is set via the /status subresource. Once populated, this field is
+        immutable.
+        If the certificate signing request is denied, a condition of type "Denied" is
+        added and this field remains empty. If the signer cannot issue the
+        certificate, a condition of type "Failed" is added and this field remains
+        empty.
+        Validation requirements:
+         1. certificateChain must consist of one or more PEM-formatted certificates.
+         2. Each entry must be a valid PEM-wrapped, DER-encoded ASN.1 Certificate as
+            described in section 4 of RFC5280.
+        If more than one block is present, and the definition of the requested
+        spec.signerName does not indicate otherwise, the first block is the issued
+        certificate, and subsequent blocks should be treated as intermediate
+        certificates and presented in TLS handshakes.  When projecting the chain into
+        a pod volume, kubelet will drop any data in-between the PEM blocks, as well as
+        any PEM block headers.
+      * **conditions** ``Optional[List[meta_v1.Condition]]`` - conditions applied to the request.
+        The types "Issued", "Denied", and "Failed" have special handling.  At most one
+        of these conditions may be present, and they must have status "True".
+        If the request is denied with `Reason=UnsupportedKeyType`, the signer may
+        suggest a key type that will work in the message field.
+      * **notAfter** ``Optional[meta_v1.Time]`` - notAfter is the time at which the certificate expires.  The value must be the
+        same as the notAfter value in the leaf certificate in certificateChain.  This
+        field is set via the /status subresource.  Once populated, it is immutable.
+        The signer must set this field at the same time it sets certificateChain.
+      * **notBefore** ``Optional[meta_v1.Time]`` - notBefore is the time at which the certificate becomes valid.  The value must
+        be the same as the notBefore value in the leaf certificate in
+        certificateChain.  This field is set via the /status subresource.  Once
+        populated, it is immutable. The signer must set this field at the same time it
+        sets certificateChain.
+    """
+    beginRefreshAt: 'Optional[meta_v1.Time]' = None
+    certificateChain: 'Optional[str]' = None
+    conditions: 'Optional[List[meta_v1.Condition]]' = None
+    notAfter: 'Optional[meta_v1.Time]' = None
+    notBefore: 'Optional[meta_v1.Time]' = None
+
+

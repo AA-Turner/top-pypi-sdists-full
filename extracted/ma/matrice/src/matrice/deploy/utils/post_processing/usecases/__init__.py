@@ -79,6 +79,7 @@ from .gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectionUseCase
 from .license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
 from .dwell_detection import DwellConfig,DwellUseCase
 from .age_gender_detection import AgeGenderConfig,AgeGenderUseCase
+from .people_tracking import PeopleTrackingConfig,PeopleTrackingUseCase
 from .wildlife_monitoring import WildLifeMonitoringConfig, WildLifeMonitoringUseCase
 from .pcb_defect_detection import PCBDefectConfig, PCBDefectUseCase
 
@@ -160,6 +161,7 @@ __all__ = [
     'LicensePlateMonitorUseCase',
     'DwellUseCase',
     'AgeGenderUseCase',
+    'PeopleTrackingUseCase',
     'WildLifeMonitoringUseCase',
     'PCBDefectUseCase',
 
@@ -233,6 +235,7 @@ __all__ = [
     'AbandonedObjectConfig',
     'DwellConfig',
     'AgeGenderConfig',
+    'PeopleTrackingConfig',
 
     'LeakDetectionConfig',
     'HumanActivityConfig',

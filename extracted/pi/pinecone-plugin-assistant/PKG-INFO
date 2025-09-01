@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pinecone-plugin-assistant
-Version: 1.7.0
+Version: 1.8.0
 Summary: Assistant plugin for Pinecone SDK
 License: Apache-2.0
 Author: Pinecone Systems, Inc.
@@ -221,6 +221,12 @@ Arguments:
     - If `-1`, return immediately and do not wait.
     - type: `Optional[int] = None`
 
+- `metadata`: Optional metadata dictionary to be attached to the file.
+    - type: `Optional[dict[str, any]] = None`
+
+- `multimodal`: Optional flag to opt in to multimodal file processing (PDFs only). Can be either `true` or `false`. Default is `false`.
+    - type: `Optional[bool] = None`
+
 Return
 - `FileModel` object with the following properties:
     - `id`: The file id of the uploaded file.
@@ -370,6 +376,10 @@ Arguments:
             - type: `int`
         - `snippet_size`: The maximum context snippet size. Default is 2048 tokens. Minimum is 512 tokens. Maximum is 8192 tokens.
             - type: `int`
+        - `multimodal`: Whether or not to send image-related context snippets to the LLM. If `false`, only text context snippets are sent. Default is True.
+            - type: `bool`
+        - `include_binary_content`: If image-related context snippets are sent to the LLM, this field determines whether or not they should include base64 image data. If `false`, only the image caption is sent. Only available when `multimodal=true`. Default is True.
+            - type: `bool`
 
 Return:
 - The default result is a `ChatResultModel` with the following format:
@@ -393,6 +403,7 @@ Return:
                 - `status`: The status of the file.
                 - `updated_on`: The timestamp of the last update to the file.
                 - `size`: The size of the file.
+                - `multimodal`: Indicates whether the file was processed as multimodal.
             - `pages`: The list of pages that the citation references.
             - `highlight`: When `include_highlights` is set to `true`, the response includes highlight. Otherwise, highlight is null. Highlight represents a portion of a referenced document that directly supports or is relevant to the response.
                 - `type`: The type of the highlight. Currently, it is always text.
@@ -428,7 +439,8 @@ The default result is a ChatModel with the following format:
                         "signed_url": "https://storage.googleapis.com/...", 
                         "status": "Available",
                         "updated_on": "2024-06-02T19:48:00Z",
-                        "size": 36
+                        "size": 36,
+                        "multimodal": false
                     },
                     "pages": [1, 2, 3],
                     "highlight": null
@@ -494,6 +506,7 @@ The default result is a ChatModel with the following format:
                     - `percent_done`: The percentage of the file that has been processed.
                     - `signed_url`: The signed URL of the file.
                     - `error_message`: A message describing any error during file processing, provided only if an error occurs.
+                    - `multimodal`: Indicates whether the file was processed as multimodal.
                 - `pages`: The list of pages that the citation references.
                 - `highlight`: When `include_highlights` is set to `true`, the response includes highlight. Otherwise, highlight is null. Highlight represents a portion of a referenced document that directly supports or is relevant to the response.
                     - `type`: The type of the highlight. Currently, it is always text.
@@ -517,7 +530,8 @@ The default result is a ChatModel with the following format:
                         "created_on": "2024-08-08T15:41:07.427879083Z",
                         "percent_done": 0,
                         "signed_url": "https://storage.googleapis.com/...",
-                        "error_message": null
+                        "error_message": null,
+                        "multimodal": false
                     },
                     "pages": [
                         32
@@ -689,11 +703,17 @@ Arguments:
 - `snippet_size`: The maximum context snippet size. Default is 2048 tokens. Minimum is 512 tokens. Maximum is 8192 tokens.
     - type: `int`
 
+- `multimodal`: Optional bool to specify whether or not to retrieve image-related context snippets. If `false`, only text snippets are returned. Default is True.
+    - type: `bool`
+
+- `include_binary_content`: Optional bool, if image-related context snippets are returned, this field determines whether or not they should include base64 image data. If `false`, only the image captions are returned. Only available when `multimodal=true`. Default is True.
+    - type: `bool`
+
 Return:
 - The default result is a `ContextResponse` with the following format:
     - `snippets`: A list of snippets with the following structure:
-        - `type`: The type of the content.
-        - `content`: The content of the snippet. 
+        - `type`: The type of the content. Can be `text` or `multimodal`.
+        - `content`: The content of the snippet.
         - `reference`: The reference of the snippet. Can be of type `PdfReference`, `TextReference`, `MarkdownReference`, or `JsonReference`.
             - `type`: The type of the reference.
             - `file`: A dictionary with the following properties:
@@ -706,6 +726,7 @@ Return:
                 - `percent_done`: The percentage of the file that has been processed.
                 - `signed_url`: The signed URL of the file.
                 - `error_message`: A message describing any error during file processing, provided only if an error occurs.
+                - `multimodal`: Indicates whether the file was processed as multimodal.
             - `pages`: The list of pages that the citation references. (Only available for `PdfReference`)
     - `usage`: An object with the following properties:
         - `prompt_tokens`: The number of prompt tokens used.
@@ -732,7 +753,8 @@ The default result is a ChatModel with the following format:
           "created_on": "2024-11-13T14:59:53.369365582Z",
           "updated_on": "2024-11-13T14:59:55.369365582Z",
           "signed_url": "https://storage.googleapis.com/...",
-          "error_message": null
+          "error_message": null,
+          "multimodal": false
         },
         "pages": [1]
       }

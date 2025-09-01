@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-__all__ = ["__version__", "check_compiler_version", "classproperty", "unwrap", "MessagePool", "validators"]
+__all__ = [
+    "__version__",
+    "check_compiler_version",
+    "classproperty",
+    "staticproperty",
+    "unwrap",
+    "MessagePool",
+    "validators",
+]
 
 import dataclasses
 import enum as builtin_enum
@@ -36,7 +44,7 @@ from ._version import __version__, check_compiler_version
 from .casing import camel_case, safe_snake_case, snake_case
 from .enum_ import Enum as Enum
 from .grpc.grpclib_client import ServiceStub as ServiceStub
-from .utils import classproperty
+from .utils import classproperty, staticproperty
 
 if TYPE_CHECKING:
     from _typeshed import SupportsRead, SupportsWrite
@@ -588,6 +596,11 @@ def _value_to_dict(
         return b64encode(value).decode("utf8"), not bool(value)
     if proto_type == TYPE_ENUM:
         enum_value = field_type(value)
+
+        # If we don't know the definition of this variant, we fall back to the value.
+        if not enum_value.name:
+            return enum_value.value, not bool(value)
+
         return enum_value.proto_name or enum_value.name, not bool(value)
     if proto_type in (TYPE_FLOAT, TYPE_DOUBLE):
         return _dump_float(value), not bool(value)
@@ -606,6 +619,8 @@ def _value_from_dict(value: Any, meta: FieldMetadata, field_type: type) -> Any:
 
     if meta.proto_type == TYPE_ENUM:
         if isinstance(value, str):
+            if (int_value := field_type.betterproto_renamed_proto_names_to_value().get(value)) is not None:
+                return field_type(int_value)
             return field_type.from_string(value)
         if isinstance(value, int):
             return field_type(value)
@@ -764,7 +779,7 @@ class Message(ABC):
                     # Default (zero) values are not serialized.
                     continue
 
-                if isinstance(value, list):
+                if meta.repeated:
                     if meta.proto_type in PACKED_TYPES:
                         # Packed lists look like a length-delimited field. First,
                         # preprocess/encode each value into a buffer and then
@@ -787,9 +802,8 @@ class Message(ABC):
                                 or b"\n\x00"
                             )
 
-                elif isinstance(value, dict):
+                elif meta.map_meta:
                     for k, v in value.items():
-                        assert meta.map_meta
                         sk = _serialize_single(1, meta.map_meta[0].proto_type, k)
                         sv = _serialize_single(2, meta.map_meta[1].proto_type, v, unwrap=meta.map_meta[1].unwrap)
                         stream.write(_serialize_single(meta.number, meta.proto_type, sk + sv))
@@ -852,11 +866,15 @@ class Message(ABC):
     def _postprocess_single(self, wire_type: int, meta: FieldMetadata, field_name: str, value: Any) -> Any:
         """Adjusts values after parsing."""
         if wire_type == WIRE_VARINT:
-            if meta.proto_type in (TYPE_INT32, TYPE_INT64):
+            if meta.proto_type in (TYPE_INT32, TYPE_INT64, TYPE_ENUM):
                 bits = 32 if meta.proto_type == TYPE_INT32 else 64
                 value = value & ((1 << bits) - 1)
                 signbit = 1 << (bits - 1)
                 value = int((value ^ signbit) - signbit)
+
+                if meta.proto_type == TYPE_ENUM:
+                    # Convert enum ints to python enum instances
+                    value = self._betterproto.cls_by_field[field_name](value)
             elif meta.proto_type in (TYPE_UINT32, TYPE_UINT64):
                 bits = 32 if meta.proto_type == TYPE_UINT32 else 64
                 value = value & ((1 << bits) - 1)
@@ -867,9 +885,6 @@ class Message(ABC):
             elif meta.proto_type == TYPE_BOOL:
                 # Booleans use a varint encoding, so convert it to true/false.
                 value = value > 0
-            elif meta.proto_type == TYPE_ENUM:
-                # Convert enum ints to python enum instances
-                value = self._betterproto.cls_by_field[field_name](value)
         elif wire_type in (WIRE_FIXED_32, WIRE_FIXED_64):
             fmt = _pack_fmt(meta.proto_type)
             value = struct.unpack(fmt, value)[0]
@@ -929,8 +944,10 @@ class Message(ABC):
 
             meta = proto_meta.meta_by_field_name[field_name]
 
+            is_packed_repeated = parsed.wire_type == WIRE_LEN_DELIM and meta.proto_type in PACKED_TYPES
+
             value: Any
-            if parsed.wire_type == WIRE_LEN_DELIM and meta.proto_type in PACKED_TYPES:
+            if is_packed_repeated:
                 # This is a packed repeated field.
                 pos = 0
                 value = []
@@ -954,8 +971,8 @@ class Message(ABC):
             if meta.proto_type == TYPE_MAP:
                 # Value represents a single key/value pair entry in the map.
                 current[value.key] = value.value
-            elif isinstance(current, list):
-                if isinstance(value, list):
+            elif meta.repeated:
+                if is_packed_repeated:
                     current.extend(value)
                 else:
                     current.append(value)
@@ -1008,7 +1025,7 @@ class Message(ABC):
 
     # For compatibility with other libraries.
     @classmethod
-    def FromString(cls: type[T], data: bytes) -> T:
+    def FromString(cls: type[T], s: bytes) -> T:
         """
         Parse the binary encoded Protobuf into this message instance. This
         returns the instance itself and is therefore assignable and chainable.
@@ -1028,7 +1045,7 @@ class Message(ABC):
         :class:`Message`
             The initialized message.
         """
-        return cls.parse(data)
+        return cls.parse(s)
 
     def to_dict(
         self,
@@ -1127,7 +1144,12 @@ class Message(ABC):
                 raise KeyError(f"Unknown field '{field_name}' in message {cls.__name__}.") from None
 
             if value is None:
-                continue
+                name, module = field_cls.__name__, field_cls.__module__
+
+                # Edge case: None shouldn't be ignored for google.protobuf.Value
+                # See https://protobuf.dev/programming-guides/json/
+                if not (module.endswith("google.protobuf") and name == "Value"):
+                    continue
 
             if meta.proto_type == TYPE_MESSAGE:
                 if meta.repeated:

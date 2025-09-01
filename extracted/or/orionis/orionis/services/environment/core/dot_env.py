@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 from dotenv import dotenv_values, load_dotenv, set_key, unset_key
 from orionis.services.environment.enums import EnvironmentValueType
+from orionis.services.environment.exceptions.environment import OrionisEnvironmentException, OrionisOperatingSystemError
 from orionis.services.environment.validators import ValidateKeyName, ValidateTypes
 from orionis.support.patterns.singleton import Singleton
 from orionis.services.environment.dynamic.caster import EnvironmentCaster
@@ -59,12 +60,12 @@ class DotEnv(metaclass=Singleton):
         except OSError as e:
 
             # Raise an error if the .env file cannot be created or accessed
-            raise OSError(f"Failed to create or access the .env file at {self.__resolved_path}: {e}")
+            raise OrionisOperatingSystemError(f"Failed to create or access the .env file at {self.__resolved_path}: {e}")
 
         except Exception as e:
 
             # Raise a general error for any other exceptions during initialization
-            raise Exception(f"An unexpected error occurred while initializing DotEnv: {e}")
+            raise OrionisEnvironmentException(f"An unexpected error occurred while initializing DotEnv: {e}")
 
     def set(
         self,

@@ -11,12 +11,13 @@ from authlib.jose import JsonWebKey, JsonWebToken
 from authlib.jose.errors import JoseError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from pydantic import AnyHttpUrl, SecretStr
+from pydantic import AnyHttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import TypedDict
 
 from fastmcp.server.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.registry import register_provider
+from fastmcp.utilities.auth import parse_scopes
 from fastmcp.utilities.logging import get_logger
 from fastmcp.utilities.types import NotSet, NotSetT
 
@@ -155,21 +156,29 @@ class JWTVerifierSettings(BaseSettings):
     required_scopes: list[str] | None = None
     resource_server_url: AnyHttpUrl | str | None = None
 
+    @field_validator("required_scopes", mode="before")
+    @classmethod
+    def _parse_scopes(cls, v):
+        return parse_scopes(v)
+
 
 @register_provider("JWT")
 class JWTVerifier(TokenVerifier):
     """
-    JWT token verifier using public key or JWKS.
+    JWT token verifier supporting both asymmetric (RSA/ECDSA) and symmetric (HMAC) algorithms.
 
-    This verifier validates JWT tokens signed by an external issuer. It's ideal for
-    scenarios where you have a centralized identity provider (like Auth0, Okta, or
-    your own OAuth server) that issues JWTs, and your FastMCP server acts as a
-    resource server validating those tokens.
+    This verifier validates JWT tokens using various signing algorithms:
+    - **Asymmetric algorithms** (RS256/384/512, ES256/384/512, PS256/384/512):
+      Uses public/private key pairs. Ideal for external clients and services where
+      only the authorization server has the private key.
+    - **Symmetric algorithms** (HS256/384/512): Uses a shared secret for both
+      signing and verification. Perfect for internal microservices and trusted
+      environments where the secret can be securely shared.
 
     Use this when:
-    - You have JWT tokens issued by an external service
-    - You want asymmetric key verification (public/private key pairs)
-    - You need JWKS support for automatic key rotation
+    - You have JWT tokens issued by an external service (asymmetric)
+    - You need JWKS support for automatic key rotation (asymmetric)
+    - You have internal microservices sharing a secret key (symmetric)
     - Your tokens contain standard OAuth scopes and claims
     """
 
@@ -188,11 +197,14 @@ class JWTVerifier(TokenVerifier):
         Initialize the JWT token verifier.
 
         Args:
-            public_key: PEM-encoded public key for verification
-            jwks_uri: URI to fetch JSON Web Key Set
+            public_key: For asymmetric algorithms (RS256, ES256, etc.): PEM-encoded public key.
+                       For symmetric algorithms (HS256, HS384, HS512): The shared secret string.
+            jwks_uri: URI to fetch JSON Web Key Set (only for asymmetric algorithms)
             issuer: Expected issuer claim
             audience: Expected audience claim(s)
-            algorithm: JWT signing algorithm (default: RS256)
+            algorithm: JWT signing algorithm. Supported algorithms:
+                      - Asymmetric: RS256/384/512, ES256/384/512, PS256/384/512 (default: RS256)
+                      - Symmetric: HS256, HS384, HS512
             required_scopes: Required scopes for all tokens
             resource_server_url: Resource server URL for TokenVerifier protocol
         """

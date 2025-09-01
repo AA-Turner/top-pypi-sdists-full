@@ -2571,9 +2571,9 @@ def test_pseudo_classes(snap_compare):
             for item_number in range(5):
                 yield Label(f"Item {item_number + 1}")
 
-        def on_mount(self) -> None:
+        async def on_mount(self) -> None:
             # Mounting a new widget should updated previous widgets, as the last of type has changed
-            self.mount(Label("HELLO"))
+            await self.mount(Label("HELLO"))
 
     assert snap_compare(PSApp())
 
@@ -3569,7 +3569,6 @@ def test_setting_transparency(snap_compare):
     Regression test for https://github.com/Textualize/textual/pull/5890"""
 
     class TransparentPythonApp(App):
-
         CSS = """
         Screen { 
             background: darkblue;
@@ -3589,7 +3588,6 @@ def test_setting_transparency(snap_compare):
         """
 
         def compose(self):
-
             yield TextArea("Baseline normal TextArea, not transparent")
             text_area2 = TextArea(
                 "This TextArea made transparent by adding a CSS class",
@@ -3961,14 +3959,12 @@ def test_enforce_visual(snap_compare):
     """
 
     class OverflowOption(Option):
-
         def __init__(self) -> None:
             super().__init__(
                 Text.from_markup(f"Line one\n{'a' * 100}", overflow="ellipsis")
             )
 
     class OptionListOverflowApp(App[None]):
-
         CSS = """
         OptionList {
             width: 30;
@@ -4146,7 +4142,6 @@ def test_breakpoints_horizontal(snap_compare, size):
     """
 
     class BreakpointApp(App):
-
         HORIZONTAL_BREAKPOINTS = [
             (0, "-narrow"),
             (40, "-normal"),
@@ -4174,7 +4169,7 @@ def test_breakpoints_horizontal(snap_compare, size):
         def compose(self) -> ComposeResult:
             with Grid():
                 for n in range(16):
-                    yield Placeholder(f"Placeholder {n+1}")
+                    yield Placeholder(f"Placeholder {n + 1}")
 
     assert snap_compare(BreakpointApp(), terminal_size=size)
 
@@ -4197,7 +4192,6 @@ def test_breakpoints_vertical(snap_compare, size):
     """
 
     class BreakpointApp(App):
-
         VERTICAL_BREAKPOINTS = [
             (0, "-low"),
             (30, "-middle"),
@@ -4225,7 +4219,7 @@ def test_breakpoints_vertical(snap_compare, size):
         def compose(self) -> ComposeResult:
             with Grid():
                 for n in range(16):
-                    yield Placeholder(f"Placeholder {n+1}")
+                    yield Placeholder(f"Placeholder {n + 1}")
 
     assert snap_compare(BreakpointApp(), terminal_size=size)
 
@@ -4240,10 +4234,8 @@ def test_compact(snap_compare):
     """
 
     class CompactApp(App):
-
         def compose(self) -> ComposeResult:
             with Horizontal():
-
                 with Vertical():
                     yield Button("Foo")
                     yield Input("hello")
@@ -4349,7 +4341,6 @@ def test_snapshot_scroll(snap_compare):
     """
 
     class ScrollKeylineApp(App):
-
         CSS = """\
     #my-container {
         keyline: heavy blue;
@@ -4407,7 +4398,7 @@ def test_markdown_append(snap_compare):
     MD = [
         "# Title\n",
         "\n",
-        "1. List item 1\n" "2. List item 2\n" "\n" "> There can be only one\n",
+        "1. List item 1\n2. List item 2\n\n> There can be only one\n",
     ]
 
     class MDApp(App):
@@ -4538,3 +4529,100 @@ def test_stream_layout(snap_compare):
                 )
 
     assert snap_compare(StreamApp())
+
+
+def test_pretty_auto(snap_compare):
+    """Test that pretty works with auto dimensions.
+
+    You should see 'Hello World' including strings, 3 times in a purple box, top left.
+
+    """
+    from textual.widgets import Pretty
+
+    class Demo(App):
+        CSS = """
+        Vertical {
+            background: blue 30%;
+            height: auto;
+            width: auto;
+        }
+
+        Pretty {
+            width: auto;            
+            height: auto;
+            background: red 30%;
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            with Vertical():
+                yield Pretty("hello world")
+                yield Pretty("hello world")
+                yield Pretty("hello world")
+
+    assert snap_compare(Demo())
+
+
+def test_static_content_property(snap_compare):
+    """Test that the Static.content property.
+
+    You should see the text "FOO BAR"
+
+    """
+
+    class StaticApp(App):
+        def compose(self) -> ComposeResult:
+            yield Static("Hello, World")
+
+        def on_mount(self) -> None:
+            self.query_one(Static).content = "FOO BAR"
+
+    assert snap_compare(StaticApp())
+
+
+def test_textarea_suggestion(snap_compare):
+    """Test Text Area displays suggestions.
+
+    You should see "Hello ," followed by a dimmed "World!"
+    The cursor should be over the comma.
+    """
+
+    class TextApp(App):
+        def compose(self) -> ComposeResult:
+            yield TextArea()
+
+        def on_mount(self) -> None:
+            self.query_one(TextArea).insert("Hello, ")
+            self.query_one(TextArea).suggestion = "World!"
+
+    assert snap_compare(TextApp())
+
+
+def test_textarea_placeholder(snap_compare):
+    """Test text area placeholder
+
+    You should see a TextArea with dimmed text "Your text here".
+
+    """
+
+    class TextApp(App):
+        def compose(self) -> ComposeResult:
+            yield TextArea(placeholder="Your text here")
+
+    assert snap_compare(TextApp())
+
+
+def test_header_format(snap_compare):
+    """Test title and sub-title are formatted as expected.
+
+    You should see "Title - Sub-title" in the header. Where sub-title is dimmed.
+    """
+
+    class HeaderApp(App):
+        TITLE = "Title"
+        SUB_TITLE = "Sub-title"
+
+        def compose(self) -> ComposeResult:
+            yield Header()
+
+    assert snap_compare(HeaderApp())

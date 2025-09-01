@@ -64,13 +64,13 @@ class Reactor(IReactor):
         self.__commands: dict[str, Command] = {}
 
         # Initialize the executor for command output management
-        self.__executer: IExecutor = self.__app.make('x-orionis.console.output.executor')
+        self.__executer: IExecutor = self.__app.make(IExecutor)
 
         # Initialize the logger service for logging command execution details
-        self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
+        self.__logger: ILogger = self.__app.make(ILogger)
 
         # Initialize the performance counter for measuring command execution time
-        self.__performance_counter: IPerformanceCounter = self.__app.make('x-orionis.support.performance.counter')
+        self.__performance_counter: IPerformanceCounter = self.__app.make(IPerformanceCounter)
 
         # List to hold fluent command definitions
         self.__fluent_commands: List[ICommand] = []
@@ -179,7 +179,7 @@ class Reactor(IReactor):
             return
 
         # Get the project root directory for module path resolution
-        root_path = self.__app.getBasePath()
+        root_path = str(self.__app.getBasePath())
 
         # List all .py files in the routes directory and subdirectories
         for current_directory, _, files in os.walk(routes_path):
@@ -377,7 +377,7 @@ class Reactor(IReactor):
 
         # Ensure the provided commands_path is a valid directory
         commands_path = (Path(self.__app.path('console')) / 'commands').resolve()
-        root_path = self.__app.getBasePath()
+        root_path = str(self.__app.getBasePath())
 
         # Iterate through the command path and load command modules
         for current_directory, _, files in os.walk(commands_path):

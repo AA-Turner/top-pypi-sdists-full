@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.30
+Version: 2.6.31
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -117,7 +117,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.30** | build: **2025-08-29** | Python: **>=3.10, <3.14**
+Release: **2.6.31** | build: **2025-09-01** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -157,7 +157,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 
 - Desktop AI Assistant for `Linux`, `Windows` and `Mac`, written in Python.
 - Works similarly to `ChatGPT`, but locally (on a desktop computer).
-- 11 modes of operation: Chat, Chat with Files, Chat with Audio, Research (Perplexity), Completion, Image generation, Assistants, Experts, Computer use, Agents and Autonomous Mode.
+- 11 modes of operation: Chat, Chat with Files, Realtime + audio, Research (Perplexity), Completion, Image generation, Assistants, Experts, Computer use, Agents and Autonomous Mode.
 - Supports multiple models like `OpenAI GPT-5`, `GPT-4`, `o1`, `o3`, `o4`, `Google Gemini`, `Anthropic Claude`, `xAI Grok`, `DeepSeek V3/R1`, `Perplexity / Sonar`, and any model accessible through `LlamaIndex` and `Ollama` such as `DeepSeek`, `gpt-oss`, `Llama 3`, `Mistral`, `Bielik`, etc.
 - Chat with your own Files: integrated `LlamaIndex` support: chat with data such as: `txt`, `pdf`, `csv`, `html`, `md`, `docx`, `json`, `epub`, `xlsx`, `xml`, webpages, `Google`, `GitHub`, video/audio, images and other data types, or use conversation history as additional context provided to the model.
 - Built-in vector databases support and automated files and data embedding.
@@ -662,11 +662,11 @@ In the `Settings -> LlamaIndex -> Data loaders` section you can define the addit
 
 ## Chat with Audio
 
-This mode works like the Chat mode but with native support for audio input and output using a multimodal model - `gpt-4o-audio`. In this mode, audio input and output are directed to and from the model directly, without the use of external plugins. This enables faster and better audio communication.
+This mode works like the Chat mode but with native support for audio input and output using a Realtime and Live APIs. In this mode, audio input and output are directed to and from the model directly, without the use of external plugins. This enables faster and better audio communication.
 
-More info: https://platform.openai.com/docs/guides/audio/quickstart
+Currently, in beta. 
 
-Currently, in beta. Tool and function calls are not enabled in this mode.
+At this moment, only OpenAI real-time models (via the Realtime API) and Google Gemini real-time models (via the Live API) are supported.
 
 ## Research
 
@@ -1148,7 +1148,7 @@ The name of the currently active profile is shown as (Profile Name) in the windo
 
 ## Built-in models
 
-PyGPT has a preconfigured list of models (as of 2025-07-26):
+PyGPT has a preconfigured list of models (as of 2025-08-31):
 
 - `bielik-11b-v2.3-instruct:Q4_K_M` (Ollama)
 - `chatgpt-4o-latest` (OpenAI)
@@ -1172,6 +1172,7 @@ PyGPT has a preconfigured list of models (as of 2025-07-26):
 - `gemini-1.5-pro` (Google)
 - `gemini-2.0-flash-exp` (Google)
 - `gemini-2.5-flash` (Google)
+- `gemini-2.5-flash-preview-native-audio-dialog` (Google, real-time)
 - `gemini-2.5-pro` (Google)
 - `gpt-3.5-turbo` (OpenAI)
 - `gpt-3.5-turbo-16k` (OpenAI)
@@ -1184,7 +1185,7 @@ PyGPT has a preconfigured list of models (as of 2025-07-26):
 - `gpt-4.1-mini` (OpenAI)
 - `gpt-4.1-nano` (OpenAI)
 - `gpt-4o` (OpenAI)
-- `gpt-4o-audio-preview` (OpenAI)
+- `gpt-4o-realtime-preview` (OpenAI, real-time)
 - `gpt-4o-mini` (OpenAI)
 - `gpt-5` (OpenAI)
 - `gpt-5-mini` (OpenAI)
@@ -1192,6 +1193,7 @@ PyGPT has a preconfigured list of models (as of 2025-07-26):
 - `gpt-image-1` (OpenAI)
 - `gpt-oss:20b` (OpenAI - via Ollama and HuggingFace Router)
 - `gpt-oss:120b` (OpenAI - via Ollama and HuggingFace Router)
+- `gpt-realtime` (OpenAI, real-time)
 - `grok-2-vision` (xAI)
 - `grok-3` (xAI)
 - `grok-3-fast` (xAI)
@@ -2436,17 +2438,15 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 - `Experts: Master prompt`: Prompt to instruct how to handle experts.
 
-- `DALL-E: image generate`: Prompt for generating prompts for DALL-E (if raw-mode is disabled).
+- `Image generate`: Prompt for generating prompts for image generation (if raw-mode is disabled).
 
 **Images**
 
-- `DALL-E Image size`: The resolution of the generated images (DALL-E). Default: 1792x1024.
+- `Image size`: The resolution of the generated images (DALL-E). Default: 1024x1024.
 
-- `DALL-E Image quality`: The image quality of the generated images (DALL-E). Default: standard.
+- `Image quality`: The image quality of the generated images (DALL-E). Default: standard.
 
-- `Open image dialog after generate`: Enable the image dialog to open after an image is generated in Image mode.
-
-- `DALL-E: prompt generation model`: Model used for generating prompts for DALL-E (if raw-mode is disabled).
+- `Prompt generation model`: Model used for generating prompts for image generation (if raw-mode is disabled).
 
 **Vision**
 
@@ -2479,6 +2479,10 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 - `Audio notify microphone listening start/stop`: enables audio "tick" notify when microphone listening started/ended.
 
 - `Continuous Audio Recording (Chunks)`: Enable recording in chunks for long audio recordings in notepad (voice notes).
+
+- `VAD prefix padding (in ms)`:  VAD prefix padding in ms, default: 300ms (Realtime audio mode)
+
+- `VAD end silence (in ms)`: VAD end silence in ms, default: 2000ms (Realtime audio mode)
 
 **Indexes / LlamaIndex**
 
@@ -3555,6 +3559,14 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.31 (2025-09-01)**
+
+- Chat with Audio mode renamed to Realtime + audio.
+- Added support for real-time audio models from OpenAI (Realtime API) and Google (Live API), featuring real-time audio integration (beta).
+- Introduced new predefined models: gpt-realtime, gpt-4o-realtime-preview, and gemini-2.5-flash-preview-native-audio-dialog.
+- Included Google Gen AI audio input and output providers in the Audio Input/Output plugins.
+- Added URL Context remote tool support in Google Gen AI.
 
 **2.6.30 (2025-08-29)**
 

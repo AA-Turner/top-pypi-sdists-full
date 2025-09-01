@@ -1,5 +1,6 @@
 from collections import deque
-from typing import Deque, Dict, Generic, List, Optional, TypeVar, Union
+from collections.abc import Sequence
+from typing import Deque, Dict, Generic, List, Optional, TypedDict, TypeVar, Union
 
 import pytest
 from attrs import asdict, define
@@ -109,9 +110,16 @@ def test_structure_nested_generics_with_cols(t, result, genconverter: Converter)
     (
         (TClass[int, int, int], str, int, TClass(TClass(1, 2), "a")),
         (List[TClass[int, int, int]], str, int, TClass([TClass(1, 2)], "a")),
+        (
+            Sequence[TClass[str, str, str]],
+            str,
+            str,
+            TClass((TClass("a", "b", "c"),), "b", "c"),
+        ),
     ),
 )
 def test_structure_nested_generics(converter: BaseConverter, t, t2, t3, result):
+    """Structuring nested generics works."""
     res = converter.structure(asdict(result), TClass[t, t2, t3])
 
     assert res == result
@@ -161,7 +169,7 @@ def test_structure_deque_of_generic_unions(converter):
 
 
 def test_raises_if_no_generic_params_supplied(
-    converter: Union[Converter, BaseConverter]
+    converter: Union[Converter, BaseConverter],
 ):
     data = TClass(1, "a")
 
@@ -312,7 +320,6 @@ def test_roundtrip_generic_with_union() -> None:
 
 @pytest.mark.skipif(not is_py311_plus, reason="3.11+ only")
 def test_generate_typeddict_mapping() -> None:
-    from typing import Generic, TypedDict, TypeVar
 
     T = TypeVar("T")
     U = TypeVar("U")

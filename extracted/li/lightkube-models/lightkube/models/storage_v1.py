@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import resource
 from . import core_v1
+from . import meta_v1
 
 
 @dataclass
@@ -87,9 +87,8 @@ class CSIDriverSpec(DictMixin):
         which checks the volumeattachment status and waits until the volume is
         attached before proceeding to mounting. The CSI external-attacher coordinates
         with CSI volume driver and updates the volumeattachment status when the attach
-        operation is complete. If the CSIDriverRegistry feature gate is enabled and
-        the value is specified to false, the attach operation will be skipped.
-        Otherwise the attach operation will be called.
+        operation is complete. If the value is specified to false, the attach
+        operation will be skipped. Otherwise the attach operation will be called.
         This field is immutable.
       * **fsGroupPolicy** ``Optional[str]`` - fsGroupPolicy defines if the underlying volume supports changing ownership and
         permission of the volume before being mounted. Refer to the specific
@@ -105,8 +104,8 @@ class CSIDriverSpec(DictMixin):
         enabled. If not set, no updates occur (neither periodic nor upon detecting
         capacity-related failures), and the allocatable.count remains static. The
         minimum allowed value for this field is 10 seconds.
-        This is an alpha feature and requires the MutableCSINodeAllocatableCount
-        feature gate to be enabled.
+        This is a beta feature and requires the MutableCSINodeAllocatableCount feature
+        gate to be enabled.
         This field is mutable.
       * **podInfoOnMount** ``Optional[bool]`` - podInfoOnMount indicates this CSI volume driver requires additional pod
         information (like podName, podUID, etc.) during mount operations, if set to
@@ -641,6 +640,78 @@ class VolumeAttachmentStatus(DictMixin):
 
 
 @dataclass
+class VolumeAttributesClass(DictMixin):
+    r"""VolumeAttributesClass represents a specification of mutable volume attributes
+      defined by the CSI driver. The class can be specified during dynamic
+      provisioning of PersistentVolumeClaims, and changed in the
+      PersistentVolumeClaim spec after provisioning.
+
+      **parameters**
+
+      * **driverName** ``str`` - Name of the CSI driver This field is immutable.
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+      * **parameters** ``Optional[dict]`` - parameters hold volume attributes defined by the CSI driver. These values are
+        opaque to the Kubernetes and are passed directly to the CSI driver. The
+        underlying storage provider supports changing these attributes on an existing
+        volume, however the parameters field itself is immutable. To invoke a volume
+        update, a new VolumeAttributesClass should be created with new parameters, and
+        the PersistentVolumeClaim should be updated to reference the new
+        VolumeAttributesClass.
+        This field is required and must contain at least one key/value pair. The keys
+        cannot be empty, and the maximum number of parameters is 512, with a
+        cumulative max size of 256K. If the CSI driver rejects invalid parameters, the
+        target PersistentVolumeClaim will be set to an "Infeasible" state in the
+        modifyVolumeStatus field.
+    """
+    driverName: 'str'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    parameters: 'Optional[dict]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'storage.k8s.io/v1'
+        self.kind = 'VolumeAttributesClass'
+
+
+@dataclass
+class VolumeAttributesClassList(DictMixin):
+    r"""VolumeAttributesClassList is a collection of VolumeAttributesClass objects.
+
+      **parameters**
+
+      * **items** ``List[VolumeAttributesClass]`` - items is the list of VolumeAttributesClass objects.
+      * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated. In CamelCase. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+    """
+    items: 'List[VolumeAttributesClass]'
+    apiVersion: 'Optional[str]' = None
+    kind: 'Optional[str]' = None
+    metadata: 'Optional[meta_v1.ListMeta]' = None
+
+    def __post_init__(self):
+        self.apiVersion = 'storage.k8s.io/v1'
+        self.kind = 'VolumeAttributesClassList'
+
+
+@dataclass
 class VolumeError(DictMixin):
     r"""VolumeError captures an error encountered during a volume operation.
 
@@ -648,7 +719,7 @@ class VolumeError(DictMixin):
 
       * **errorCode** ``Optional[int]`` - errorCode is a numeric gRPC code representing the error encountered during
         Attach or Detach operations.
-        This is an optional, alpha field that requires the
+        This is an optional, beta field that requires the
         MutableCSINodeAllocatableCount feature gate being enabled to be set.
       * **message** ``Optional[str]`` - message represents the error encountered during Attach or Detach operation.
         This string may be logged, so it should not contain sensitive information.

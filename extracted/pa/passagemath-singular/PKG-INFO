@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-singular
-Version: 10.6.12
+Version: 10.6.13
 Summary: passagemath: Computer algebra, algebraic geometry, singularity theory with Singular
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,16 +28,16 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-pari~=10.6.12.0
+Requires-Dist: passagemath-pari~=10.6.13.0
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator
 Requires-Dist: pexpect>=4.8.0
-Requires-Dist: passagemath-environment~=10.6.12.0
-Requires-Dist: passagemath-categories~=10.6.12.0
-Requires-Dist: passagemath-modules~=10.6.12.0
-Requires-Dist: passagemath-flint~=10.6.12.0
-Requires-Dist: passagemath-linbox~=10.6.12.0
+Requires-Dist: passagemath-environment~=10.6.13.0
+Requires-Dist: passagemath-categories~=10.6.13.0
+Requires-Dist: passagemath-modules~=10.6.13.0
+Requires-Dist: passagemath-flint~=10.6.13.0
+Requires-Dist: passagemath-linbox~=10.6.13.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
 Provides-Extra: jupyterkernel

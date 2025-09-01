@@ -34,7 +34,7 @@ class PerformanceCounterProvider(ServiceProvider):
 
         # Register the IPerformanceCounter interface to the PerformanceCounter implementation
         # with a transient lifetime and assign an alias for alternative resolution.
-        self.app.transient(IPerformanceCounter, PerformanceCounter, alias="x-orionis.support.performance.counter")
+        self.app.transient(IPerformanceCounter, PerformanceCounter, alias=f"x-{IPerformanceCounter.__module__}.{IPerformanceCounter.__name__}")
 
     def boot(self) -> None:
         """

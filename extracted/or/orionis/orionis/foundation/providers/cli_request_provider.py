@@ -25,7 +25,7 @@ class CLRequestProvider(ServiceProvider):
         """
         # Register CLIRequest as a transient service bound to ICLIRequest interface
         # Transient services create a new instance each time they are resolved
-        self.app.transient(ICLIRequest, CLIRequest, alias="x-orionis.console.request.cli_request")
+        self.app.transient(ICLIRequest, CLIRequest, alias=f"x-{ICLIRequest.__module__}.{ICLIRequest.__name__}")
 
     def boot(self) -> None:
         """

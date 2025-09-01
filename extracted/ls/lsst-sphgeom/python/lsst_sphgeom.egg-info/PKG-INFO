@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lsst-sphgeom
-Version: 29.2025.1600
+Version: 29.2025.3502
 Summary: A spherical geometry library.
 Author-email: Rubin Observatory Data Management <dm-admin@lists.lsst.org>
 License: BSD 3-Clause License
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Astronomy
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown

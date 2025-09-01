@@ -2366,6 +2366,21 @@ class Patch:
                     data["remote_tools.google.code_interpreter"] = False
                 updated = True
 
+            # < 2.6.31
+            if old < parse_version("2.6.31"):
+                print("Migrating config from < 2.6.31...")
+                if "log.realtime" not in data:
+                    data["log.realtime"] = False
+                if "remote_tools.google.url_ctx" not in data:
+                    data["remote_tools.google.url_ctx"] = False
+                if "audio.input.auto_turn" not in data:
+                    data["audio.input.auto_turn"] = False
+                if "audio.input.vad.prefix" not in data:
+                    data["audio.input.vad.prefix"] = 300
+                if "audio.input.vad.silence" not in data:
+                    data["audio.input.vad.silence"] = 2000
+                updated = True
+
         # update file
         migrated = False
         if updated:

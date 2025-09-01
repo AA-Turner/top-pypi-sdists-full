@@ -4,7 +4,7 @@ from orionis.foundation.config.database.enums import (
     SQLiteJournalMode,
     SQLiteSynchronous
 )
-from orionis.foundation.exceptions.integrity import OrionisIntegrityException
+from orionis.foundation.exceptions import OrionisIntegrityException
 from orionis.services.environment.env import Env
 from orionis.support.entities.base import BaseEntity
 

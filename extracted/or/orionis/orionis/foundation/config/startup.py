@@ -5,7 +5,7 @@ from orionis.foundation.config.cache.entities.cache import Cache
 from orionis.foundation.config.cors.entities.cors import Cors
 from orionis.foundation.config.database.entities.database import Database
 from orionis.foundation.config.roots.paths import Paths
-from orionis.foundation.exceptions.integrity import OrionisIntegrityException
+from orionis.foundation.exceptions import OrionisIntegrityException
 from orionis.foundation.config.filesystems.entitites.filesystems import Filesystems
 from orionis.foundation.config.logging.entities.logging import Logging
 from orionis.foundation.config.mail.entities.mail import Mail

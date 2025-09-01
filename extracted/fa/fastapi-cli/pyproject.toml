@@ -35,7 +35,7 @@ dependencies = [
     "uvicorn[standard] >= 0.15.0",
     "rich-toolkit >= 0.14.8",
 ]
-version = "0.0.8"
+version = "0.0.10"
 
 [project.license]
 text = "MIT"
@@ -55,9 +55,6 @@ Documentation = "https://fastapi.tiangolo.com/fastapi-cli/"
 Repository = "https://github.com/fastapi/fastapi-cli"
 Issues = "https://github.com/fastapi/fastapi-cli/issues"
 Changelog = "https://github.com/fastapi/fastapi-cli/blob/main/release-notes.md"
-
-[project.scripts]
-fastapi = "fastapi_cli.cli:main"
 
 [build-system]
 requires = [

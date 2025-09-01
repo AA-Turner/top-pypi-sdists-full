@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: osmium
-Version: 4.1.0
+Version: 4.1.1
 Summary: Python bindings for libosmium, the data processing library for OSM data
 Keywords: OSM,OpenStreetMap,Osmium
 Author-Email: Sarah Hoffmann <lonvia@denofr.de>

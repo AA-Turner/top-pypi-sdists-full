@@ -58,7 +58,7 @@ class ProgressBarProvider(ServiceProvider):
             as a side effect on the application container.
         """
 
-        self.app.transient(IProgressBar, ProgressBar, alias="x-orionis.console.dynamic.progress_bar")
+        self.app.transient(IProgressBar, ProgressBar, alias=f"x-{IProgressBar.__module__}.{IProgressBar.__name__}")
 
     def boot(self) -> None:
         """

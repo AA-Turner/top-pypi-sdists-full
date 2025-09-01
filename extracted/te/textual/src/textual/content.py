@@ -334,10 +334,7 @@ class Content(Visual):
         """
         if not text:
             return Content("")
-        span_length = cell_len(text) if cell_length is None else cell_length
-        new_content = cls(
-            text, [Span(0, span_length, style)] if style else None, span_length
-        )
+        new_content = cls(text, [Span(0, len(text), style)] if style else None)
         return new_content
 
     @classmethod
@@ -408,13 +405,12 @@ class Content(Visual):
         Returns:
             Self.
         """
-        spans = self.spans
-        if not spans:
+        if not (spans := self._spans):
             return self
-        last_span = Span(0, 0, Style())
+        last_span = Span(-1, -1, "")
         new_spans: list[Span] = []
         changed: bool = False
-        for span in self._spans:
+        for span in spans:
             if span.start == last_span.end and span.style == last_span.style:
                 last_span = new_spans[-1] = Span(last_span.start, span.end, span.style)
                 changed = True
@@ -423,6 +419,19 @@ class Content(Visual):
                 last_span = span
         if changed:
             self._spans[:] = new_spans
+        return self
+
+    def add_spans(self, spans: Sequence[Span]) -> Content:
+        """Adds spans to this Content instance.
+
+        Args:
+            spans: A sequence of spans.
+
+        Returns:
+            A Content instance.
+        """
+        if spans:
+            return Content(self.plain, [*self._spans, *spans], self._cell_length)
         return self
 
     def __eq__(self, other: object) -> bool:
@@ -696,7 +705,9 @@ class Content(Visual):
     @property
     def without_spans(self) -> Content:
         """The content with no spans"""
-        return Content(self.plain, [], self._cell_length)
+        if self._spans:
+            return Content(self.plain, [], self._cell_length)
+        return self
 
     @property
     def first_line(self) -> Content:
@@ -737,18 +748,14 @@ class Content(Visual):
             offset = len(self.plain)
             content = Content(
                 self.plain + other.plain,
-                [
-                    *self._spans,
-                    *[
+                (
+                    self._spans
+                    + [
                         Span(start + offset, end + offset, style)
                         for start, end, style in other._spans
-                    ],
-                ],
-                (
-                    self.cell_length + other._cell_length
-                    if other._cell_length is not None
-                    else None
+                    ]
                 ),
+                (self.cell_length + other.cell_length),
             )
             return content
         return NotImplemented
@@ -844,6 +851,8 @@ class Content(Visual):
         total_cell_length: int | None = self._cell_length
 
         for content in iter_content():
+            if not content:
+                continue
             extend_text(content._text)
             extend_spans(
                 _Span(offset + start, offset + end, style)
@@ -1084,7 +1093,7 @@ class Content(Visual):
             return self
         return Content(
             self.plain,
-            [*self._spans, Span(start, length if length < end else end, style)],
+            self._spans + [Span(start, length if length < end else end, style)],
         )
 
     def stylize_before(
@@ -1437,6 +1446,9 @@ class Content(Visual):
         if "\t" not in self.plain:
             return self
 
+        if not self._spans:
+            return Content(self.plain.expandtabs(tab_size))
+
         new_text: list[Content] = []
         append = new_text.append
 
@@ -1449,7 +1461,7 @@ class Content(Visual):
                 for part in parts:
                     if part.plain.endswith("\t"):
                         part = Content(
-                            part._text[-1][:-1] + " ", part._spans, part._cell_length
+                            part._text[:-1] + " ", part._spans, part._cell_length
                         )
                         cell_position += part.cell_length
                         tab_remainder = cell_position % tab_size
@@ -1468,7 +1480,7 @@ class Content(Visual):
         self,
         highlight_regex: re.Pattern[str] | str,
         *,
-        style: Style,
+        style: Style | str,
         maximum_highlights: int | None = None,
     ) -> Content:
         """Apply a style to text that matches a regular expression.
@@ -1487,6 +1499,8 @@ class Content(Visual):
         plain = self.plain
         if isinstance(highlight_regex, str):
             re_highlight = re.compile(highlight_regex)
+        else:
+            re_highlight = highlight_regex
         count = 0
         for match in re_highlight.finditer(plain):
             start, end = match.span()

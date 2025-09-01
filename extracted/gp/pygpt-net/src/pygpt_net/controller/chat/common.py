@@ -10,12 +10,13 @@
 # ================================================== #
 
 import os
+from typing import Any
 
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QFileDialog, QApplication
 
 from pygpt_net.core.events import Event, AppEvent, RenderEvent, KernelEvent
-from pygpt_net.core.types import MODE_ASSISTANT
+from pygpt_net.core.types import MODE_ASSISTANT, MODE_AUDIO
 from pygpt_net.item.ctx import CtxItem
 from pygpt_net.item.model import ModelItem
 from pygpt_net.utils import trans
@@ -118,6 +119,17 @@ class Common:
             self.window.ui.config['global']['img_raw'].setChecked(True)
         else:
             self.window.ui.config['global']['img_raw'].setChecked(False)
+
+        # image resolution
+        resolution = self.window.core.config.get('img_resolution', '1024x1024')
+        self.window.controller.config.apply_value(
+            parent_id="global",
+            key="img_resolution",
+            option=self.window.core.image.get_resolution_option(),
+            value=resolution,
+        )
+        if not self.initialized:
+            self.window.ui.add_hook("update.global.img_resolution", self.hook_update)
 
         # set focus to input
         self.window.ui.nodes['input'].setFocus()
@@ -257,7 +269,7 @@ class Common:
             self.window.controller.access.voice.stop_recording(timeout=True)
 
         if self.window.core.plugins.get("audio_input").handler_simple.is_recording:
-            self.window.core.plugins.get("audio_input").handler_simple.stop_recording(timeout=False)
+            self.window.dispatch(Event(Event.AUDIO_INPUT_RECORD_TOGGLE))
             return
 
         # stop audio output if playing
@@ -275,7 +287,8 @@ class Common:
         """
         # don't unlock input and leave stop btn if assistant mode or if agent/autonomous is enabled
         # send btn will be unlocked in agent mode on stop
-        if self.can_unlock(ctx):
+        mode = self.window.core.config.get('mode')
+        if self.can_unlock(ctx) and mode != MODE_AUDIO:
             if not self.window.controller.kernel.stopped():
                 self.unlock_input()  # unlock input
                 return True
@@ -451,6 +464,19 @@ class Common:
             self.img_disable_raw()
         else:
             self.img_enable_raw()
+
+    def hook_update(self, key: str, value: Any, caller, *args, **kwargs):
+        """
+        Hook for updating image resolution
+
+        :param key: config key
+        :param value: new value
+        :param caller: caller object
+        """
+        if key == "img_resolution":
+            if not value:
+                return
+            self.window.core.config.set('img_resolution', value)
 
     def save_text(
             self,

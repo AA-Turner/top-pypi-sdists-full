@@ -1,6 +1,6 @@
 from typing import Union
 from orionis.services.environment.enums.value_type import EnvironmentValueType
-from orionis.services.environment.exceptions.value import OrionisEnvironmentValueError
+from orionis.services.environment.exceptions import OrionisEnvironmentValueError
 
 class __ValidateTypes:
 

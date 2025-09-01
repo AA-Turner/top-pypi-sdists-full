@@ -344,3 +344,14 @@ class Directory(IDirectory):
             The path to the storage directory.
         """
         return Path(self.__app.path('storage'))
+
+    def tests(self) -> Path:
+        """
+        Get the tests directory path.
+
+        Returns
+        -------
+        Path
+            The path to the tests directory.
+        """
+        return Path(self.__app.path('tests'))
