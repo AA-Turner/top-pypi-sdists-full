@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pylibjpeg
-Version: 2.0.1
+Version: 2.1.0
 Summary: A Python framework for decoding JPEG and decoding/encoding DICOM RLE data, with a focus on supporting pydicom
 Keywords: dicom pydicom python imaging jpg jpeg jpg-ls jpeg-ls jpeg2k jpeg2000 rle
 Author: pylibjpeg contributors
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
@@ -12,14 +12,15 @@ Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Science/Research
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Classifier: Topic :: Software Development :: Libraries
+License-File: LICENCE.txt
 Requires-Dist: numpy
 Requires-Dist: pylibjpeg-rle ; extra == "all"
 Requires-Dist: pylibjpeg-openjpeg ; extra == "all"
@@ -50,7 +51,7 @@ Provides-Extra: rle
 
 ## pylibjpeg
 
-A Python 3.8+ framework for decoding JPEG images and decoding/encoding RLE datasets, with a focus on providing support for [pydicom](https://github.com/pydicom/pydicom).
+A Python framework for decoding JPEG and JPEG-LS and decoding/encoding JPEG 2000 and RLE, with a focus on providing support for [pydicom](https://github.com/pydicom/pydicom).
 
 
 ### Installation
@@ -88,11 +89,12 @@ One or more plugins are required before *pylibjpeg* is able to handle JPEG image
 you first have to install the corresponding package:
 
 #### Supported Image Formats
-|Format                   |Decode?|Encode?|Plugin                 | License |Based on     |
-|---                      |------ |---    |---                    |---      |---          |
-|JPEG, JPEG-LS and JPEG XT|Yes    |No     |[pylibjpeg-libjpeg][1] | GPLv3   |[libjpeg][2] |
-|JPEG 2000                |Yes    |Yes    |[pylibjpeg-openjpeg][3]| MIT     |[openjpeg][4]|
-|RLE Lossless (PackBits)  |Yes    |Yes    |[pylibjpeg-rle][5]     | MIT     |-            |
+|Format                    |Decode?|Encode?|Plugin                 | License |Based on     |
+|---                       |------ |---    |---                    |---      |---          |
+|JPEG, JPEG-LS and JPEG XT |Yes    |No     |[pylibjpeg-libjpeg][1] | GPLv3   |[libjpeg][2] |
+|JPEG 2000                 |Yes    |Yes    |[pylibjpeg-openjpeg][3]| MIT/BSD |[openjpeg][4]|
+|High-throughput JPEG 2000 |Yes    |No     |[pylibjpeg-openjpeg][3]| MIT/BSD |[openjpeg][4]|
+|RLE Lossless (PackBits)   |Yes    |Yes    |[pylibjpeg-rle][5]     | MIT     |-            |
 
 #### Supported DICOM Transfer Syntaxes
 

@@ -1,0 +1,137 @@
+Metadata-Version: 2.4
+Name: lambdatest-selenium-driver
+Version: 1.0.5
+Summary: Python Selenium SDK for testing with Smart UI
+Home-page: https://github.com/LambdaTest/lambdatest-python-sdk
+Author: LambdaTest <keys@lambdatest.com>
+License: MIT
+Keywords: lambdatest python selenium sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: selenium>=3
+Requires-Dist: lambdatest-sdk-utils
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# lambdatest-selenium-driver
+[![SmartUI-Testing](https://smartui.lambdatest.com/static/media/LTBadge.64a05e73.svg)](https://smartui.lambdatest.com)
+
+SmartUI SDK for python selenium
+- [Installation](#installation)
+- [Methods](#methods)
+- [Usage](#usage)
+
+## Installation
+
+Install Smart UI cli
+
+```sh-session
+$ npm install -g @lambdatest/smartui-cli 
+```
+
+Install Python Selenium Package
+
+```sh-session
+$ pip3 install lambdatest-selenium-driver
+```
+
+## Methods
+``` python
+smartui_snapshot(driver,"Snapshotname")
+```
+
+- `driver` (**required**) - A Selenium driver instance is required.
+- `name` (**required**) - Name of the screenshot
+
+## Usage
+
+Example selenium test using `smartui_snapshot`
+
+``` python
+from lambdatest_selenium_driver import smartui_snapshot
+from selenium import webdriver
+
+driver = webdriver.Chrome()
+try:
+    driver.get('https://www.pinterest.com/pin/16958936087791895/')
+    smartui_snapshot(driver,"Snapshotname")
+except Exception as err:
+    print(err)
+finally: 
+    driver.close()
+```
+
+
+Copy the project token from [SmartUI Dashboard](https://smartui.lambdatest.com/) and set on CLI via comman
+<b>For Linux/macOS:</b>
+
+```sh-session
+ export PROJECT_TOKEN="****-****-****-************"
+```
+
+<b>For Windows:</b>
+
+```sh-session
+ set PROJECT_TOKEN="****-****-****-************"
+```
+
+Running test
+```sh-session
+$ npx smartui exec [python test command]
+```
+This will create new build and upload snapshot to Smart UI Project.
+
+Executing above test
+
+```sh-session
+$ npx smartui exec python test.py
+✔ Authenticated with SmartUI
+  → using project token '******#ihcjks'
+✔ SmartUI started
+  → listening on port 8080
+✔ Fetched git information
+  → branch: main, commit: 7e336e6, author: Sushobhit Dua
+✔ SmartUI build created
+  → build id: ee2cb6c5-9541-494a-9c75-a74629396b80
+✔ Execution of 'python3 test.py' completed; exited with code 0
+  → INFO:@lambdatest/python-selenium-driver:Snapshot captured name
+✔ Finalized build
+
+```
+
+## Contribute
+
+#### Reporting bugs
+
+Our GitHub Issue Tracker will help you log bug reports.
+
+Tips for submitting an issue:
+Keep in mind, you don't end up submitting two issues with the same information. Make sure you add a unique input in every issue that you submit. You could also provide a "+1" value in the comments.
+
+Always provide the steps to reproduce before you submit a bug.
+Provide the environment details where you received the issue i.e. Browser Name, Browser Version, Operating System, Screen Resolution and more.
+Describe the situation that led to your encounter with bug.
+Describe the expected output, and the actual output precisely.
+
+#### Pull Requests
+
+We don't want to pull breaks in case you want to customize your LambdaTest experience. Before you proceed with implementing pull requests, keep in mind the following.
+Make sure you stick to coding conventions.
+Once you include tests, ensure that they all pass.
+Make sure to clean up your Git history, prior your submission of a pull-request. You can do so by using the interactive rebase command for committing and squashing, simultaneously with minor changes + fixes into the corresponding commits.
+
+## About LambdaTest
+
+[LambdaTest](https://www.lambdatest.com/) is a cloud based selenium grid infrastructure that can help you run automated cross browser compatibility tests on 2000+ different browser and operating system environments. LambdaTest supports all programming languages and frameworks that are supported with Selenium, and have easy integrations with all popular CI/CD platforms. It's a perfect solution to bring your [selenium automation testing](https://www.lambdatest.com/selenium-automation) to cloud based infrastructure that not only helps you increase your test coverage over multiple desktop and mobile browsers, but also allows you to cut down your test execution time by running tests on parallel.

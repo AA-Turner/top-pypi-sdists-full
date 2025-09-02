@@ -1,0 +1,398 @@
+"""A grouping of component properties that describe a to-do.
+
+A todo component can represent an item of work assigned to an individual
+such as "turn in a travel expense today".
+
+A todo component without a start date or due date (or duration) specifies
+a to-do that will be associated with each successive calendar date until it
+is completed.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+import datetime
+import enum
+from typing import Annotated, Any, Optional, Self, Union
+import logging
+
+from pydantic import BeforeValidator, Field, field_serializer, model_validator
+
+from ical.types.data_types import serialize_field
+
+from .alarm import Alarm
+from .component import ComponentModel, validate_until_dtstart, validate_recurrence_dates
+from .exceptions import CalendarParseError
+from .iter import RulesetIterable, as_rrule
+from .parsing.property import ParsedProperty
+from .timespan import Timespan
+from .types import (
+    CalAddress,
+    Classification,
+    Geo,
+    Priority,
+    Recur,
+    RecurrenceId,
+    RequestStatus,
+    Uri,
+    RelatedTo,
+)
+from .util import (
+    dtstamp_factory,
+    normalize_datetime,
+    parse_date_and_datetime,
+    parse_date_and_datetime_list,
+    uid_factory,
+    local_timezone,
+)
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class TodoStatus(str, enum.Enum):
+    """Status or confirmation of the to-do."""
+
+    NEEDS_ACTION = "NEEDS-ACTION"
+    COMPLETED = "COMPLETED"
+    IN_PROCESS = "IN-PROCESS"
+    CANCELLED = "CANCELLED"
+
+
+class Todo(ComponentModel):
+    """A calendar todo component."""
+
+    dtstamp: Union[datetime.date, datetime.datetime] = Field(
+        default_factory=dtstamp_factory
+    )
+    """Specifies the date and time the item was created."""
+
+    uid: str = Field(default_factory=lambda: uid_factory())
+    """A globally unique identifier for the item."""
+
+    attendees: list[CalAddress] = Field(alias="attendee", default_factory=list)
+    """Specifies participants in a group-scheduled calendar."""
+
+    categories: list[str] = Field(default_factory=list)
+    """Defines the categories for an item.
+
+    Specifies a category or subtype. Can be useful for searching for a particular
+    type of item.
+    """
+
+    classification: Optional[Classification] = Field(alias="class", default=None)
+    """An access classification for a calendar to-do item.
+
+    This provides a method of capturing the scope of access of a calendar, in
+    conjunction with an access control system.
+    """
+
+    comment: list[str] = Field(default_factory=list)
+    """Specifies a comment to the calendar user."""
+
+    completed: Optional[datetime.datetime] = None
+
+    contacts: list[str] = Field(alias="contact", default_factory=list)
+    """Contact information associated with the item."""
+
+    created: Optional[datetime.datetime] = None
+
+    description: Optional[str] = None
+    """A more complete description of the item than provided by the summary."""
+
+    # Has alias of 'start'
+    dtstart: Annotated[
+        Union[datetime.date, datetime.datetime, None],
+        BeforeValidator(parse_date_and_datetime),
+    ] = None
+    """The start time or start day of the item."""
+
+    due: Annotated[
+        Union[datetime.date, datetime.datetime, None],
+        BeforeValidator(parse_date_and_datetime),
+    ] = None
+
+    duration: Optional[datetime.timedelta] = None
+    """The duration of the item as an alternative to an explicit end date/time."""
+
+    geo: Optional[Geo] = None
+    """Specifies a latitude and longitude global position for the activity."""
+
+    last_modified: Optional[datetime.datetime] = Field(
+        alias="last-modified", default=None
+    )
+
+    location: Optional[str] = None
+    """Defines the intended venue for the activity defined by this item."""
+
+    organizer: Optional[CalAddress] = None
+    """The organizer of a group-scheduled calendar entity."""
+
+    percent: Optional[int] = None
+
+    priority: Optional[Priority] = None
+    """Defines the relative priority of the todo item."""
+
+    recurrence_id: Optional[RecurrenceId] = Field(default=None, alias="recurrence-id")
+    """Defines a specific instance of a recurring item.
+
+    The full range of items specified by a recurrence set is referenced
+    by referring to just the uid. The `recurrence_id` allows reference of an individual
+    instance within the recurrence set.
+    """
+
+    related_to: list[RelatedTo] = Field(alias="related-to", default_factory=list)
+    """Used to represent a relationship or reference between events."""
+
+    request_status: Optional[RequestStatus] = Field(
+        default=None,
+        alias="request-status",
+    )
+
+    rrule: Optional[Recur] = None
+    """A recurrence rule specification.
+
+    Defines a rule for specifying a repeated event. The recurrence set is the complete
+    set of recurrence instances for a calendar component (based on rrule, rdate, exdate).
+    The recurrence set is generated by gathering the rrule and rdate properties then
+    excluding any times specified by exdate. The recurrence is generated with the dtstart
+    property defining the first instance of the recurrence set.
+
+    Typically a dtstart should be specified with a date local time and timezone to make
+    sure all instances have the same start time regardless of time zone changing.
+    """
+
+    rdate: Annotated[
+        list[Union[datetime.date, datetime.datetime]],
+        BeforeValidator(parse_date_and_datetime_list),
+    ] = Field(default_factory=list)
+    """Defines the list of date/time values for recurring events.
+
+    Can appear along with the rrule property to define a set of repeating occurrences of the
+    event. The recurrence set is the complete set of recurrence instances for a calendar component
+    (based on rrule, rdate, exdate). The recurrence set is generated by gathering the rrule
+    and rdate properties then excluding any times specified by exdate.
+    """
+
+    exdate: Annotated[
+        list[Union[datetime.date, datetime.datetime]],
+        BeforeValidator(parse_date_and_datetime_list),
+    ] = Field(default_factory=list)
+    """Defines the list of exceptions for recurring events.
+
+    The exception dates are used in computing the recurrence set. The recurrence set is
+    the complete set of recurrence instances for a calendar component (based on rrule, rdate,
+    exdate). The recurrence set is generated by gathering the rrule and rdate properties
+    then excluding any times specified by exdate.
+    """
+
+    sequence: Optional[int] = None
+    """The revision sequence number in the calendar component.
+
+    When an event is created, its sequence number is 0. It is monotonically incremented
+    by the organizer's calendar user agent every time a significant revision is made to
+    the calendar event.
+    """
+
+    status: Optional[TodoStatus] = None
+    """Defines the overall status or confirmation of the event.
+
+    In a group-scheduled calendar, used by the organizer to provide a confirmation
+    of the event to attendees.
+    """
+
+    summary: Optional[str] = None
+    """Defines a short summary or subject for the event."""
+
+    url: Optional[Uri] = None
+    """Defines a url associated with the item.
+
+    May convey a location where a more dynamic rendition of the item can be found.
+    """
+
+    alarms: list[Alarm] = Field(alias="valarm", default_factory=list)
+
+    extras: list[ParsedProperty] = Field(default_factory=list)
+
+    def __init__(self, **data: Any) -> None:
+        """Initialize Todo."""
+        if "start" in data:
+            data["dtstart"] = data.pop("start")
+        super().__init__(**data)
+
+    @property
+    def start(self) -> datetime.datetime | datetime.date | None:
+        """Return the start time for the todo."""
+        return self.dtstart
+
+    @property
+    def start_datetime(self) -> datetime.datetime | None:
+        """Return the todos start as a datetime."""
+        if not self.dtstart:
+            return None
+        return normalize_datetime(self.dtstart).astimezone(tz=datetime.timezone.utc)
+
+    @property
+    def computed_duration(self) -> datetime.timedelta | None:
+        """Return the event duration."""
+        if self.due is None or self.dtstart is None:
+            return None
+        return self.due - self.dtstart
+
+    def is_due(self, tzinfo: datetime.tzinfo | None = None) -> bool:
+        """Return true if the todo is due."""
+        if tzinfo is None:
+            tzinfo = local_timezone()
+        now = datetime.datetime.now(tz=tzinfo)
+        return self.due is not None and normalize_datetime(self.due, tzinfo) < now
+
+    @property
+    def timespan(self) -> Timespan:
+        """Return a timespan representing the item start and due date."""
+        return self.timespan_of(local_timezone())
+
+    def timespan_of(self, tzinfo: datetime.tzinfo) -> Timespan:
+        """Return a timespan representing the item start and due date."""
+        dtstart = self.dtstart
+        dtend = self.due
+        if dtstart is None:
+            if dtend is None:
+                # A component with the DTSTART and DUE specifies a to-do that
+                # will be associated with each successive calendar date, until
+                # it is completed.
+                dtstart = datetime.datetime.now(tzinfo).date()
+                dtend = dtstart + datetime.timedelta(days=1)
+            else:
+                # Component with a DTSTART but no DUE date will be sorted next
+                # to the due date.
+                dtstart = dtend
+        elif dtend is None:
+            # Component with a DTSTART but not DUE date will be sorted next to the start date
+            dtend = dtstart
+        return Timespan.of(
+            normalize_datetime(dtstart, tzinfo), normalize_datetime(dtend, tzinfo)
+        )
+
+    @property
+    def recurring(self) -> bool:
+        """Return true if this Todo is recurring.
+
+        A recurring event is typically evaluated specially on the list. The
+        data model has a single todo, but the timeline evaluates the recurrence
+        to expand and copy the event to multiple places on the timeline
+        using `as_rrule`.
+        """
+        if self.rrule or self.rdate:
+            return True
+        return False
+
+    def as_rrule(self) -> Iterable[datetime.datetime | datetime.date] | None:
+        """Return an iterable containing the occurrences of a recurring todo.
+
+        A recurring todo is typically evaluated specially on the todo list. The
+        data model has a single todo item, but the timeline evaluates the recurrence
+        to expand and copy the item to multiple places on the timeline.
+
+        This is only valid for events where `recurring` is True.
+        """
+        if not self.rrule and not self.rdate:
+            return None
+        if not self.due:
+            raise CalendarParseError("Event must have a due date to be recurring")
+        return as_rrule(self.rrule, self.rdate, self.exdate, self.dtstart)
+
+    _validate_until_dtstart = model_validator(mode="after")(validate_until_dtstart)
+    _validate_recurrence_dates = model_validator(mode="after")(
+        validate_recurrence_dates
+    )
+
+    @model_validator(mode="after")
+    def _validate_one_due_or_duration(self) -> Self:
+        """Validate that only one of duration or end date may be set."""
+        if self.due and self.duration:
+            raise ValueError("Only one of dtend or duration may be set." "")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_duration_requires_start(self) -> Self:
+        """Validate that a duration requires the dtstart."""
+        if self.duration and not self.dtstart:
+            raise ValueError("Duration requires that dtstart is specified")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_date_types(self) -> Self:
+        """Validate and repair due vs start values to ensure they are the same date or datetime type."""
+        dtstart = self.dtstart
+        due = self.due
+        if not dtstart or not due:
+            return self
+        if isinstance(due, datetime.datetime):
+            if not isinstance(dtstart, datetime.datetime):
+                _LOGGER.debug(
+                    "Repairing unexpected dtstart value '%s' as date with due value '%s' as datetime",
+                    dtstart,
+                    due,
+                )
+                self.dtstart = datetime.datetime.combine(
+                    dtstart, datetime.time.min, tzinfo=due.tzinfo
+                )
+        elif isinstance(due, datetime.date):
+            if isinstance(dtstart, datetime.datetime):
+                _LOGGER.debug(
+                    "Repairing unexpected dtstart value '%s' as date with due value '%s' as datetime",
+                    dtstart,
+                    due,
+                )
+                self.dtstart = dtstart.date()
+                _LOGGER.debug("values=%s", self)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_datetime_timezone(self) -> Self:
+        """Validate that start and due values have the same timezone information."""
+        if (
+            not (dtstart := self.dtstart)
+            or not (due := self.due)
+            or not isinstance(dtstart, datetime.datetime)
+            or not isinstance(due, datetime.datetime)
+        ):
+            return self
+        if dtstart.tzinfo is None and due.tzinfo is not None:
+            raise ValueError(f"Expected due datetime value in localtime but was {due}")
+        if dtstart.tzinfo is not None and due.tzinfo is None:
+            raise ValueError(f"Expected due datetime with timezone but was {due}")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_due_later(self) -> Self:
+        """Validate that the due property is later than dtstart."""
+        if not (due := self.due) or not (dtstart := self.dtstart):
+            return self
+        if due <= dtstart:
+            _LOGGER.debug(
+                "Due date %s is earlier than start date %s, adjusting start date",
+                due,
+                dtstart,
+            )
+            self.dtstart = due - datetime.timedelta(days=1)
+        return self
+
+    @classmethod
+    def _parse_single_property(cls, field_type: type, prop: ParsedProperty) -> Any:
+        """Parse an individual field as a single type."""
+        try:
+            return super()._parse_single_property(field_type, prop)
+        except ValueError as err:
+            if (
+                prop.name == "dtstart"
+                and field_type == datetime.datetime
+                and prop.params is not None
+            ):
+                _LOGGER.debug(
+                    "Applying todo dtstart repair for invalid timezone; Removing dtstart",
+                )
+                return None
+            raise err
+
+    serialize_fields = field_serializer("*")(serialize_field)  # type: ignore[pydantic-field]

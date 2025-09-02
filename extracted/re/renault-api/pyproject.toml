@@ -1,0 +1,158 @@
+[tool.poetry]
+name = "renault-api"
+version = "0.4.0"
+description = "Renault API"
+authors = ["epenet"]
+license = "MIT"
+readme = "README.rst"
+homepage = "https://github.com/hacf-fr/renault-api"
+repository = "https://github.com/hacf-fr/renault-api"
+documentation = "https://renault-api.readthedocs.io"
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[tool.poetry.urls]
+Changelog = "https://github.com/hacf-fr/renault-api/releases"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[tool.poetry.dependencies]
+python = ">=3.9.2,<4.0" # 3.9.0, 3.9.1 have issues with cryptography https://github.com/pyca/cryptography/pull/12045
+# Warning: as of 2024-04-23, aiohttp is pinned to 3.9.5 on HA-core
+aiohttp = ">=3.9.5"
+# Warning: as of 2023-07-19, pyjwt is pinned to 2.8.0 on HA-core
+PyJWT = ">=2.8.0"
+#ensure cryptography (for pyjwt) is greater than 44.0.0 to account for CVE-2024-12797
+cryptography = ">=44.0.0"
+#ensure cffi (for cryptography) is greater than 1.17.0 for python 3.13 compatibility
+cffi = ">=1.17.0"
+
+marshmallow-dataclass = ">=8.2.0"
+click = { version = ">=8.0.1", optional = true }
+tabulate = { version = ">=0.8.7", optional = true }
+dateparser = {version = ">=1.0.0", optional = true}
+#ensure six (for dateparser) is greater than 1.16 for python 3.12 compatibility
+six = {version = "^1.16", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.3.1,<9.0.0"
+coverage = {extras = ["toml"], version = "^7.2"}
+safety = ">=2.3.5,<4.0.0"
+mypy = "^1.2"
+typeguard = ">=4.1.3,<5.0.0"
+xdoctest = {extras = ["colors"], version = "^1.1.1"}
+sphinx = ">=4.3.2,<8.0.0"
+sphinx-autobuild = ">=2021.3.14,<2025.0.0"
+pre-commit = ">=2.21,<5.0"
+ruff = ">=0.3.7"
+darglint = "^1.8.1"
+pre-commit-hooks = ">=4.4,<7.0"
+sphinx-rtd-theme = ">=1.2,<4.0"
+sphinx-click = ">=4.4,<7.0"
+Pygments = "^2.15.0"
+pytest-asyncio = ">=0.21,<1.2"
+aioresponses = "^0.7.4"
+pytest-cov = ">=4,<7"
+syrupy = ">=4.9.1"
+#ensure urllib3 (for requests/sphinx) is greater than 1.26.5 to account for CVE-2021-33503
+urllib3 = ">=1.26.15,<3.0.0"
+#ensure certifi (for requests/sphinx) is greater than 2023.7.22 to account for CVE-2023-37920
+certifi = ">=2023.7.22,<2026.0.0"
+#ensure requests (for sphinx) is greater than 2.31.0 to account for CVE-2023-32681
+requests = "^2.31.0"
+#ensure tornado (for sphinx) is greater than 6.3.3 to account for GHSA-qppv-j76h-2rpx
+tornado = "^6.3.3"
+#ensure PyYAML (for sphinx) is greater than 6.0.1 to fix Cython wheel
+PyYAML = "^6.0.1"
+#ensure virtualenv (for pre-commit) is greater than 20.21.0 to account for PVE-2024-68477
+virtualenv = ">=20.21.0"
+#ensure nodeenv (for pre-commit) is greater than 1.9.0 for python 3.13 compatibility
+nodeenv = ">=1.9.0"
+#ensure typing-extensions (for safety>pydantic) is greater than 4.12.2 for python 3.13 compatibility
+typing-extensions = ">=4.12.2"
+
+[tool.poetry.extras]
+cli = ["click", "tabulate", "dateparser"]
+
+[tool.poetry.scripts]
+renault-api = "renault_api.cli.__main__:main"
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.run]
+branch = true
+source = ["renault_api"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+pretty = true
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = [
+    "A001",    # Variable is shadowing a Python builtin
+    "A002",    # Argument is shadowing a Python builtin
+    "N815",    # Variable in class scope should not be mixedCase
+    "PLR0911", # Too many return statements
+    "PLR0913", # Too many arguments in function definition
+]
+select = [
+    "A",     # flake8-builtins
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "C90",   # mccabe
+    "E",     # pycodestyle error
+    "ERA",   # eradicate
+    "F",     # Pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "PL",    # Pylint
+    "PT",    # flake8-pytest-style
+    "UP",    # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+known-local-folder = [
+    "renault_api",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

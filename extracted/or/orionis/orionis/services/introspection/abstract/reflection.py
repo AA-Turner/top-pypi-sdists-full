@@ -765,7 +765,6 @@ class ReflectionAbstract(IReflectionAbstract):
             with a single underscore and are not static methods, class methods,
             or properties.
         """
-        class_name = self.getClassName()
         attributes = self.__abstract.__dict__
         protected_methods = []
 

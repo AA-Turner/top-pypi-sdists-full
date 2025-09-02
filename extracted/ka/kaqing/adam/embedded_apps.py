@@ -1,0 +1,2 @@
+def config():
+    return {'Echo': [{'echo': {'help': 'echo the message', 'payload': '{"thisArg":{"type":"Echo","message":"{ARG1}"}}', 'ARG1': 'string'}}, {'echoStatic': 'show random message'}], 'InvalidationQueue': [{'countAll': 'show queue counts'}, {'count': 'show queue count'}, {'pause': 'pause queue'}, {'resume': 'resume queue'}, {'isPaused': 'return true if paused'}], 'MapReduceQueue(InvalidationQueue)': None}

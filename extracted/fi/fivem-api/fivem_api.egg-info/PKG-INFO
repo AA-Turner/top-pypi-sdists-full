@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: fivem-api
+Version: 0.1.2
+Summary: A library to query info, players and resources from FiveM server
+Home-page: https://github.com/Sander0542/fivem-api
+Author: Sander Jochems
+Author-email: contact@sanderjochems.com
+License: MIT
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Fivem API
+
+

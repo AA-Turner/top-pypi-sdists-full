@@ -1,0 +1,3 @@
+
+UART_WRITE_TIMEOUT = 0.1 # seconds
+UART_READ_TIMEOUT  = 0.25 # seconds

@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "badsecrets"
+version = "v0.12.12"
+description = "About"
+authors = ["A library for detecting known or weak secrets on across many platforms"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.group.dev.dependencies]
+requests-mock = "^1.10.0"
+pytest = "^8.3.4"
+pytest-cov = "^6.1.1"
+mock = "^5.1.0"
+pytest-mock = "^3.10.0"
+poetry-dynamic-versioning = {extras = ["plugin"], version = "^1.8.2"}
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pycryptodome = "^3.21.0"
+viewstate = ">=0.5.3,<0.8.0"
+flask-unsign = "^1.2.1"
+Django = "^4.1.2"
+pyjwt = {extras = ["crypto"], version = "^2.6.0"}
+requests = "^2.32.3"
+colorama = "^0.4.6"
+
+[tool.poetry.scripts]
+badsecrets = 'badsecrets.examples.cli:main'
+telerik-knownkey = 'badsecrets.examples.telerik_knownkey:main'
+symfony-knownkey = 'badsecrets.examples.symfony_knownkey:main'
+
+[tool.black]
+line-length = 119
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+metadata = true
+format = 'v0.12.{distance}'

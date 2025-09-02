@@ -1,0 +1,194 @@
+[build-system]
+requires = ["hatchling", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
+name = "harborapi"
+description = "Async Harbor API v2.0 client"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [{ name = "pederhan", email = "pederhan@uio.no" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Internet",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = [
+  "httpx>=0.28.1",
+  "pydantic>=2.2.1",
+  "backoff>=2.1.2",
+  "typing_extensions>=4.4.0",
+]
+dynamic = ["version", "readme"]
+
+[project.optional-dependencies]
+rich = ["rich>=12.6.0"]
+
+[project.urls]
+Source = "https://github.com/unioslo/harborapi"
+Documentation = "https://unioslo.github.io/harborapi/"
+Changelog = "https://github.com/unioslo/harborapi/blob/main/CHANGELOG.md"
+Issues = "https://github.com/unioslo/harborapi/issues"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "CHANGELOG.md"
+pattern = "<!-- changelog follows -->\n\n(.*)"
+
+[tool.hatch.version]
+path = "harborapi/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "mypy>=1.7.0",
+  "ruff>=0.4.8",
+  "pytest>=7.2.0",
+  "pytest-asyncio>=0.18.3",
+  "pytest-cov>=4.0.0",
+  "pytest-httpserver>=1.0.4",
+  "pytest-mock>=3.10.0",
+  "hypothesis>=6.62.1",
+  "coverage>=7.3.2",
+  "rich>=12.6.0",
+  "typer>=0.7.0",
+  "datamodel-code-generator>=0.25.1",
+  "python-dateutil>=2.8.2",
+]
+[tool.hatch.envs.default.scripts]
+# Tests
+test = "pytest {args}"
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=harborapi --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+covhtml = "cov {args} && coverage html && open htmlcov/index.html"
+
+# Version bumping
+bump = "python scripts/bump_version.py {args}"
+
+# API Models Codegen
+generate = ["generate-main", "generate-scanner"]
+generate-main = "./codegen/generate.sh main {args}"
+generate-scanner = "./codegen/generate.sh scanner {args}"
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "mkdocs>=1.5.2",
+  "mkdocs-material>=9.2.8",
+  "mkdocstrings>=0.23.0",
+  "mkdocstrings-python>=1.6.2",
+  "mkdocs-exclude-search>=0.6.5",
+  "rich>=13.5.2",
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --clean --strict"
+serve = "mkdocs serve --dev-addr localhost:8000"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["38", "39", "310", "311"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/docs", "/tests", "/scripts"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["harborapi"]
+
+[tool.coverage.run]
+source = ["./"]
+omit = ["harborapi/__about__.py", "*/*.pyi"]
+branch = true
+parallel = true
+
+[tool.coverage.paths]
+source = ["harborapi", "tests"]
+
+[tool.coverage.report]
+exclude_also = [
+  'except ImportError',
+  'except ModuleNotFoundError',
+  '^\s*pass\s*$',
+  'raise NotImplementedError',
+  '^\s*if TYPE_CHECKING:$',
+  '^\s*?\.\.\.\s*$',
+  'if __name__ == __main__:',
+]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+ignore = [
+  # Rules disabled due to using Ruff as formatter
+  # See: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "W191",   # Indentation contains tabs
+  "E111",   # Indentation is not a multiple of four
+  "E114",   # Indentation is not a multiple of four (comment)
+  "E117",   # Over-indented
+  "D206",   # Docstring should be indented with spaces, not tabs
+  "D300",   # Use """triple double quotes""" (found '''-quotes)
+  "Q000",   # Remove bad quotes (inlined)
+  "Q001",   # Remove bad quotes (multiline)
+  "Q002",   # Remove bad quotes (docstring)
+  "Q003",   # Avoidable escape quote
+  "COM812", # Missing trailing comma in Python 3.6+
+  "COM819", # Prohibited trailing comma
+  "ISC001", # Implicit string concatenation (single line)
+  "ISC002", # Implicit string concatenation (multiline)
+  # Other rules
+  "E501", # line too long (we let the formatter handle this)
+]
+exclude = [
+  "codegen/ast/fragments",
+  "harborapi/models/_models.py",
+  "harborapi/models/_scanner.py",
+]
+
+[tool.ruff.lint.isort]
+# Force one line per import to simplify diffing and merging
+force-single-line = true
+# Add annotations import to every file
+required-imports = ["from __future__ import annotations"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401", "F403"]
+"codegen/ast/fragments/*" = []
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true
+strict = true
+exclude = ['tests', 'codegen/temp']
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.datamodel-codegen]
+base-class = ".base.BaseModel"
+class-name = ".base.RootModel"
+field-constraints = true
+snake-case-field = true
+strip-default-none = false
+target-python-version = "3.8"
+use-schema-description = true
+use-field-descriptions = true
+input-file-type = "openapi"
+output-model-type = "pydantic_v2.BaseModel"
+use-default-kwarg = true

@@ -40,7 +40,10 @@ class TestGetCustomFieldsResponseDto(unittest.TestCase):
                         id = '', 
                         name = '', 
                         type = null, 
-                        entity = null, )
+                        entity = null, 
+                        allowed_values = [
+                            ''
+                            ], )
                     ]
             )
         else:

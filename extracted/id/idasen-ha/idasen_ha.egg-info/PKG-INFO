@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: idasen-ha
+Version: 2.6.3
+Summary: Home Assistant helper lib for the IKEA Idasen Desk integration
+Author-email: Abílio Costa <amfcalt@gmail.com>
+Project-URL: Homepage, https://github.com/abmantis/idasen-ha/
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: idasen<=0.12.0,>=0.10
+
+# Idasen HA
+
+Home Assistant helper lib for the IKEA Idasen Desk integration.

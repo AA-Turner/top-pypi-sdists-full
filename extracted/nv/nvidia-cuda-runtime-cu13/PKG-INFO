@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: nvidia-cuda-runtime-cu13
+Version: 0.0.0a0
+Summary: Zero version placeholder for nvidia-cuda-runtime-cu13
+Author-email: Nvidia CUDA Installer Team <compute_installer@nvidia.com>
+License: Apache-2.0

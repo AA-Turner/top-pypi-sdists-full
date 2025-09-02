@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: sauceclient
+Version: 1.0.1
+Summary: Python client library for Sauce Labs API
+Author: Corey Goldberg
+Maintainer: Corey Goldberg
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/cgoldberg/sauceclient
+Project-URL: source, https://github.com/cgoldberg/sauceclient
+Project-URL: download, https://pypi.org/project/sauceclient
+Keywords: API,Cloud,Testing,Sauce Labs
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# sauceclient
+
+## Python client library for Sauce Labs API
+
+- Copyright (c) 2013-2025 [Corey Goldberg][github-home]
+- Development: [GitHub][github-repo]
+- Releases: [PyPI][pypi]
+- Docs: [Read the Docs][readthedocs]
+- License: [Apache 2.0][license]
+
+[github-home]: https://github.com/cgoldberg
+[github-repo]: https://github.com/cgoldberg/sauceclient
+[pypi]: https://pypi.org/project/sauceclient
+[readthedocs]: https://sauceclient.readthedocs.io/
+[license]: https://raw.githubusercontent.com/cgoldberg/sauceclient/refs/heads/master/LICENSE
+
+----
+
+## About sauceclient
+
+**sauceclient** is a Python client library for the Sauce Labs API. You can
+manage a test environment and retrieve test assets from Sauce Labs.
+
+The API gives remote access to:
+
+ * Test Jobs & Assets (Results, Logs, Videos, Screenshots)
+ * Account
+ * Platform Information
+ * JavaScript Unit Tests
+ * Temporary Storage
+ * Tunnels
+
+Note: **sauceclient** is not used for running tests on Sauce Labs' services.
+Test execution is handled by your testing tool or library (Selenium,
+Playwright, Cypress, Appium, etc).
+
+----
+
+## About Sauce Labs
+
+Sauce Labs is a cloud-based service for running remote
+browser-based tests. It has VM's with 800+ browser/OS combinations, allowing
+comprehensive cross-browser cross-platform test coverage.
+
+ - [Sauce Labs][sauce-labs]
+ - [Sauce Labs REST API documentation][sauce-rest-api]
+
+[sauce-labs]: https://saucelabs.com
+[sauce-rest-api]: https://docs.saucelabs.com/dev/api
+
+----
+
+## Installation
+
+```
+pip install sauceclient
+```
+
+----
+
+## Example Usage
+
+- public access:
+
+```python
+import sauceclient
+
+sc = sauceclient.SauceClient()
+status = sc.information.get_status()
+```
+
+- with authorization:
+
+```python
+import sauceclient
+
+sc = sauceclient.SauceClient(
+    "sauce-username",
+    "sauce-access-key",
+)
+jobs = sc.jobs.get_jobs(full=True, limit=5)
+```

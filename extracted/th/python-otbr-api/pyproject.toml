@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=65.6"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name         = "python-otbr-api"
+version      = "2.7.0"
+license      = {text = "MIT"}
+description  = "API to interact with an OTBR via its REST API"
+readme       = "README.md"
+authors      = [
+    {name = "The Home Assistant Authors", email = "hello@home-assistant.io"}
+]
+requires-python = ">=3.9.0"
+dependencies = [
+    "aiohttp",
+    "bitstruct",
+    "cryptography",
+    "typing_extensions",
+    "voluptuous",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/home-assistant-libs/python-otbr-api"
+
+[tool.pylint.BASIC]
+class-const-naming-style = "any"
+good-names = [
+    "c",
+    "i",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.setuptools]
+platforms = ["any"]
+zip-safe  = true
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["python_otbr_api*"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]

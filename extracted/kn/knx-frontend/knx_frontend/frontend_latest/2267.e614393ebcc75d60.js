@@ -1,0 +1,8 @@
+export const __webpack_ids__=["2267"];export const __webpack_modules__={44339:function(t,o,e){e.r(o),e.d(o,{HaIconButtonArrowNext:()=>n});var a=e(73742),i=e(59048),r=e(7616),d=e(51597);e(78645);class n extends i.oi{render(){return i.dy`
+      <ha-icon-button
+        .disabled=${this.disabled}
+        .label=${this.label||this.hass?.localize("ui.common.next")||"Next"}
+        .path=${this._icon}
+      ></ha-icon-button>
+    `}constructor(...t){super(...t),this.disabled=!1,this._icon="rtl"===d.E.document.dir?"M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z":"M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z"}}(0,a.__decorate)([(0,r.Cb)({attribute:!1})],n.prototype,"hass",void 0),(0,a.__decorate)([(0,r.Cb)({type:Boolean})],n.prototype,"disabled",void 0),(0,a.__decorate)([(0,r.Cb)()],n.prototype,"label",void 0),(0,a.__decorate)([(0,r.SB)()],n.prototype,"_icon",void 0),n=(0,a.__decorate)([(0,r.Mo)("ha-icon-button-arrow-next")],n)}};
+//# sourceMappingURL=2267.e614393ebcc75d60.js.map

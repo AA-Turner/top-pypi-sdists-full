@@ -1,0 +1,21 @@
+"""Constants for Medcom BLE radiation monitors parser."""
+
+from uuid import UUID
+
+# Medcom specific UUIDs
+
+# Inspector BLE
+INSPECTOR_SERVICE_UUID = "39b31fec-b63a-4ef7-b163-a7317872007f"
+INSPECTOR_CPM_UUID = "d68236af-266f-4486-b42d-80356ed5afb7"
+
+# Standard UUIDs for device details
+CHAR_UUID_MODEL_NUMBER_STRING = UUID("00002a24-0000-1000-8000-00805f9b34fb")
+CHAR_UUID_SERIAL_NUMBER_STRING = UUID("00002a25-0000-1000-8000-00805f9b34fb")
+CHAR_UUID_FIRMWARE_REV = UUID("00002a26-0000-1000-8000-00805f9b34fb")
+CHAR_UUID_HARDWARE_REV = UUID("00002a27-0000-1000-8000-00805f9b34fb")
+CHAR_UUID_MANUFACTURER_NAME = UUID("00002a29-0000-1000-8000-00805f9b34fb")
+
+# From reading the CHAR_UUID_HARDWARE_REV characteristic
+DEVICE_TYPE = {
+    "Inspector-BLE": "Inspector BLE",  # Silabs BGM111 version of BLE board
+}

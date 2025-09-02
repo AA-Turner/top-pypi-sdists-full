@@ -26,7 +26,8 @@ class RequestsClient(HttpClient):
                  verify=True,
                  http_client_instance=None,
                  override_http_client_configuration=False,
-                 response_factory=None):
+                 response_factory=None,
+                 proxies=None):
         """The constructor.
 
         Args:
@@ -40,6 +41,7 @@ class RequestsClient(HttpClient):
             http_client_instance (HttpClient): The custom HTTP client instance to use.
             override_http_client_configuration (bool): Flag to override configuration for the custom HTTP client.
             response_factory (ResponseFactory): The response factory to convert actual server response to SDK response.
+            proxies (Dict[str, str]): A dictionary mapping protocol to the URL of the proxy.
 
         """
         if not verify:
@@ -48,7 +50,7 @@ class RequestsClient(HttpClient):
         if http_client_instance is None:
             self.create_default_http_client(timeout, cache, max_retries,
                                             backoff_factor, retry_statuses,
-                                            retry_methods, verify)
+                                            retry_methods, verify, proxies)
         else:
             if override_http_client_configuration:
                 http_client_instance.timeout = timeout
@@ -69,7 +71,8 @@ class RequestsClient(HttpClient):
                                    backoff_factor=None,
                                    retry_statuses=None,
                                    retry_methods=None,
-                                   verify=True):
+                                   verify=True,
+                                   proxies=None):
         """creates the default instance of HTTP client.
 
         Args:
@@ -80,6 +83,7 @@ class RequestsClient(HttpClient):
             retry_statuses (iterable): A set of integer HTTP status codes that we should force a retry on.
             retry_methods (iterable): Set of HTTP method verbs that we should retry on.
             verify (bool): Flag to enable/disable verification of SSL certificate on the host.
+            proxies (Dict[str, str]): A dictionary mapping protocol to the URL of the proxy.
 
         """
         self.timeout = timeout
@@ -92,7 +96,8 @@ class RequestsClient(HttpClient):
                                allowed_methods=retry_methods, raise_on_status=False, raise_on_redirect=False)
         self.session.mount('http://', HTTPAdapter(max_retries=retry_strategy))
         self.session.mount('https://', HTTPAdapter(max_retries=retry_strategy))
-
+        if proxies is not None:
+            self.session.proxies.update(proxies)
         self.session.verify = verify
 
     def force_retries(self, request, should_retry=None):

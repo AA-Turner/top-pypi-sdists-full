@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "m24842_ml"
+version = "1.5.36"
+description = "Collection of ML models and benchmarking tools"
+requires-python = ">=3.8"
+dependencies = [
+    "torch",
+    "torchdiffeq",
+    "torchvision",
+    "transformers",
+    "datasets==3.6.0",
+    "tensor_parallel",
+    "numpy",
+    "pandas",
+    "einops",
+    "opt_einsum",
+    "rotary_embedding_torch",
+    "wandb",
+    "pyyaml",
+    "tqdm",
+    "zstandard",
+]
+
+[project.optional-dependencies]
+cuda = [
+  "mamba-ssm",
+  "causal-conv1d",
+]

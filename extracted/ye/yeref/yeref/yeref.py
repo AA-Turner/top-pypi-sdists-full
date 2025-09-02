@@ -14973,6 +14973,60 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
+async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJECT_TYPE, BASE_P):
+    try:
+        ENT_JSONTGPH = None
+        PROJECT_TYPE = PROJECT_TYPE.upper()
+
+        if PROJECT_TYPE == 'BOT':
+            tgph_ph = bot_logo_jpeg
+        elif PROJECT_TYPE == 'CHANNEL':
+            tgph_ph = channel_logo_jpeg
+        elif PROJECT_TYPE == 'GROUP':
+            tgph_ph = group_logo_jpeg
+            PROJECT_TYPE = f"{PROJECT_TYPE}P"
+        else:
+            tgph_ph = user_logo_jpeg
+
+        telegraph_ = Telegraph()
+        title = l_telegraph_title[UB_LZ]
+        author_url = f"https://t.me/{ENT_USERNAME}"
+        tgph_ph = str(tgph_ph).replace('https://telegra.ph', '')
+        bio = "💙 verified"
+        account_ = await telegraph_.create_account(short_name=short_name,
+                                                   author_name=ENT_USERNAME,
+                                                   author_url=author_url)
+
+        if ENT_USERNAME:
+            n = f"<a href='https://t.me/{ENT_USERNAME}'>@{ENT_USERNAME}</a> <br>{ENT_FIRSTNAME}"
+        else:
+            n = f"<b>{ENT_FIRSTNAME}</b>"
+
+        los = ("<figure><img src='{0}'/><figcaption>Photo: @{1}</figcaption></figure>"
+               "<blockquote>Landing <i>Telegram</i> Bot</blockquote>"
+               "👩🏽‍💻 <b>Account:</b> {2}<br>[<b>id</b>=<code>{3}</code>]<br>"
+               "<b>Info:</b> {4}<br><aside>By</aside>"
+               "<aside><a href='https://t.me/{5}'>Link</a></aside>")
+        html_ = los.format(tgph_ph, ENT_USERNAME, n, ENT_TID, bio, ENT_USERNAME)
+        page_1 = await telegraph_.create_page(title=title,
+                                              html_content=html_,
+                                              author_name=ENT_USERNAME,
+                                              author_url=author_url)
+        # page_2 = await telegraph_.create_page(title=title_hash, html_content='{}')
+        ENT_TOKENTGPH = account_['access_token']
+        ENT_PAGETGPH = page_1['url']
+        # ENT_JSONTGPH = page_2['url']
+        sql = f"""
+            UPDATE "{PROJECT_TYPE}" 
+            SET {PROJECT_TYPE}_TOKENTGPH=$1, {PROJECT_TYPE}_PAGETGPH=$2, {PROJECT_TYPE}_JSONTGPH=$3 
+            WHERE {PROJECT_TYPE}_TID=$4
+        """
+        await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, int(ENT_TID),), BASE_P)
+    except Exception as e:
+        logger.info(log_ % f"{str(e)}")
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
 async def send_request_async(url_, json_):
     try:
         print(f"{url_=}")

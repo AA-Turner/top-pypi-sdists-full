@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: ovoenergy
+Version: 2.0.1
+Summary: OVO Energy
+Home-page: https://github.com/timmo001/ovoenergy
+Author: Aidan Timson (Timmo)
+Author-email: aidan@timmo.dev
+License: Apache-2.0
+Keywords: python,ovoenergy,api
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.5; python_version < "3.12"
+Requires-Dist: aiohttp>=3.9.0b0; python_version >= "3.12"
+Requires-Dist: typer>=0.6.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# ovoenergy
+
+Get energy data from OVO's API.
+
+This is a reverse-engineered API for OVO's energy data. It is not officially supported by OVO.

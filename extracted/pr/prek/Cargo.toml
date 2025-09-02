@@ -1,0 +1,156 @@
+[workspace]
+members = ["lib/*"]
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+constants = { path = "lib/constants" }
+tracing = { version = "0.1.40" }
+
+[package]
+name = "prek"
+version = "0.1.5"
+authors = ["j178 <hi@j178.dev>"]
+description = "Better `pre-commit`, re-engineered in Rust"
+repository = "https://github.com/j178/prek"
+homepage = "https://github.com/j178/prek"
+edition = { workspace = true }
+license-file = "LICENSE"
+readme = "README.md"
+
+[features]
+default = ["docker"]
+# Adds self-update functionality. This feature is only enabled for prek built binarys
+# and should be left unselected when building prek for package managers.
+self-update = ["axoupdater"]
+# Enable the profiler for benchmarking
+profiler = ["dep:pprof", "profiler-flamegraph"]
+profiler-flamegraph = ["pprof/flamegraph"]
+# Enable docker related tests in integration tests
+docker = []
+# For testing uv installing from GitHub and PyPI
+uv-source-github = []
+uv-source-pypi = []
+
+[dependencies]
+anstream = { version = "0.6.15" }
+anyhow = { version = "1.0.86" }
+astral-tokio-tar = { version = "0.5.1" }
+async-compression = { version = "0.4.18", features = ["gzip", "xz", "tokio"] }
+async_zip = { git = "https://github.com/astral-sh/rs-async-zip", rev = "c909fda63fcafe4af496a07bfda28a5aae97e58d", features = ["deflate", "tokio"] }
+axoupdater = { version = "0.9.0", default-features = false, features = [ "github_releases"], optional = true }
+bstr = { version = "1.11.0" }
+clap = { version = "4.5.16", features = ["derive", "env", "string", "wrap_help"] }
+clap_complete = { version = "4.5.37", features = ["unstable-dynamic"]}
+ctrlc = { version = "3.4.5" }
+constants = { workspace = true }
+dunce = { version = "1.0.5" }
+etcetera = { version = "0.10.0" }
+fancy-regex = { version = "0.16.0" }
+fs-err = { version = "3.1.0", features = ["tokio"] }
+futures = { version = "0.3.31" }
+hex = { version = "0.4.3" }
+http = { version = "1.1.0" }
+indicatif = { version = "0.18.0" }
+indoc = { version = "2.0.5" }
+itertools = { version = "0.14.0" }
+# Enable static linking for liblzma
+# This is required for the `xz` feature in `async-compression`
+liblzma = { version = "*", features = ["static"]}
+memchr = { version = "2.7.5" }
+owo-colors = { version = "4.1.0" }
+rand = { version = "0.9.0" }
+rayon = { version = "1.10.0" }
+reqwest = { version = "0.12.9", default-features = false, features = ["http2", "stream", "json", "rustls-tls-webpki-roots"] }
+rustc-hash = { version = "2.1.1" }
+same-file = { version = "1.0.6" }
+semver = { version = "1.0.24", features = ["serde"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_ignored = { version = "0.1.12" }
+serde_json = { version = "1.0.132" , features = ["unbounded_depth"]}
+serde_stacker = {version = "0.1.12"}
+serde_yaml = { version = "0.9.34" }
+shlex = { version = "1.3.0" }
+target-lexicon = { version = "0.13.0" }
+tempfile = { version = "3.13.0" }
+textwrap = { version = "0.16.1" }
+thiserror = { version = "2.0.11" }
+tokio = { version = "1.47.1", features = ["fs", "process", "rt", "sync", "macros"] }
+tokio-util = { version = "0.7.13" }
+toml = { version = "0.9.5", default-features = false, features = ["parse", "serde"]}
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+unicode-width = { version = "0.2.0" }
+url = { version = "2.5.2", features = ["serde"] }
+which = { version = "8.0.0" }
+
+[target.'cfg(unix)'.dependencies]
+pty = { path = "lib/pty" }
+libc = { version = "0.2.164" }
+pprof = { version = "0.15.0", optional = true }
+
+[dev-dependencies]
+assert_cmd = { version = "2.0.16", features = ["color"] }
+assert_fs = { version = "1.1.2" }
+etcetera = { version = "0.10.0" }
+insta = { version = "1.40.0", features = ["filters"] }
+insta-cmd = { version = "0.6.0" }
+predicates = { version = "3.1.2" }
+regex = { version = "1.11.0" }
+
+[package.metadata.cargo-shear]
+ignored = ["liblzma"]
+
+[build-dependencies]
+fs-err = { version = "3.1.0" }
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+dead_code = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -2 }
+# Allowed pedantic lints
+char_lit_as_u8 = "allow"
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+implicit_hasher = "allow"
+map_unwrap_or = "allow"
+match_same_arms = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+too_many_arguments = "allow"
+too_many_lines = "allow"
+used_underscore_binding = "allow"
+# Disallowed restriction lints
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+empty_structs_with_brackets = "warn"
+exit = "warn"
+get_unwrap = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+
+[workspace.metadata.typos.default.extend-words]
+edn = "edn"
+styl = "styl"
+jod = "jod"
+
+[profile.bench]
+opt-level = 3
+debug = true # used by the profiler
+strip = false # keep symbols for the profiler
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

@@ -3012,6 +3012,23 @@ class GitAttributesFile(
         '''
         return typing.cast(None, jsii.invoke(self, "preSynthesize", []))
 
+    @jsii.member(jsii_name="removeAttributes")
+    def remove_attributes(self, glob: builtins.str, *attributes: builtins.str) -> None:
+        '''(experimental) Removes attributes from a set of files.
+
+        If no attributes are provided, the glob pattern will be removed completely.
+
+        :param glob: Glob pattern to modify.
+        :param attributes: Attributes to remove from matched files.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__573b65747d3cd070f990730baa2e2b06016818d32122c7fbc2696b8513582a7d)
+            check_type(argname="argument glob", value=glob, expected_type=type_hints["glob"])
+            check_type(argname="argument attributes", value=attributes, expected_type=typing.Tuple[type_hints["attributes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "removeAttributes", [glob, *attributes]))
+
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(self, _: "IResolver") -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
@@ -13061,6 +13078,13 @@ def _typecheckingstub__8cc1d5969ab32878c5548a9a17af7e781548f696676f62cee57518e7f
 
 def _typecheckingstub__ed3c05c2bc87434261501604cb4ca8386e08b16567b40f693170ab90f635b1a7(
     glob: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__573b65747d3cd070f990730baa2e2b06016818d32122c7fbc2696b8513582a7d(
+    glob: builtins.str,
+    *attributes: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

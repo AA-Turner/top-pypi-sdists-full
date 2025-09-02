@@ -359,6 +359,7 @@ class DocSerializer(BaseModel, BaseDocSerializer):
                 item=item,
                 doc_serializer=self,
                 doc=self.doc,
+                visited=my_visited,
                 **my_kwargs,
             )
         elif isinstance(item, PictureItem):

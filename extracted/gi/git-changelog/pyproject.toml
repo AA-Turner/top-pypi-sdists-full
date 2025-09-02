@@ -10,6 +10,10 @@ description = "Automatic Changelog generator using Jinja2 templates."
 authors = [
     { name = "Timothée Mazzucotelli", email = "dev@pawamoy.fr" },
 ]
+license = "ISC"
+license-files = [
+    "LICENSE",
+]
 readme = "README.md"
 requires-python = ">=3.9"
 keywords = [
@@ -46,10 +50,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
     "typing-extensions>=4.9; python_version < '3.13'",
 ]
-version = "2.5.3"
-
-[project.license]
-text = "ISC"
+version = "2.6.1"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/git-changelog"
@@ -65,13 +66,13 @@ Funding = "https://github.com/sponsors/pawamoy"
 git-changelog = "git_changelog.cli:main"
 
 [tool.pdm.version]
-source = "scm"
+source = "call"
+getter = "scripts.get_version:get_version"
 
 [tool.pdm.build]
-package-dir = "src"
-editable-backend = "editables"
 excludes = [
     "**/.pytest_cache",
+    "**/.mypy_cache",
 ]
 source-includes = [
     "config",
@@ -90,13 +91,22 @@ data = [
     { path = "share/**/*", relative-to = "." },
 ]
 
+[tool.uv]
+default-groups = [
+    "maintain",
+    "ci",
+    "docs",
+]
+
 [dependency-groups]
-dev = [
-    "editables>=0.5",
+maintain = [
     "build>=1.2",
     "git-changelog>=2.5",
     "twine>=5.1",
-    "duty>=1.4",
+    "yore>=0.3.3",
+]
+ci = [
+    "duty>=1.6",
     "ruff>=0.4",
     "pytest>=8.2",
     "pytest-cov>=5.0",
@@ -106,16 +116,18 @@ dev = [
     "types-markdown>=3.6",
     "types-pyyaml>=6.0",
     "tomli-w>=1.0",
-    "black>=24.4",
+]
+docs = [
+    "griffe-inherited-docstrings>=1.1",
     "markdown-callouts>=0.4",
     "markdown-exec>=1.8",
     "mkdocs>=1.6",
     "mkdocs-coverage>=1.0",
-    "mkdocs-gen-files>=0.5",
     "mkdocs-git-revision-date-localized-plugin>=1.2",
-    "mkdocs-literate-nav>=0.6",
+    "mkdocs-llmstxt>=0.2",
     "mkdocs-material>=9.5",
     "mkdocs-minify-plugin>=0.8",
-    "mkdocstrings[python]>=0.25",
+    "mkdocs-section-index>=0.3",
+    "mkdocstrings[python]>=0.29",
     "tomli>=2.0; python_version < '3.11'",
 ]

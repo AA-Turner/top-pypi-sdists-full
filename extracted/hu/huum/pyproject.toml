@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "huum"
+version = "0.8.1"
+description = "Python library for Huum saunas"
+authors = ["Frank Wickström <frwickst@gmail.com>"]
+repository = "https://github.com/frwickst/pyhuum"
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">3.9"
+aiohttp = {extras = ["speedups"], version = "^3.12.12"}
+mashumaro = "^3.16"
+
+[tool.poetry.extras]
+aiohttp = ["aiohttp"]
+
+[tool.poetry.dev-dependencies]
+ruff = "^0.11.13"
+mypy = "^1.16.0"
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+pytest-cov = "^6.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+source = ["huum", "tests"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+
+[tool.ruff]
+line-length = 104
+lint.select = ["E4", "E7", "E9", "F", "G", "T20", "TRY004", "TRY203", "TRY400", "B", "ERA", "PIE", "I"]
+lint.ignore = ["E203", "E501", "B007", "B026", "B904", "PIE808"]

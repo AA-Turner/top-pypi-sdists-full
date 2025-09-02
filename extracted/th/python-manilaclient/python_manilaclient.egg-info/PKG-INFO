@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-manilaclient
-Version: 5.5.0
+Version: 5.6.0
 Summary: Client library for OpenStack Manila API.
 Home-page: https://docs.openstack.org/python-manilaclient/latest/
 Author: OpenStack
@@ -15,11 +15,10 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr>=3.0.0
 Requires-Dist: oslo.config>=5.2.0

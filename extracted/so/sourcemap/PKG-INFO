@@ -1,0 +1,37 @@
+Metadata-Version: 1.1
+Name: sourcemap
+Version: 0.2.1
+Summary: Parse JavaScript source maps.
+Home-page: https://github.com/mattrobenolt/python-sourcemap
+Author: Matt Robenolt
+Author-email: matt@ydekproductions.com
+License: UNKNOWN
+Description: 
+        SourceMap
+        ~~~~~~~~~
+        
+        Parse JavaScript source maps.
+        
+          >>> import sourcemap
+          >>> sourcemap.discover('...')
+          'jquery.min.map'
+          >>> index = sourcemap.loads('...')
+          >>> index.lookup(line=10, column=10)
+          <Token: dst_line=10 dst_column=10 src='jquery.js' src_line=50 src_col=200 name='lol'>
+        
+        :copyright: (c) 2013 by Matt Robenolt
+        :license: BSD, see LICENSE for more details.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development

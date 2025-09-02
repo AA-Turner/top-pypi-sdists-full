@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "streamlit-notify"
+description = "A Streamlit component that provides toast notifications that persist across reruns"
+readme = "README.md"
+authors = [
+    {name = "Patrick Garrett", email = "pgarrett@scripps.edu"},
+]
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "streamlit",
+    "packaging",
+]
+requires-python = ">=3.7"
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/pgarrett-scripps/Streamlit_Notify"
+Documentation = "https://streamlit-notify.readthedocs.io/en/latest/usage.html"
+Demo = "https://st-notify.streamlit.app/"
+PyPI = "https://pypi.org/project/streamlit-notify/"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "streamlit_notify.__version__"}

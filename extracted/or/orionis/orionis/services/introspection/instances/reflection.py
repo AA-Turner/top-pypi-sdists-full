@@ -1042,9 +1042,6 @@ class ReflectionInstance(IReflectionInstance):
             # Check if the attribute is a class method
             if isinstance(attr, classmethod):
 
-                # Get the underlying function
-                func = attr.__func__
-
                 # Check if a private class method
                 if name.startswith(f"_{class_name}"):
                     private_class_methods.append(str(name).replace(f"_{class_name}", ""))

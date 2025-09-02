@@ -17,341 +17,202 @@ class Directory(IDirectory):
 
     def __init__(self, app: IApplication) -> None:
         """
-        Initialize the Directory with an application instance.
+        Initialize the Directory service.
 
         Parameters
         ----------
         app : IApplication
             The application instance used to resolve directory paths.
+
+        Returns
+        -------
+        None
         """
         self.__app = app
 
     def root(self) -> Path:
         """
-        Get the root directory path of the application.
+        Get the root directory of the application.
 
         Returns
         -------
         Path
-            The path to the application's root directory.
+            Path object representing the root directory.
         """
         return Path(self.__app.path('root'))
 
-    def console(self) -> Path:
+    def app(self) -> Path:
         """
-        Get the console directory path.
+        Get the main application directory.
 
         Returns
         -------
         Path
-            The path to the console directory.
+            Path object representing the application directory.
+        """
+        return Path(self.__app.path('app'))
+
+    def console(self) -> Path:
+        """
+        Get the console directory.
+
+        Returns
+        -------
+        Path
+            Path object representing the console directory.
         """
         return Path(self.__app.path('console'))
 
-    def consoleCommands(self) -> Path:
+    def exceptions(self) -> Path:
         """
-        Get the console commands directory path.
+        Get the exceptions directory.
 
         Returns
         -------
         Path
-            The path to the console commands directory.
+            Path object representing the exceptions directory.
         """
-        return Path(self.__app.path('console')) / 'commands'
+        return Path(self.__app.path('exceptions'))
 
-    def consoleListeners(self) -> Path:
+    def http(self) -> Path:
         """
-        Get the console listeners directory path.
-
-        Returns
-        -------
-        Path
-            The path to the console listeners directory.
-        """
-        return Path(self.__app.path('console')) / 'listeners'
-
-    def controllers(self) -> Path:
-        """
-        Get the controllers directory path.
+        Get the HTTP directory.
 
         Returns
         -------
         Path
-            The path to the controllers directory.
+            Path object representing the HTTP directory.
         """
-        return Path(self.__app.path('controllers'))
-
-    def middleware(self) -> Path:
-        """
-        Get the middleware directory path.
-
-        Returns
-        -------
-        Path
-            The path to the middleware directory.
-        """
-        return Path(self.__app.path('middleware'))
-
-    def requests(self) -> Path:
-        """
-        Get the requests directory path.
-
-        Returns
-        -------
-        Path
-            The path to the requests directory.
-        """
-        return Path(self.__app.path('requests'))
+        return Path(self.__app.path('http'))
 
     def models(self) -> Path:
         """
-        Get the models directory path.
+        Get the models directory.
 
         Returns
         -------
         Path
-            The path to the models directory.
+            Path object representing the models directory.
         """
         return Path(self.__app.path('models'))
 
     def providers(self) -> Path:
         """
-        Get the providers directory path.
+        Get the providers directory.
 
         Returns
         -------
         Path
-            The path to the providers directory.
+            Path object representing the providers directory.
         """
         return Path(self.__app.path('providers'))
 
-    def events(self) -> Path:
-        """
-        Get the events directory path.
-
-        Returns
-        -------
-        Path
-            The path to the events directory.
-        """
-        return Path(self.__app.path('events'))
-
-    def listeners(self) -> Path:
-        """
-        Get the listeners directory path.
-
-        Returns
-        -------
-        Path
-            The path to the listeners directory.
-        """
-        return Path(self.__app.path('listeners'))
-
     def notifications(self) -> Path:
         """
-        Get the notifications directory path.
+        Get the notifications directory.
 
         Returns
         -------
         Path
-            The path to the notifications directory.
+            Path object representing the notifications directory.
         """
         return Path(self.__app.path('notifications'))
 
-    def jobs(self) -> Path:
-        """
-        Get the jobs directory path.
-
-        Returns
-        -------
-        Path
-            The path to the jobs directory.
-        """
-        return Path(self.__app.path('jobs'))
-
-    def policies(self) -> Path:
-        """
-        Get the policies directory path.
-
-        Returns
-        -------
-        Path
-            The path to the policies directory.
-        """
-        return Path(self.__app.path('policies'))
-
-    def exceptions(self) -> Path:
-        """
-        Get the exceptions directory path.
-
-        Returns
-        -------
-        Path
-            The path to the exceptions directory.
-        """
-        return Path(self.__app.path('exceptions'))
-
     def services(self) -> Path:
         """
-        Get the services directory path.
+        Get the services directory.
 
         Returns
         -------
         Path
-            The path to the services directory.
+            Path object representing the services directory.
         """
         return Path(self.__app.path('services'))
 
-    def views(self) -> Path:
+    def jobs(self) -> Path:
         """
-        Get the views directory path.
+        Get the jobs directory.
 
         Returns
         -------
         Path
-            The path to the views directory.
+            Path object representing the jobs directory.
         """
-        return Path(self.__app.path('views'))
+        return Path(self.__app.path('jobs'))
 
-    def lang(self) -> Path:
+    def bootstrap(self) -> Path:
         """
-        Get the language files directory path.
-
-        Returns
-        -------
-        Path
-            The path to the language files directory.
-        """
-        return Path(self.__app.path('lang'))
-
-    def assets(self) -> Path:
-        """
-        Get the assets directory path.
+        Get the bootstrap directory.
 
         Returns
         -------
         Path
-            The path to the assets directory.
+            Path object representing the bootstrap directory.
         """
-        return Path(self.__app.path('assets'))
-
-    def routes(self) -> Path:
-        """
-        Get the routes directory path.
-
-        Returns
-        -------
-        Path
-            The path to the routes directory.
-        """
-        return Path(self.__app.path('routes'))
+        return Path(self.__app.path('bootstrap'))
 
     def config(self) -> Path:
         """
-        Get the configuration directory path.
+        Get the configuration directory.
 
         Returns
         -------
         Path
-            The path to the configuration directory.
+            Path object representing the configuration directory.
         """
         return Path(self.__app.path('config'))
 
-    def migrations(self) -> Path:
+    def database(self) -> Path:
         """
-        Get the migrations directory path.
+        Get the database directory.
 
         Returns
         -------
         Path
-            The path to the migrations directory.
+            Path object representing the database directory.
         """
-        return Path(self.__app.path('migrations'))
+        return Path(self.__app.path('database'))
 
-    def seeders(self) -> Path:
+    def resources(self) -> Path:
         """
-        Get the seeders directory path.
-
-        Returns
-        -------
-        Path
-            The path to the seeders directory.
-        """
-        return Path(self.__app.path('seeders'))
-
-    def factories(self) -> Path:
-        """
-        Get the factories directory path.
+        Get the resources directory.
 
         Returns
         -------
         Path
-            The path to the factories directory.
+            Path object representing the resources directory.
         """
-        return Path(self.__app.path('factories'))
+        return Path(self.__app.path('resources'))
 
-    def logs(self) -> Path:
+    def routes(self) -> Path:
         """
-        Get the logs directory path.
-
-        Returns
-        -------
-        Path
-            The path to the logs directory.
-        """
-        return Path(self.__app.path('logs'))
-
-    def sessions(self) -> Path:
-        """
-        Get the sessions directory path.
+        Get the routes directory.
 
         Returns
         -------
         Path
-            The path to the sessions directory.
+            Path object representing the routes directory.
         """
-        return Path(self.__app.path('sessions'))
-
-    def cache(self) -> Path:
-        """
-        Get the cache directory path.
-
-        Returns
-        -------
-        Path
-            The path to the cache directory.
-        """
-        return Path(self.__app.path('cache'))
-
-    def testing(self) -> Path:
-        """
-        Get the testing directory path.
-
-        Returns
-        -------
-        Path
-            The path to the testing directory.
-        """
-        return Path(self.__app.path('testing'))
+        return Path(self.__app.path('routes'))
 
     def storage(self) -> Path:
         """
-        Get the storage directory path.
+        Get the storage directory.
 
         Returns
         -------
         Path
-            The path to the storage directory.
+            Path object representing the storage directory.
         """
         return Path(self.__app.path('storage'))
 
     def tests(self) -> Path:
         """
-        Get the tests directory path.
+        Get the tests directory.
 
         Returns
         -------
         Path
-            The path to the tests directory.
+            Path object representing the tests directory.
         """
         return Path(self.__app.path('tests'))

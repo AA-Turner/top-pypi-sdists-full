@@ -1,0 +1,92 @@
+name: generic_buyer
+author: fetchai
+version: 0.26.0
+type: skill
+description: The weather client skill implements the skill to purchase weather data.
+license: Apache-2.0
+aea_version: '>=2.0.0, <3.0.0'
+fingerprint:
+  README.md: bafybeig3rwpeqh5kdr2iflvy72vkfmby3sl4ulb3sbblt5lndvogvlblme
+  __init__.py: bafybeic6biuigdmylscufxz6suvtkxems27j2cns3h36e53gxlm5hihvza
+  behaviours.py: bafybeicsftdc3rya773wbxgbn4punkedgnu6ls7z7f4i3fs5nkhwgdfcj4
+  dialogues.py: bafybeig4jzy25idmmfmlxlm2grutx3qdsur6k6ah2vubbp47lrgixa2rfq
+  handlers.py: bafybeidoyxhbggrzmifqlcvbivitwkzqpljuf2lpgph3r2vlxlqunqhna4
+  strategy.py: bafybeidzwda36osegdqljxoxcj5ljds5k62iuti73qu2ghzl6nubadmaxe
+  tests/__init__.py: bafybeid6od3orr5gjysmm4lbcn6xcul22n2dlc7qafppiqvkvcov2pftiu
+  tests/test_behaviours.py: bafybeicjtzefueekagkw7qfrttaogpvss53n6bjqbf4rmgwdzpj3hbdrxq
+  tests/test_dialogues.py: bafybeih3hp72ueixsboojh3wzjgw26qluv54i6kirgn23o7jmwmcqrgboy
+  tests/test_handlers.py: bafybeibve5lkkpdiwwomd2qhn5bu5ink2ct5w36ynhd7jfbfacnurxqp3q
+  tests/test_models.py: bafybeibte32m37u42tkg4nisfkuyhn5tfwp42yuxwr3fsdbm2pnc2mpfcu
+fingerprint_ignore_patterns: []
+connections:
+- valory/ledger:0.19.0:bafybeifdsep5suryfufmto4j5fyvjhmlgypyg6zvvwqsm4edlwfbfsav5y
+contracts: []
+protocols:
+- fetchai/default:1.0.0:bafybeifs26twgfmrcxxxrexsa42aol3rbktdqa3u5vvjlywzm5rh2nfmee
+- fetchai/fipa:1.0.0:bafybeifjoud3662m67zssxgtnhm5jqqhjcw5qmqvwbrtc6iuxatxmaoq3m
+- fetchai/oef_search:1.0.0:bafybeif6hudy4bvhnvolyjfbgbqhc3vrm5wy62z5d53qfb3zehehmcn4pq
+- open_aea/signing:1.0.0:bafybeib7p5as3obcdzseiwg5umj2piiqaodkxkto7qh7b552l5emwsmdzm
+- valory/ledger_api:1.0.0:bafybeiga6gdd3ccdt5jgrov474koz524f3pfbhprwxfjj7wextkl7wozsa
+skills: []
+behaviours:
+  search:
+    args:
+      search_interval: 5
+    class_name: GenericSearchBehaviour
+  transaction:
+    args:
+      max_processing: 420
+      transaction_interval: 2
+    class_name: GenericTransactionBehaviour
+handlers:
+  fipa:
+    args: {}
+    class_name: GenericFipaHandler
+  ledger_api:
+    args: {}
+    class_name: GenericLedgerApiHandler
+  oef_search:
+    args: {}
+    class_name: GenericOefSearchHandler
+  signing:
+    args: {}
+    class_name: GenericSigningHandler
+models:
+  default_dialogues:
+    args: {}
+    class_name: DefaultDialogues
+  fipa_dialogues:
+    args: {}
+    class_name: FipaDialogues
+  ledger_api_dialogues:
+    args: {}
+    class_name: LedgerApiDialogues
+  oef_search_dialogues:
+    args: {}
+    class_name: OefSearchDialogues
+  signing_dialogues:
+    args: {}
+    class_name: SigningDialogues
+  strategy:
+    args:
+      is_ledger_tx: true
+      location:
+        latitude: 51.5194
+        longitude: 0.127
+      max_negotiations: 1
+      max_quantity: 100
+      max_tx_fee: 1
+      max_unit_price: 20
+      min_quantity: 1
+      search_query:
+        constraint_type: ==
+        search_key: seller_service
+        search_value: generic_service
+      search_radius: 5.0
+      service_id: generic_service
+      stop_searching_on_result: true
+    class_name: GenericStrategy
+dependencies:
+  open-aea-ledger-fetchai:
+    version: <3.0.0,>=2.0.0
+is_abstract: true

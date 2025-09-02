@@ -31,7 +31,11 @@ class XEP_0385(BasePlugin):
 
         register_stanza_plugin(stanza.Sims, stanza.Sources)
         register_stanza_plugin(stanza.Sims, self.xmpp["xep_0234"].stanza.File)
-        register_stanza_plugin(stanza.Sources, self.xmpp["xep_0372"].stanza.Reference)
+        register_stanza_plugin(
+            stanza.Sources,
+            self.xmpp["xep_0372"].stanza.Reference,
+            iterable=True,
+        )
 
     def get_sims(
         self,

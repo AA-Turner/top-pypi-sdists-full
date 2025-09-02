@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkknx_frontend=self.webpackChunkknx_frontend||[]).push([["9600"],{72764:function(n,e,t){t.r(e);var u=t(11979);u.ZP.mount(u.V8),u.ZP.mount(new u.lK),e.default=u.ZP}}]);
+//# sourceMappingURL=9600.bba4cc6dc86652c3.js.map

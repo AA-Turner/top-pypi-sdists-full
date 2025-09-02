@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: aionanoleaf
+Version: 0.2.1
+Summary: Async Python package for the Nanoleaf API
+Home-page: https://github.com/milanmeu/aionanoleaf
+Author: Milan Meulemans
+Author-email: milan.meulemans@live.be
+License: LGPLv3+
+Project-URL: Say Thanks!, https://saythanks.io/to/milan.meulemans@live.be
+Project-URL: Bug Tracker, https://github.com/milanmeu/aionanoleaf/issues
+Project-URL: Source Code, https://github.com/milanmeu/aionanoleaf
+Project-URL: Documentation, https://github.com/milanmeu/aionanoleaf/blob/main/README.md
+Keywords: nanoleaf api canvas shapes elements light panels
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Topic :: Home Automation
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+
+# aioNanoleaf package 
+[![PyPI](https://img.shields.io/pypi/v/aionanoleaf)](https://pypi.org/project/aionanoleaf/) ![PyPI - Downloads](https://img.shields.io/pypi/dm/aionanoleaf) [![PyPI - License](https://img.shields.io/pypi/l/aionanoleaf?color=blue)](https://github.com/milanmeu/aionanoleaf/blob/main/COPYING)
+
+An async Python wrapper for the Nanoleaf API.
+
+## Installation
+```bash
+pip install aionanoleaf
+```
+
+## Usage
+### Import
+```python
+from aionanoleaf import Nanoleaf
+```
+
+### Create a `aiohttp.ClientSession` to make requests
+```python
+from aiohttp import ClientSession
+session = ClientSession()
+```
+
+### Create a `Nanoleaf` instance
+```python
+from aionanoleaf import Nanoleaf
+light = Nanoleaf(session, "192.168.0.100")
+```
+
+## Example
+```python
+from aiohttp import ClientSession
+from asyncio import run
+
+import aionanoleaf
+
+async def main():
+    async with ClientSession() as session:
+        nanoleaf = aionanoleaf.Nanoleaf(session, "192.168.0.73")
+        try:
+            await nanoleaf.authorize()
+        except aionanoleaf.Unauthorized as ex:
+            print("Not authorizing new tokens:", ex)
+            return
+        await nanoleaf.turn_on()
+        await nanoleaf.get_info()
+        print("Brightness:", nanoleaf.brightness)
+        await nanoleaf.deauthorize()
+run(main())
+```

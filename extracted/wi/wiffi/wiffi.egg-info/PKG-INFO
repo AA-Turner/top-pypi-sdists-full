@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: wiffi
+Version: 1.1.2
+Summary: Python 3 package to interface devices from STALL WIFFI.
+Home-page: https://github.com/mampfes/python-wiffi
+Author: mampfes
+Author-email: mampfes@users.noreply.github.com
+License: MIT
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# wiffi
+
+Python 3 package to interface devices from [STALL WIFFI](https://stall.biz).
+
+## Installation
+
+pip3 install wiffi
+
+## Configure the WIFFI device
+
+1. Set "CCU-IP Adresse myCCUIP" to the IP address of Home Assistant.
+2. Set port for JSON telegrams to configured server port using parameter "send_json".
+
+## Usage
+
+```python
+class WiffiIntegrationApi:
+    def __init__(self, hass, config_entry):
+        self._server = WiffiTcpServer(8189, self)
+
+    async def __call__(self, device, metrics):
+        # device is of type WiffiDevice
+        print(f"mac address = {device.mac_address}")
+
+        for metric in metrics:
+            # metric is of type WiffiMetric
+            print(f"value = {metric.value} {metric.unit_of_measurement")
+```
+
+

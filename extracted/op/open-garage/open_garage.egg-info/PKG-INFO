@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: open-garage
+Version: 0.2.0
+Summary: A python3 library to communicate with Open Garage
+Home-page: https://github.com/Danielhiversen/pyOpenGarage
+Author: Daniel Hjelseth Høyer
+Author-email: mail@dahoiv.net
+License: MIT
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.5.3
+License-File: LICENSE
+
+UNKNOWN
+

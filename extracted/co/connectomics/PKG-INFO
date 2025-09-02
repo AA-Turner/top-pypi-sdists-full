@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: connectomics
+Version: 20250606
+Summary: Common repository for connectomics-related libraries.
+Home-page: https://github.com/google-research/connectomics
+Author: Google Connectomics Team
+Author-email: noreply@google.com
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: dataclasses-json>=0.5.6
+Requires-Dist: edt
+Requires-Dist: numpy
+Requires-Dist: scikit-image
+Requires-Dist: scipy
+Requires-Dist: sofima
+Provides-Extra: decorators
+Requires-Dist: gin-config; extra == "decorators"
+Requires-Dist: jax; extra == "decorators"
+Requires-Dist: tensorstore; extra == "decorators"
+Provides-Extra: materialize-tensor
+Requires-Dist: apache-beam; extra == "materialize-tensor"
+Requires-Dist: connectomics[decorators]; extra == "materialize-tensor"
+Provides-Extra: segclr
+Requires-Dist: tensorflow; extra == "segclr"
+Requires-Dist: edward2; extra == "segclr"
+Requires-Dist: scikit-learn; extra == "segclr"
+Dynamic: license-file
+
+# Connectomics
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+### _Note: Under heavy development_
+
+_This repository is currently under significant development, and should not be considered stable. Semantic versioning is not guaranteed for now; APIs may - and likely will - change often and without notice._
+
+## About this repository
+
+Common code for analyzing volumetric datasets for connectomic reconstruction, including geometric primitives like `BoundingBox` and `BoxGenerator`, and dealing with segmentation ID ranges, including relabeling, making ranges contiguous, and testing whether two volumes contain equivalent sequences. 
+
+Coming soon: pipeline primitives to process subvolumes.
+
+## Projects using Connectomics
+
+1. [SOFIMA](https://www.github.com/google-research/sofima) - SOFIMA (Scalable Optical Flow-based Image Montaging and Alignment) is a tool for stitching, aligning and warping large 2d, 3d and 4d microscopy datasets.
+
+
+_This is not an officially supported Google product._

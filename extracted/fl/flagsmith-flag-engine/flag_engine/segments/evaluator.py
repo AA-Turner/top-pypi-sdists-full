@@ -4,71 +4,27 @@ import re
 import typing
 import warnings
 from contextlib import suppress
-from functools import partial, wraps
+from functools import lru_cache, wraps
 
+import jsonpath_rfc9535
 import semver
 
-from flag_engine.context.mappers import map_environment_identity_to_context
+from flag_engine.context.mappers import map_any_value_to_context_value
 from flag_engine.context.types import (
     EvaluationContext,
     FeatureContext,
     SegmentCondition,
     SegmentContext,
     SegmentRule,
+    StrValueSegmentCondition,
 )
-from flag_engine.environments.models import EnvironmentModel
-from flag_engine.identities.models import IdentityModel
-from flag_engine.identities.traits.types import ContextValue
 from flag_engine.result.types import EvaluationResult, FlagResult, SegmentResult
 from flag_engine.segments import constants
-from flag_engine.segments.models import SegmentModel
-from flag_engine.segments.types import ConditionOperator
-from flag_engine.segments.utils import get_matching_function
+from flag_engine.segments.types import ConditionOperator, ContextValue, is_context_value
+from flag_engine.segments.utils import escape_double_quotes, get_matching_function
 from flag_engine.utils.hashing import get_hashed_percentage_for_object_ids
 from flag_engine.utils.semver import is_semver
 from flag_engine.utils.types import SupportsStr, get_casting_function
-
-
-def get_identity_segments(
-    identity: IdentityModel,
-    environment: EnvironmentModel,
-) -> typing.List[SegmentModel]:
-    """
-    DEPRECATED: Get a list of segments for a given identity in a given environment.
-
-    :param identity: the identity model object to get the segments for
-    :param environment: the environment model object the identity belongs to
-    :return: list of segments that the identity belongs to in the environment
-    """
-    warnings.warn(
-        "`get_identity_segments` is deprecated, use `get_evaluation_result` instead.",
-        DeprecationWarning,
-    )
-    context = map_environment_identity_to_context(
-        environment=environment,
-        identity=identity,
-        override_traits=None,
-    )
-    return [
-        SegmentModel(id=segment_context["key"] or 0, name=segment_context["name"])
-        for segment_context in get_evaluation_result(context)["segments"]
-    ]
-
-
-def get_context_segments(
-    context: EvaluationContext,
-) -> typing.List[SegmentResult]:
-    """
-    DEPRECATED: Get a list of segments for a given evaluation context.
-
-    :param context: the evaluation context
-    :return: list of segments that match the context
-    """
-    warnings.warn(
-        "`get_context_segments` is deprecated, use `get_evaluation_result` instead.",
-        DeprecationWarning,
-    )
-    return get_evaluation_result(context)["segments"]
 
 
 def get_evaluation_result(context: EvaluationContext) -> EvaluationResult:
@@ -78,8 +34,8 @@ def get_evaluation_result(context: EvaluationContext) -> EvaluationResult:
     :param context: the evaluation context
     :return: EvaluationResult containing the context, flags, and segments
     """
-    segments: typing.List[SegmentResult] = []
-    segment_feature_contexts: typing.Dict[SupportsStr, FeatureContext] = {}
+    segments: list[SegmentResult] = []
+    segment_feature_contexts: dict[SupportsStr, FeatureContext] = {}
     for segment_context in (context.get("segments") or {}).values():
         if not is_context_in_segment(context, segment_context):
             continue
@@ -108,7 +64,7 @@ def get_evaluation_result(context: EvaluationContext) -> EvaluationResult:
                     segment_feature_contexts[feature_key] = override_feature_context
 
     identity_key = get_context_value(context, "$.identity.key")
-    flags: typing.List[FlagResult] = [
+    flags: list[FlagResult] = [
         (
             {
                 "enabled": segment_feature_context["enabled"],
@@ -139,7 +95,7 @@ def get_evaluation_result(context: EvaluationContext) -> EvaluationResult:
 
 def get_flag_result_from_feature_context(
     feature_context: FeatureContext,
-    key: SupportsStr,
+    key: typing.Optional[SupportsStr],
 ) -> FlagResult:
     """
     Get a feature value from the feature context
@@ -149,7 +105,7 @@ def get_flag_result_from_feature_context(
     :param key: the key to get the value for
     :return: the value for the key in the feature context
     """
-    if variants := feature_context.get("variants"):
+    if key is not None and (variants := feature_context.get("variants")):
         percentage_value = get_hashed_percentage_for_object_ids(
             [feature_context["key"], key]
         )
@@ -234,6 +190,29 @@ def context_matches_condition(
         else None
     )
 
+    if condition["operator"] == constants.IN:
+        if isinstance(segment_value := condition["value"], list):
+            in_values = segment_value
+        else:
+            try:
+                in_values = json.loads(segment_value)
+                # Only accept JSON lists.
+                # Ideally, we should use something like pydantic.TypeAdapter[list[str]],
+                # but we aim to ditch the pydantic dependency in the future.
+                if not isinstance(in_values, list):
+                    raise ValueError
+            except ValueError:
+                in_values = segment_value.split(",")
+        in_values = [str(value) for value in in_values]
+        # Guard against comparing boolean values to numeric strings.
+        if isinstance(context_value, int) and not (
+            context_value is True or context_value is False
+        ):
+            context_value = str(context_value)
+        return context_value in in_values
+
+    condition = typing.cast(StrValueSegmentCondition, condition)
+
     if condition["operator"] == constants.PERCENTAGE_SPLIT:
         if context_value is not None:
             object_ids = [segment_key, context_value]
@@ -256,30 +235,21 @@ def context_matches_condition(
     )
 
 
-def _get_trait(context: EvaluationContext, trait_key: str) -> ContextValue:
-    return (
-        identity_context["traits"][trait_key]
-        if (identity_context := context["identity"])
-        else None
-    )
-
-
 def get_context_value(
     context: EvaluationContext,
     property: str,
 ) -> ContextValue:
-    getter = CONTEXT_VALUE_GETTERS_BY_PROPERTY.get(property) or partial(
-        _get_trait,
-        trait_key=property,
-    )
-    try:
-        return getter(context)
-    except KeyError:
-        return None
+    value = None
+    if property.startswith("$."):
+        value = _get_context_value_getter(property)(context)
+    elif identity_context := context.get("identity"):
+        if traits := identity_context.get("traits"):
+            value = traits.get(property)
+    return map_any_value_to_context_value(value)
 
 
 def _matches_context_value(
-    condition: SegmentCondition,
+    condition: StrValueSegmentCondition,
     context_value: ContextValue,
 ) -> bool:
     if matcher := MATCHERS_BY_OPERATOR.get(condition["operator"]):
@@ -325,29 +295,6 @@ def _evaluate_modulo(
     return context_value % divisor == remainder
 
 
-def _evaluate_in(
-    segment_value: typing.Optional[str], context_value: ContextValue
-) -> bool:
-    if segment_value:
-        try:
-            in_values = json.loads(segment_value)
-            # Only accept JSON lists.
-            # Ideally, we should use something like pydantic.TypeAdapter[list[str]],
-            # but we aim to ditch the pydantic dependency in the future.
-            if not isinstance(in_values, list):
-                raise ValueError
-            in_values = [str(value) for value in in_values]
-        except ValueError:
-            in_values = segment_value.split(",")
-        # Guard against comparing boolean values to numeric strings.
-        if isinstance(context_value, int) and not any(
-            context_value is x for x in (False, True)
-        ):
-            context_value = str(context_value)
-        return context_value in in_values
-    return False
-
-
 def _context_value_typed(
     func: typing.Callable[..., bool],
 ) -> typing.Callable[[typing.Optional[str], ContextValue], bool]:
@@ -368,13 +315,12 @@ def _context_value_typed(
     return inner
 
 
-MATCHERS_BY_OPERATOR: typing.Dict[
+MATCHERS_BY_OPERATOR: dict[
     ConditionOperator, typing.Callable[[typing.Optional[str], ContextValue], bool]
 ] = {
     constants.NOT_CONTAINS: _evaluate_not_contains,
     constants.REGEX: _evaluate_regex,
     constants.MODULO: _evaluate_modulo,
-    constants.IN: _evaluate_in,
     constants.EQUAL: _context_value_typed(operator.eq),
     constants.GREATER_THAN: _context_value_typed(operator.gt),
     constants.GREATER_THAN_INCLUSIVE: _context_value_typed(operator.ge),
@@ -385,8 +331,44 @@ MATCHERS_BY_OPERATOR: typing.Dict[
 }
 
 
-CONTEXT_VALUE_GETTERS_BY_PROPERTY = {
-    "$.identity.identifier": lambda context: context["identity"]["identifier"],
-    "$.identity.key": lambda context: context["identity"]["key"],
-    "$.environment.name": lambda context: context["environment"]["name"],
-}
+@lru_cache
+def _get_context_value_getter(
+    property: str,
+) -> typing.Callable[[EvaluationContext], ContextValue]:
+    """
+    Get a function to retrieve a context value based on property value,
+    assumed to be either a JSONPath string or a trait key.
+
+    :param property: The property to retrieve the value for.
+    :return: A function that takes an EvaluationContext and returns the value.
+    """
+    try:
+        compiled_query = jsonpath_rfc9535.compile(property)
+    except jsonpath_rfc9535.JSONPathSyntaxError:
+        # This covers a rare case when a trait starting with "$.",
+        # but not a valid JSONPath, is used.
+        compiled_query = jsonpath_rfc9535.compile(
+            f'$.identity.traits["{escape_double_quotes(property)}"]',
+        )
+
+    def getter(context: EvaluationContext) -> ContextValue:
+        if typing.TYPE_CHECKING:  # pragma: no cover
+            # Ugly hack to satisfy mypy :(
+            data = dict(context)
+        else:
+            data = context
+        try:
+            if result := compiled_query.find_one(data):
+                if is_context_value(value := result.value):
+                    return value
+            return None
+        except jsonpath_rfc9535.JSONPathError:  # pragma: no cover
+            # This is supposed to be unreachable, but if it happens,
+            # we log a warning and return None.
+            warnings.warn(
+                f"Failed to evaluate JSONPath query '{property}' in context: {context}",
+                RuntimeWarning,
+            )
+            return None
+
+    return getter

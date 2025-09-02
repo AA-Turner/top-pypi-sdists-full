@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: poolsense
+Version: 0.1.0
+Summary: Asynchronous Python client for getting PoolSense data.
+Home-page: https://github.com/haemishkyd/poolsense
+Author: Haemish Kyd
+Author-email: haemish.kyd@gmail.com
+License: MIT license
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# PoolSense Python Interface
+
+This is a simple package that accesses the information collected by the PoolSense device.
+
+[PoolSense](https://www.proautomation.co/)
+

@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: customerio_cdp_analytics
+Version: 0.0.2
+Summary: Customer.io Data Pipelines (CDP) is a customer data platform to improve decision-making with real-time updates and deliver personalized experiences.
+Home-page: https://github.com/customerio/cdp-analytics-python
+Author: Customer.io
+Author-email: cdp@customer.io
+Maintainer: Customer.io
+Maintainer-email: cdp@customer.io
+License: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.6.0
+Provides-Extra: test
+License-File: LICENSE
+
+
+Customer.io Data Pipelines (CDP) is a customer data platform to improve decision-making with real-time updates and deliver personalized experiences.
+
+This is the official python client that wraps the Customer.io Data Pipelines REST API (https://customer.io/docs/cdp/getting-started/cdp-getting-started/).

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "aoe2rec-py"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = ["pip>=24.3.1"]
+
+[project.urls]
+Homepage = "https://github.com/aoe2ct/aoe2rec"
+Repository = "https://github.com/aoe2ct/aoe2rec/tree/main/crates/aoe2rec-py"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+profile = "release"
+compatibility = "manylinux2014"
+manifest-path = "crates/aoe2rec-py/Cargo.toml"

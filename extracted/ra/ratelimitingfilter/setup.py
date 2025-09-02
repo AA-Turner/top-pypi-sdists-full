@@ -1,0 +1,32 @@
+from setuptools import setup
+
+setup(
+    author='Will Keeling',
+    author_email='will@zifferent.com',
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX',
+        'Operating System :: Microsoft :: Windows',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+    ],
+    description='A rate limiting filter for the Python logging system',
+    license='MIT',
+    long_description=open('README.rst').read(),
+    keywords='ratelimitingfilter',
+    name='ratelimitingfilter',
+    packages=['ratelimitingfilter'],
+    test_suite='tests',
+    tests_require=['mock'],
+    url='https://github.com/wkeeling/ratelimitingfilter',
+    version='1.5',
+)

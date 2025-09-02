@@ -1,0 +1,31 @@
+Metadata-Version: 2.2
+Name: HATasmota
+Version: 0.10.0
+Summary: Python module to help parse and construct Tasmota MQTT messages.
+Home-page: https://github.com/emontnemery/hatasmota
+Author: 
+Author-email: 
+License: MIT
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: voluptuous>=0.12.0
+Requires-Dist: aiohttp>=3.11.12
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# hatasmota

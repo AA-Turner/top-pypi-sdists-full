@@ -1,8 +1,0 @@
-booleans:
-  - true
-  - false
-strings:
-  - yes
-  - no
-  - on
-  - off

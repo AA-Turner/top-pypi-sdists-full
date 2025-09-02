@@ -152,11 +152,20 @@ class TestJIDClass(SlixTest):
         self.assertTrue(jid1 == jid2, "Same JIDs are not considered equal")
         self.assertFalse(jid1 != jid2, "Same JIDs are considered not equal")
 
+        jid3 = JID()
+        jid4 = JID()
+        self.assertTrue(jid3 == jid4, "Same empty JIDs are not considered equal")
+        self.assertFalse(jid3 != jid4, "Same empty JIDs are considered not equal")
+
     def testJIDInequality(self):
         jid1 = JID('user@domain/resource')
         jid2 = JID('otheruser@domain/resource')
         self.assertFalse(jid1 == jid2, "Different JIDs are considered equal")
         self.assertTrue(jid1 != jid2, "Different JIDs are considered equal")
+
+        jid3 = JID()
+        self.assertFalse(jid1 == jid3, "JID and empty JID are considered equal")
+        self.assertTrue(jid1 != jid3, "JID and empty JID are considered equal")
 
     def testZeroLengthDomain(self):
         jid1 = JID('')

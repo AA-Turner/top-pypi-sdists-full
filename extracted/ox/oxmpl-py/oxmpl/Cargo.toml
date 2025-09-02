@@ -1,0 +1,24 @@
+[package]
+name = "oxmpl"
+version.workspace = true
+edition = "2021"
+description = "The Open Motion-Planning Library but Oxidised"
+license = "BSD-3-Clause"
+authors = ["Junior Sundar <juniorsundar@gmail.com>"]
+repository = "https://github.com/juniorsundar/oxmpl"
+readme = "README.md"
+keywords = ["robotics", "motion-planning"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "oxmpl"
+crate-type = ["lib"]
+
+[dependencies]
+rand = "0.9.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = "1.1"
+getrandom = { version = "0.3", features = ["wasm_js"] }

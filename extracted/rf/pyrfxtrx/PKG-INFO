@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: pyRFXtrx
+Version: 0.32.0
+Summary: a library to communicate with the RFXtrx family of devices
+Home-page: https://github.com/Danielhiversen/pyRFXtrx
+Author: Edwin Woudt
+Author-email: edwin@woudt.nl
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: COPYING.txt
+Requires-Dist: pyserial>=2.7
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: PyQrackIsing
+Version: 1.26.1
+Summary: Near-ideal closed-form solutions for transverse field Ising model (TFIM)
+Home-page: https://github.com/vm6502q/PyQrackIsing
+Author: Dan Strano
+Author-email: Dan Strano <stranoj@gmail.com>
+Maintainer-email: Dan Strano <stranoj@gmail.com>
+License: LGPL-3.0-or-later
+Project-URL: Homepage, https://github.com/vm6502q/PyQrackIsing
+Project-URL: Documentation, https://github.com/vm6502q/PyQrackIsing/blob/main/README.md
+Project-URL: Repository, https://github.com/vm6502q/PyQrackIsing
+Project-URL: Issues, https://github.com/vm6502q/PyQrackIsing/issues
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file

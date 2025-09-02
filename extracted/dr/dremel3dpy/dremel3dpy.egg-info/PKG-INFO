@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: dremel3dpy
+Version: 2.1.1
+Summary: A Dremel 3D Printer Python Library running on Python 3
+Home-page: https://github.com/godely/dremel3dpy
+Author: Gustavo Stor
+Author-email: gus@storhub.io
+License: MIT
+Keywords: python,dremel,3d,printer,3d-printer
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Home Automation
+License-File: LICENSE
+
+API for grabbing 3D Printer statistics and remote controlling a 3D20, 3D40 or 3D45 model for operations such as resuming a print, pausing, canceling or starting a new print from either a file path or a URL.

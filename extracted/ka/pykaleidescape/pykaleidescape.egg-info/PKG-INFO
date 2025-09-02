@@ -1,0 +1,52 @@
+Metadata-Version: 2.1
+Name: pykaleidescape
+Version: 2022.2.6
+Summary: "A python client library for the Kaleidescape System Control Protocol."
+Home-page: https://github.com/SteveEasley/pykaleidescape
+Author: Steve Easley
+Author-email: tardis74@yahoo.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# pykaleidescape
+
+A python library for controlling Kaleidescape devices via the Kaleidescape System Control Protocol.
+
+Note: This library is not operated by, or affiliated with Kaleidescape, Inc.
+
+## Installation
+
+```
+pip install pykaleidescape
+```
+
+## Usage
+
+Checkout the [examples](examples) directory for more examples.
+
+```python
+import asyncio
+from kaleidescape import Device
+
+
+async def main():
+    # Use "my-kaleidescape" on Windows
+    device = Device("my-kaleidescape.local")
+    await device.connect()
+    print(f"Power state is currently: {device.power.state}")
+    await device.disconnect()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+

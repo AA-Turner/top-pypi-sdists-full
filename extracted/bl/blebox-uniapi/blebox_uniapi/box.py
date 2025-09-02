@@ -1,0 +1,368 @@
+from __future__ import annotations
+
+import asyncio
+import time
+
+from typing import Optional, Any, Dict
+
+from .box_types import _DEFAULT_API_LEVEL, get_conf, get_conf_set
+from .button import Button
+from .climate import Climate
+from .cover import Cover
+from .light import Light
+from .sensor import SensorFactory
+from .binary_sensor import BinarySensor
+from .session import ApiHost
+from .switch import Switch
+
+from .error import (
+    UnsupportedBoxResponse,
+    UnsupportedBoxVersion,
+    BadFieldExceedsMax,
+    BadFieldLessThanMin,
+    BadFieldMissing,
+    BadFieldNotANumber,
+    BadFieldNotAString,
+    BadFieldNotRGBW,
+    HttpError,
+)
+
+
+DEFAULT_PORT = 80
+
+
+class Box:
+    _name: str
+    _data_path: str
+    _last_real_update: Optional[float]
+    _last_data: Optional[Any]
+
+    api_session: ApiHost
+    info: dict
+    config: dict
+    extended_state: Optional[Dict[Any, Any]]
+
+    def __init__(
+        self,
+        api_session,
+        info,
+        config,
+        extended_state,
+    ) -> None:
+        self._last_data = None
+        self._last_real_update = None
+        self._sem = asyncio.BoundedSemaphore()
+        self._session = api_session
+
+        address = f"{api_session.host}:{api_session.port}"
+
+        location = f"Device at {address}"
+
+        # NOTE: get ID first for better error messages
+        try:
+            unique_id = info["id"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(info, f"{location} has no id") from ex
+        location = f"Device:{unique_id} at {address}"
+
+        try:
+            type = info["type"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(info, f"{location} has no type") from ex
+
+        try:
+            product = info["product"]
+        except KeyError:
+            product = type
+
+        # TODO: make wLightBox API support multiple products
+        # in 2020 wLightBoxS API has been deprecated and it started using wLightBox API
+        # current codebase needs a refactor to support multiple product sharing one API
+        # as a temporary workaround we are using 'alias' type wLightBoxS2
+        if type == "wLightBox" and product == "wLightBoxS":
+            type = "wLightBoxS"
+
+        location = f"{product}:{unique_id} at {address}"
+
+        try:
+            name = info["deviceName"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(info, f"{location} has no name") from ex
+        location = f"'{name}' ({product}:{unique_id} at {address})"
+
+        try:
+            firmware_version = info["fv"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(
+                info, f"{location} has no firmware version"
+            ) from ex
+        location = f"'{name}' ({product}:{unique_id}/{firmware_version} at {address})"
+
+        try:
+            hardware_version = info["hv"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(
+                info, f"{location} has no hardware version"
+            ) from ex
+
+        level = int(info.get("apiLevel", _DEFAULT_API_LEVEL))
+
+        self._data_path = config["api_path"]
+        self._type = type
+        self._unique_id = unique_id
+        self._name = name
+        self._address = address
+        self._firmware_version = firmware_version
+        self._hardware_version = hardware_version
+        self._api_version = level
+        self._model = config.get("model", type)
+        self._api = config.get("api", {})
+        self._features = self.create_features(config, info, extended_state)
+        self._config = config
+        self._update_last_data(extended_state)
+
+    def create_features(
+        self, config: dict, info: dict, extended_state: Optional[dict]
+    ) -> dict:
+        features = {}
+        for field, klass in {
+            "covers": Cover,
+            "sensors": SensorFactory,
+            "binary_sensors": BinarySensor,
+            "lights": Light,
+            "climates": Climate,
+            "switches": Switch,
+            "buttons": Button,
+        }.items():
+            try:
+                if box_type_config := config.get(field):
+                    features[field] = klass.many_from_config(
+                        self,
+                        box_type_config=box_type_config,
+                        extended_state=extended_state,
+                    )
+            except KeyError:
+                raise UnsupportedBoxResponse("Failed to initialize:", info)
+        return features
+
+    @classmethod
+    async def async_from_host(cls, api_host: ApiHost) -> Box:
+        try:
+            path = "/api/device/state"
+            data = await api_host.async_api_get(path)
+        except HttpError:
+            path = "/info"
+            data = await api_host.async_api_get(path)
+        info = data.get("device", data)  # type: ignore
+        extended_state = None
+
+        config = cls._match_device_config(info)
+        if extended_state_path := config.get("extended_state_path"):
+            try:
+                extended_state = await api_host.async_api_get(extended_state_path)
+            except (HttpError, KeyError):
+                extended_state = None
+
+        return cls(api_host, info, config, extended_state)
+
+    @classmethod
+    def _match_device_config(cls, info: dict) -> dict:
+        try:
+            device_type = info["type"]
+        except KeyError as ex:
+            raise UnsupportedBoxResponse(info, "Device info has no type key") from ex
+        try:
+            product = info["product"]
+        except KeyError:
+            product = device_type
+        if device_type == "wLightBox" and product == "wLightBoxS":
+            device_type = "wLightBoxS"
+        level = int(info.get("apiLevel", _DEFAULT_API_LEVEL))
+        config_set = get_conf_set(device_type)
+        if not config_set:
+            raise UnsupportedBoxResponse(f"{device_type} is not a supported type")
+        config = get_conf(level, config_set)
+        if not config:
+            raise UnsupportedBoxVersion(
+                f"{device_type} has unsupported version ({level})."
+            )
+
+        return config
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def address(self) -> str:
+        return self._address
+
+    @property
+    def last_data(self) -> Optional[Dict[Any, Any]]:
+        return self._last_data
+
+    # Used in full_name, track down and refactor.
+    @property
+    def type(self) -> str:
+        return self._type
+
+    @property
+    def unique_id(self) -> Any:
+        return self._unique_id
+
+    @property
+    def firmware_version(self) -> Any:
+        return self._firmware_version
+
+    @property
+    def hardware_version(self) -> Any:
+        return self._hardware_version
+
+    @property
+    def api_version(self) -> int:
+        return self._api_version
+
+    @property
+    def features(self) -> dict:
+        return self._features
+
+    @property
+    def brand(self) -> str:
+        return "BleBox"
+
+    @property
+    def model(self) -> Any:
+        return self._model
+
+    async def async_update_data(self) -> None:
+        await self._async_api(True, "GET", self._data_path)
+
+    def _update_last_data(self, new_data: Optional[dict]) -> None:
+        # Note: on certain more complex devices that inlcude multiple features
+        # like switches and sensors (e.g. SwitchboxD) it may happen that activating
+        # single feature would result only in partial update of the self._last_data.
+        # We can know that by comparing keys of both states.
+        #
+        # Notable example of device exhibiting this behavior is SwitchboxD (20200831)
+        # It has two relays (switches) and power measurement capabilities (sensor).
+        # Toggling the relay does return state of all relays, but does not return
+        # sensor information (partial state). Accepting the new state as-is would
+        # break the update of sensory information.
+        #
+        # Note that SwitchboxD is just an example. It is possible that APIs of other
+        # box types also exhibit this kind of behavior.
+        if (
+            isinstance(self._last_data, dict)
+            and isinstance(new_data, dict)
+            and self._last_data.keys() != new_data.keys()
+        ):
+            # ... In such a case we need to merge both states instead of overwriting
+            # the old one as-is.
+            #
+            # The only risk is that if certain features are somehow coupled inside
+            # the device, we will have inconsistent information about the device.
+            # However, this should be eventually consistent as new updates arrive.
+            # In the end, it is better to have an inconsistent state, rather than
+            # have broken one (e.g. missing keys) that results in broken features.
+            #
+            # Refs:
+            # - https://github.com/blebox/blebox_uniapi/pull/152
+            # - https://github.com/blebox/blebox_uniapi/issues/137
+            new_data = {**self._last_data, **new_data}
+
+        self._last_data = new_data
+        for feature_set in self._features.values():
+            for feature in feature_set:
+                feature.after_update()
+
+    async def async_api_command(self, command: str, value: Any = None) -> None:
+        method, *args = self._api[command](value)
+        self._last_real_update = None  # force update
+        return await self._async_api(False, method, *args)
+
+    def expect_int(
+        self, field: str, raw_value: int, maximum: int = -1, minimum: int = 0
+    ) -> int:
+        return self.check_int(raw_value, field, maximum, minimum)
+
+    def expect_hex_str(
+        self, field: str, raw_value: int, maximum: int = -1, minimum: int = 0
+    ) -> int:
+        return self.check_hex_str(raw_value, field, maximum, minimum)
+
+    def expect_rgbw(self, field: str, raw_value: int) -> int:
+        return self.check_rgbw(raw_value, field)
+
+    def check_int_range(
+        self, value: int, field: str, max_value: int, min_value: int
+    ) -> int:
+        if max_value >= min_value:
+            if value > max_value:
+                raise BadFieldExceedsMax(self.name, field, value, max_value)
+            if value < min_value:
+                raise BadFieldLessThanMin(self.name, field, value, min_value)
+        return value
+
+    def check_int(self, value: int, field: str, max_value: int, min_value: int) -> int:
+        if value is None:
+            raise BadFieldMissing(self.name, field)
+
+        if not isinstance(value, int):
+            raise BadFieldNotANumber(self.name, field, value)
+
+        return self.check_int_range(value, field, max_value, min_value)
+
+    def check_hex_str(
+        self, value: int, field: str, max_value: int, min_value: int
+    ) -> int:
+        if value is None:
+            raise BadFieldMissing(self.name, field)
+
+        if not isinstance(value, str):
+            raise BadFieldNotAString(self.name, field, value)
+
+        if (
+            self.check_int_range(int(value, 16), field, max_value, min_value)
+            is not None
+        ):
+            return value
+
+    def check_rgbw(self, value: int, field: str) -> int:
+        if value is None:
+            raise BadFieldMissing(self.name, field)
+
+        if not isinstance(value, str):
+            raise BadFieldNotAString(self.name, field, value)
+
+        if len(value) > 10 or len(value) % 2 != 0:
+            raise BadFieldNotRGBW(self.name, field, value)
+        return value
+
+    def _has_recent_data(self) -> bool:
+        last = self._last_real_update
+        return (time.time() - 2) <= last if last is not None else False
+
+    async def _async_api(
+        self,
+        is_update: bool,
+        method: Any,
+        path: str,
+        post_data: dict = None,
+    ) -> None:
+        if method not in ("GET", "POST"):
+            raise NotImplementedError(method)  # pragma: no cover
+
+        if is_update:
+            if self._has_recent_data():
+                return
+
+        async with self._sem:
+            if is_update:
+                if self._has_recent_data():
+                    return
+            if method == "GET":
+                response = await self._session.async_api_get(path)
+            else:
+                response = await self._session.async_api_post(path, post_data)
+            self._update_last_data(response)
+            self._last_real_update = time.time()

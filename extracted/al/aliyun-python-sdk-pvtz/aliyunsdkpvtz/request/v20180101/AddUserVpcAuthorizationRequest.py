@@ -1,0 +1,53 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+from aliyunsdkcore.request import RpcRequest
+from aliyunsdkpvtz.endpoint import endpoint_data
+
+class AddUserVpcAuthorizationRequest(RpcRequest):
+
+	def __init__(self):
+		RpcRequest.__init__(self, 'pvtz', '2018-01-01', 'AddUserVpcAuthorization','pvtz')
+		self.set_method('POST')
+
+		if hasattr(self, "endpoint_map"):
+			setattr(self, "endpoint_map", endpoint_data.getEndpointMap())
+		if hasattr(self, "endpoint_regional"):
+			setattr(self, "endpoint_regional", endpoint_data.getEndpointRegional())
+
+	def get_AuthType(self): # String
+		return self.get_query_params().get('AuthType')
+
+	def set_AuthType(self, AuthType):  # String
+		self.add_query_param('AuthType', AuthType)
+	def get_AuthCode(self): # String
+		return self.get_query_params().get('AuthCode')
+
+	def set_AuthCode(self, AuthCode):  # String
+		self.add_query_param('AuthCode', AuthCode)
+	def get_AuthorizedUserId(self): # Long
+		return self.get_query_params().get('AuthorizedUserId')
+
+	def set_AuthorizedUserId(self, AuthorizedUserId):  # Long
+		self.add_query_param('AuthorizedUserId', AuthorizedUserId)
+	def get_AuthChannel(self): # String
+		return self.get_query_params().get('AuthChannel')
+
+	def set_AuthChannel(self, AuthChannel):  # String
+		self.add_query_param('AuthChannel', AuthChannel)

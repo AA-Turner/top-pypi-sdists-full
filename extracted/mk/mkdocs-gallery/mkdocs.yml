@@ -1,0 +1,74 @@
+site_name: mkdocs-gallery
+# site_description: 'A short description of my project'
+repo_url: https://github.com/smarie/mkdocs-gallery
+#docs_dir: .
+#site_dir: ../site
+# default branch is main instead of master now on github
+edit_uri : ./edit/main/docs
+
+theme:
+  name: material  # readthedocs  mkdocs  material
+  palette:
+    primary: light blue
+
+nav:
+  - Home: index.md
+  - Gallery of examples: generated/gallery       # The first gallery of examples
+  - generated/tutorials     # The second gallery (from tutorials)
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - gallery:
+      conf_script: docs/gallery_conf.py  # Base conf. Possibly modified by items below
+      examples_dirs:
+        - examples          # path to your example scripts, relative to mkdocs.yml
+        - docs/tutorials
+      gallery_dirs:
+        - docs/generated/gallery  # where to save gallery generated output. Note that you may or may not include them in
+        - docs/generated/tutorials
+
+      backreferences_dir: docs/generated/backreferences  # where to generate the back references summary
+      doc_module: ['mkdocs_gallery', 'numpy']
+      # reference_url: {sphinx_gallery: None},
+      image_scrapers:
+        - matplotlib
+        - mayavi
+        - pyvista
+      compress_images: ['images', 'thumbnails']
+      # specify the order of examples to be according to filename
+      within_subsection_order: FileNameSortKey
+      expected_failing_examples:
+         - examples/no_output/plot_raise.py
+         - examples/no_output/plot_syntaxerror.py
+
+#      min_reported_time: min_reported_time,  in conf file
+      binder:
+        org: smarie
+        repo: mkdocs-gallery
+        branch: gh-pages  # Use a branch that hosts your docs.
+#        binderhub_url: https://mybinder.org
+        dependencies: docs/binder_cfg/requirements.txt  # binder configuration files
+        # see https://mybinder.readthedocs.io/en/latest/using/config_files.html#config-files
+        # these will be copied to the .binder/ directory of the site.
+
+        notebooks_dir: notebooks  # Notebooks for Binder will be copied to this dir (relative to built doc root).
+        use_jupyter_lab: True     # Binder links will start Jupyter Lab instead of the Jupyter Notebook interface.
+      show_memory: True
+#      junit: os.path.join('sphinx-gallery', 'junit-results.xml'),
+#      # capture raw HTML or, if not present, __repr__ of last expression in each code block
+#      capture_repr: ['_repr_html_', '__repr__']
+      matplotlib_animations: True
+      image_srcset: ['2x']
+
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

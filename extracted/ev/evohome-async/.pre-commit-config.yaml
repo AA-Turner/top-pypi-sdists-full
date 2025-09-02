@@ -1,0 +1,88 @@
+
+exclude: ^(.secrets|docs)/
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      - id: ruff         # linter
+      - id: ruff-format  # formatter
+
+  - repo: https://github.com/cdce8p/python-typing-update
+    rev: v0.7.1
+    hooks:
+      # Run `python-typing-update` hook manually from time to time
+      # to update python typing syntax.
+      # Will require manual work, before submitting changes!
+      # pre-commit run --hook-stage manual python-typing-update --all-files
+      - id: python-typing-update
+        stages: [manual]
+        args:
+          - --py311-plus
+          - --force
+          - --keep-updates
+        files: ^(src|tests)/.+\.py$
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words-list=FLE
+          - --skip="./.*,*.csv,*.json,*.ambr"
+          - --quiet-level=2
+        exclude_types: [csv, json, html, xml]
+        exclude: ^(tests/.+/fixtures|tests/.+/snapshots)/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # id: check-json  # don't enable this one
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+      # id: end-of-file-fixer  # not for snapshots
+      - id: mixed-line-ending
+
+  - repo: local
+    hooks:
+      # entry: '[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'  # email address
+
+    - id: debugs
+      name: check for DEBUG flags  # should be False for published code
+      entry: '_DBG_.*=.*True'
+      language: pygrep
+      args: [-i]
+      exclude: .pre-commit-config.yaml  # avoid false +ve
+
+    - id: secrets
+      name: check secrets
+      entry: '#.*(SECRET|PASSWORD|PWD)'
+      language: pygrep
+      exclude: .pre-commit-config.yaml  # avoid false +ve
+
+    - id: style_1
+      name: check for 'as exc:' (should be 'as err:')
+      entry: ' as exc:'
+      language: pygrep
+      args: [-i]
+      exclude: .pre-commit-config.yaml  # avoid false +ve
+
+    # - id: private imports
+    #   name: check private imports
+    #   entry: 'from .* import _.*'
+    #   language: pygrep
+    #   args: [-i]
+    #   exclude: .pre-commit-config.yaml  # avoid false +ve
+
+
+  # We do not use pre-commit/mirrors-mypy, as it comes with opinionated defaults
+  # (like --ignore-missing-imports) and is difficult to configure to run
+  # with the dependencies correctly installed.
+
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #   - id: mypy
+  #     additional_dependencies: [voluptuous==0.14.1]
+  #     args: ["--config-file", "./pyproject.toml"]

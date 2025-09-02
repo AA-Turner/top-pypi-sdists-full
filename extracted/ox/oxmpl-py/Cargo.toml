@@ -1,0 +1,8 @@
+[workspace]
+members = ["oxmpl", "oxmpl-py"]
+resolver = "2"
+package.version = "0.4.1"                   # x-release-please-version
+
+[profile.release]
+opt-level = "s"
+lto = true

@@ -1,0 +1,132 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zwave-js-server-python"
+authors = [{ name = "Home Assistant Team", email = "hello@home-assistant.io" }]
+description = "Python wrapper for zwave-js-server"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+keywords = ["home", "automation", "zwave", "zwave-js"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "aiohttp>3",
+    "pydantic>=2.0.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Source Code" = "https://github.com/home-assistant-libs/zwave-js-server-python"
+"Bug Reports" = "https://github.com/home-assistant-libs/zwave-js-server-python/issues"
+
+[project.scripts]
+zwave-js-server-python = "zwave_js_server.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "zwave_js_server.const.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["test", "test.*", "scripts"]
+
+[tool.setuptools.package-data]
+zwave_js_server = ["py.typed"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+warn_return_any = false
+warn_unreachable = true
+warn_unused_ignores = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "mypy-test.*"
+ignore_errors = true
+
+[tool.pylint.MAIN]
+disable = [
+    "duplicate-code",
+    "fixme",
+    "locally-disabled",
+    "too-few-public-methods",
+    "too-many-public-methods",
+    "too-many-lines",
+]
+enable = ["useless-suppression", "use-symbolic-message-instead"]
+extension-pkg-allow-list = "pydantic"
+fail-on = ["I"]
+ignore = ["test"]
+jobs = 2
+load-plugins = ["pylint_strict_informational"]
+persistent = "no"
+score = "no"
+
+[tool.pylint.BASIC]
+good-names = ["id", "i", "j", "k", "ex", "Run", "_", "fp"]
+
+[tool.pylint.DESIGN]
+max-args = 9
+max-attributes = 15
+
+[tool.pylint.FORMAT]
+expected-line-ending-format = "LF"
+
+[tool.pylint.MESSAGE_CONTROL]
+disable="too-many-positional-arguments"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+exclude = [
+    ".venv",
+    ".git",
+    ".tox",
+    "docs",
+    "venv",
+    "bin",
+    "lib",
+    "deps",
+    "build",
+]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "G", "I", "PLC", "PLE", "PLR", "PLW", "UP", "W"]
+ignore = [
+    "D202",
+    "D212",
+    "D203",
+    "D213",
+    "E501",
+    "PLR0911", # Too many return statements ({returns} > {max_returns})
+    "PLR0912", # Too many branches ({branches} > {max_branches})
+    "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
+    "PLR0915", # Too many statements ({statements} > {max_statements})
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+    "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
+    "UP006",   # keep type annotation style as is
+    "UP007",   # keep type annotation style as is
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["zwave_js_server", "test"]
+combine-as-imports = true
+split-on-trailing-comma = false
+case-sensitive = true

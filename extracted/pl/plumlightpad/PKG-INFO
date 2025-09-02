@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: plumlightpad
+Version: 0.0.11
+Summary: A python package that interacts with the Plum Lightpad
+Home-page: https://github.com/heathbar/plum-lightpad
+Author: Heath Paddock
+Author-email: hp@heathpaddock.com
+License: MIT
+Description: UNKNOWN
+Keywords: plum,lightpad
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Home Automation
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.4
+Classifier: License :: OSI Approved :: MIT License

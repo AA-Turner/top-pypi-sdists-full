@@ -1,1 +1,0 @@
-SELENIUM_HUB_URL = 'https://selenium.data.grupoa.education'

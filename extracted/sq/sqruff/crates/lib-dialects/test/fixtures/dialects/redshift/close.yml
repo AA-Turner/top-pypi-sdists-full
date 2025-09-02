@@ -1,7 +1,0 @@
-file:
-- statement:
-  - close_statement:
-    - keyword: close
-    - object_reference:
-      - naked_identifier: curs1
-- statement_terminator: ;

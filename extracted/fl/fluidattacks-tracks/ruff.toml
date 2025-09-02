@@ -1,0 +1,22 @@
+cache-dir = ".ruff_cache"
+indent-width = 4
+line-length = 100
+target-version = "py313"
+
+[lint]
+explicit-preview-rules = true
+fixable = ["ALL"]
+ignore = [
+  "COM812",  # ignore suggested by the linter
+  "D203",  # conflict with D211 one must be ignored
+  "D212",  # conflict with D213 one must be ignored
+]
+preview = true
+select = ["ALL"]
+unfixable = []
+
+[format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+skip-magic-trailing-comma = false

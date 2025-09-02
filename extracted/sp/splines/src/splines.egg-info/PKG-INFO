@@ -1,0 +1,59 @@
+Metadata-Version: 2.4
+Name: splines
+Version: 0.3.3
+Summary: Splines in Euclidean Space and Beyond
+Home-page: https://splines.readthedocs.io/
+Author: Matthias Geier
+Author-email: Matthias.Geier@gmail.com
+License: MIT
+Project-URL: Documentation, https://splines.readthedocs.io/
+Project-URL: Source Code, https://github.com/AudioSceneDescriptionFormat/splines/
+Project-URL: Bug Tracker, https://github.com/AudioSceneDescriptionFormat/splines/issues/
+Keywords: splines,curves,interpolation,quaternions
+Platform: any
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: NumPy
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Splines in Euclidean Space and Beyond
+=====================================
+
+... with focus on univariate, non-uniform piecewise cubic polynomial curves
+in one, two and three spatial dimensions, as well as rotation splines.
+
+Installation
+    ``python -m pip install splines``
+
+Online documentation
+    https://splines.readthedocs.io/
+
+Documentation notebooks on Binder
+    https://mybinder.org/v2/gh/AudioSceneDescriptionFormat/splines/master?labpath=doc/index.ipynb
+
+Source code repository (and issue tracker)
+    https://github.com/AudioSceneDescriptionFormat/splines
+
+DOI
+    https://doi.org/10.5281/zenodo.4568902
+
+License
+    MIT -- see the file ``LICENSE`` for details.

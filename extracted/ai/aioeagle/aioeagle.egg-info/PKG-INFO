@@ -1,0 +1,77 @@
+Metadata-Version: 2.1
+Name: aioeagle
+Version: 1.1.0
+Summary: Python module to talk to Rainforest EAGLE-200.
+Home-page: https://github.com/home-assistant-libs/aioeagle
+Author: Paulus Schoutsen
+Author-email: paulus@paulusschoutsen.nl
+License: Apache License 2.0
+Description: # Aioeagle
+        
+        ## Asynchronous library to control Rainforest EAGLE-200
+        
+        Requires Python 3.8+ and uses asyncio and aiohttp.
+        
+        ```python
+        import asyncio
+        from pprint import pprint
+        
+        import aiohttp
+        from aioeagle import EagleHub
+        
+        
+        CLOUD_ID = "123456"
+        INSTALL_CODE = "abcdefghijklmn"
+        
+        
+        async def main():
+            async with aiohttp.ClientSession() as session:
+                await run(session)
+        
+        
+        async def run(websession):
+            hub = EagleHub(websession, CLOUD_ID, INSTALL_CODE)
+            devices = await hub.get_device_list()
+        
+            if len(devices) == 0:
+                print("No devices found")
+                return
+        
+            device = devices[0]
+        
+            pprint(device.details)
+            print()
+            pprint(await device.get_device_query(device.ENERGY_AND_POWER_VARIABLES))
+        
+        
+        asyncio.run(main())
+        ```
+        
+        ## Testing locally
+        
+        ```bash
+        python3 example.py <cloud_id> <install_code>
+        ```
+        
+        ## Timeouts
+        
+        Aioeagle does not specify any timeouts for any requests. You will need to specify them in your own code. We recommend the `async_timeout` package:
+        
+        ```python
+        import async_timeout
+        
+        with async_timeout.timeout(10):
+            devices = await hub.get_device_list()
+        ```
+        
+        ## Contribution guidelines
+        
+        Object hierarchy and property/method names should match the EAGLE-200 API.
+        
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown

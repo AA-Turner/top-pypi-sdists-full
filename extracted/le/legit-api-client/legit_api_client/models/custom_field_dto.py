@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from legit_api_client.models.custom_field_entity import CustomFieldEntity
 from legit_api_client.models.custom_field_type import CustomFieldType
@@ -32,7 +32,8 @@ class CustomFieldDto(BaseModel):
     name: Optional[StrictStr] = None
     type: Optional[CustomFieldType] = None
     entity: Optional[CustomFieldEntity] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "type", "entity"]
+    allowed_values: Optional[List[StrictStr]] = Field(default=None, alias="allowedValues")
+    __properties: ClassVar[List[str]] = ["id", "name", "type", "entity", "allowedValues"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +74,11 @@ class CustomFieldDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if allowed_values (nullable) is None
+        # and model_fields_set contains the field
+        if self.allowed_values is None and "allowed_values" in self.model_fields_set:
+            _dict['allowedValues'] = None
+
         return _dict
 
     @classmethod
@@ -88,7 +94,8 @@ class CustomFieldDto(BaseModel):
             "id": obj.get("id"),
             "name": obj.get("name"),
             "type": obj.get("type"),
-            "entity": obj.get("entity")
+            "entity": obj.get("entity"),
+            "allowedValues": obj.get("allowedValues")
         })
         return _obj
 

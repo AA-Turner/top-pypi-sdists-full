@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from orionis.test.contracts.render import ITestingResultRender
 from orionis.test.records.logs import TestLogs

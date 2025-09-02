@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: asyncarve
+Version: 0.1.1
+Summary: Simple Arve library
+Home-page: https://github.com/arvetech/asyncarve
+License: MIT
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+
+Asynchronous Python client to communicate with Arve devices

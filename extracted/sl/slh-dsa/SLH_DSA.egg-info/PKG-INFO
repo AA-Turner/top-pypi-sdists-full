@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: SLH-DSA
+Version: 0.2.0
+Summary: The pure python implement of the slh-dsa algorithm(based on fips205).
+Home-page: https://github.com/colinxu2020/slhdsa
+Author: Colinxu2020
+Author-email: Colinxu2020 <colinxu2020@gmail.com>
+License: LGPL-3.0-or-later
+Project-URL: Homepage, https://github.com/colinxu2020/slhdsa
+Project-URL: Bug Tracker, https://github.com/colinxu2020/slhdsa/issues
+Keywords: fips205,slhdsa,sphincs,sphincsplus,crypto,cryptography
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security
+Classifier: Topic :: Security :: Cryptography
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# SLH-DSA
+[![CI](https://github.com/colinxu2020/slhdsa/actions/workflows/ci.yml/badge.svg)](https://github.com/colinxu2020/slhdsa/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/colinxu2020/slhdsa/graph/badge.svg?token=OAQXHYD9TM)](https://codecov.io/github/colinxu2020/slhdsa)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/slh-dsa)
+![GitHub License](https://img.shields.io/github/license/colinxu2020/slhdsa)
+
+The SLH-DSA project implements the stateless-hash digital signing algorithm(standardizing fips 205, adopted on Sphincs-Plus algorithm) in pure Python.
+
+This project offers those future:
+1. 🍻 Zero dependencies!
+2. 🏷️ 100% type hint for all the codes!
+3. ✅ Complete 100% test coverage!
+4. 🔖 Support any newer python version!
+5. ⚒️ Design for Human!
+6. 🎉 More futures coming soon!
+
+
+The functionality is extremely simple to use, as demonstrated by the following example:
+```python
+from slhdsa import KeyPair, shake_256f, PublicKey
+
+kp = KeyPair.gen(shake_256f)  # generate the keypair
+sig = kp.sign(b"Hello World!")  # sign the message
+kp.verify(b"Hello World!", sig)  # -> True
+kp.verify(b"Hello World!", b"I'm the hacker!") # -> False
+kp.verify(b"hello world!", sig)  # -> False
+sig = kp.sign(b"Hello World!", randomize = True)  # sign the message randomized
+kp.verify(b"Hello World!", sig)  # -> True
+
+digest = kp.pub.digest()  # generate the digest of the public key so that other device could verify the sign
+pub = PublicKey.from_digest(digest, shake_256f)  # recovery public key
+pub.verify(b"Hello World!", sig)  # -> True
+pub.verify(b"Hello World", sig)  # -> False
+```
+
+## Copyright
+
+Copyright(c) Colinxu2020 2024-2025 All Rights Reserved.
+
+This software is licensed under GNU Lesser General Public License Version 3 or later(on your option).

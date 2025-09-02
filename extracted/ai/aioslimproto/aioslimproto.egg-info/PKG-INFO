@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: aioslimproto
+Version: 3.1.1
+Summary: Python module to talk to Logitech Squeezebox players directly (without Logitech server).
+Author-email: Marcel van der Veldt <marcelveldt@users.noreply.github.com>
+License: Apache-2.0
+Platform: any
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.9.2
+Requires-Dist: async-timeout
+Requires-Dist: pillow
+Provides-Extra: test
+Requires-Dist: codespell==2.4.1; extra == "test"
+Requires-Dist: isort==6.0.1; extra == "test"
+Requires-Dist: mypy==1.17.1; extra == "test"
+Requires-Dist: pre-commit==4.3.0; extra == "test"
+Requires-Dist: pre-commit-hooks==5.0.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-asyncio==1.1.0; extra == "test"
+Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: ruff==0.12.8; extra == "test"
+Requires-Dist: safety==3.6.0; extra == "test"
+Requires-Dist: tomli==2.2.1; extra == "test"
+Dynamic: license-file
+
+aioslimproto
+==================================
+
+[![pypi_badge](https://img.shields.io/pypi/v/aioslimproto.svg)](https://pypi.python.org/pypi/aioslimproto)
+
+**AIOSlimProto**
+
+
+SLIMProto implementation in async python allows you to control squeezebox players (and compatibles).
+
+Requires Python 3.11+ and uses asyncio.
+
+For simple usage examples, see the example script in the scripts folder.
+
+
+For a full reference implementation, see [Home Assistant](https://github.com/home-assistant/core/tree/dev/homeassistant/components/slimproto) and [Music Assistant](https://github.com/music-assistant/server/tree/main/music_assistant/providers/squeezelite)

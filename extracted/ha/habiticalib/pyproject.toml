@@ -1,0 +1,155 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["TRY003", "D202", "D213", "D417", "ANN003", "ANN401", "E501", "COM812", "ISC001", "PLW1641"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["habiticalib"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.per-file-ignores]
+"typedefs.py" = ["N815", "TC003"]
+"tests/*" = ["SLF001", "S101", "ARG001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--cov=src/habiticalib --cov-report=term-missing"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "slow: marks test as slow"
+]
+
+[tool.pylint.DESIGN]
+max-attributes = 8
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+  "duplicate-code",
+  "format",
+  "unsubscriptable-object",
+  "too-many-instance-attributes",
+  "too-many-arguments",
+  "too-many-public-methods",
+  "wrong-import-order",
+]
+
+[tool.pylint.SIMILARITIES]
+ignore-imports = true
+
+[tool.pylint.FORMAT]
+max-line-length = 88
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+]
+
+[tool.hatch]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+source = "regex_commit"
+commit_extra_args = ["-e"]
+path = "src/habiticalib/const.py"
+
+[tool.hatch.envs.default]
+python = "3.12"
+dependencies = [
+    "aiohttp==3.12.15",
+    "mashumaro==3.16",
+    "orjson==3.11.2",
+    "Pillow==11.3.0",
+    "mypy==1.17.1",
+    "ruff==0.12.9",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "mkdocs-material==9.6.17",
+    "mkdocstrings[python]==0.30.0",
+    "pytest-asyncio==1.1.0",
+    "aioresponses==0.7.8",
+    "pre-commit==4.3.0",
+    "syrupy==4.9.1"
+]
+
+[tool.hatch.envs.hatch-test]
+parallel = true
+extra-dependencies = [
+  "aioresponses==0.7.8",
+  "pytest-asyncio==1.1.0",
+  "syrupy==4.9.1",
+  "pytest-cov==6.2.1",
+]
+extra-args = ["--cov-report=xml", "-vv"]
+type = "virtual"
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.13", "3.12"]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+test-cov-xml = "pytest --cov-report=xml"
+lint = [
+  "ruff format .",
+  "ruff check --fix .",
+  "mypy src/habiticalib/",
+]
+lint-check = [
+  "ruff format --check src/habiticalib",
+  "ruff check src/habiticalib",
+  "mypy src/habiticalib/",
+]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+
+[build-system]
+requires = ["hatchling", "hatch-regex-commit"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/habiticalib"]
+
+[project]
+name = "Habiticalib"
+authors = [
+  { name = "Manfred Dennerlein Rodelo", email = "manfred@dennerlein.name" }
+]
+description = "Asynchronous Python client library for the Habitica API"
+readme = "README.md"
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+license = {text = "MIT License"}
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp~=3.9",
+    "mashumaro~=3.13",
+    "orjson~=3.10",
+    "Pillow~=11.0"
+]
+
+[project.urls]
+Documentation = "https://tr4nt0r.github.io/habiticalib/"
+Source = "https://github.com/tr4nt0r/habiticalib"

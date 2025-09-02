@@ -1,0 +1,75 @@
+"use strict";(self.webpackChunkknx_frontend=self.webpackChunkknx_frontend||[]).push([["5033"],{88381:function(e,t,n){n.r(t),n.d(t,{HaConversationAgentSelector:function(){return P}});n(26847),n(27530);var o=n(73742),i=n(59048),a=n(7616),r=(n(39710),n(81738),n(29981),n(6989),n(1455),n(56389),n(29740)),s=n(41806),l=n(16811),d=n(51068),c=n(59753),p=n(47469);n(87799);const u=(e,t)=>{var n;return e.callApi("POST","config/config_entries/options/flow",{handler:t,show_advanced_options:Boolean(null===(n=e.userData)||void 0===n?void 0:n.showAdvanced)})},h=(e,t)=>e.callApi("GET",`config/config_entries/options/flow/${t}`),g=(e,t,n)=>e.callApi("POST",`config/config_entries/options/flow/${t}`,n),_=(e,t)=>e.callApi("DELETE",`config/config_entries/options/flow/${t}`);var m=n(90558);let v,f,y,b,$,w,C=e=>e;n(93795),n(29490);var S=n(28203);let k,L,z,E,F,B=e=>e;const T="__NONE_OPTION__";class O extends i.oi{render(){var e;if(!this._agents)return i.Ld;let t=this.value;if(!t&&this.required){for(const e of this._agents)if("conversation.home_assistant"===e.id&&e.supported_languages.includes(this.language)){t=e.id;break}if(!t)for(const e of this._agents)if("*"===e.supported_languages&&e.supported_languages.includes(this.language)){t=e.id;break}}return t||(t=T),(0,i.dy)(k||(k=B`
+      <ha-select
+        .label=${0}
+        .value=${0}
+        .required=${0}
+        .disabled=${0}
+        @selected=${0}
+        @closed=${0}
+        fixedMenuPosition
+        naturalMenuWidth
+      >
+        ${0}
+        ${0}</ha-select
+      >${0}
+    `),this.label||this.hass.localize("ui.components.coversation-agent-picker.conversation_agent"),t,this.required,this.disabled,this._changed,s.U,this.required?i.Ld:(0,i.dy)(L||(L=B`<ha-list-item .value=${0}>
+              ${0}
+            </ha-list-item>`),T,this.hass.localize("ui.components.coversation-agent-picker.none")),this._agents.map((e=>(0,i.dy)(z||(z=B`<ha-list-item
+              .value=${0}
+              .disabled=${0}
+            >
+              ${0}
+            </ha-list-item>`),e.id,"*"!==e.supported_languages&&0===e.supported_languages.length,e.name))),null!==(e=this._configEntry)&&void 0!==e&&e.supports_options?(0,i.dy)(E||(E=B`<ha-icon-button
+            .path=${0}
+            @click=${0}
+          ></ha-icon-button>`),"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z",this._openOptionsFlow):"")}willUpdate(e){super.willUpdate(e),this.hasUpdated?e.has("language")&&this._debouncedUpdateAgents():this._updateAgents(),e.has("value")&&this._maybeFetchConfigEntry()}async _maybeFetchConfigEntry(){if(this.value&&this.value in this.hass.entities)try{const e=await(0,S.L3)(this.hass,this.value);if(!e.config_entry_id)return void(this._configEntry=void 0);this._configEntry=(await(0,d.RQ)(this.hass,e.config_entry_id)).config_entry}catch(e){this._configEntry=void 0}else this._configEntry=void 0}async _updateAgents(){const{agents:e}=await(0,c.rM)(this.hass,this.language,this.hass.config.country||void 0);if(this._agents=e,!this.value)return;const t=e.find((e=>e.id===this.value));(0,r.B)(this,"supported-languages-changed",{value:null==t?void 0:t.supported_languages}),(!t||"*"!==t.supported_languages&&0===t.supported_languages.length)&&(this.value=void 0,(0,r.B)(this,"value-changed",{value:this.value}))}async _openOptionsFlow(){var e,t,n;this._configEntry&&(e=this,t=this._configEntry,n={manifest:await(0,p.t4)(this.hass,this._configEntry.domain)},(0,m.w)(e,Object.assign({startFlowHandler:t.entry_id,domain:t.domain},n),{flowType:"options_flow",showDevices:!1,createFlow:async(e,n)=>{const[o]=await Promise.all([u(e,n),e.loadFragmentTranslation("config"),e.loadBackendTranslation("options",t.domain),e.loadBackendTranslation("selector",t.domain)]);return o},fetchFlow:async(e,n)=>{const[o]=await Promise.all([h(e,n),e.loadFragmentTranslation("config"),e.loadBackendTranslation("options",t.domain),e.loadBackendTranslation("selector",t.domain)]);return o},handleFlowStep:g,deleteFlow:_,renderAbortDescription(e,n){const o=e.localize(`component.${n.translation_domain||t.domain}.options.abort.${n.reason}`,n.description_placeholders);return o?(0,i.dy)(v||(v=C`
+              <ha-markdown
+                breaks
+                allow-svg
+                .content=${0}
+              ></ha-markdown>
+            `),o):n.reason},renderShowFormStepHeader(e,n){return e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.title`,n.description_placeholders)||e.localize("ui.dialogs.options_flow.form.header")},renderShowFormStepDescription(e,n){const o=e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.description`,n.description_placeholders);return o?(0,i.dy)(f||(f=C`
+              <ha-markdown
+                allow-svg
+                breaks
+                .content=${0}
+              ></ha-markdown>
+            `),o):""},renderShowFormStepFieldLabel(e,n,o,i){var a;if("expandable"===o.type)return e.localize(`component.${t.domain}.options.step.${n.step_id}.sections.${o.name}.name`,n.description_placeholders);const r=null!=i&&null!==(a=i.path)&&void 0!==a&&a[0]?`sections.${i.path[0]}.`:"";return e.localize(`component.${t.domain}.options.step.${n.step_id}.${r}data.${o.name}`,n.description_placeholders)||o.name},renderShowFormStepFieldHelper(e,n,o,a){var r;if("expandable"===o.type)return e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.sections.${o.name}.description`,n.description_placeholders);const s=null!=a&&null!==(r=a.path)&&void 0!==r&&r[0]?`sections.${a.path[0]}.`:"",l=e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.${s}data_description.${o.name}`,n.description_placeholders);return l?(0,i.dy)(y||(y=C`<ha-markdown breaks .content=${0}></ha-markdown>`),l):""},renderShowFormStepFieldError(e,n,o){return e.localize(`component.${n.translation_domain||t.domain}.options.error.${o}`,n.description_placeholders)||o},renderShowFormStepFieldLocalizeValue(e,n,o){return e.localize(`component.${t.domain}.selector.${o}`)},renderShowFormStepSubmitButton(e,n){return e.localize(`component.${t.domain}.options.step.${n.step_id}.submit`)||e.localize("ui.panel.config.integrations.config_flow."+(!1===n.last_step?"next":"submit"))},renderExternalStepHeader(e,t){return""},renderExternalStepDescription(e,t){return""},renderCreateEntryDescription(e,t){return(0,i.dy)(b||(b=C`
+          <p>${0}</p>
+        `),e.localize("ui.dialogs.options_flow.success.description"))},renderShowFormProgressHeader(e,n){return e.localize(`component.${t.domain}.options.step.${n.step_id}.title`)||e.localize(`component.${t.domain}.title`)},renderShowFormProgressDescription(e,n){const o=e.localize(`component.${n.translation_domain||t.domain}.options.progress.${n.progress_action}`,n.description_placeholders);return o?(0,i.dy)($||($=C`
+              <ha-markdown
+                allow-svg
+                breaks
+                .content=${0}
+              ></ha-markdown>
+            `),o):""},renderMenuHeader(e,n){return e.localize(`component.${t.domain}.options.step.${n.step_id}.title`)||e.localize(`component.${t.domain}.title`)},renderMenuDescription(e,n){const o=e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.description`,n.description_placeholders);return o?(0,i.dy)(w||(w=C`
+              <ha-markdown
+                allow-svg
+                breaks
+                .content=${0}
+              ></ha-markdown>
+            `),o):""},renderMenuOption(e,n,o){return e.localize(`component.${n.translation_domain||t.domain}.options.step.${n.step_id}.menu_options.${o}`,n.description_placeholders)},renderLoadingDescription(e,n){return e.localize(`component.${t.domain}.options.loading`)||("loading_flow"===n||"loading_step"===n?e.localize(`ui.dialogs.options_flow.loading.${n}`,{integration:(0,p.Lh)(e.localize,t.domain)}):"")}}))}_changed(e){var t;const n=e.target;!this.hass||""===n.value||n.value===this.value||void 0===this.value&&n.value===T||(this.value=n.value===T?void 0:n.value,(0,r.B)(this,"value-changed",{value:this.value}),(0,r.B)(this,"supported-languages-changed",{value:null===(t=this._agents.find((e=>e.id===this.value)))||void 0===t?void 0:t.supported_languages}))}constructor(...e){super(...e),this.disabled=!1,this.required=!1,this._debouncedUpdateAgents=(0,l.D)((()=>this._updateAgents()),500)}}O.styles=(0,i.iv)(F||(F=B`
+    :host {
+      display: flex;
+      align-items: center;
+    }
+    ha-select {
+      width: 100%;
+    }
+    ha-icon-button {
+      color: var(--secondary-text-color);
+    }
+  `)),(0,o.__decorate)([(0,a.Cb)()],O.prototype,"value",void 0),(0,o.__decorate)([(0,a.Cb)()],O.prototype,"language",void 0),(0,o.__decorate)([(0,a.Cb)()],O.prototype,"label",void 0),(0,o.__decorate)([(0,a.Cb)({attribute:!1})],O.prototype,"hass",void 0),(0,o.__decorate)([(0,a.Cb)({type:Boolean,reflect:!0})],O.prototype,"disabled",void 0),(0,o.__decorate)([(0,a.Cb)({type:Boolean})],O.prototype,"required",void 0),(0,o.__decorate)([(0,a.SB)()],O.prototype,"_agents",void 0),(0,o.__decorate)([(0,a.SB)()],O.prototype,"_configEntry",void 0),O=(0,o.__decorate)([(0,a.Mo)("ha-conversation-agent-picker")],O);let A,x,M=e=>e;class P extends i.oi{render(){var e,t;return(0,i.dy)(A||(A=M`<ha-conversation-agent-picker
+      .hass=${0}
+      .value=${0}
+      .language=${0}
+      .label=${0}
+      .helper=${0}
+      .disabled=${0}
+      .required=${0}
+    ></ha-conversation-agent-picker>`),this.hass,this.value,(null===(e=this.selector.conversation_agent)||void 0===e?void 0:e.language)||(null===(t=this.context)||void 0===t?void 0:t.language),this.label,this.helper,this.disabled,this.required)}constructor(...e){super(...e),this.disabled=!1,this.required=!0}}P.styles=(0,i.iv)(x||(x=M`
+    ha-conversation-agent-picker {
+      width: 100%;
+    }
+  `)),(0,o.__decorate)([(0,a.Cb)({attribute:!1})],P.prototype,"hass",void 0),(0,o.__decorate)([(0,a.Cb)({attribute:!1})],P.prototype,"selector",void 0),(0,o.__decorate)([(0,a.Cb)()],P.prototype,"value",void 0),(0,o.__decorate)([(0,a.Cb)()],P.prototype,"label",void 0),(0,o.__decorate)([(0,a.Cb)()],P.prototype,"helper",void 0),(0,o.__decorate)([(0,a.Cb)({type:Boolean})],P.prototype,"disabled",void 0),(0,o.__decorate)([(0,a.Cb)({type:Boolean})],P.prototype,"required",void 0),(0,o.__decorate)([(0,a.Cb)({attribute:!1})],P.prototype,"context",void 0),P=(0,o.__decorate)([(0,a.Mo)("ha-selector-conversation_agent")],P)},59753:function(e,t,n){n.d(t,{KH:function(){return a},rM:function(){return i},zt:function(){return o}});var o=function(e){return e[e.CONTROL=1]="CONTROL",e}({});const i=(e,t,n)=>e.callWS({type:"conversation/agent/list",language:t,country:n}),a=(e,t,n)=>e.callWS({type:"conversation/agent/homeassistant/language_scores",language:t,country:n})},28203:function(e,t,n){n.d(t,{CL:function(){return m},Iq:function(){return d},L3:function(){return l},LM:function(){return h},Mw:function(){return _},Nv:function(){return c},vA:function(){return s},w1:function(){return g}});n(39710),n(26847),n(18574),n(81738),n(94814),n(29981),n(87799),n(27530);var o=n(88865),i=n(28105),a=n(31298),r=(n(92949),n(16811));const s=(e,t)=>{if(t.name)return t.name;const n=e.states[t.entity_id];return n?(0,a.C)(n):t.original_name?t.original_name:t.entity_id},l=(e,t)=>e.callWS({type:"config/entity_registry/get",entity_id:t}),d=(e,t)=>e.callWS({type:"config/entity_registry/get_entries",entity_ids:t}),c=(e,t,n)=>e.callWS(Object.assign({type:"config/entity_registry/update",entity_id:t},n)),p=e=>e.sendMessagePromise({type:"config/entity_registry/list"}),u=(e,t)=>e.subscribeEvents((0,r.D)((()=>p(e).then((e=>t.setState(e,!0)))),500,!0),"entity_registry_updated"),h=(e,t)=>(0,o.B)("_entityRegistry",p,u,e,t),g=(0,i.Z)((e=>{const t={};for(const n of e)t[n.entity_id]=n;return t})),_=(0,i.Z)((e=>{const t={};for(const n of e)t[n.id]=n;return t})),m=(e,t)=>e.callWS({type:"config/entity_registry/get_automatic_entity_ids",entity_ids:t})},47469:function(e,t,n){n.d(t,{F3:function(){return i},Lh:function(){return o},t4:function(){return a}});n(16811);const o=(e,t,n)=>e(`component.${t}.title`)||(null==n?void 0:n.name)||t,i=(e,t)=>{const n={type:"manifest/list"};return t&&(n.integrations=t),e.callWS(n)},a=(e,t)=>e.callWS({type:"manifest/get",integration:t})},90558:function(e,t,n){n.d(t,{w:function(){return a}});n(26847),n(87799),n(1455),n(27530);var o=n(29740);const i=()=>Promise.all([n.e("50"),n.e("9641")]).then(n.bind(n,14723)),a=(e,t,n)=>{(0,o.B)(e,"show-dialog",{dialogTag:"dialog-data-entry-flow",dialogImport:i,dialogParams:Object.assign(Object.assign({},t),{},{flowConfig:n,dialogParentElement:e})})}},88865:function(e,t,n){n.d(t,{B:function(){return a}});n(40777),n(2394),n(87799),n(1455);const o=e=>{let t=[];function n(n,o){e=o?n:Object.assign(Object.assign({},e),n);let i=t;for(let t=0;t<i.length;t++)i[t](e)}return{get state(){return e},action(t){function o(e){n(e,!1)}return function(){let n=[e];for(let e=0;e<arguments.length;e++)n.push(arguments[e]);let i=t.apply(this,n);if(null!=i)return i instanceof Promise?i.then(o):o(i)}},setState:n,clearState(){e=void 0},subscribe(e){return t.push(e),()=>{!function(e){let n=[];for(let o=0;o<t.length;o++)t[o]===e?e=null:n.push(t[o]);t=n}(e)}}}},i=(e,t,n,i,a={unsubGrace:!0})=>{if(e[t])return e[t];let r,s,l=0,d=o();const c=()=>{if(!n)throw new Error("Collection does not support refresh");return n(e).then((e=>d.setState(e,!0)))},p=()=>c().catch((t=>{if(e.connected)throw t})),u=()=>{s=void 0,r&&r.then((e=>{e()})),d.clearState(),e.removeEventListener("ready",c),e.removeEventListener("disconnected",h)},h=()=>{s&&(clearTimeout(s),u())};return e[t]={get state(){return d.state},refresh:c,subscribe(t){l++,1===l&&(()=>{if(void 0!==s)return clearTimeout(s),void(s=void 0);i&&(r=i(e,d)),n&&(e.addEventListener("ready",p),p()),e.addEventListener("disconnected",h)})();const o=d.subscribe(t);return void 0!==d.state&&setTimeout((()=>t(d.state)),0),()=>{o(),l--,l||(a.unsubGrace?s=setTimeout(u,5e3):u())}}},e[t]},a=(e,t,n,o,a)=>i(o,e,t,n).subscribe(a)}}]);
+//# sourceMappingURL=5033.f136a1d747c51228.js.map

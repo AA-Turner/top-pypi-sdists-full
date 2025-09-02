@@ -1,0 +1,31 @@
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-google-cse"
+version = "0.1.4"
+description = "An MCP server for searching a custom Google search engine."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [ "mcp>=1.2.0", "google-api-python-client>=2.159.0"]
+license = "Unlicense"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+]
+keywords = ["MCP", "Model Context Protocol", "Google Custom Search Engine", "Google CSE", "Web Browsing"]
+
+[[project.authors]]
+name = "Richard-Weiss"
+email = "76665424+Richard-Weiss@users.noreply.github.com"
+
+[project.urls]
+Homepage = "https://github.com/Richard-Weiss/mcp-google-cse"
+Issues = "https://github.com/Richard-Weiss/mcp-google-cse/issues"
+
+[project.scripts]
+mcp-google-cse = "mcp_google_cse:main"

@@ -1,0 +1,150 @@
+# ********************************
+# |docname| - Poetry configuration
+# ********************************
+#
+# Poetry
+# ======
+# See https://python-poetry.org/docs/dependency-specification/ to get an understanding of
+# how poetry specifies dependencies.
+#
+# Project metadata
+# ----------------
+[tool.poetry]
+name = "pretext"
+version = "2.29.1"
+description = "A package to author, build, and deploy PreTeXt projects."
+readme = "README.md"
+homepage = "https://pretextbook.org"
+repository = "https://github.com/PreTeXtBook/pretext-cli"
+authors = [
+    "Oscar Levin <oscar.levin@unco.edu>",
+    "Steven Clontz <steven.clontz@gmail.com>",
+]
+license = "GPL-3.0-or-later"
+include = ["pretext/core/pretext.py", "pretext/core/braille_format.py", "pretext/resources/*.zip", "pretext/resources/*.json"]
+
+# Dependencies
+# ------------
+[tool.poetry.dependencies]
+python = "^3.10"
+lxml = "^5.3"
+requests = "^2"
+GitPython = "^3"
+click = "^8"
+pdfCropMargins = "~1.0.9"
+PyPDF2 = "~2.5"
+pyMuPDF = "^1.24"
+click-log = "^0.4"
+ghp-import = "^2"
+single-version = "^1"
+playwright = "^1"
+pydantic-xml = "2.14.3"
+qrcode = "^7"
+psutil = "^7"
+plastex = "^3"
+jinja2 = "^3"
+coloraide = "^4"
+pelican = { extras = ["markdown"], version = "^4.10", optional = true }
+prefig = { extras = ["text"], version = "^0.4", optional = true }
+citeproc-py = "^0"
+
+
+# Development dependencies
+# ------------------------
+[tool.poetry.group.dev.dependencies]
+black = "^24.10"
+codechat-server = "^0"
+flake8 = "^6"
+lxml-stubs = "^0"
+mypy = "^1"
+pytest = "^7"
+pytest-console-scripts = "^1"
+pytest-cov = "^4"
+pytest-mock = "^3"
+# Needed by coverage, so it can read its configuration from this file. See the [Coverage docs](https://coverage.readthedocs.io/en/7.2.7/config.html).
+toml = "^0"
+
+# Misc
+# ----
+errorhandler = "^2.0.1"
+pep8-naming = "^0.14.1"
+
+[tool.poetry.extras]
+homepage = ["pelican"]
+prefigure = ["prefig"]
+all = ["pelican","prefig"]
+
+[tool.poetry.scripts]
+pretext = 'pretext.cli:main'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Fix for `poetry install` not installing the correct docutils version.
+# see https://github.com/python-poetry/poetry/issues/9293
+[[tool.poetry.source]]
+name = "pypi-public"
+url = "https://pypi.org/simple/"
+priority = "primary"
+
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[tool.pytest.ini_options]
+script_launch_mode = "subprocess"
+
+
+# mypy configuration
+# ==================
+# To run, execute ``mypy`` from the directory containing this file.
+#
+# This section `must <https://mypy.readthedocs.io/en/stable/config_file.html#config-file-format>`_ be present.
+[tool.mypy]
+# See `files <https://mypy.readthedocs.io/en/stable/config_file.html#confval-files>`_.
+files = "pretext,tests"
+exclude = ["^pretext/core/pretext\\.py$", "^pretext/core/__init__\\.py$", "^pretext/core/braille_format\\.py$"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+
+# Ignores for libraries with no type hints
+# ----------------------------------------
+[[tool.mypy.overrides]]
+module = [
+    "click_log",
+    "single_version",
+    "ghp_import",
+    # We're installing ``lxml-stubs``, but it doesn't have stubs for this yet.
+    "lxml.ElementInclude",
+    "pytest",
+    "pytest_console_scripts",
+    "plasTeX.TeX",
+    "plasTeX.Renderers.PageTemplate",
+]
+ignore_missing_imports = true
+
+# Tell mypy to skip imports of the core. Per [SO](https://stackoverflow.com/a/70367929/16038919),
+# the `exclude` above will be overridden when code mypy scans includes the core.
+# The setting below prevents this.
+[[tool.mypy.overrides]]
+module = ["pretext.core"]
+follow_imports = "skip"
+
+
+# Coverage configuration
+# ======================
+[tool.coverage.run]
+# Select code to be covered -- everything in the `pretext` subdirectory.
+source = ["pretext"]
+# This doesn't work. It works if the path is absolute, but I can't find any relative path that does work.
+#omit = [ "pretext/core/pretext.py" ]
+
+[tool.coverage.report]
+# This is a simple workaround for the `omit` setting above: don't report coverage for the PreTeXt core.
+omit = ["pretext/core/pretext.py"]
+
+[tool.coverage.html]
+# For better organization, place generated reports under the tests.
+directory = "tests/htmlcov"

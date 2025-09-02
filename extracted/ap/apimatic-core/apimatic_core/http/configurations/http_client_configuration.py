@@ -50,10 +50,15 @@ class HttpClientConfiguration(object):  # pragma: no cover
     def logging_configuration(self):
         return self._logging_configuration
 
+    @property
+    def proxy_settings(self):
+        return self._proxy_settings
+
     def __init__(self, http_client_instance=None,
                  override_http_client_configuration=False, http_call_back=None,
                  timeout=60, max_retries=0, backoff_factor=2,
-                 retry_statuses=None, retry_methods=None, logging_configuration=None):
+                 retry_statuses=None, retry_methods=None, logging_configuration=None,
+                 proxy_settings=None):
         if retry_statuses is None:
             retry_statuses = [408, 413, 429, 500, 502, 503, 504, 521, 522, 524]
 
@@ -93,6 +98,8 @@ class HttpClientConfiguration(object):  # pragma: no cover
 
         self._logging_configuration = logging_configuration
 
+        self._proxy_settings = proxy_settings
+
     def set_http_client(self, http_client):
         self._http_client = http_client
 
@@ -103,6 +110,6 @@ class HttpClientConfiguration(object):  # pragma: no cover
             http_call_back=http_callback or self.http_callback,
             timeout=self.timeout, max_retries=self.max_retries, backoff_factor=self.backoff_factor,
             retry_statuses=self.retry_statuses, retry_methods=self.retry_methods,
-            logging_configuration=self.logging_configuration)
+            logging_configuration=self.logging_configuration, proxy_settings=self.proxy_settings)
         http_client_instance.set_http_client(self.http_client)
         return http_client_instance

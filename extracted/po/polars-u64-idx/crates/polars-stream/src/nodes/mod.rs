@@ -1,3 +1,5 @@
+#[cfg(feature = "cum_agg")]
+pub mod cum_agg;
 pub mod dynamic_slice;
 pub mod filter;
 pub mod group_by;
@@ -20,6 +22,7 @@ pub mod repeat;
 pub mod rle;
 pub mod rle_id;
 pub mod select;
+pub mod shift;
 pub mod simple_projection;
 pub mod streaming_slice;
 pub mod top_k;

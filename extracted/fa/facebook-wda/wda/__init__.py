@@ -366,7 +366,7 @@ class BaseClient(object):
     def callbacks(self):
         return self.__callbacks
 
-    @limit_call_depth(4)
+    @limit_call_depth(10)
     def _fetch(self,
                method: str,
                urlpath: str,

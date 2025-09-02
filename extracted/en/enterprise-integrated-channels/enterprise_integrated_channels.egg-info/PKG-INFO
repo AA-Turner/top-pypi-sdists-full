@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.14
+Version: 0.1.15
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -193,6 +193,15 @@ Unreleased
 **********
 
 *
+
+0.1.15 – 2025-09-01
+*******************
+
+Added
+=====
+
+*  Add explicit index naming for SAP SuccessFactors audit table and corresponding database migration.
+
 
 0.1.14 – 2025-08-13
 *******************

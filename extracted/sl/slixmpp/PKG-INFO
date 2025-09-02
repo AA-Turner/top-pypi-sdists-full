@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slixmpp
-Version: 1.10.0
+Version: 1.11.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
@@ -26,6 +26,7 @@ License-File: LICENSE
 Summary: Slixmpp is an elegant Python library for XMPP (aka Jabber).
 Author-email: Florent Le Coz <louiz@louiz.org>, "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.org>
 Maintainer-email: "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.org>
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
 

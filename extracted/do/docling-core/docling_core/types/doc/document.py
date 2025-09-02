@@ -34,7 +34,7 @@ from pydantic import (
     validate_call,
 )
 from tabulate import tabulate
-from typing_extensions import Annotated, Self, deprecated
+from typing_extensions import Annotated, Self, deprecated, override
 
 from docling_core.search.package import VERSION_PATTERN
 from docling_core.types.base import _JSON_POINTER_REGEX
@@ -60,7 +60,7 @@ _logger = logging.getLogger(__name__)
 
 Uint64 = typing.Annotated[int, Field(ge=0, le=(2**64 - 1))]
 LevelNumber = typing.Annotated[int, Field(ge=1, le=100)]
-CURRENT_VERSION: Final = "1.5.0"
+CURRENT_VERSION: Final = "1.6.0"
 
 DEFAULT_EXPORT_LABELS = {
     DocItemLabel.TITLE,
@@ -325,7 +325,7 @@ class TableCell(BaseModel):
                 in data
             ):
                 return data
-            text = data["bbox"].get("token", "")
+            text = data.get("bbox", {}).get("token", "")
             if not len(text):
                 text_cells = data.pop("text_cell_bboxes", None)
                 if text_cells:
@@ -337,11 +337,39 @@ class TableCell(BaseModel):
 
         return data
 
+    def _get_text(self, doc: Optional["DoclingDocument"] = None, **kwargs: Any) -> str:
+        return self.text
+
+
+class RichTableCell(TableCell):
+    """RichTableCell."""
+
+    ref: "RefItem"
+
+    @override
+    def _get_text(self, doc: Optional["DoclingDocument"] = None, **kwargs: Any) -> str:
+        from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
+
+        if doc is not None:
+            doc_serializer = kwargs.pop(
+                "doc_serializer", MarkdownDocSerializer(doc=doc)
+            )
+            ser_res = doc_serializer.serialize(item=self.ref.resolve(doc=doc), **kwargs)
+            return ser_res.text
+        else:
+            return "<!-- rich cell -->"
+
+
+AnyTableCell = Annotated[
+    Union[RichTableCell, TableCell],
+    Field(union_mode="left_to_right"),
+]
+
 
 class TableData(BaseModel):  # TBD
     """BaseTableData."""
 
-    table_cells: List[TableCell] = []
+    table_cells: List[AnyTableCell] = []
     num_rows: int = 0
     num_cols: int = 0
 
@@ -380,7 +408,9 @@ class TableData(BaseModel):  # TBD
 
         return table_data
 
-    def remove_rows(self, indices: List[int]) -> List[List[TableCell]]:
+    def remove_rows(
+        self, indices: List[int], doc: Optional["DoclingDocument"] = None
+    ) -> List[List[TableCell]]:
         """Remove rows from the table by their indices.
 
         :param indices: List[int]: A list of indices of the rows to remove. (Starting from 0)
@@ -392,6 +422,7 @@ class TableData(BaseModel):  # TBD
 
         indices = sorted(indices, reverse=True)
 
+        refs_to_remove = []
         all_removed_cells = []
         for row_index in indices:
             if row_index < 0 or row_index >= self.num_rows:
@@ -402,6 +433,10 @@ class TableData(BaseModel):  # TBD
             start_idx = row_index * self.num_cols
             end_idx = start_idx + self.num_cols
             removed_cells = self.table_cells[start_idx:end_idx]
+
+            for cell in removed_cells:
+                if isinstance(cell, RichTableCell):
+                    refs_to_remove.append(cell.ref)
 
             # Remove the cells from the table
             self.table_cells = self.table_cells[:start_idx] + self.table_cells[end_idx:]
@@ -417,9 +452,18 @@ class TableData(BaseModel):  # TBD
 
             all_removed_cells.append(removed_cells)
 
+        if refs_to_remove:
+            if doc is None:
+                _logger.warning(
+                    "When table contains rich cells, `doc` argument must be provided, "
+                    "otherwise rich cell content will be left dangling."
+                )
+            else:
+                doc._delete_items(refs_to_remove)
+
         return all_removed_cells
 
-    def pop_row(self) -> List[TableCell]:
+    def pop_row(self, doc: Optional["DoclingDocument"] = None) -> List[TableCell]:
         """Remove and return the last row from the table.
 
         :returns: List[TableCell]: A list of TableCell objects representing the popped row.
@@ -427,16 +471,18 @@ class TableData(BaseModel):  # TBD
         if self.num_rows == 0:
             raise IndexError("Cannot pop from an empty table.")
 
-        return self.remove_row(self.num_rows - 1)
+        return self.remove_row(self.num_rows - 1, doc=doc)
 
-    def remove_row(self, row_index: int) -> List[TableCell]:
+    def remove_row(
+        self, row_index: int, doc: Optional["DoclingDocument"] = None
+    ) -> List[TableCell]:
         """Remove a row from the table by its index.
 
         :param row_index: int: The index of the row to remove. (Starting from 0)
 
         :returns: List[TableCell]: A list of TableCell objects representing the removed row.
         """
-        return self.remove_rows([row_index])[0]
+        return self.remove_rows([row_index], doc=doc)[0]
 
     def insert_rows(
         self, row_index: int, rows: List[List[str]], after: bool = False
@@ -1509,8 +1555,15 @@ class TableItem(FloatingItem):
 
     annotations: List[TableAnnotationType] = []
 
-    def export_to_dataframe(self) -> pd.DataFrame:
+    def export_to_dataframe(
+        self, doc: Optional["DoclingDocument"] = None
+    ) -> pd.DataFrame:
         """Export the table as a Pandas DataFrame."""
+        if doc is None:
+            _logger.warning(
+                "Usage of TableItem.export_to_dataframe() without `doc` argument is deprecated."
+            )
+
         if self.data.num_rows == 0 or self.data.num_cols == 0:
             return pd.DataFrame()
 
@@ -1539,14 +1592,15 @@ class TableItem(FloatingItem):
             columns = ["" for _ in range(self.data.num_cols)]
             for i in range(num_headers):
                 for j, cell in enumerate(self.data.grid[i]):
-                    col_name = cell.text
+                    col_name = cell._get_text(doc=doc)
                     if columns[j] != "":
                         col_name = f".{col_name}"
                     columns[j] += col_name
 
         # Create table data
         table_data = [
-            [cell.text for cell in row] for row in self.data.grid[num_headers:]
+            [cell._get_text(doc=doc) for cell in row]
+            for row in self.data.grid[num_headers:]
         ]
 
         # Create DataFrame
@@ -1577,7 +1631,7 @@ class TableItem(FloatingItem):
 
                     # make sure that md tables are not broken
                     # due to newline chars in the text
-                    text = col.text
+                    text = col._get_text(doc=doc)
                     text = text.replace("\n", " ")
                     tmp.append(text)
 
@@ -1623,6 +1677,7 @@ class TableItem(FloatingItem):
         add_cell_text: bool = True,
         xsize: int = 500,
         ysize: int = 500,
+        **kwargs: Any,
     ) -> str:
         """Export the table as OTSL."""
         # Possible OTSL tokens...
@@ -1639,6 +1694,9 @@ class TableItem(FloatingItem):
         # Headers (column, row, section row):
         # "ched", "rhed", "srow"
 
+        from docling_core.transforms.serializer.doctags import DocTagsDocSerializer
+
+        doc_serializer = DocTagsDocSerializer(doc=doc)
         body = []
         nrows = self.data.num_rows
         ncols = self.data.num_cols
@@ -1652,7 +1710,9 @@ class TableItem(FloatingItem):
         for i in range(nrows):
             for j in range(ncols):
                 cell: TableCell = self.data.grid[i][j]
-                content = cell.text.strip()
+                content = cell._get_text(
+                    doc=doc, doc_serializer=doc_serializer, **kwargs
+                ).strip()
                 rowspan, rowstart = (
                     cell.row_span,
                     cell.start_row_offset_idx,
@@ -2304,6 +2364,15 @@ class DoclingDocument(BaseModel):
                 refs_to_be_deleted=refs_to_be_deleted,
                 lookup=lookup,
             )
+            if isinstance(node, TableItem):
+                for cell in node.data.table_cells:
+                    if isinstance(cell, RichTableCell):
+                        path = cell.ref._split_ref_to_path()
+                        cell.ref = self._update_ref_with_lookup(
+                            item_label=path[1],
+                            item_index=int(path[2]),
+                            lookup=lookup,
+                        )
 
         # Update the self_ref reference
         if node.parent is not None:
@@ -3945,16 +4014,22 @@ class DoclingDocument(BaseModel):
         """num_pages."""
         return len(self.pages.values())
 
-    def validate_tree(self, root) -> bool:
+    def validate_tree(self, root: NodeItem) -> bool:
         """validate_tree."""
-        res = []
         for child_ref in root.children:
             child = child_ref.resolve(self)
-            if child.parent.resolve(self) != root:
+            if child.parent.resolve(self) != root or not self.validate_tree(child):
                 return False
-            res.append(self.validate_tree(child))
 
-        return all(res) or len(res) == 0
+        if isinstance(root, TableItem):
+            for cell in root.data.table_cells:
+                if isinstance(cell, RichTableCell) and (
+                    (par_ref := cell.ref.resolve(self).parent) is None
+                    or par_ref.resolve(self) != root
+                ):
+                    return False
+
+        return True
 
     def iterate_items(
         self,
@@ -3963,7 +4038,7 @@ class DoclingDocument(BaseModel):
         traverse_pictures: bool = False,
         page_no: Optional[int] = None,
         included_content_layers: Optional[set[ContentLayer]] = None,
-        _level: int = 0,  # fixed parameter, carries through the node nesting level
+        _level: int = 0,  # deprecated
     ) -> typing.Iterable[Tuple[NodeItem, int]]:  # tuple of node and level
         """Iterate elements with level."""
         for item, stack in self._iterate_items_with_stack(
@@ -5324,7 +5399,9 @@ class DoclingDocument(BaseModel):
                         grid.append([])
                         for j, cell in enumerate(row):
                             if j < 10:
-                                text = get_text(text=cell.text, max_text_len=16)
+                                text = get_text(
+                                    cell._get_text(doc=self), max_text_len=16
+                                )
                                 grid[-1].append(text)
 
                     result.append("\n" + tabulate(grid) + "\n")
@@ -5588,6 +5665,16 @@ class DoclingDocument(BaseModel):
                                         )
                                         break
 
+                            # update rich table cells references:
+                            if isinstance(parent_item, TableItem):
+                                for cell in parent_item.data.table_cells:
+                                    if (
+                                        isinstance(cell, RichTableCell)
+                                        and cell.ref.cref == item.self_ref
+                                    ):
+                                        cell.ref.cref = new_cref
+                                        break
+
                         elif num_components == 2 and path_components[1] == "body":
                             parent_item = self._body
                         else:
@@ -5675,6 +5762,18 @@ class DoclingDocument(BaseModel):
 
             elif isinstance(item, ListItem):
                 validate_list_item(self, item)
+
+    def add_table_cell(self, table_item: TableItem, cell: TableCell) -> None:
+        """Add a table cell to the table."""
+        if isinstance(cell, RichTableCell):
+            item = cell.ref.resolve(doc=self)
+            if isinstance(item, NodeItem) and (
+                (not item.parent) or item.parent.cref != table_item.self_ref
+            ):
+                raise ValueError(
+                    f"Trying to add cell with another parent {item.parent} to {table_item.self_ref}"
+                )
+        table_item.data.table_cells.append(cell)
 
 
 # deprecated aliases (kept for backwards compatibility):

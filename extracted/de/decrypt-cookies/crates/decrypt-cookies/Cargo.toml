@@ -1,0 +1,55 @@
+[package]
+name = "decrypt-cookies"
+version = "0.10.3"
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "A decrypt browser crate"
+homepage = "https://github.com/saying121/tidy-browser/tree/master/crates/decrypt-cookies"
+repository = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+include = ["Cargo.toml", "README.md", "src"]
+readme = "README.md"
+
+[dependencies]
+binary-cookies = { workspace = true, features = ["tokio"], optional = true }
+chromium-crypto = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
+rayon = { workspace = true, optional = true }
+reqwest = { workspace = true, default-features = false, features = ["cookies"], optional = true }
+rust-ini = { workspace = true, optional = true }
+sea-orm = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+snafu = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true, optional = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+reqwest = { workspace = true, default-features = true, features = ["cookies"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[target.'cfg(not(windows))'.dependencies]
+const_format = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+anyhow = { workspace = true, optional = true }
+rawcopy-rs-next = { workspace = true, optional = true }
+
+[features]
+Safari = ["dep:binary-cookies"]  # `binary_cookies` does not depend on Macos
+chromium = ["anyhow", "rawcopy-rs-next", "rayon", "sea-orm"]
+default = ["chromium", "firefox", "reqwest", "serde", "tracing"]
+ffi = []  # Use for bindgen
+firefox = ["rayon", "rust-ini", "sea-orm"]
+reqwest = ["dep:reqwest"]
+serde = ["chrono/serde", "dep:serde"]
+tracing = ["chromium-crypto/tracing", "dep:tracing"]
+
+[lints]
+workspace = true

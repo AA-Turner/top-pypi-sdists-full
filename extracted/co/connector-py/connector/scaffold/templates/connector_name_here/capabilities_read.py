@@ -65,26 +65,26 @@ async def list_accounts(args: ListAccountsRequest) -> ListAccountsResponse:
 
 
 async def list_resources(args: ListResourcesRequest) -> ListResourcesResponse:
-    raise NotImplementedError
+    raise NotImplementedError  # pragma: no cover
 
 
 async def list_entitlements(
     args: ListEntitlementsRequest,
 ) -> ListEntitlementsResponse:
-    raise NotImplementedError
+    raise NotImplementedError  # pragma: no cover
 
 
 async def find_entitlement_associations(
     args: FindEntitlementAssociationsRequest,
 ) -> FindEntitlementAssociationsResponse:
-    raise NotImplementedError
+    raise NotImplementedError  # pragma: no cover
 
 
 async def get_last_activity(args: GetLastActivityRequest) -> GetLastActivityResponse:
-    raise NotImplementedError
+    raise NotImplementedError  # pragma: no cover
 
 
 async def list_custom_attributes_schema(
     args: ListCustomAttributesSchemaRequest,
 ) -> ListCustomAttributesSchemaResponse:
-    raise NotImplementedError
+    raise NotImplementedError  # pragma: no cover

@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.5.5
+Version: 0.5.6
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Project-URL: Homepage, https://github.com/PyPSA/linopy
 Project-URL: Source, https://github.com/PyPSA/linopy
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -16,7 +16,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Typing :: Typed
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy; python_version > "3.10"
@@ -130,9 +130,9 @@ Linopy aims to make optimization programs transparent and flexible. To illustrat
 
 >>> m = linopy.Model()
 
->>> days = pd.Index(['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], name='day')
->>> apples = m.add_variables(lower=0, name='apples', coords=[days])
->>> bananas = m.add_variables(lower=0, name='bananas', coords=[days])
+>>> days = pd.Index(["Mon", "Tue", "Wed", "Thu", "Fri"], name="day")
+>>> apples = m.add_variables(lower=0, name="apples", coords=[days])
+>>> bananas = m.add_variables(lower=0, name="bananas", coords=[days])
 >>> apples
 ```
 ```
@@ -148,7 +148,7 @@ Variable (day: 5)
 Add daily vitamin constraints
 
 ```python
->>> m.add_constraints(3 * apples + 2 * bananas >= 8, name='daily_vitamins')
+>>> m.add_constraints(3 * apples + 2 * bananas >= 8, name="daily_vitamins")
 ```
 ```
 Constraint `daily_vitamins` (day: 5):
@@ -163,7 +163,7 @@ Constraint `daily_vitamins` (day: 5):
 Add weekly vitamin constraint
 
 ```python
->>> m.add_constraints((3 * apples + 2 * bananas).sum() >= 50, name='weekly_vitamins')
+>>> m.add_constraints((3 * apples + 2 * bananas).sum() >= 50, name="weekly_vitamins")
 ```
 ```
 Constraint `weekly_vitamins`

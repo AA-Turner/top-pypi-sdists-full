@@ -1,2 +1,0 @@
-mod test_bookmark_service_impl_load_json_bookmarks;
-mod test_bookmark_service_impl_search;

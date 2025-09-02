@@ -38,7 +38,10 @@ class TestCustomFieldDto(unittest.TestCase):
                 id = '',
                 name = '',
                 type = 'Unknown',
-                entity = 'Unknown'
+                entity = 'Unknown',
+                allowed_values = [
+                    ''
+                    ]
             )
         else:
             return CustomFieldDto(

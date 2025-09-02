@@ -12,7 +12,6 @@ from argparse import ArgumentParser
 import asyncio
 import slixmpp
 from slixmpp.exceptions import IqError, IqTimeout
-from slixmpp.xmlstream.asyncio import asyncio
 
 
 class RosterBrowser(slixmpp.ClientXMPP):

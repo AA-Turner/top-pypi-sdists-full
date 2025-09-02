@@ -18,7 +18,7 @@ from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream import register_stanza_plugin, JID
-from slixmpp.plugins.xep_0191 import stanza, Block, Unblock, BlockList
+from slixmpp.plugins.xep_0191 import stanza, Block, Unblock, BlockList, BlockItem
 
 
 log = logging.getLogger(__name__)
@@ -41,6 +41,9 @@ class XEP_0191(BasePlugin):
         register_stanza_plugin(Iq, BlockList)
         register_stanza_plugin(Iq, Block)
         register_stanza_plugin(Iq, Unblock)
+        register_stanza_plugin(BlockList, BlockItem, iterable=True)
+        register_stanza_plugin(Block, BlockItem, iterable=True)
+        register_stanza_plugin(Unblock, BlockItem, iterable=True)
 
         self.xmpp.register_handler(
                 Callback('Blocked Contact',
@@ -57,10 +60,17 @@ class XEP_0191(BasePlugin):
         self.xmpp.remove_handler('Unblocked Contact')
 
     def get_blocked(self, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
-        """Get the list of blocked JIDs."""
+        """Get the iq containing the blocklist."""
         iq = self.xmpp.make_iq_get(ifrom=ifrom)
         iq.enable('blocklist')
         return iq.send(**iqkwargs)
+
+    async def get_blocked_jids(self, ifrom: Optional[JID] = None, **iqkwargs) -> Set[JID]:
+        """Get the list of blocked JIDs."""
+        iq = self.xmpp.make_iq_get(ifrom=ifrom)
+        iq.enable('blocklist')
+        result = await iq.send(**iqkwargs)
+        return {JID(item['jid']) for item in result['blocklist']}
 
     def block(self, jids: BlockedJIDs,
               ifrom: Optional[JID] = None, **iqkwargs) -> Future:
@@ -72,7 +82,10 @@ class XEP_0191(BasePlugin):
         if not isinstance(jids, (set, list)):
             jids = [jids]
 
-        iq['block']['items'] = jids
+        for jid in jids:
+            item = BlockItem(parent=iq['block'])
+            item['jid'] = jid
+
         return iq.send(**iqkwargs)
 
     def unblock(self, jids: BlockedJIDs, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
@@ -87,7 +100,10 @@ class XEP_0191(BasePlugin):
         if not isinstance(jids, (set, list)):
             jids = [jids]
 
-        iq['unblock']['items'] = jids
+        for jid in jids:
+            item = BlockItem(parent=iq['unblock'])
+            item['jid'] = jid
+
         return iq.send(**iqkwargs)
 
     def _handle_blocked(self, iq):

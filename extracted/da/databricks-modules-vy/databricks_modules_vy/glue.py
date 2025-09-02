@@ -1,6 +1,6 @@
 import time
 import boto3
-from modules.logging import lp
+from .logging import lp
 import sys
 
 

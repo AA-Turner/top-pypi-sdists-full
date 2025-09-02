@@ -21,6 +21,7 @@ def metadata(args):
     new_attribute_sep     = args['as']
 
     interested_col_list = interested_col_header.split(',')
+    default_key_str = metadata_txt_sep.join(['na']*len(interested_col_list))
 
     # read in new attribute
     new_attribute_dict = dict()
@@ -48,7 +49,7 @@ def metadata(args):
         if line_num_index == 0:
             metadata_txt_out_handle.write('%s%s%s\n' % (each_line.strip(), metadata_txt_sep, metadata_txt_sep.join(interested_col_list)))
         else:
-            metadata_txt_out_handle.write('%s%s%s\n' % (each_line.strip(), metadata_txt_sep, new_attribute_dict[sample_id]))
+            metadata_txt_out_handle.write('%s%s%s\n' % (each_line.strip(), metadata_txt_sep, new_attribute_dict.get(sample_id, default_key_str)))
         line_num_index += 1
     metadata_txt_out_handle.close()
 

@@ -1,0 +1,55 @@
+[project]
+name = "pyfireservicerota"
+version = "0.0.47"
+description = "Python 3 API wrapper for FireServiceRota/BrandweerRooster"
+authors = [
+    { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
+]
+dependencies = [
+    "pytz",
+    "oauthlib",
+    "requests",
+    "websocket-client",
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+readme = "README.md"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/cyberjunky/python-fireservicerota"
+"Bug Tracker" = "https://github.com/cyberjunky/python-fireservicerota/issues"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.isort]
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 79
+known_first_party = "pyfireservicerota"
+
+[tool.linting]
+tools = [
+    "black",
+    "ruff",
+    "mypy",
+    "isort",
+    "types-requests",
+]

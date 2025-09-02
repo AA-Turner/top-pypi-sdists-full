@@ -1,0 +1,101 @@
+Metadata-Version: 2.1
+Name: panasonic-viera
+Version: 0.4.2
+Summary: Library to control Panasonic Viera TVs
+License: MIT
+Author: Florian Holzapfel
+Author-email: flo.holzapfel@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: aiohttp (>=3.9.5,<4.0.0)
+Requires-Dist: pycryptodome (>=3.20.0,<4.0.0)
+Requires-Dist: xmltodict (>=0.13.0,<0.14.0)
+Description-Content-Type: text/markdown
+
+# panasonic-viera
+
+[![Pipeline Status](https://github.com/florianholzapfel/panasonic-viera/actions/workflows/ruff.yml/badge.svg)](https://github.com/florianholzapfel/panasonic-viera/actions/workflows/ruff.yml)
+[![PyPI version](https://badge.fury.io/py/panasonic-viera.svg)](https://badge.fury.io/py/panasonic-viera)
+
+## UPDATE (2019-03-28)
+
+Pincode and encryption support has been added for newer TV models circa 2019. For example, the "FZ" Panasonic models. These new models require pincode authentication and communication is now encapsulated in AES-CBC-128 encryption with HMAC-SHA-256. See issue https://github.com/florianholzapfel/panasonic-viera/issues/9
+
+*Please note that these new changes have not yet been tested thoroughly, use at your own risk.*
+
+## Usage
+
+### Code
+
+#### Examples
+
+##### Request a pin code and get credentials
+
+```python
+import panasonic_viera
+rc = panasonic_viera.RemoteControl("<HOST>")
+# Make the TV display a pairing pin code
+rc.request_pin_code()
+# Interactively ask the user for the pin code
+pin = raw_input("Enter the displayed pin code: ")
+# Authorize the pin code with the TV
+rc.authorize_pin_code(pincode=pin)
+# Display credentials (application ID and encryption key)
+print rc.app_id
+print rc.enc_key
+# We can now start communicating with our TV
+# Send EPG key
+rc.send_key(panasonic_viera.Keys.epg)
+```
+
+##### Use saved credentials
+
+```python
+import panasonic_viera
+rc = panasonic_viera.RemoteControl("<HOST>", app_id="BSkeeKuuwakd9Q==", encryption_key="EarvNQodKYlj5zTEIhZoXQ==")
+# We can now start communicating with our TV
+# Send EPG key
+rc.send_key(panasonic_viera.Keys.epg)
+```
+
+##### Increase Volume By 1
+
+```python
+import panasonic_viera
+rc = panasonic_viera.RemoteControl("<HOST>")
+volume = rc.get_volume()
+rc.set_volume(volume + 1)
+```
+
+##### Send EPG Key
+
+```python
+import panasonic_viera
+rc = panasonic_viera.RemoteControl("<HOST>")
+rc.send_key(panasonic_viera.Keys.epg)
+```
+
+### Command Line
+
+This command line starts a [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) to the TV. Therefore it is mainly used testing purposes and not for automating the TV.
+
+```bash
+usage: panasonic_viera [-h] [--verbose] host [port]
+
+Remote control a Panasonic Viera TV.
+
+positional arguments:
+  host        Address of the Panasonic Viera TV
+  port        Port of the Panasonic Viera TV. Defaults to 55000.
+
+optional arguments:
+  -h, --help  show this help message and exit
+  --verbose   debug output
+```
+

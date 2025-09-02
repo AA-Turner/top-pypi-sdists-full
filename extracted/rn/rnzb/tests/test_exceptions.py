@@ -1,0 +1,212 @@
+from __future__ import annotations
+
+import re
+import textwrap
+from pathlib import Path
+
+import pytest
+from rnzb import InvalidNzbError, Nzb
+
+NZB_DIR = Path(__file__).parent.resolve() / "nzbs"
+
+INVALID_NZB_ERROR_GROUPS_ELEMENT = "Invalid or missing 'groups' element within a 'file' element. Each 'file' element must contain at least one valid 'groups' element."
+INVALID_NZB_ERROR_SEGMENTS_ELEMENT = "Invalid or missing 'segments' element within a 'file' element. Each 'file' element must contain at least one valid 'segments' element."
+INVALID_NZB_ERROR_FILE_ELEMENT = "Invalid or missing 'file' element in the NZB document. The NZB document must contain at least one valid 'file' element."
+XML_SYNTAX_ERROR = re.compile(r"The NZB document is not valid XML and could not be parsed: (.*)")
+
+
+invalid_xml = """\
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+<nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+    <head>
+        <meta type="title">Your File!</meta>
+        <meta type="password">secret</meta>
+        <meta type="tag">HD</meta>
+        <meta type="category">TV</meta>
+    </head>
+    <file poster="Joe Bloggs &lt;bloggs@nowhere.example&gt;" date="1071674882" subject="Here's your file!  abc-mr2a.r01 (1/2)">
+        <groups>
+            <group>alt.binaries.newzbin</group>
+            <group>alt.binaries.mojo</group>
+        </groups>
+        <segments>
+            <segment bytes="102394" number="1">123456789abcdef@news.newzbin.com</segment>
+            <segment bytes="4501" number="2">987654321fedbca@news.newzbin.com</segment>
+        </segments>
+    </file>
+"""
+
+valid_xml_but_invalid_nzb = """\
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+<nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+    <head>
+        <meta type="title">Your File!</meta>
+    </head>
+    <file poster="Joe Bloggs &lt;bloggs@nowhere.example&gt;" date="1071674882" subject="Here's your file!  abc-mr2a.r01 (1/2)">
+        <groups>
+            <group>alt.binaries.newzbin</group>
+            <group>alt.binaries.mojo</group>
+        </groups>
+    </file>
+</nzb>"""
+
+
+@pytest.mark.parametrize(
+    "input_xml, expected_error",
+    [
+        pytest.param(
+            invalid_xml,
+            XML_SYNTAX_ERROR,
+            id="truncated_xml",
+        ),
+        pytest.param(
+            valid_xml_but_invalid_nzb, INVALID_NZB_ERROR_SEGMENTS_ELEMENT, id="missing_segments"
+        ),
+    ],
+)
+def test_parsing_invalid_nzb(input_xml: str, expected_error: re.Pattern[str]) -> None:
+    with pytest.raises(InvalidNzbError, match=expected_error):
+        Nzb.from_str(input_xml)
+
+
+@pytest.mark.parametrize(
+    "file_name, expected_error",
+    (
+        ("malformed_files.nzb", INVALID_NZB_ERROR_FILE_ELEMENT),
+        ("malformed_files2.nzb", INVALID_NZB_ERROR_GROUPS_ELEMENT),
+        ("malformed_groups.nzb", INVALID_NZB_ERROR_GROUPS_ELEMENT),
+        ("malformed_segments.nzb", INVALID_NZB_ERROR_SEGMENTS_ELEMENT),
+    ),
+    ids=["malformed_files", "malformed_files2", "malformed_groups", "malformed_segments"],
+)
+def test_parser_exceptions(file_name: str, expected_error: str) -> None:
+    with pytest.raises(InvalidNzbError, match=expected_error):
+        Nzb.from_file(NZB_DIR / file_name)
+
+
+def test_read_nzb_file(tmp_path: Path) -> None:
+    with pytest.raises(InvalidNzbError, match="^Gzip decompression error for file"):
+        Nzb.from_file(NZB_DIR / "invalid_gzipped_nzb.nzb.gz")
+
+    tmp_file = tmp_path / "invalid_bytes.nzb"
+    tmp_file.write_bytes(bytes([255]))
+
+    with pytest.raises(InvalidNzbError, match="^I/O error while reading file"):
+        Nzb.from_file(tmp_file)
+
+
+def test_nzb_with_bad_file_date() -> None:
+    nzb = textwrap.dedent("""
+    <?xml version="1.0" encoding="iso-8859-1" ?>
+    <!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+    <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+        <head>
+            <meta type="title">Your File!</meta>
+            <meta type="password">secret</meta>
+            <meta type="tag">HD</meta>
+            <meta type="category">TV</meta>
+        </head>
+        <file poster="Joe Bloggs &lt;bloggs@nowhere.example&gt;" date="not a date" subject="Here's your file!  abc-mr2a.r01 (1/2)">
+            <groups>
+                <group>alt.binaries.newzbin</group>
+                <group>alt.binaries.mojo</group>
+            </groups>
+            <segments>
+                <segment bytes="102394" number="1">123456789abcdef@news.newzbin.com</segment>
+                <segment bytes="4501" number="2">987654321fedbca@news.newzbin.com</segment>
+            </segments>
+        </file>
+    </nzb>
+    """).strip()
+    with pytest.raises(
+        InvalidNzbError, match=r"Invalid or missing required attribute 'date' in a 'file' element."
+    ):
+        Nzb.from_str(nzb)
+
+
+def test_nzb_with_missing_file_poster() -> None:
+    nzb = textwrap.dedent("""
+    <?xml version="1.0" encoding="iso-8859-1" ?>
+    <!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+    <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+        <head>
+            <meta type="title">Your File!</meta>
+            <meta type="password">secret</meta>
+            <meta type="tag">HD</meta>
+            <meta type="category">TV</meta>
+        </head>
+        <file date="1071674882" subject="Here's your file!  abc-mr2a.r01 (1/2)">
+            <groups>
+                <group>alt.binaries.newzbin</group>
+                <group>alt.binaries.mojo</group>
+            </groups>
+            <segments>
+                <segment bytes="102394" number="1">123456789abcdef@news.newzbin.com</segment>
+                <segment bytes="4501" number="2">987654321fedbca@news.newzbin.com</segment>
+            </segments>
+        </file>
+    </nzb>
+    """).strip()
+    with pytest.raises(
+        InvalidNzbError,
+        match=r"Invalid or missing required attribute 'poster' in a 'file' element.",
+    ):
+        Nzb.from_str(nzb)
+
+
+def test_nzb_with_missing_file_subject() -> None:
+    nzb = textwrap.dedent("""
+    <?xml version="1.0" encoding="iso-8859-1" ?>
+    <!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+    <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+        <head>
+            <meta type="title">Your File!</meta>
+            <meta type="password">secret</meta>
+            <meta type="tag">HD</meta>
+            <meta type="category">TV</meta>
+        </head>
+        <file poster="Joe Bloggs &lt;bloggs@nowhere.example&gt;" date="1071674882">
+            <groups>
+                <group>alt.binaries.newzbin</group>
+                <group>alt.binaries.mojo</group>
+            </groups>
+            <segments>
+                <segment bytes="102394" number="1">123456789abcdef@news.newzbin.com</segment>
+                <segment bytes="4501" number="2">987654321fedbca@news.newzbin.com</segment>
+            </segments>
+        </file>
+    </nzb>
+    """).strip()
+    with pytest.raises(
+        InvalidNzbError,
+        match=r"Invalid or missing required attribute 'subject' in a 'file' element.",
+    ):
+        Nzb.from_str(nzb)
+
+
+def test_nzb_with_only_par2_files() -> None:
+    match = "The NZB document contains only `.par2` files. It must include at least one non-`.par2` file."
+
+    with pytest.raises(InvalidNzbError, match=match):
+        nzb = textwrap.dedent("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+        <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+            <file poster="Joe Bloggs &lt;bloggs@nowhere.example&gt;" date="1590927494" subject="[1/1] - &quot;[Baz] Foobar - 09 (1080p) [0000BEEF].par2&quot; yEnc (1/1) 388">
+                <groups>
+                    <group>alt.binaries.boneless</group>
+                </groups>
+                <segments>
+                    <segment bytes="581" number="1">MtUwAvUsIaGzDhHhJgXsXaFv-1690927494721@nyuu</segment>
+                </segments>
+            </file>
+        </nzb>
+        """).strip()
+        Nzb.from_str(nzb)
+
+
+def test_non_existent_file() -> None:
+    with pytest.raises(FileNotFoundError, match="blahblah"):
+        Nzb.from_file("blahblah")

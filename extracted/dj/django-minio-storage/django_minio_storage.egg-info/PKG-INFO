@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: django-minio-storage
+Version: 0.5.8
+Summary: Django file storage using the minio python client
+Author-email: Thomas Frössman <thomasf@jossystem.se>, Tom Houlé <tom@kafunsho.be>
+Maintainer-email: Thomas Frössman <thomasf@jossystem.se>
+License-Expression: MIT OR Apache-2.0
+Project-URL: Homepage, https://github.com/py-pa/django-minio-storage
+Project-URL: Repository, https://github.com/py-pa/django-minio-storage
+Project-URL: Documentation, https://django-minio-storage.readthedocs.io/
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Framework :: Django
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE-APACHE
+Requires-Dist: django>=4.2
+Requires-Dist: minio>=7.1.16
+Dynamic: license-file
+
+[![PyPI version](https://badge.fury.io/py/django-minio-storage.svg)](https://badge.fury.io/py/django-minio-storage)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/django-minio-storage)](https://pypistats.org/packages/django-minio-storage)
+[![Documentation Status](http://readthedocs.org/projects/django-minio-storage/badge/?version=latest)](http://django-minio-storage.readthedocs.io/en/latest/?badge=latest)
+
+
+# django-minio-storage
+
+Use [minio](https://minio.io) for django static and media file storage.
+
+Minio is accessed through the Amazon S3 API, so existing django file storage
+adapters for S3 should work, but in practice they are hard to configure. This
+project uses the minio python client instead. Inspiration has been drawn from
+`django-s3-storage` and `django-storages`.
+
+# Documentation
+
+See
+[http://django-minio-storage.readthedocs.io/en/latest/](http://django-minio-storage.readthedocs.io/en/latest/) for
+documentation and usage guides.

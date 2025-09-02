@@ -1,0 +1,172 @@
+Metadata-Version: 2.1
+Name: oceanbolt.sdk
+Version: 0.7.0
+Summary: A Python wrapper around the Oceanbolt client API
+Home-page: https://github.com/oceanbolt/oceanbolt-python-sdk
+Author: Oceanbolt
+Author-email: support@oceanbolt.com
+License: MIT
+Platform: Posix; MacOS X; Windows
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: google-api-core<3.0.0dev,>=2.11.0
+Requires-Dist: libcst>=0.4.9
+Requires-Dist: googleapis-common-protos<2.0.0dev,>=1.58.0
+Requires-Dist: proto-plus>=1.22
+Requires-Dist: grpcio>=1.51.0
+Requires-Dist: pandas>=1.4.3
+Requires-Dist: numpy>=1.23.2
+Requires-Dist: protobuf>=3.20.3
+Provides-Extra: docs
+Requires-Dist: Sphinx==5.3.0; extra == "docs"
+Requires-Dist: sphinx_rtd_theme==1.1.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints==1.19.5; extra == "docs"
+Provides-Extra: test
+Requires-Dist: black==21.10b0; extra == "test"
+Requires-Dist: mypy-extensions==0.4.3; extra == "test"
+Requires-Dist: mypy==0.910; extra == "test"
+Requires-Dist: pre-commit==2.15.0; extra == "test"
+Requires-Dist: pytest==6.2.5; extra == "test"
+Requires-Dist: pytest-dotenv==0.5.2; extra == "test"
+Requires-Dist: python-dateutil==2.8.2; extra == "test"
+Requires-Dist: pytest-rerunfailures==10.2; extra == "test"
+Requires-Dist: mock==4.0.3; extra == "test"
+Requires-Dist: flake8==4.0.1; extra == "test"
+Requires-Dist: hypothesis==6.24.2; extra == "test"
+Provides-Extra: publish
+Requires-Dist: build==0.7.0; extra == "publish"
+Requires-Dist: twine==3.6.0; extra == "publish"
+
+# Oceanbolt Python SDK
+
+[![Github CI](https://github.com/oceanbolt/oceanbolt-python-sdk/actions/workflows/python-ci.yml/badge.svg)](https://github.com/oceanbolt/oceanbolt-python-sdk/actions)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/0c776868-ce00-4c64-a4e1-1817953d3169/deploy-status)](https://app.netlify.com/sites/oceanbolt-python-sdk/deploys)
+
+
+The Oceanbolt Python SDK provides access to Oceanbolt data. It is a python wrapper around the Oceanbolt Data API.
+
+It can be easily integrated existing tools such as jupyter notebooks, scripts, and applications.
+
+Data is returned in the form of pandas.DataFrame, which allows for easy manipulation and further data processing. 
+
+The python SDK is available to all Oceanbolt API clients (API authentication token required in order to get access). API tokens can be generated in the Oceanbolt App (app.oceanbolt.com)
+
+## Project Status
+
+**IMPORTANT**: The oceanbolt-python-sdk is still undergoing development, and certain features may be changed/removed before the launch of version 1.0.0 
+
+## Setup
+
+The SDK supports the following python versions: 3.9, 3.10 and 3.11
+
+In order to install, run the following:
+
+    pip install oceanbolt.sdk
+
+In order to upgrade an existing installation, run the following:
+
+    pip install oceanbolt.sdk --upgrade
+    
+## Docs
+Documentation : https://python-sdk.oceanbolt.com
+
+## Quick Example Dry Bulk
+
+````python
+from oceanbolt.sdk.client import APIClient
+from oceanbolt.sdk.data.port_calls import PortCalls
+from datetime import date, timedelta
+
+# Create the base API client using your token. Tokens can be created in the Oceanbolt App (app.oceanbolt.com)
+base_client = APIClient("<your API access token>","dry")
+
+# Connect to one of the Oceanbolt's data endpoints using the base client object, ie: PortCalls
+port_calls_client = PortCalls(base_client)
+
+# Get a list of Port Hedland exports over the last week
+hedland_portcalls = port_calls_client.get(
+    start_date=date.today() - timedelta(days=7),
+    segment=["capesize"],
+    unlocode=["AUPHE"],
+)
+
+````
+
+## Quick Example Tanker Data
+In order to extract tanker data, you have to specify the platform when instantiating the client:
+base_client = APIClient("<your API access token>","tank")
+
+````python
+from oceanbolt.sdk.client import APIClient
+from oceanbolt.sdk.data.port_calls import PortCalls
+from datetime import date, timedelta
+
+# Create the base API client using your token. Tokens can be created in the Oceanbolt App (app.oceanbolt.com)
+base_client = APIClient("<your API access token>","tank")
+
+# Connect to one of the Oceanbolt's data endpoints using the base client object, ie: PortCalls
+port_calls_client = PortCalls(base_client)
+
+# Get a list of Port Hedland exports over the last week
+hedland_portcalls = port_calls_client.get(
+    start_date=date.today() - timedelta(days=7),
+    unlocode=["USHOU"],
+)
+
+````
+
+## Quick Example LNG Data
+In order to extract lng data, you have to specify the platform when instantiating the client:
+base_client = APIClient("<your API access token>","lng")
+
+````python
+from oceanbolt.sdk.client import APIClient
+from oceanbolt.sdk.data.port_calls import PortCalls
+from datetime import date, timedelta
+
+# Create the base API client using your token. Tokens can be created in the Oceanbolt App (app.oceanbolt.com)
+base_client = APIClient("<your API access token>","tank")
+
+# Connect to one of the Oceanbolt's data endpoints using the base client object, ie: PortCalls
+port_calls_client = PortCalls(base_client)
+
+# Get a list of Port Hedland exports over the last week
+hedland_portcalls = port_calls_client.get(
+    start_date=date.today() - timedelta(days=7),
+    unlocode=["USHOU"],
+)
+
+````
+
+
+## Quick Example LPG Data
+In order to extract lng data, you have to specify the platform when instantiating the client:
+base_client = APIClient("<your API access token>","lpg")
+
+````python
+from oceanbolt.sdk.client import APIClient
+from oceanbolt.sdk.data.port_calls import PortCalls
+from datetime import date, timedelta
+
+# Create the base API client using your token. Tokens can be created in the Oceanbolt App (app.oceanbolt.com)
+base_client = APIClient("<your API access token>","lpg")
+
+# Connect to one of the Oceanbolt's data endpoints using the base client object, ie: PortCalls
+port_calls_client = PortCalls(base_client)
+
+# Get a list of Port Hedland exports over the last week
+hedland_portcalls = port_calls_client.get(
+    start_date=date.today() - timedelta(days=7),
+    unlocode=["USHOU"],
+)
+
+````

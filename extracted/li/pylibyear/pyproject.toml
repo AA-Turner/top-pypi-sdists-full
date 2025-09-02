@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylibyear"
+version = "0.3.4"
+description = "A simple measure of software dependency freshness."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT License"}
+keywords = []
+authors = [
+  { name = "Sam Atkins", email = "samatkins@outlook.com" },
+  { name = "nasirhjafri" },
+]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "packaging>=24.0",
+    "prettytable>=3.10.0",
+    "python-dateutil>=2.9.0.post0",
+    "typer>=0.12.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-vcr>=1.0.2",
+    "ruff>=0.4.4",
+]
+build = [
+    "build==1.2.1",
+]
+
+[project.scripts]
+libyear = "libyear.main:app"
+
+[project.urls]
+Documentation = "https://github.com/sam-atkins/pylibyear#readme"
+Issues = "https://github.com/sam-atkins/pylibyear/issues"
+Source = "https://github.com/sam-atkins/pylibyear"

@@ -43,12 +43,12 @@ class StoryLogMV(SimpleMV, model=StoryLogDBM):
     }
     form_args = {
         StoryLogDBM.level.key: {
-            "choices": [(level, level) for level in StoryLogDBM.Levels.values_list()],
-            "description": "Choose level"
+            "choices": [(v, v) for v in StoryLogDBM.Levels.values_list()],
+            "description": f"Choose {StoryLogDBM.level.key}"
         },
         StoryLogDBM.type.key: {
-            "choices": [(level, level) for level in StoryLogDBM.Types.values_list()],
-            "description": "Choose type"
+            "choices": [(v, v) for v in StoryLogDBM.Types.values_list()],
+            "description": f"Choose {StoryLogDBM.type.key}"
         }
     }
     column_sortable_list = sqlalchemy.inspect(StoryLogDBM).columns

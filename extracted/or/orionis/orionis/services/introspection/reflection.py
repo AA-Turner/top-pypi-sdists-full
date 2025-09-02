@@ -2,7 +2,7 @@ from typing import Any, Type
 from orionis.services.introspection.abstract.reflection import ReflectionAbstract
 from orionis.services.introspection.callables.reflection import ReflectionCallable
 from orionis.services.introspection.concretes.reflection import ReflectionConcrete
-from orionis.services.introspection.objects.types import Type
+from orionis.services.introspection.objects.types import Type as ReflectionType
 from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.services.introspection.modules.reflection import ReflectionModule
 
@@ -115,7 +115,7 @@ class Reflection:
         bool
             True if the object is abstract, False otherwise.
         """
-        return Type(obj).isAbstract()
+        return ReflectionType(obj).isAbstract()
 
     @staticmethod
     def isAsyncGen(obj: Any) -> bool:
@@ -132,7 +132,7 @@ class Reflection:
         bool
             True if the object is an async generator, False otherwise.
         """
-        return Type(obj).isAsyncGen()
+        return ReflectionType(obj).isAsyncGen()
 
     @staticmethod
     def isAsyncGenFunction(obj: Any) -> bool:
@@ -149,7 +149,7 @@ class Reflection:
         bool
             True if the object is an async generator function, False otherwise.
         """
-        return Type(obj).isAsyncGenFunction()
+        return ReflectionType(obj).isAsyncGenFunction()
 
     @staticmethod
     def isAwaitable(obj: Any) -> bool:
@@ -166,7 +166,7 @@ class Reflection:
         bool
             True if the object is awaitable, False otherwise.
         """
-        return Type(obj).isAwaitable()
+        return ReflectionType(obj).isAwaitable()
 
     @staticmethod
     def isBuiltin(obj: Any) -> bool:
@@ -183,7 +183,7 @@ class Reflection:
         bool
             True if the object is a built-in, False otherwise.
         """
-        return Type(obj).isBuiltin()
+        return ReflectionType(obj).isBuiltin()
 
     @staticmethod
     def isClass(obj: Any) -> bool:
@@ -200,7 +200,7 @@ class Reflection:
         bool
             True if the object is a class, False otherwise.
         """
-        return Type(obj).isClass()
+        return ReflectionType(obj).isClass()
 
     @staticmethod
     def isCode(obj: Any) -> bool:
@@ -217,7 +217,7 @@ class Reflection:
         bool
             True if the object is a code object, False otherwise.
         """
-        return Type(obj).isCode()
+        return ReflectionType(obj).isCode()
 
     @staticmethod
     def isCoroutine(obj: Any) -> bool:
@@ -234,7 +234,7 @@ class Reflection:
         bool
             True if the object is a coroutine, False otherwise.
         """
-        return Type(obj).isCoroutine()
+        return ReflectionType(obj).isCoroutine()
 
     @staticmethod
     def isCoroutineFunction(obj: Any) -> bool:
@@ -251,7 +251,7 @@ class Reflection:
         bool
             True if the object is a coroutine function, False otherwise.
         """
-        return Type(obj).isCoroutineFunction()
+        return ReflectionType(obj).isCoroutineFunction()
 
     @staticmethod
     def isDataDescriptor(obj: Any) -> bool:
@@ -268,7 +268,7 @@ class Reflection:
         bool
             True if the object is a data descriptor, False otherwise.
         """
-        return Type(obj).isDataDescriptor()
+        return ReflectionType(obj).isDataDescriptor()
 
     @staticmethod
     def isFrame(obj: Any) -> bool:
@@ -285,7 +285,7 @@ class Reflection:
         bool
             True if the object is a frame object, False otherwise.
         """
-        return Type(obj).isFrame()
+        return ReflectionType(obj).isFrame()
 
     @staticmethod
     def isFunction(obj: Any) -> bool:
@@ -302,7 +302,7 @@ class Reflection:
         bool
             True if the object is a function, False otherwise.
         """
-        return Type(obj).isFunction()
+        return ReflectionType(obj).isFunction()
 
     @staticmethod
     def isGenerator(obj: Any) -> bool:
@@ -319,7 +319,7 @@ class Reflection:
         bool
             True if the object is a generator, False otherwise.
         """
-        return Type(obj).isGenerator()
+        return ReflectionType(obj).isGenerator()
 
     @staticmethod
     def isGeneratorFunction(obj: Any) -> bool:
@@ -336,7 +336,7 @@ class Reflection:
         bool
             True if the object is a generator function, False otherwise.
         """
-        return Type(obj).isGeneratorFunction()
+        return ReflectionType(obj).isGeneratorFunction()
 
     @staticmethod
     def isGetSetDescriptor(obj: Any) -> bool:
@@ -353,7 +353,7 @@ class Reflection:
         bool
             True if the object is a getset descriptor, False otherwise.
         """
-        return Type(obj).isGetSetDescriptor()
+        return ReflectionType(obj).isGetSetDescriptor()
 
     @staticmethod
     def isMemberDescriptor(obj: Any) -> bool:
@@ -370,7 +370,7 @@ class Reflection:
         bool
             True if the object is a member descriptor, False otherwise.
         """
-        return Type(obj).isMemberDescriptor()
+        return ReflectionType(obj).isMemberDescriptor()
 
     @staticmethod
     def isMethod(obj: Any) -> bool:
@@ -387,7 +387,7 @@ class Reflection:
         bool
             True if the object is a method, False otherwise.
         """
-        return Type(obj).isMethod()
+        return ReflectionType(obj).isMethod()
 
     @staticmethod
     def isMethodDescriptor(obj: Any) -> bool:
@@ -404,7 +404,7 @@ class Reflection:
         bool
             True if the object is a method descriptor, False otherwise.
         """
-        return Type(obj).isMethodDescriptor()
+        return ReflectionType(obj).isMethodDescriptor()
 
     @staticmethod
     def isModule(obj: Any) -> bool:
@@ -421,7 +421,7 @@ class Reflection:
         bool
             True if the object is a module, False otherwise.
         """
-        return Type(obj).isModule()
+        return ReflectionType(obj).isModule()
 
     @staticmethod
     def isRoutine(obj: Any) -> bool:
@@ -438,7 +438,7 @@ class Reflection:
         bool
             True if the object is a routine, False otherwise.
         """
-        return Type(obj).isRoutine()
+        return ReflectionType(obj).isRoutine()
 
     @staticmethod
     def isTraceback(obj: Any) -> bool:
@@ -455,4 +455,4 @@ class Reflection:
         bool
             True if the object is a traceback object, False otherwise.
         """
-        return Type(obj).isTraceback()
+        return ReflectionType(obj).isTraceback()

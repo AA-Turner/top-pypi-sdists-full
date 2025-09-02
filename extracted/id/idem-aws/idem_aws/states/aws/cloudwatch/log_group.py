@@ -1,0 +1,280 @@
+"""State module for managing AWS CloudWatch Log Groups."""
+import copy
+from typing import Any
+from typing import Dict
+
+__contracts__ = ["resource"]
+
+
+async def present(
+    hub,
+    ctx,
+    name: str,
+    resource_id: str = None,
+    kms_key_id: str = None,
+    tags: Dict[str, str] = None,
+    retention_in_days: int = None,
+) -> Dict[str, Any]:
+    """Creates a log group with the specified name.
+
+    You can create up to 5000 log groups per account.
+
+    You must use the following guidelines when naming a log group:
+      - Log group names must be unique within a region for an AWS account.
+      - Log group names can be between 1 and 512 characters long.
+      - Log group names consist of the following characters: a-z, A-Z, 0-9, '_' (underscore), '-' (hyphen),
+        '/' (forward slash), and '.' (period).
+
+    If you associate a AWS Key Management Service (AWS KMS) customer master key (CMK) with the log group, ingested data
+    is encrypted using the CMK. This association is stored as long as the data encrypted with the CMK is still within
+    Amazon CloudWatch Logs. This enables Amazon CloudWatch Logs to decrypt this data whenever it is requested.
+
+    If you attempt to associate a CMK with the log group but the CMK does not exist or the CMK is disabled, you will
+    receive an InvalidParameterException error.
+
+    Args:
+        name(str):
+            An Idem name of the log group.
+        resource_id(str, Optional):
+            AWS CloudWatch Log Group Name Prefix.
+        kms_key_id(str, Optional):
+            The Amazon Resource Name (ARN) of the CMK to use when encrypting log data.
+        tags(dict, Optional):
+            The key-value pairs to use for the tags.
+            CloudWatch Logs doesn’t support IAM policies that prevent users from assigning specified tags to log groups
+            using the aws:Resource/key-name  or aws:TagKeys condition keys. For more information about using tags to
+            control access, see Controlling access to Amazon Web Services resources using tags.
+            Defaults to None.
+        retention_in_days(int, Optional):
+            The number of days to retain the log events in the specified log group.
+            Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+
+    Request Syntax:
+      .. code-block:: sls
+
+        [log_group_name]:
+          aws.cloudwatch.log_group.present:
+            - name: "string"
+            - kms_key_id: "string"
+            - tags:
+                - "string": "string"
+
+    Returns:
+        Dict[str, Any]
+
+    Examples:
+        .. code-block:: sls
+
+            resource_is_present:
+              aws.cloudwatch.log_group.present:
+                - name: value
+                - tags:
+                     TestKey4: TestValue4
+                - kms_key_id: "arn:aws:kms:us-east-1:xxxxxxxxx:key/xxxx-9500-xxxxx"
+    """
+    result = dict(comment=[], name=name, old_state=None, new_state=None, result=True)
+    before = None
+    resource_updated = False
+    if resource_id:
+        before = await hub.exec.aws.cloudwatch.log_group.get(
+            ctx, name=name, resource_id=resource_id
+        )
+    try:
+        if before and before["result"] and before["ret"]:
+            result["old_state"] = copy.deepcopy(before["ret"])
+            plan_state = copy.deepcopy(result["old_state"])
+            result["comment"] += [f"aws.cloudwatch.log_group '{name}' already present."]
+            if tags is not None and result["old_state"].get("tags") != tags:
+                update_ret = await hub.tool.aws.cloudwatch.tag.update_tags(
+                    ctx=ctx,
+                    resource_name=resource_id,
+                    old_tags=result["old_state"].get("tags"),
+                    new_tags=tags,
+                )
+                result["comment"] += update_ret["comment"]
+                result["result"] = update_ret["result"]
+                resource_updated = resource_updated or bool(update_ret["ret"])
+                if ctx.get("test", False) and update_ret["result"]:
+                    plan_state["tags"] = update_ret["ret"]
+            if retention_in_days and (
+                "retention_in_days" not in result["old_state"]
+                or result["old_state"]["retention_in_days"] != retention_in_days
+            ):
+                if ctx.get("test", False):
+                    plan_state["retention_in_days"] = retention_in_days
+                    result["comment"] = (
+                        hub.tool.aws.comment_utils.would_update_comment(
+                            resource_type="aws.cloudwatch.log_group", name=name
+                        )
+                        + result["comment"]
+                    )
+                else:
+                    ret = await hub.exec.boto3.client.logs.put_retention_policy(
+                        ctx, logGroupName=name, retentionInDays=retention_in_days
+                    )
+                    if not ret["result"]:
+                        result["result"] = False
+                        return result
+                    result["comment"] = (
+                        hub.tool.aws.comment_utils.update_comment(
+                            resource_type="aws.cloudwatch.log_group", name=name
+                        )
+                        + result["comment"]
+                    )
+                    result["result"] = ret["result"]
+                    resource_updated = resource_updated or bool(ret["ret"])
+        else:
+            if ctx.get("test", False):
+                result["new_state"] = hub.tool.aws.test_state_utils.generate_test_state(
+                    enforced_state={},
+                    desired_state={
+                        "name": name,
+                        "kms_key_id": kms_key_id,
+                        "arn": "arn_known_after_present",
+                        "tags": tags,
+                        "retention_in_days": retention_in_days,
+                    },
+                )
+                result["comment"] = hub.tool.aws.comment_utils.would_create_comment(
+                    resource_type="aws.cloudwatch.log_group", name=name
+                )
+                return result
+            ret = await hub.exec.boto3.client.logs.create_log_group(
+                ctx, logGroupName=name, kmsKeyId=kms_key_id, tags=tags
+            )
+            resource_id = name
+            result["result"] = ret["result"]
+            if not result["result"]:
+                result["comment"] = ret["comment"]
+                return result
+            result["comment"] = hub.tool.aws.comment_utils.create_comment(
+                resource_type="aws.cloudwatch.log_group", name=name
+            )
+            if retention_in_days:
+                ret = await hub.exec.boto3.client.logs.put_retention_policy(
+                    ctx, logGroupName=name, retentionInDays=retention_in_days
+                )
+                result["result"] = ret["result"]
+                result["comment"] += ret["comment"]
+                if not result["result"]:
+                    return result
+    except hub.tool.boto3.exception.ClientError as e:
+        result["result"] = False
+        result["comment"] += [f"{e.__class__.__name__}: {e}"]
+    try:
+        if ctx.get("test", False):
+            result["new_state"] = plan_state
+        elif (not before) or resource_updated:
+            after = await hub.exec.aws.cloudwatch.log_group.get(
+                ctx, name=name, resource_id=resource_id
+            )
+            if after and after["result"] and after["ret"]:
+                result["new_state"] = copy.deepcopy(after["ret"])
+        else:
+            result["new_state"] = copy.deepcopy(result["old_state"])
+    except Exception as e:
+        result["comment"] += [str(e)]
+        result["result"] = False
+    return result
+
+
+async def absent(hub, ctx, name: str, resource_id: str = None) -> Dict[str, Any]:
+    """Deletes the specified cloudwatch log group.
+
+    Args:
+        name(str): An Idem name of the Log Group.
+        resource_id(str, Optional): AWS CloudWatch Log Group Name Prefix. Idem automatically considers this resource
+         being absent if this field is not specified.
+
+    Request Syntax:
+        .. code-block:: sls
+
+            [log_group_name]:
+              aws.cloudwatch.log_group.absent:
+                - name: value
+                - resource_id: value
+
+    Returns:
+        Dict[str, Any]
+
+    Examples:
+        .. code-block:: sls
+
+            resource_is_absent:
+              aws.cloudwatch.log_group.absent:
+                - name: value
+                - resource_id: value
+    """
+    result = dict(comment=[], name=name, old_state=None, new_state=None, result=True)
+    if not resource_id:
+        result["comment"] = hub.tool.aws.comment_utils.already_absent_comment(
+            resource_type="aws.cloudwatch.log_group", name=name
+        )
+        return result
+    before = await hub.exec.aws.cloudwatch.log_group.get(
+        ctx=ctx, name=name, resource_id=resource_id
+    )
+    if not before["result"]:
+        result["result"] = False
+        result["comment"] = before["comment"]
+        return result
+    if not before["ret"]:
+        result["comment"] = hub.tool.aws.comment_utils.already_absent_comment(
+            resource_type="aws.cloudwatch.log_group", name=name
+        )
+        return result
+    else:
+        result["old_state"] = before["ret"]
+        if ctx.get("test", False):
+            result["comment"] = hub.tool.aws.comment_utils.would_delete_comment(
+                resource_type="aws.cloudwatch.log_group", name=name
+            )
+            return result
+        try:
+            ret = await hub.exec.boto3.client.logs.delete_log_group(
+                ctx, logGroupName=resource_id
+            )
+            result["result"] = ret["result"]
+            if not result["result"]:
+                result["comment"] = ret["comment"]
+                return result
+            result["comment"] = hub.tool.aws.comment_utils.delete_comment(
+                resource_type="aws.cloudwatch.log_group", name=name
+            )
+        except hub.tool.boto3.exception.ClientError as e:
+            result["comment"] += [f"{e.__class__.__name__}: {e}"]
+    return result
+
+
+async def describe(hub, ctx) -> Dict[str, Dict[str, Any]]:
+    """Lists the AWS CloudWatch Log Groups.
+
+    Describe the resource in a way that can be recreated/managed with the corresponding "present" function.
+
+
+    Returns:
+        Dict[str, Any]
+
+    Examples:
+        .. code-block:: bash
+
+            $ idem describe aws.cloudwatch.log_group
+    """
+    result = {}
+    ret = await hub.exec.boto3.client.logs.describe_log_groups(ctx)
+    if not ret["result"]:
+        hub.log.warning(f"Could not describe log groups {ret['comment']}")
+        return {}
+
+    for resource in ret["ret"]["logGroups"]:
+        resource_id = resource.get("logGroupName")
+        resource_translated = await hub.tool.aws.cloudwatch.conversion_utils.convert_raw_log_group_to_present_async(
+            ctx, raw_resource=resource, idem_resource_name=resource_id
+        )
+        result[resource_id] = {
+            "aws.cloudwatch.log_group.present": [
+                {parameter_key: parameter_value}
+                for parameter_key, parameter_value in resource_translated.items()
+            ]
+        }
+    return result

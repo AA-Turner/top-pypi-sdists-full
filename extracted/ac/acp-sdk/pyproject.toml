@@ -1,0 +1,37 @@
+[project]
+name = "acp-sdk"
+version = "1.0.3"
+description = "Agent Communication Protocol SDK"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [{ name = "IBM Corp." }]
+maintainers = [{ name = "Tomas Pilar", email = "thomas7pilar@gmail.com" }]
+requires-python = ">=3.11, <4.0"
+dependencies = [
+    "opentelemetry-api>=1.31",
+    "pydantic>=2.0",
+    "httpx>=0.26",
+    "httpx-sse>=0.4",
+    "opentelemetry-instrumentation-httpx>=0.52b1",
+    "fastapi[standard]>=0.115",
+    "opentelemetry-exporter-otlp-proto-http>=1.31",
+    "opentelemetry-instrumentation-fastapi>=0.52b1",
+    "opentelemetry-sdk>=1.31",
+    "janus>=2.0",
+    "redis>=6.1",
+    "psycopg[binary]>=3.2",
+    "obstore>=0.6",
+    "async-lru>=2.0.5",
+    "cachetools>=5.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest-httpx>=0.35.0",
+    "pytest-postgresql>=7.0.2",
+    "pytest-redis>=3.1.3",
+]

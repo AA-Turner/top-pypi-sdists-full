@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: py_nextbusnext
+Version: 2.3.0
+Summary: Minimalistic Python client for the NextBus public API for real-time transit arrival data
+Home-page: https://github.com/vividboarder/py_nextbus
+Author: ViViDboarder
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# py_nextbusnext
+
+## This is forked from py_nextbus for maintanence
+_It is no longer API compatible to the upstream_
+
+A minimalistic Python 3 client to get routes and predictions from the NextBus API.
+
+Installation
+---
+
+Install with pip:
+
+`pip install py-nextbusnext`
+
+Usage
+---
+
+```
+>>> import py_nextbus
+>>> client = py_nextbus.NextBusClient()
+>>> agencies = client.get_agencies()
+```

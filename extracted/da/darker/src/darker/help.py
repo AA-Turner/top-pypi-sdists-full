@@ -1,6 +1,9 @@
 """Help and usage instruction texts used for the command line parser"""
 
-from black import TargetVersion
+from textwrap import dedent
+
+from darker.configuration.target_version import TargetVersion
+from darker.formatters import get_formatter_names
 
 
 def get_extra_instruction(dependency: str) -> str:
@@ -100,12 +103,19 @@ if not isort:
     )
 ISORT = "".join(ISORT_PARTS)
 
-LINT = (
-    "Also run a linter on changed files. `CMD` can be a name or path of the linter"
-    " binary, or a full quoted command line with the command and options. Linters read"
-    " their configuration as normally, and aren't affected by `-c` / `--config`. Linter"
-    " output is syntax highlighted when the `pygments` package is available if run on"
-    " a terminal and or enabled by explicitly (see `--color`)."
+LINT = "Show information about baseline linting using the Graylint package."
+LINTING_GUIDE = dedent(
+    """
+    Baseline linting support has been moved to the Graylint package. Please install
+    and run it using:
+
+        pip install graylint
+        graylint -L CMD <directory>
+        graylint --lint CMD <directory>
+
+    See https://pypi.org/project/graylint for more information."
+
+    """,
 )
 
 VERBOSE = "Show steps taken and summarize modifications"
@@ -133,6 +143,11 @@ SKIP_MAGIC_TRAILING_COMMA = (
     " `skip-magic-trailing-comma = true` from a Black configuration file."
 )
 
+PREVIEW = (
+    "In Black, enable potentially disruptive style changes that may be added to Black"
+    " in the future"
+)
+
 LINE_LENGTH = "How many characters per line to allow [default: 88]"
 
 TARGET_VERSION = (
@@ -141,3 +156,8 @@ TARGET_VERSION = (
 )
 
 WORKERS = "How many parallel workers to allow, or `0` for one per core [default: 1]"
+
+FORMATTER = (
+    f"[{'|'.join(get_formatter_names())}] Formatter"
+    " to use for reformatting code. [default: black]"
+)

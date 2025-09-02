@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools~=74.1.2", "wheel~=0.44.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name        = "voip-utils"
+version     = "0.3.4"
+license     = {text = "Apache-2.0"}
+description = "Voice over IP Utilities"
+readme      = "README.md"
+authors     = [
+    {name = "The Home Assistant Authors", email = "hello@home-assistant.io"}
+]
+keywords    = ["home", "assistant", "voip", "phone"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Communications :: Internet Phone",
+    "Topic :: Communications :: Telephony",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.9.0"
+dependencies = ["opuslib==3.0.1"]
+
+[project.optional-dependencies]
+dev = [
+    "build==1.2.2",
+    "black==23.3.0",
+    "flake8==7.1.0",
+    "isort==5.12.0",
+    "mypy==1.1.1",
+    "opuslib==3.0.1",
+    "pylint==3.2.5",
+    "pytest==7.2.2",
+    "python-dotenv==1.0.1"
+]
+
+[project.urls]
+"Source Code" = "https://github.com/home-assistant-libs/voip-utils"
+
+[tool.setuptools]
+platforms = ["any"]
+zip-safe  = true
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["voip_utils"]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+  "format",
+  "abstract-method",
+  "cyclic-import",
+  "duplicate-code",
+  "global-statement",
+  "import-outside-toplevel",
+  "inconsistent-return-statements",
+  "locally-disabled",
+  "not-context-manager",
+  "too-few-public-methods",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-instance-attributes",
+  "too-many-lines",
+  "too-many-locals",
+  "too-many-public-methods",
+  "too-many-return-statements",
+  "too-many-statements",
+  "too-many-boolean-expressions",
+  "unnecessary-pass",
+  "unused-argument",
+  "broad-except",
+  "too-many-nested-blocks",
+  "invalid-name",
+  "unused-import",
+  "fixme",
+  "useless-super-delegation",
+  "missing-module-docstring",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "import-error",
+  "consider-using-with",
+]
+[tool.pylint.FORMAT]
+expected-line-ending-format = "LF"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]

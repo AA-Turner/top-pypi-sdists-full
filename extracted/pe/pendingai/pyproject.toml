@@ -1,0 +1,64 @@
+[tool.poetry]
+name = "pendingai"
+version = "0.4.6"
+description = "Python SDK and CLI for the Pending AI API"
+authors = ["Pending AI <support@pending.ai>"]
+maintainers = ["Pending AI <support@pending.ai>"]
+readme = "docs/pypi_readme.md"
+homepage = "https://pending.ai"
+documentation = "https://docs.pending.ai"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9.0"
+pyjwt = "^2.10.1"
+typer = ">=0.15.1,<0.17.0"
+requests = "^2.32.3"
+jinja2 = "^3.1.6"
+rdkit = "^2025.3.5"
+lxml = "^6.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.3.0"
+cyclonedx-bom = "6.1.2"
+pdoc3 = "^0.11.6"
+nox = "^2025.5.1"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.1.1"
+
+[tool.poetry.scripts]
+pendingai = "pendingai.__main__:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+ignore_missing_imports = true
+no_implicit_optional = false
+disable_error_code = ["typeddict-item"]
+
+[tool.interrogate]
+fail-under = 80
+ignore-module = true
+ignore-init-method = true
+ignore-init-module = true
+ignore-nested-functions = true
+ignore-property-decorators = true
+omit-covered-files = true
+quiet = false
+verbose = true
+
+[tool.ruff]
+line-length = 89
+indent-width = 4
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = false

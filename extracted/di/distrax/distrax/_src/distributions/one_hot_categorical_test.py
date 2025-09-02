@@ -23,6 +23,7 @@ from distrax._src.distributions import one_hot_categorical
 from distrax._src.utils import equivalence
 from distrax._src.utils import math
 import jax
+import jax.experimental
 import jax.numpy as jnp
 import numpy as np
 import scipy
@@ -178,11 +179,12 @@ class OneHotCategoricalTest(equivalence.EquivalenceTest):
       ('float32', jnp.float32),
       ('float64', jnp.float64))
   def test_sample_dtype(self, dtype):
-    dist_params = {'logits': self.logits, 'dtype': dtype}
-    dist = self.distrax_cls(**dist_params)
-    samples = self.variant(dist.sample)(seed=self.key)
-    self.assertEqual(samples.dtype, dist.dtype)
-    chex.assert_type(samples, dtype)
+    with jax.experimental.enable_x64(dtype.dtype.itemsize == 8):
+      dist_params = {'logits': self.logits, 'dtype': dtype}
+      dist = self.distrax_cls(**dist_params)
+      samples = self.variant(dist.sample)(seed=self.key)
+      self.assertEqual(samples.dtype, dist.dtype)
+      chex.assert_type(samples, dtype)
 
   @chex.all_variants
   @parameterized.named_parameters(
@@ -396,6 +398,8 @@ class OneHotCategoricalTest(equivalence.EquivalenceTest):
     elif mode_string == 'tfp_to_distrax':
       comp_dist1_dist2 = getattr(tfp_dist1, function_string)(dist2)
       comp_dist2_dist1 = getattr(tfp_dist2, function_string)(dist1)
+    else:
+      raise ValueError(f'Unsupported mode: {mode_string}')
 
     # The target values (obtained with TFP-only methods) are obtained with two
     # distributions of the same class (namely, Categorical) because TFP doesn't

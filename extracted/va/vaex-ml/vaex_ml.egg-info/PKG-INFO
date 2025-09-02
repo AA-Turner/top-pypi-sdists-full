@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: vaex-ml
+Version: 0.18.3
+Summary: Machine learning support for vaex
+Home-page: https://www.github.com/vaexio/vaex
+Author: Jovan Veljanoski
+Author-email: jovan.veljanoski@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: all

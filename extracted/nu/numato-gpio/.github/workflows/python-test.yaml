@@ -1,0 +1,68 @@
+---
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [edited]
+  workflow_call:
+
+jobs:
+  clean-code:
+    if: >
+      contains(github.event.pull_request.body,'- [x] Run code checks now')
+      && contains(github.event.changes.body.from, '- [ ] Run code checks now')
+
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Format
+        run: uvx ruff format --check
+
+      - name: Lint
+        run: uvx ruff check --no-fix
+
+      - name: Pre-commit
+        run: uv run uvx pre-commit run --all
+        env:
+          SKIP_TESTS: 1
+
+      - name: Validate Numato documentation URLs
+        run: uv run scripts/broken_urls.py
+
+      - name: Print github context
+        run: |
+          echo ${gh_context_json} | jq
+        env:
+          gh_context_json: ${{ toJson(github) }}
+
+  tests:
+    needs: clean-code
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}  # yamllint disable-line rule:line-length
+      cancel-in-progress: true
+
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Test
+        run: >
+          uv run --python=${{ matrix.python-version }} pytest tests

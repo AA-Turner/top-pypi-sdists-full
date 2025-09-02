@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: phone_modem
+Version: 0.1.2
+Summary: An asynchronous modem implementation designed for Home Assistant for receiving caller id and call rejection.
+Home-page: https://github.com/tkdrob/phone_modem
+Author: Robert Hillis
+Author-email: tkdrob4390@yahoo.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# An asynchronous modem implementation designed for Home Assistant that supports caller ID and call rejection
+
+Credit to Tim Vitz for his original work: https://github.com/vroomfonde1/basicmodem

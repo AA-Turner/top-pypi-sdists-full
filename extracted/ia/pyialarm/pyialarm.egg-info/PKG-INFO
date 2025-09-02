@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: pyialarm
+Version: 2.2.0
+Summary: A simple library to interface with iAlarm systems, built for use with Home-Assistant
+Home-page: https://github.com/RyuzakiKK/pyialarm
+Download-URL: https://github.com/RyuzakiKK/pyialarm
+Author: Ludovico de Nittis
+Author-email: aasonykk+pyialarm@gmail.com
+License: Apache 2.0
+Keywords: ialarm,antifurtocasa365,alarm
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE

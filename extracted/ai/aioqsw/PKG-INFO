@@ -1,0 +1,50 @@
+Metadata-Version: 2.1
+Name: aioqsw
+Version: 0.4.1
+Summary: Library to control QNAP QSW devices
+Author-email: Álvaro Fernández Rojas <noltari@gmail.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/Noltari/aioqsw
+Project-URL: Bug Tracker, https://github.com/Noltari/aioqsw/issues
+Keywords: qnap,network,switch,home
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+
+# aioqsw
+[![Latest Version][mdversion-button]][md-pypi]
+[![Python Versions][pyversion-button]][md-pypi]
+[![License: Apache 2.0][apache-button]](LICENSE)
+
+[apache-button]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[md-pypi]: https://pypi.org/project/aioqsw
+[mdversion-button]: https://img.shields.io/pypi/v/aioqsw.svg
+[pyversion-button]: https://img.shields.io/pypi/pyversions/aioqsw.svg
+
+Python library to control QNAP QSW devices.
+
+## Requirements
+- Python >= 3.11
+
+## Install
+```bash
+pip install aioqsw
+```
+
+## Install from Source
+Run the following command inside this folder
+```bash
+pip install --upgrade .
+```
+
+## Examples
+Examples can be found in the `examples` folder

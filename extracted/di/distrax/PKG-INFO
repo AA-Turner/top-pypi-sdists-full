@@ -1,27 +1,40 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: distrax
-Version: 0.1.5
+Version: 0.1.7
 Summary: Distrax: Probability distributions in JAX.
-Home-page: https://github.com/deepmind/distrax
-Author: DeepMind
-Author-email: distrax-dev@google.com
-License: Apache 2.0
-Keywords: jax probability distribution python machine learning
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Console
-Classifier: Intended Audience :: Science/Research
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Classifier: Topic :: Scientific/Engineering :: Mathematics
-Classifier: Topic :: Scientific/Engineering :: Physics
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Keywords: jax,probability,distribution,python,machine learning
+Author-email: Google DeepMind <distrax-dev@google.com>
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Science/Research
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
+Requires-Dist: absl-py>=2.3.1
+Requires-Dist: chex>=0.1.90
+Requires-Dist: jax>=0.7.0
+Requires-Dist: jaxlib>=0.7.0
+Requires-Dist: numpy>=1.24.1
+Requires-Dist: tfp-nightly
+Requires-Dist: tensorflow>=2.4.0 ; extra == "examples"
+Requires-Dist: tensorflow-datasets>=4.2.0 ; extra == "examples"
+Requires-Dist: dm-haiku>=0.0.14 ; extra == "examples"
+Requires-Dist: flax>=0.5.3 ; extra == "examples"
+Requires-Dist: optax>=0.2.5 ; extra == "examples"
+Requires-Dist: dm-haiku>=0.0.14 ; extra == "test"
+Requires-Dist: flax>=0.5.3 ; extra == "test"
+Requires-Dist: mock>=4.0.3 ; extra == "test"
+Project-URL: homepage, https://github.com/google-deepmind/distrax
+Project-URL: repository, https://github.com/google-deepmind/distrax
+Provides-Extra: examples
+Provides-Extra: test
 
 # Distrax
 
@@ -408,3 +421,4 @@ please use the citation:
   year = {2020},
 }
 ```
+

@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "hko"
+version = "0.3.2"
+description = "An unofficial Python wrapper for public API of Hong Kong Observatory"
+authors = ["MisterCommand <anthony.h@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/MisterCommand/python-hko"
+repository = "https://github.com/MisterCommand/python-hko"
+keywords = ["hko", "weather"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+aiohttp = "^3.7.4"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.2.2"
+pytest-asyncio = "^0.21.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

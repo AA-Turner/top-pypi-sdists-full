@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grimp
-Version: 3.9
+Version: 3.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Utilities
-Requires-Dist: joblib>=1.3.0
 Requires-Dist: typing-extensions>=3.10.0.0
 License-File: LICENSE
 License-File: AUTHORS.rst
@@ -39,7 +38,7 @@ Grimp
     :alt: Python versions
     :target: https://pypi.org/project/grimp/
 
-.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=master
+.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=main
      :target: https://github.com/seddonym/grimp/actions?workflow=CI
      :alt: CI Status
 

@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: openwebifpy
+Version: 4.3.1
+Summary: Provides a python interface to interact with a device running OpenWebIf
+Project-URL: Homepage, https://github.com/autinerd/openwebifpy
+Author-email: Finbarr Brady <fbradyirl@github.io>, Sidney Kuyateh <autinerd@kuyateh.eu>
+Maintainer-email: Sidney Kuyateh <autinerd@kuyateh.eu>
+License: MIT License
+License-File: LICENSE
+Keywords: openwebif
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Dist: aiohttp
+Requires-Dist: yarl
+Description-Content-Type: text/markdown
+
+# openwebifpy
+
+[![openwebifpy on PyPI](https://img.shields.io/pypi/v/openwebifpy.svg)](https://pypi.python.org/pypi/openwebifpy)
+
+Provides a python interface to interact with a device running OpenWebIf
+
+- Free software: MIT license
+- OpenWebif API docs: https://github.com/E2OpenPlugins/e2openplugin-OpenWebif/wiki/OpenWebif-API-documentation
+
+## Features
+
+- Basic control of an Enigma2 box running OpenWebif.
+- Ability to send messages to the screen.

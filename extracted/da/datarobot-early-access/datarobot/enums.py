@@ -1700,6 +1700,13 @@ class VectorDatabaseRetrievers(StrEnum):
     MULTI_STEP_RETRIEVER = "MULTI_STEP_RETRIEVER"
 
 
+class VectorDatabaseRetrievalMode(StrEnum):
+    """Vector database retriever modes."""
+
+    SIMILARITY = "similarity"
+    MAXIMAL_MARGINAL_RELEVANCE = "maximal_marginal_relevance"
+
+
 class PineconeCloud(StrEnum):
     """Pinecone cloud values."""
 

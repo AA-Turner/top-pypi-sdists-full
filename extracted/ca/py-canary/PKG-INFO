@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: py-canary
+Version: 0.5.4
+Summary: Python API for Canary Security Camera
+Home-page: https://github.com/snjoetw/py-canary
+Author: snjoetw
+Author-email: snjoetw@gmail.com
+Project-URL: Bug Tracker, https://github.com/snjoetw/py-canary/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+
+# py-canary [![Build Status](https://travis-ci.org/snjoetw/py-canary.svg?branch=master)](https://travis-ci.org/snjoetw/py-canary)
+Python API for Canary Security Camera.  This is used in [Home Assistant](https://home-assistant.io) but should be generic enough that can be used elsewhere.

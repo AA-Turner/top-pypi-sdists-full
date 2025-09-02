@@ -60,8 +60,8 @@ class UserMV(SimpleMV, model=UserDBM):
     }
     form_args = {
         UserDBM.roles.key: {
-            "choices": [(role, role) for role in UserDBM.Roles.values_list()],
-            "description": "Choose roles"
+            "choices": [(v, v) for v in UserDBM.Roles.values_list()],
+            "description": f"Choose {UserDBM.roles.key}"
         }
     }
     column_sortable_list = sqlalchemy.inspect(UserDBM).columns

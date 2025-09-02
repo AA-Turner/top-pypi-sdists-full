@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: pysml
+Version: 0.1.5
+Summary: Python library for EDL21 smart meters using Smart Message Language (SML)
+License: MIT
+Author: Andreas Oberritter
+Author-email: obi@saftware.de
+Requires-Python: >=3.11,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: aiohttp (>=3.8.4,<4.0.0)
+Requires-Dist: bitstring (>=3.1)
+Requires-Dist: pyserial-asyncio-fast (>=0.16)
+Description-Content-Type: text/markdown
+
+# pysml
+
+Python library for EDL21 smart meters using Smart Message Language (SML)
+
+Can read SML data from physical serial ports, serial-over-tcp or HTTP.
+
+Used by Home Assistant's EDL21 integration.
+
+There's [example code](examples/sml-mqtt-bridge.py) for publishing OBIS values to an MQTT broker.
+

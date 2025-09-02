@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: pyobihai
+Version: 1.4.2
+Summary: A Python wrapper for Obihai
+Home-page: https://github.com/ejpenney/pyobihai
+Author: Emory Penney
+Author-email: treadstoneit@gmail.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# pyobihai
+
+Python wrapper to grab call status from Obihai devices for Home Assistant.
+
+Forked from https://github.com/dshokouhi/pyobihai (No longer maintained)
+
+Thanks to https://github.com/sogood007/home-assistant-obihai and https://github.com/scadagenius/obisyslog for most of the code.

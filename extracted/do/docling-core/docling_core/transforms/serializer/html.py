@@ -65,8 +65,8 @@ from docling_core.types.doc.document import (
     PictureItem,
     PictureMoleculeData,
     PictureTabularChartData,
+    RichTableCell,
     SectionHeaderItem,
-    TableCell,
     TableItem,
     TextItem,
     TitleItem,
@@ -346,9 +346,6 @@ class HTMLTableSerializer(BaseTableSerializer):
         **kwargs: Any,
     ) -> SerializationResult:
         """Serializes the passed table item to HTML."""
-        nrows = item.data.num_rows
-        ncols = item.data.num_cols
-
         res_parts: list[SerializationResult] = []
         cap_res = doc_serializer.serialize_captions(item=item, tag="caption", **kwargs)
         if cap_res.text:
@@ -356,11 +353,11 @@ class HTMLTableSerializer(BaseTableSerializer):
 
         if item.self_ref not in doc_serializer.get_excluded_refs(**kwargs):
             body = ""
+            span_source: Union[DocItem, list[SerializationResult]] = []
 
-            for i in range(nrows):
+            for i, row in enumerate(item.data.grid):
                 body += "<tr>"
-                for j in range(ncols):
-                    cell: TableCell = item.data.grid[i][j]
+                for j, cell in enumerate(row):
 
                     rowspan, rowstart = (
                         cell.row_span,
@@ -376,7 +373,16 @@ class HTMLTableSerializer(BaseTableSerializer):
                     if colstart != j:
                         continue
 
-                    content = html.escape(cell.text.strip())
+                    if isinstance(cell, RichTableCell):
+                        ser_res = doc_serializer.serialize(
+                            item=cell.ref.resolve(doc=doc), **kwargs
+                        )
+                        content = ser_res.text
+                        span_source = [ser_res]
+                    else:
+                        content = html.escape(cell.text.strip())
+                        span_source = item
+
                     celltag = "td"
                     if cell.column_header or cell.row_header or cell.row_section:
                         celltag = "th"
@@ -389,14 +395,14 @@ class HTMLTableSerializer(BaseTableSerializer):
 
                     text_dir = get_text_direction(content)
                     if text_dir == "rtl":
-                        opening_tag += f' dir="{dir}"'
+                        opening_tag += f' dir="{text_dir}"'
 
                     body += f"<{opening_tag}>{content}</{celltag}>"
                 body += "</tr>"
 
             if body:
                 body = f"<tbody>{body}</tbody>"
-                res_parts.append(create_ser_result(text=body, span_source=item))
+                res_parts.append(create_ser_result(text=body, span_source=span_source))
 
         text_res = "".join([r.text for r in res_parts])
         text_res = f"<table>{text_res}</table>" if text_res else ""

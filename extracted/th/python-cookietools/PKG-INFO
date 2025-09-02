@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: python-cookietools
+Version: 0.1.4
+Summary: Python cookietools.
+Home-page: https://github.com/ChenyangGao/python-modules/tree/main/python-cookietools
+License: MIT
+Keywords: cookies,tools,cookietools
+Author: ChenyangGao
+Author-email: wosiwujm@gmail.com
+Requires-Python: >=3.12,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: python-dicttools (>=0.0.4)
+Project-URL: Repository, https://github.com/ChenyangGao/python-modules/tree/main/python-cookietools
+Description-Content-Type: text/markdown
+
+# Python cookietools.
+
+## Installation
+
+You can install from [pypi](https://pypi.org/project/python-cookietools/)
+
+```console
+pip install -U python-cookietools
+```
+
+## Usage
+
+```python
+import cookietools
+```
+

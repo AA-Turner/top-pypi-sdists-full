@@ -1,9 +1,0 @@
-file:
-- statement:
-  - select_statement:
-    - select_clause:
-      - keyword: SELECT
-      - select_clause_element:
-        - array_literal:
-          - start_square_bracket: '['
-          - end_square_bracket: ']'

@@ -1,12 +1,41 @@
 when:
   event: [ manual ]
 
+labels:
+  platform: linux/amd64
+
+variables:
+  - &settings
+      platforms: linux/amd64,linux/arm64
+      registry: codeberg.org
+      username: nicoco
+      dockerfile: Containerfile
+      target: woodpecker
+      password:
+        from_secret: codeberg_package_nicoco
+
 steps:
-  build-and-push:
+  woodpecker:
     image: woodpeckerci/plugin-docker-buildx
     settings:
       repo: codeberg.org/poezio/woodpecker-slixmpp
-      registry: codeberg.org
-      username: nicoco
-      password:
-        from_secret: codeberg_package_nicoco
+      target: woodpecker
+      <<: *settings
+
+  maturin-musl-amd64:
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      repo: codeberg.org/poezio/maturin-musllinux
+      target: musl-wheels-amd64
+      <<: *settings
+      platform: linux/amd64
+      tag: amd64
+
+  maturin-musl:
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      repo: codeberg.org/poezio/maturin-musllinux
+      target: musl-wheels-arm64
+      <<: *settings
+      platform: linux/arm64
+      tag: arm64

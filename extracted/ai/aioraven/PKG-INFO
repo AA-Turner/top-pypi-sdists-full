@@ -1,0 +1,32 @@
+Metadata-Version: 2.2
+Name: aioraven
+Version: 0.7.1
+Summary: Asynchronous communication with Rainforest RAVEn devices.
+Author-email: Scott K Logan <logans@cottsay.net>
+License: Apache License, Version 2.0
+Project-URL: Homepage, https://github.com/cottsay/aioraven
+Project-URL: Changelog, https://github.com/cottsay/aioraven/blob/main/CHANGELOG.md
+Project-URL: GitHub, https://github.com/cottsay/aioraven
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: iso4217
+Requires-Dist: pyserial>=2.5
+Requires-Dist: pyserial-asyncio-fast
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+
+aioraven
+========
+
+[![build](https://img.shields.io/github/actions/workflow/status/cottsay/aioraven/ci.yaml?branch=main&event=push)](https://github.com/cottsay/aioraven/actions/workflows/ci.yaml?query=branch%3Amain+event%3Apush)
+[![coverage](https://img.shields.io/codecov/c/github/cottsay/aioraven/main)](https://app.codecov.io/gh/cottsay/aioraven/branch/main)
+[![pypi](https://img.shields.io/pypi/v/aioraven)](https://pypi.org/project/aioraven/)
+
+Asynchronous communication with RAVEn devices made by Rainforest Automation.

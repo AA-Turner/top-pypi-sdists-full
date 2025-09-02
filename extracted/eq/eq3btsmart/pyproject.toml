@@ -1,0 +1,73 @@
+[project]
+name = "eq3btsmart"
+authors = [{ name = "Lennard Beers", email = "l.beers@outlook.de" }]
+maintainers = [{ name = "Lennard Beers", email = "l.beers@outlook.de" }]
+license = { file = "LICENSE.md" }
+keywords = [
+    "eq3",
+    "eq3btsmart",
+    "thermostat",
+    "bluetooth",
+    "smart",
+    "homeassistant",
+    "bleak",
+    "asyncio",
+    "library",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
+description = "Python library to interact with eQ-3 Bluetooth Smart thermostats"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bleak>=0.22.3",
+    "construct-typing>=0.6.2",
+]
+version = "2.1.1"
+
+[dependency-groups]
+dev = [
+    "codespell",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+]
+docs = [
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
+[project.urls]
+Repository = "https://github.com/eulemitkeule/eq3btsmart"
+Documentation = "https://github.com/eulemitkeule/eq3btsmart/blob/master/README.md"
+Changelog = "https://github.com/EuleMitKeule/eq3btsmart/releases"
+Issues = "https://github.com/eulemitkeule/eq3btsmart/issues"
+Download = "https://pypi.org/project/eq3btsmart/"
+
+[tool.mypy]
+check_untyped_defs = true
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint]
+select = ["D", "ARG"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"!eq3btsmart/**.py" = ["D"]
+
+[tool.codespell]
+dictionary = "codespell.dict"

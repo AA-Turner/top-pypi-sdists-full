@@ -44,6 +44,8 @@ export interface AppState {
   };
   dialogs: {
     sample: boolean;
+    transcriptFilter: boolean;
+    options: boolean;
   };
   scrollPositions: Record<string, number>;
   listPositions: Record<string, StateSnapshot>;
@@ -59,6 +61,7 @@ export interface AppState {
   rehydrated?: boolean;
   pagination: Record<string, { page: number; pageSize: number }>;
   singleFileMode?: boolean;
+  displayMode?: "rendered" | "raw";
 }
 
 export interface LogsState {
@@ -105,6 +108,10 @@ export type SampleIdentifier = {
   epoch: number;
 };
 
+export interface EventFilter {
+  filteredTypes: string[];
+}
+
 export interface SampleState {
   sample_identifier: SampleIdentifier | undefined;
   sampleInState: boolean;
@@ -119,6 +126,7 @@ export interface SampleState {
   runningEvents: Event[];
   collapsedEvents: Record<string, Record<string, boolean>> | null;
   collapsedIdBuckets: Record<string, Record<string, boolean>>;
+  eventFilter: EventFilter;
 
   selectedOutlineId?: string;
 }

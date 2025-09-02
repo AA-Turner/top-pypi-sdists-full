@@ -19,6 +19,7 @@ import pymc as pm
 import pytest
 import xarray
 from pandas.testing import assert_frame_equal
+from pymc_extras.prior import Prior
 
 from pymc_marketing.clv import GammaGammaModel, ParetoNBDModel
 from pymc_marketing.clv.utils import (
@@ -31,7 +32,6 @@ from pymc_marketing.clv.utils import (
     rfm_train_test_split,
     to_xarray,
 )
-from pymc_marketing.prior import Prior
 from tests.conftest import set_model_fit
 
 
@@ -213,12 +213,12 @@ class TestCustomerLifetimeValue:
 
         # Copy model with thinned chain/draw as would be obtained from MAP
         if transaction_model_map:
-            transaction_model = transaction_model._build_with_idata(
+            transaction_model = transaction_model.build_from_idata(
                 transaction_model.idata.sel(chain=slice(0, 1), draw=slice(0, 1))
             )
 
         if gg_map:
-            fitted_gg = fitted_gg._build_with_idata(
+            fitted_gg = fitted_gg.build_from_idata(
                 fitted_gg.idata.sel(chain=slice(0, 1), draw=slice(0, 1))
             )
             # create future_spend column from fitted gg

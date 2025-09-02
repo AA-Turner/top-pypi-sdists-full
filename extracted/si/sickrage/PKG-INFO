@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: sickrage
+Version: 10.0.71
+Summary: Automatic Video Library Manager for TV Shows
+Home-page: https://git.sickrage.ca
+Author: echel0n
+Author-email: echel0n@sickrage.ca
+License: GPLv3
+Keywords: sickrage,sickragetv,tv,torrent,nzb,video,echel0n
+Platform: any
+Requires-Python: >=3
+License-File: COPYING.txt
+
+UNKNOWN
+

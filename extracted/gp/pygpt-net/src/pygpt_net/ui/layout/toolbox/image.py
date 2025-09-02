@@ -6,14 +6,13 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.24 23:00:00                  #
+# Updated Date: 2025.09.01 23:00:00                  #
 # ================================================== #
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QHBoxLayout, QWidget, QCheckBox
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from pygpt_net.ui.widget.option.combo import OptionCombo
 from pygpt_net.ui.widget.option.slider import OptionSlider
-from pygpt_net.utils import trans
 
 
 class Image:
@@ -49,23 +48,13 @@ class Image:
         container = QWidget()
         ui.nodes['dalle.options'] = container
 
-        label_text = trans("toolbox.img_variants.label")
-        ui.nodes['img_variants.label'] = QLabel(label_text, parent=container)
-
         conf_global['img_variants'] = OptionSlider(self.window, 'global', 'img_variants', option)
-        conf_global['img_raw'] = QCheckBox(trans("img.raw"), parent=container)
-        conf_global['img_raw'].toggled.connect(self.window.controller.chat.common.img_toggle_raw)
 
         option_resolutions = self.window.core.image.get_resolution_option()
         conf_global['img_resolution'] = OptionCombo(self.window, 'global', 'img_resolution', option_resolutions)
 
-        cols = QHBoxLayout()
-        cols.addWidget(conf_global['img_raw'])
-        cols.addWidget(conf_global['img_variants'])
-
         rows = QVBoxLayout()
-        rows.addWidget(ui.nodes['img_variants.label'])
-        rows.addLayout(cols)
+        rows.addWidget(conf_global['img_variants'])
         rows.addWidget(conf_global['img_resolution'])
         rows.setContentsMargins(2, 5, 5, 5)
 

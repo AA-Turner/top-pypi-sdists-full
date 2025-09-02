@@ -115,7 +115,7 @@ impl Executor {
         file: File,
         new_folder_ids: &mut Vec<Arc<str>>,
         seen_ids: &mut HashSet<Arc<str>>,
-    ) -> Result<Option<PartialSourceRowMetadata>> {
+    ) -> Result<Option<PartialSourceRow>> {
         if file.trashed == Some(true) {
             return Ok(None);
         }
@@ -133,11 +133,14 @@ impl Executor {
             new_folder_ids.push(id);
             None
         } else if is_supported_file_type(&mime_type) {
-            Some(PartialSourceRowMetadata {
-                key: FullKeyValue::from_single_part(id),
+            Some(PartialSourceRow {
+                key: KeyValue::from_single_part(id),
                 key_aux_info: serde_json::Value::Null,
-                ordinal: file.modified_time.map(|t| t.try_into()).transpose()?,
-                content_version_fp: None,
+                data: PartialSourceRowData {
+                    ordinal: file.modified_time.map(|t| t.try_into()).transpose()?,
+                    content_version_fp: None,
+                    value: None,
+                },
             })
         } else {
             None
@@ -211,7 +214,7 @@ impl Executor {
                 let file_id = file.id.ok_or_else(|| anyhow!("File has no id"))?;
                 if self.is_file_covered(&file_id).await? {
                     changes.push(SourceChange {
-                        key: FullKeyValue::from_single_part(file_id),
+                        key: KeyValue::from_single_part(file_id),
                         key_aux_info: serde_json::Value::Null,
                         data: PartialSourceRowData::default(),
                     });
@@ -290,8 +293,8 @@ fn optional_modified_time(include_ordinal: bool) -> &'static str {
 impl SourceExecutor for Executor {
     async fn list(
         &self,
-        options: &SourceExecutorListOptions,
-    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRowMetadata>>>> {
+        options: &SourceExecutorReadOptions,
+    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRow>>>> {
         let mut seen_ids = HashSet::new();
         let mut folder_ids = self.root_folder_ids.clone();
         let fields = format!(
@@ -325,9 +328,9 @@ impl SourceExecutor for Executor {
 
     async fn get_value(
         &self,
-        key: &FullKeyValue,
+        key: &KeyValue,
         _key_aux_info: &serde_json::Value,
-        options: &SourceExecutorGetOptions,
+        options: &SourceExecutorReadOptions,
     ) -> Result<PartialSourceRowData> {
         let file_id = key.single_part()?.str_value()?;
         let fields = format!(
@@ -432,6 +435,10 @@ impl SourceExecutor for Executor {
         };
         Ok(Some(stream.boxed()))
     }
+
+    fn provides_ordinal(&self) -> bool {
+        true
+    }
 }
 
 pub struct Factory;
@@ -487,6 +494,7 @@ impl SourceFactoryBase for Factory {
 
     async fn build_executor(
         self: Arc<Self>,
+        _source_name: &str,
         spec: Spec,
         _context: Arc<FlowInstanceContext>,
     ) -> Result<Box<dyn SourceExecutor>> {

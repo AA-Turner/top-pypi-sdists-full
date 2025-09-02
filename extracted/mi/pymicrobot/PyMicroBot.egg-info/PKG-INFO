@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: PyMicroBot
+Version: 0.0.23
+Summary: A library to communicate with MicroBot
+Author: spycle
+License-Expression: MIT
+Project-URL: Source, https://github.com/spycle/pyMicroBot/
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
+Requires-Dist: bleak>=0.19.0
+Requires-Dist: bleak-retry-connector>=1.4.0
+Dynamic: license-file

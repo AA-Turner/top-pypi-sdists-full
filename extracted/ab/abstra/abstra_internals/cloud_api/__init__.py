@@ -71,7 +71,7 @@ class TunnelRequest(BaseModel):
     method: str
     path: str
     headers: dict
-    body: Optional[str]
+    body: Optional[dict]
     query: dict
     sessionPath: str
     requestId: str
@@ -90,33 +90,47 @@ class SessionPathMessage(BaseModel):
 
 
 def connect_tunnel():
-    url = f"{CLOUD_API_ENDPOINT}/tunnel/connect".replace("https://", "wss://").replace(
-        "http://", "ws://"
-    )
+    url = f"{CLOUD_API_ENDPOINT}/tunnel/connect?format=dict".replace(
+        "https://", "wss://"
+    ).replace("http://", "ws://")
 
     async def loop():
         await asyncio.sleep(1)
         while True:
             headers = resolve_headers()
             if headers is None:
+                await asyncio.sleep(5)
                 continue
             try:
                 async with websockets.connect(
-                    uri=url, additional_headers=headers
+                    uri=url,
+                    additional_headers=headers,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=10,
                 ) as ws:
+                    print("WebSocket connection established")
                     while True:
                         try:
-                            message = await ws.recv()
+                            message = await asyncio.wait_for(ws.recv(), timeout=30.0)
                             assert isinstance(message, str)
                             message_dict = json.loads(message)
 
                             if "method" in message_dict:
                                 request = TunnelRequest.model_validate_json(message)
+
+                                cookies = {}
+                                editor_auth_token = get_editor_auth_token_from_file()
+                                if editor_auth_token:
+                                    cookies["editor_auth"] = editor_auth_token
+
                                 kwargs: Any = dict(
                                     headers=request.headers,
                                     params=request.query,
-                                    **dict(data=request.body if request.body else {}),
+                                    cookies=cookies,
                                 )
+
+                                kwargs["json"] = request.body
                                 if (
                                     not request.path.startswith("/_hooks/")
                                     and not request.path.startswith("/_healthcheck")
@@ -162,6 +176,13 @@ def connect_tunnel():
                                     print(
                                         f"You can test your hooks locally by sending requests to: {Fore.GREEN}{public_url}/_hooks/:hook-path{Fore.RESET}"
                                     )
+                        except asyncio.TimeoutError:
+                            try:
+                                await ws.ping()
+                                continue
+                            except Exception:
+                                print("WebSocket ping failed, connection lost")
+                                break
                         except websockets.exceptions.ConnectionClosedOK:
                             print("WebSocket connection closed OK")
                             await asyncio.sleep(5)
@@ -214,3 +235,16 @@ def get_tunnel_secret_key() -> str:
     if not path.exists():
         refresh_tunnel_secret_key()
     return path.read_text(encoding="utf-8").strip()
+
+
+def get_editor_auth_token_from_file() -> str:
+    path = Settings.root_path / ".abstra" / "editor_auth_token"
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
+def save_editor_auth_token_to_file(token: str):
+    path = Settings.root_path / ".abstra" / "editor_auth_token"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(token, encoding="utf-8")

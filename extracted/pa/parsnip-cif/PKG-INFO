@@ -1,0 +1,150 @@
+Metadata-Version: 2.4
+Name: parsnip-cif
+Version: 0.3.0
+Summary: Minimal library for parsing CIF & mmCIF files in Python.
+Author-email: Jen Bradley <jenbrad@umich.edu>
+Project-URL: Source, https://github.com/glotzerlab/parsnip
+Project-URL: Issues, https://github.com/glotzerlab/parsnip/issues
+Keywords: Development Status :: 4 - Beta,License :: OSI Approved :: BSD License,Programming Language :: Python :: 3.7,Programming Language :: Python :: 3.8,Programming Language :: Python :: 3.9,Programming Language :: Python :: 3.10,Programming Language :: Python :: 3.11,Programming Language :: Python :: 3.12,Topic :: Scientific/Engineering :: Physics,Topic :: Scientific/Engineering :: Chemistry
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: numpy>=1.19
+Requires-Dist: more-itertools
+Provides-Extra: tests
+Requires-Dist: ase; extra == "tests"
+Requires-Dist: gemmi; extra == "tests"
+Requires-Dist: pycifrw!=5.0.0; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-doctestplus; extra == "tests"
+Requires-Dist: sympy; extra == "tests"
+Provides-Extra: doc
+Requires-Dist: alabaster==1.0.0; extra == "doc"
+Requires-Dist: autodocsumm==0.2.14; extra == "doc"
+Requires-Dist: babel==2.17.0; extra == "doc"
+Requires-Dist: beautifulsoup4==4.13.4; extra == "doc"
+Requires-Dist: certifi==2025.6.15; extra == "doc"
+Requires-Dist: charset-normalizer==3.4.2; extra == "doc"
+Requires-Dist: docutils==0.21.2; extra == "doc"
+Requires-Dist: furo==2024.8.6; extra == "doc"
+Requires-Dist: idna==3.10; extra == "doc"
+Requires-Dist: imagesize==1.4.1; extra == "doc"
+Requires-Dist: iniconfig==2.1.0; extra == "doc"
+Requires-Dist: jinja2==3.1.6; extra == "doc"
+Requires-Dist: markupsafe==3.0.2; extra == "doc"
+Requires-Dist: numpy==2.3.1; extra == "doc"
+Requires-Dist: packaging==25.0; extra == "doc"
+Requires-Dist: pluggy==1.6.0; extra == "doc"
+Requires-Dist: pygments==2.19.2; extra == "doc"
+Requires-Dist: pytest==8.4.1; extra == "doc"
+Requires-Dist: pytest-doctestplus==1.4.0; extra == "doc"
+Requires-Dist: requests==2.32.4; extra == "doc"
+Requires-Dist: roman-numerals-py==3.1.0; extra == "doc"
+Requires-Dist: snowballstemmer==3.0.1; extra == "doc"
+Requires-Dist: soupsieve==2.7; extra == "doc"
+Requires-Dist: sphinx==8.2.3; extra == "doc"
+Requires-Dist: sphinx-basic-ng==1.0.0b2; extra == "doc"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "doc"
+Requires-Dist: sphinx-notfound-page==1.1.0; extra == "doc"
+Requires-Dist: sphinxcontrib-applehelp==2.0.0; extra == "doc"
+Requires-Dist: sphinxcontrib-devhelp==2.0.0; extra == "doc"
+Requires-Dist: sphinxcontrib-htmlhelp==2.1.0; extra == "doc"
+Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "doc"
+Requires-Dist: sphinxcontrib-qthelp==2.0.0; extra == "doc"
+Requires-Dist: sphinxcontrib-serializinghtml==2.0.0; extra == "doc"
+Requires-Dist: typing-extensions==4.14.0; extra == "doc"
+Requires-Dist: urllib3==2.5.0; extra == "doc"
+Provides-Extra: sympy
+Requires-Dist: sympy; extra == "sympy"
+Dynamic: license-file
+
+.. _images:
+
+.. image:: https://raw.githubusercontent.com/glotzerlab/parsnip/refs/heads/main/doc/source/_static/parsnip_header_dark.svg
+  :width: 600
+
+
+.. _header:
+
+..
+  TODO: set up Readthedocs, PyPI, and conda-forge
+
+|ReadTheDocs|
+|PyPI|
+|conda-forge|
+
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/parsnip-cif/badge/?version=latest
+   :target: http://parsnip-cif.readthedocs.io/en/latest/?badge=latest
+.. |PyPI| image:: https://img.shields.io/pypi/v/parsnip-cif.svg
+   :target: https://pypi.org/project/parsnip-cif/
+.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/parsnip-cif.svg
+   :target: https://anaconda.org/conda-forge/parsnip-cif
+
+
+.. _introduction:
+
+**parsnip** is a minimal Python library for parsing `CIF <https://www.iucr.org/resources/cif>`_ files. While its primary focus is on simplicity and portability, performance-oriented design choices are made where possible.
+
+.. _parse:
+
+Importing ``parsnip`` allows users to read `CIF 1.1 <https://www.iucr.org/resources/cif/spec/version1.1>`_ files, as well as many features from the `CIF 2.0 <https://www.iucr.org/resources/cif/cif2>`_ and `mmCIF <https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/beginner’s-guide-to-pdb-structures-and-the-pdbx-mmcif-format>`_ formats.
+Creating a `CifFile`_ object provides easy access to name-value `pairs`_, as well
+as `loop\_`-delimited `loops`_. Data entries can be extracted as python primitives or
+numpy arrays for further use.
+
+.. _CifFile: https://parsnip-cif.readthedocs.io/en/latest/package-parse.html#parsnip.parsnip.CifFile
+.. _pairs: https://parsnip-cif.readthedocs.io/en/latest/package-parse.html#parsnip.parsnip.CifFile.pairs
+.. _loops: https://parsnip-cif.readthedocs.io/en/latest/package-parse.html#parsnip.parsnip.CifFile.loops
+
+.. _installing:
+
+Setup
+-----
+
+**parsnip** may be installed with **pip** or from **conda-forge**.
+
+
+Installation via pip
+^^^^^^^^^^^^^^^^^^^^
+
+.. code:: bash
+
+    python -m pip install parsnip-cif
+
+Installation via conda-forge
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: bash
+
+    conda install -c conda-forge parsnip-cif
+
+
+Installation from source
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+First, clone the repository:
+
+.. code:: bash
+
+    git clone https://github.com/glotzerlab/parsnip.git
+    cd parsnip
+
+Then, choose one of the following. While **parsnip** is only dependent on Numpy,
+additional dependencies are required to run the tests and build the docs.
+
+.. code:: bash
+
+    pip install .            # Install with no additional dependencies
+    pip install .[sympy]     # Install with sympy for symbolic unit cell math
+    pip install .[tests]     # Install with dependencies required to run tests (including sympy)
+    pip install .[tests,doc] # Install with dependencies required to run tests and make docs
+
+Dependencies
+^^^^^^^^^^^^
+
+.. code:: text
+
+   numpy>=1.19
+   more-itertools
+
+.. _contributing:

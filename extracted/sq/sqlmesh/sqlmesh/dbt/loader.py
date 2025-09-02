@@ -19,11 +19,12 @@ from sqlmesh.core.signal import signal
 from sqlmesh.dbt.basemodel import BMC, BaseModelConfig
 from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.context import DbtContext
+from sqlmesh.dbt.model import ModelConfig
 from sqlmesh.dbt.profile import Profile
 from sqlmesh.dbt.project import Project
 from sqlmesh.dbt.target import TargetConfig
 from sqlmesh.utils import UniqueKeyDict
-from sqlmesh.utils.errors import ConfigError, MissingModelError
+from sqlmesh.utils.errors import ConfigError, MissingModelError, BaseMissingReferenceError
 from sqlmesh.utils.jinja import (
     JinjaMacroRegistry,
     make_jinja_registry,
@@ -98,12 +99,11 @@ class DbtLoader(Loader):
         for file in macro_files:
             self._track_file(file)
 
-        jinja_macros = JinjaMacroRegistry()
-        for project in self._load_projects():
-            jinja_macros = jinja_macros.merge(project.context.jinja_macros)
-            jinja_macros.add_globals(project.context.jinja_globals)
-
-        return (macro.get_registry(), jinja_macros)
+        # This doesn't do anything, the actual content will be loaded from the manifest
+        return (
+            macro.get_registry(),
+            JinjaMacroRegistry(),
+        )
 
     def _load_models(
         self,
@@ -138,6 +138,10 @@ class DbtLoader(Loader):
                 package_models: t.Dict[str, BaseModelConfig] = {**package.models, **package.seeds}
 
                 for model in package_models.values():
+                    if isinstance(model, ModelConfig) and not model.sql_no_config:
+                        logger.info(f"Skipping empty model '{model.name}' at path '{model.path}'.")
+                        continue
+
                     sqlmesh_model = cache.get_or_load_models(
                         model.path, loader=lambda: [_to_sqlmesh(model, package_context)]
                     )[0]
@@ -162,11 +166,13 @@ class DbtLoader(Loader):
                     logger.debug("Converting '%s' to sqlmesh format", test.name)
                     try:
                         audits[test.name] = test.to_sqlmesh(package_context)
-                    except MissingModelError as e:
+                    except BaseMissingReferenceError as e:
+                        ref_type = "model" if isinstance(e, MissingModelError) else "source"
                         logger.warning(
-                            "Skipping audit '%s' because model '%s' is not a valid ref",
+                            "Skipping audit '%s' because %s '%s' is not a valid ref",
                             test.name,
-                            e.model_name,
+                            ref_type,
+                            e.ref,
                         )
 
         return audits

@@ -14,6 +14,14 @@ class Paths(BaseEntity):
         }
     )
 
+    app: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app').resolve()),
+        metadata = {
+            'description': 'The main application directory containing core code.',
+            'default': lambda: str((Path.cwd() / 'app').resolve())
+        }
+    )
+
     console: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'console').resolve()),
         metadata = {
@@ -22,27 +30,19 @@ class Paths(BaseEntity):
         }
     )
 
-    controllers: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'controllers').resolve()),
+    exceptions: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app' / 'exceptions').resolve()),
         metadata = {
-            'description': 'Directory containing HTTP controller classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'http' / 'controllers').resolve())
+            'description': 'Directory containing exception handler classes.',
+            'default': lambda: str((Path.cwd() / 'app' / 'exceptions').resolve())
         }
     )
 
-    middleware: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'middleware').resolve()),
+    http: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app' / 'http').resolve()),
         metadata = {
-            'description': 'Directory containing HTTP middleware classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'http' / 'middleware').resolve())
-        }
-    )
-
-    requests: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'requests').resolve()),
-        metadata = {
-            'description': 'Directory containing HTTP form request validation classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'http' / 'requests').resolve())
+            'description': 'Directory containing HTTP-related classes (controllers, middleware, requests).',
+            'default': lambda: str((Path.cwd() / 'app' / 'http').resolve())
         }
     )
 
@@ -62,51 +62,11 @@ class Paths(BaseEntity):
         }
     )
 
-    events: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'events').resolve()),
-        metadata = {
-            'description': 'Directory containing event classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'events').resolve())
-        }
-    )
-
-    listeners: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'listeners').resolve()),
-        metadata = {
-            'description': 'Directory containing event listener classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'listeners').resolve())
-        }
-    )
-
     notifications: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'notifications').resolve()),
         metadata = {
             'description': 'Directory containing notification classes.',
             'default': lambda: str((Path.cwd() / 'app' / 'notifications').resolve())
-        }
-    )
-
-    jobs: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'jobs').resolve()),
-        metadata = {
-            'description': 'Directory containing queued job classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'jobs').resolve())
-        }
-    )
-
-    policies: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'policies').resolve()),
-        metadata = {
-            'description': 'Directory containing authorization policy classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'policies').resolve())
-        }
-    )
-
-    exceptions: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'exceptions').resolve()),
-        metadata = {
-            'description': 'Directory containing exception handler classes.',
-            'default': lambda: str((Path.cwd() / 'app' / 'exceptions').resolve())
         }
     )
 
@@ -118,35 +78,19 @@ class Paths(BaseEntity):
         }
     )
 
-    views: str = field(
-        default_factory = lambda: str((Path.cwd() / 'resources' / 'views').resolve()),
+    jobs: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app' / 'jobs').resolve()),
         metadata = {
-            'description': 'Directory containing template view files.',
-            'default': lambda: str((Path.cwd() / 'resources' / 'views').resolve())
+            'description': 'Directory containing queued job classes.',
+            'default': lambda: str((Path.cwd() / 'app' / 'jobs').resolve())
         }
     )
 
-    lang: str = field(
-        default_factory = lambda: str((Path.cwd() / 'resources' / 'lang').resolve()),
+    bootstrap: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app' / 'bootstrap').resolve()),
         metadata = {
-            'description': 'Directory containing internationalization files.',
-            'default': lambda: str((Path.cwd() / 'resources' / 'lang').resolve())
-        }
-    )
-
-    assets: str = field(
-        default_factory = lambda: str((Path.cwd() / 'resources' / 'assets').resolve()),
-        metadata = {
-            'description': 'Directory containing frontend assets (JS, CSS, images).',
-            'default': lambda: str((Path.cwd() / 'resources' / 'assets').resolve())
-        }
-    )
-
-    routes: str = field(
-        default_factory = lambda: str((Path.cwd() / 'routes').resolve()),
-        metadata = {
-            'description': 'Path to the web routes definition file.',
-            'default': lambda: str((Path.cwd() / 'routes').resolve())
+            'description': 'Directory containing application bootstrap files.',
+            'default': lambda: str((Path.cwd() / 'app' / 'bootstrap').resolve())
         }
     )
 
@@ -158,75 +102,27 @@ class Paths(BaseEntity):
         }
     )
 
-    migrations: str = field(
-        default_factory = lambda: str((Path.cwd() / 'database' / 'migrations').resolve()),
+    database: str = field(
+        default_factory = lambda: str((Path.cwd() / 'database' / 'database').resolve()),
         metadata = {
-            'description': 'Directory containing database migration files.',
-            'default': lambda: str((Path.cwd() / 'database' / 'migrations').resolve())
+            'description': 'Directory containing the SQLite database file.',
+            'default': lambda: str((Path.cwd() / 'database' / 'database').resolve())
         }
     )
 
-    seeders: str = field(
-        default_factory = lambda: str((Path.cwd() / 'database' / 'seeders').resolve()),
+    resources: str = field(
+        default_factory = lambda: str((Path.cwd() / 'resources').resolve()),
         metadata = {
-            'description': 'Directory containing database seeder files.',
-            'default': lambda: str((Path.cwd() / 'database' / 'seeders').resolve())
+            'description': 'Directory containing application resources (views, lang, assets).',
+            'default': lambda: str((Path.cwd() / 'resources').resolve())
         }
     )
 
-    factories: str = field(
-        default_factory = lambda: str((Path.cwd() / 'database' / 'factories').resolve()),
+    routes: str = field(
+        default_factory = lambda: str((Path.cwd() / 'routes').resolve()),
         metadata = {
-            'description': 'Directory containing model factory files.',
-            'default': lambda: str((Path.cwd() / 'database' / 'factories').resolve())
-        }
-    )
-
-    logs: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'logs').resolve()),
-        metadata = {
-            'description': 'Directory containing application log files.',
-            'default': lambda: str((Path.cwd() / 'storage' / 'logs').resolve())
-        }
-    )
-
-    framework: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'framework').resolve()),
-        metadata = {
-            'description': 'Directory for framework-generated files (cache, sessions, views).',
-            'default': lambda: str((Path.cwd() / 'storage' / 'framework').resolve())
-        }
-    )
-
-    sessions: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'sessions').resolve()),
-        metadata = {
-            'description': 'Directory containing session files.',
-            'default': lambda: str((Path.cwd() / 'storage' / 'framework' / 'sessions').resolve())
-        }
-    )
-
-    cache: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'cache').resolve()),
-        metadata = {
-            'description': 'Directory containing framework cache files.',
-            'default': lambda: str((Path.cwd() / 'storage' / 'framework' / 'cache').resolve())
-        }
-    )
-
-    views: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'views').resolve()),
-        metadata = {
-            'description': 'Directory containing compiled view files.',
-            'default': lambda: str((Path.cwd() / 'storage' / 'framework' / 'views').resolve())
-        }
-    )
-
-    testing: str = field(
-        default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'testing').resolve()),
-        metadata = {
-            'description': 'Directory containing compiled view files.',
-            'default': lambda: str((Path.cwd() / 'storage' / 'framework' / 'testing').resolve())
+            'description': 'Path to the web routes definition file.',
+            'default': lambda: str((Path.cwd() / 'routes').resolve())
         }
     )
 
@@ -276,11 +172,15 @@ class Paths(BaseEntity):
 
         # Iterate over all dataclass fields to validate and normalize their values
         for field_ in fields(self):
+
+            # Get the current value of the field
             value = getattr(self, field_.name)
+
             # Convert Path objects to strings
             if isinstance(value, Path):
                 object.__setattr__(self, field_.name, str(value))
                 value = str(value)
+
             # Raise an exception if the value is not a string
             if not isinstance(value, str):
                 raise OrionisIntegrityException(

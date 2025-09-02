@@ -62,7 +62,7 @@ class TestMUC(SlixIntegration):
         await self.test_join_after_config()
         nick = 'coucoucou2'
         new_nick = await self.clients[0]['xep_0045'].set_self_nick(self.muc, nick)
-        assert new_nick == nick
+        self.assertEqual(new_nick, nick)
         self.clients[0]['xep_0045'].leave_muc(self.muc, 'client1', 'boooring')
         pres = await self.clients[1].wait_until('muc::%s::got_offline' % self.muc)
         self.assertEqual(pres['status'], 'boooring')

@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: medcom-ble
+Version: 0.1.1
+Summary: Library to communicate with Medcom BLE radiation monitors
+License: MIT
+Author: Ed Lafargue
+Author-email: ed@wizkers.io
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: bleak (>=0.15.1)
+Requires-Dist: bleak-retry-connector (>=1.8.0)
+Project-URL: Bug Tracker, https://github.com/elafargue/medcom-ble/issues
+Project-URL: Changelog, https://github.com/elafargue/medcom-ble/blob/main/CHANGELOG.md
+Description-Content-Type: text/markdown
+
+# Medcom BLE communication library
+
+This Python package implements communications over BLE, and is meant to be used by the Home Assistant Medcom BLE integration.
+
+
+## License
+
+License: MIT
+
+This library was written using https://github.com/vincegio/airthings-ble as the reference, which is also on the MIT license, (c) 2018 by Daniel Høyer Iversen.
+
+

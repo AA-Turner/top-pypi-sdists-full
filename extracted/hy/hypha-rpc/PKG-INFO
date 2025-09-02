@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: hypha_rpc
+Version: 0.20.79
+Summary: Hypha RPC client for connecting to Hypha server for data management and AI model serving
+Author-email: Wei Ouyang <oeway007@gmail.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: msgpack>=1.0.2
+Requires-Dist: shortuuid>=1.0.8
+Requires-Dist: websockets>=15.0; platform_system != "Emscripten"
+Requires-Dist: munch
+Requires-Dist: httpx
+Provides-Extra: full
+Requires-Dist: aiortc; platform_system != "Emscripten" and extra == "full"
+Requires-Dist: zarr; extra == "full"
+Requires-Dist: fastapi; extra == "full"
+Requires-Dist: sse-starlette; extra == "full"
+Requires-Dist: openai; extra == "full"
+Requires-Dist: simpervisor; extra == "full"
+Requires-Dist: fastmcp>=2.10.6; extra == "full"
+Requires-Dist: mcp>=1.12.0; extra == "full"
+
+# Hypha RPC
+
+Remote Procedure Calls for Hypha
+
+
+[More details](../README.md)

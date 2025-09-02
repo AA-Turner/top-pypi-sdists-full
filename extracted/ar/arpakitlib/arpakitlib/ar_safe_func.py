@@ -20,13 +20,20 @@ class SafeFuncResult(BaseModel):
     args: tuple = Field(default_factory=tuple)
     kwargs: dict = Field(default_factory=dict)
 
+    @property
+    def is_ok(self) -> bool:
+        if self.has_exception:
+            return False
+        return True
+
     def simple_dict_for_json(self) -> dict[str, Any]:
         return {
             "has_exception": self.has_exception,
             "func_result": self.func_result,
             "exception": self.exception,
             "duration": self.duration,
-            "duration_total_seconds": self.duration.total_seconds() if self.duration is not None else None
+            "duration_total_seconds": self.duration.total_seconds() if self.duration is not None else None,
+            "is_ok": self.is_ok
         }
 
 

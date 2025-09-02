@@ -1,0 +1,216 @@
+#
+### project ##########################################################################
+#
+
+[project]
+name = "evohome-async"
+dynamic = ["version"]
+description = "An async client for connecting to Honeywell's TCC RESTful API."
+readme = "README.md"
+authors = [{ name = "David Bonnes", email = "zxdavb@bonnes.me" }]
+maintainers = [{ name = "David Bonnes", email = "zxdavb@bonnes.me" }]
+dependencies = ["aiohttp>=3.11.12", "aiozoneinfo>=0.2.3", "voluptuous>=0.15.2"]  # must support HA
+requires-python = ">=3.12"
+license = "Apache-2.0"
+
+keywords = [
+  "evohome",
+  "honeywell",
+  "resideo",
+  "round thermostat",
+  "tcc",
+  "vision pro",
+]
+classifiers = [
+  "Topic :: Home Automation",
+  "License :: OSI Approved :: Apache Software License",
+]
+
+#
+[project.scripts]
+evo-client = "cli.client:main"
+
+#
+[project.urls]
+"Homepage" = "https://github.com/zxdavb/evohome-async"
+"Bug Tracker" = "https://github.com/zxdavb/evohome-async/issues"
+"Wiki" = "https://github.com/zxdavb/evohome-async/wiki"
+
+
+#
+### build-system #####################################################################
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evohomeasync", "src/evohomeasync2", "src/evohome"]
+
+[tool.hatch.version]
+path = "src/evohome/__init__.py"
+
+
+#
+### pytest ###########################################################################
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+norecursedirs = ["tests.out/*", "tests.wip/*"]
+
+
+#
+###  mypy ############################################################################
+
+[tool.mypy]
+python_version = "3.12"
+
+# strict = true
+# enable_incomplete_feature = ["NewGenericSyntax"]
+
+exclude = ["docs", "tests/tests_cc"]
+files = ["cli", "src", "tests"]
+
+no_implicit_optional = true
+
+# see: https://mypy.readthedocs.io/en/stable/existing_code.html#introduce-stricter-options
+
+# Start off with these
+warn_unused_configs = true
+warn_redundant_casts = true # this is not per-module
+warn_unused_ignores = true
+
+# Getting these passing should be easy
+extra_checks = true    # now incl.: strict_concatenate = true
+strict_equality = true
+
+# Strongly recommend enabling this one as soon as you can
+check_untyped_defs = true
+
+# These shouldn't be too much additional work, but may be tricky to
+# get passing if you use a lot of untyped libraries
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+
+# These next few are various gradations of forcing use of type annotations
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
+# This one isn't too hard to get passing, but return on investment is lower
+# no_implicit_reexport = true
+
+# This one can be tricky to get passing if you use a lot of untyped libraries
+warn_return_any = true
+
+disallow_any_unimported = true
+warn_no_return = true
+warn_unreachable = true
+
+
+#
+[[tool.mypy.overrides]]
+module = ["tests.tests_rf.faked_server.vendor"]
+
+disable_error_code = ["type-arg"] # 14
+
+#
+## ruff ##############################################################################
+
+[tool.ruff]
+exclude = ["docs/*.py", "tests/tests_cc"]
+src = ["cli", "src", "tests"]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+  "A",   # flake8-builtins
+  "ANN", # flake8-annotations
+  # "ARG", # flake8-unused-args
+  "ASYNC", # flake8-async
+  "B",     # flake8-bugbear (opinionated anti-patterns)
+  "BLE",   # flake8-blind-except
+  "C4",    # flake8-comprehensions
+  "C90",   # mccabe complexity
+  "DTZ",   # flake8-datetimez
+  # "D",   # pydocstyle
+  "E",    # pycodestyle
+  "EXE",  # flake8-executable (shebang)
+  "F",    # Pyflakes
+  "FA",   # flake8-future-annotations
+  "FBT",  # flake8-boolean-trap
+  "FURB", # refurb (misc anti-patterns)
+  "G",    # flake8-logging-format
+  "I",    # isort
+  "ICN",  # flake8-import-conventions
+  "INP",  # flake8-no-pep420
+  "ISC",  # flake8-implicit-str-concat
+  "LOG",  # flake8-logging
+  "N",    # pep8-naming
+  "PERF", # perflint (performance anti-patterns)
+  "PGH",  # pygrep hooks
+  "PIE",  # flake8-pie (misc lint)
+  "PL",   # pylint
+  "PT",   # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "Q",    # flake8-quotes
+  "RET",  # flake8-return
+  "RSE",  # flake8-raise
+  "RUF",  # ruff (misc lint/anti-patterns)
+  "S",    # flake8-bandit (security)
+  "SIM",  # flake8-simplify
+  # "SLF", # flake8-self (aka private-member-access)
+  "TC",  # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "TRY", # tryceratops (try/except anti-patterns)
+  # "T10", # flake8-debugger
+  "T20", # flake8-print
+  "UP",  # pyupgrade
+  "W",   # pycodestyle
+  "YTT", # flake8-2020
+]
+
+ignore = [
+  "ANN401",  # Don't use type Any
+  "D202",    # No blank lines allowed after function docstring
+  "E501",    # Line too long
+  "G004",    # Logging statement uses f-string
+  "ISC001",  # Implicitly concatenated strings on a single line (conflicts with ruff)
+  "N806",    # Variable in function should be lowercase
+  "PLR0913", # Too many arguments in function definition
+  "PLR2044", # Line with empty comment
+  "S101",    # Assertions are removed when Python is run with optimization
+  "TRY003",  # Long exception messages
+  "UP040",
+]
+
+
+[tool.ruff.lint.per-file-ignores]
+"./client.py" = ["EXE001"]  #  shebang directive in a file that is not executable
+"./cli/client.py" = ["EXE001", "T201"]  # prints should typically be omitted
+"./src/*/schemas/typedefs.py" = ["UP040"]  # PEP695 says use type rather that TypeAlias
+"./tests/*" = ["S101"]  # Assertions are removed when Python is run with optimization
+
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+voluptuous = "vol"
+
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = false
+split-on-trailing-comma = false
+#
+## coverage ##########################################################################
+
+[tool.coverage.run]
+omit = ["cli/*", "tests*/*"]
+
+[tool.coverage.report]
+show_missing = true

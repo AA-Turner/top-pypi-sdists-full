@@ -82,6 +82,9 @@ from .age_gender_detection import AgeGenderConfig,AgeGenderUseCase
 from .people_tracking import PeopleTrackingConfig,PeopleTrackingUseCase
 from .wildlife_monitoring import WildLifeMonitoringConfig, WildLifeMonitoringUseCase
 from .pcb_defect_detection import PCBDefectConfig, PCBDefectUseCase
+from .underground_pipeline_defect_detection import UndergroundPipelineDefectConfig,UndergroundPipelineDefectUseCase
+from .suspicious_activity_detection import SusActivityConfig, SusActivityUseCase
+from .natural_disaster import NaturalDisasterConfig, NaturalDisasterUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -164,6 +167,9 @@ __all__ = [
     'PeopleTrackingUseCase',
     'WildLifeMonitoringUseCase',
     'PCBDefectUseCase',
+    'UndergroundPipelineDefectUseCase',
+    'SusActivityUseCase',
+    'NaturalDisasterUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -236,6 +242,7 @@ __all__ = [
     'DwellConfig',
     'AgeGenderConfig',
     'PeopleTrackingConfig',
+    'UndergroundPipelineDefectConfig',
 
     'LeakDetectionConfig',
     'HumanActivityConfig',
@@ -243,7 +250,8 @@ __all__ = [
     'LicensePlateMonitorConfig',
     'WildLifeMonitoringConfig',
     'PCBDefectConfig',
-
+    'SusActivityConfig',
+    'NaturalDisasterConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',

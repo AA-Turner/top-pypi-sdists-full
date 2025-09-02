@@ -1,0 +1,178 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[tool.bandit]
+skips = ["B101", "B301", "B403", "B404", "B603", "B607"]
+
+[tool.black]
+line-length = 90
+target-version = ['py310']
+
+[tool.isort]
+honor_noqa = true
+import_heading_firstparty = ""
+import_heading_framework = ""
+import_heading_localfolder = ""
+import_heading_stdlib = ""
+import_heading_thirdparty = ""
+profile = "black"
+sections = ["FUTURE", "STDLIB", "FIRSTPARTY", "THIRDPARTY", "LOCALFOLDER"]
+src_paths = ["modelbase", "tests"]
+
+[tool.mypy]
+disallow_untyped_defs = true
+exclude = "tests/*.py"
+ignore_missing_imports = true
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.poetry]
+authors = [
+  "Marvin van Aalst <marvin.vanaalst@gmail.com>",
+  "Oliver Ebenhöh <oliver.ebenhoeh@hhu.de>",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Software Development",
+  "Topic :: Scientific/Engineering",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+  "Operating System :: OS Independent",
+]
+description = "A package to build metabolic models"
+documentation = "https://modelbase.readthedocs.io/en/latest/"
+keywords = ["modelling", "ode", "metabolic"]
+license = "GPL-3.0-or-later"
+maintainers = [
+  "Oliver Ebenhöh <oliver.ebenhoeh@hhu.de>",
+]
+name = "modelbase"
+readme = "README.md"
+repository = "https://gitlab.com/qtb-hhu/modelbase-software"
+version = "1.58.0"
+
+[tool.poetry.dependencies]
+black = ">=24.4"
+ipywidgets = ">=8.1"
+matplotlib = ">=3.9"
+numpy = ">=2.0"
+pandas = ">=2.2"
+python = ">=3.9,<3.13"
+python-libsbml = ">=5.20"
+scipy = ">=1.13"
+sympy = ">=1.12"
+tqdm = ">=4.66"
+typing-extensions = ">=4.12"
+
+[tool.poetry.group.dev.dependencies]
+coverage = ">=7.2.7"
+gitchangelog = ">=3.0.4"
+flake8 = ">=6.0.0"
+isort = ">=5.12.0"
+jupyter = ">=1.0.0"
+jupyter_contrib_nbextensions = ">=0.7.0"
+mypy = ">=1.4.1"
+notebook = "^6.5"
+pytest = ">=7.4.0"
+pytest-cov = ">=4.1.0"
+requests = ">=2.31.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6.0"
+mkdocs-jupyter = "^0.24.7"
+mkdocs-material = "^9.5.27"
+notebook = "^6.5"
+jupyter-contrib-nbextensions = "^0.7.0"
+more-itertools = "^10.3.0"
+
+[tool.pylint.messages_control]
+disable = [
+  "no-self-use",
+  "too-many-instance-attributes",
+  "too-many-arguments",
+  "too-many-locals",
+  "too-many-branches",
+  "too-many-public-methods",
+  "too-many-statements",
+  "too-many-ancestors",
+  "too-many-lines",
+  "super-init-not-called",
+  "non-parent-init-called",
+  "arguments-differ",
+  "invalid-name",
+  "import-outside-toplevel",
+  "unspecified-encoding",
+  "protected-access",
+  "wrong-import-order",
+  "inconsistent-return-statements",
+  "no-member",
+  "unused-argument",
+]
+max-line-length = 100
+
+[tool.ruff]
+indent-width = 4
+line-length = 88
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = [
+  "ANN101",
+  "ANN401",
+  "COM812",
+  "D",
+  "E501",
+  "FIX001",
+  "ISC001",
+  "N806",
+  "PGH003",
+  "S110",
+  "S301",
+  "TD001",
+  "TD002",
+  "TD003",
+  "PLR0913",
+]
+select = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["T201"]
+"tests/*" = [
+  'S101', # assert
+]
+
+[tool.tomlsort]
+spaces_before_inline_comment = 2
+spaces_indent_inline_array = 2
+trailing_comma_inline_array = true
+
+[tool.pixi.workspace]
+name = 'modelbase'
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+modelbase = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+ipykernel = ">=6.29.5,<7"
+assimulo = ">=3.7.0,<4"
+python = "3.9.*"

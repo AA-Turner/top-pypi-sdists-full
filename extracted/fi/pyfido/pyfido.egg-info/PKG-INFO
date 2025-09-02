@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: pyfido
+Version: 2.1.2
+Summary: Get your Fido consumption (wwww.fido.ca)
+Home-page: http://github.com/titilambert/pyfido
+Author: Thibault Cohen
+Author-email: titilambert@gmail.com
+License: Apache 2.0
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+
+######
+Pyfido
+######
+
+TODO
+####
+
+* Add multi account support
+
+Installation
+############
+
+::
+
+    pip install pyfido
+
+
+Usage
+#####
+
+Print your current data
+
+::
+
+    pyfido -u 1112224444 -p MYPASSWORD
+
+
+Print help
+
+::
+
+    pyfido -h
+    usage: pyfido [-h] -u USERNAME [-n NUMBER] -p PASSWORD [-l] [-j] [-t TIMEOUT]
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -u USERNAME, --username USERNAME
+                            Fido username
+      -n NUMBER, --number NUMBER
+                            Fido phone number
+      -p PASSWORD, --password PASSWORD
+                            Password
+      -l, --list            List phone numbers
+      -j, --json            Json output
+      -t TIMEOUT, --timeout TIMEOUT
+                            Request timeout
+
+Dev env
+#######
+
+::
+
+    virtualenv -p /usr/bin/python3.5 env
+    pip install -r requirements.txt 

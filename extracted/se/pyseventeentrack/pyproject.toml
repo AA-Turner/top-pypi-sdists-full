@@ -1,0 +1,60 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pyseventeentrack"
+version = "1.1.1"
+description = "A Simple Python API for 17track.net"
+readme = "README.md"
+authors = ["Shai Ungar <shaiungar@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/shaiu/pyseventeentrack"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[tool.poetry.dependencies]
+aiohttp = ">=3.9.5"
+attrs = ">=19.3"
+python = "^3.9.0"
+pytz = ">=2021.1"
+cryptography = ">=45.0.3"
+
+[tool.poetry.dev-dependencies]
+aresponses = "^3.0.0"
+pre-commit = "^2.0.1"
+pytest = "^8.0.0"
+pytest-aiohttp = "^1.0.0"
+pytest-cov = "^3.0.0"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pydexcom"
+authors = [
+    {name = "Gage Benne"},
+]
+description = "Python API to interact with Dexcom Share API"
+readme = "README.md"
+requires-python = ">= 3.9"
+keywords = ["dexcom"]
+license = {text = "MIT"}
+dependencies = [
+    "requests>=2.0",
+]
+dynamic = ["version"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.ruff]
+fix = true
+extend-exclude = ["tests"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_any_unimported = true
+warn_redundant_casts = true
+warn_unused_configs = true
+follow_imports = "normal"

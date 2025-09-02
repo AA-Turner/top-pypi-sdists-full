@@ -1,0 +1,67 @@
+"""Constants.
+
+Constants for feeds and feed entries.
+"""
+
+from __future__ import annotations
+
+from typing import Final
+
+ATTR_ATTRIBUTION: Final = "attribution"
+CUSTOM_ATTRIBUTE: Final = "custom_attribute"
+
+XML_ATTR_HREF: Final = "@href"
+XML_ATTR_TERM: Final = "@term"
+
+XML_CDATA: Final = "#text"
+
+XML_TAG_AUTHOR: Final = "author"
+XML_TAG_CATEGORY: Final = "category"
+XML_TAG_CHANNEL: Final = "channel"
+XML_TAG_CONTENT: Final = "content"
+XML_TAG_CONTRIBUTOR: Final = "contributor"
+XML_TAG_COPYRIGHT: Final = "copyright"
+XML_TAG_DC_DATE: Final = "dc:date"
+XML_TAG_DESCRIPTION: Final = "description"
+XML_TAG_DOCS: Final = "docs"
+XML_TAG_ENTRY: Final = "entry"
+XML_TAG_FEED: Final = "feed"
+XML_TAG_GENERATOR: Final = "generator"
+XML_TAG_GEO_LAT: Final = "geo:lat"
+XML_TAG_GEO_LONG: Final = "geo:long"
+XML_TAG_GEO_POINT: Final = "geo:Point"
+XML_TAG_GEORSS_POINT: Final = "georss:point"
+XML_TAG_GEORSS_POLYGON: Final = "georss:polygon"
+XML_TAG_GEORSS_WHERE: Final = "georss:where"
+XML_TAG_GML_EXTERIOR: Final = "gml:exterior"
+XML_TAG_GML_LINEAR_RING: Final = "gml:LinearRing"
+XML_TAG_GML_POINT: Final = "gml:Point"
+XML_TAG_GML_POLYGON: Final = "gml:Polygon"
+XML_TAG_GML_POS: Final = "gml:pos"
+XML_TAG_GML_POS_LIST: Final = "gml:posList"
+XML_TAG_GUID: Final = "guid"
+XML_TAG_HEIGHT: Final = "height"
+XML_TAG_ID: Final = "id"
+XML_TAG_IMAGE: Final = "image"
+XML_TAG_ITEM: Final = "item"
+XML_TAG_LANGUAGE: Final = "language"
+XML_TAG_LAST_BUILD_DATE: Final = "lastBuildDate"
+XML_TAG_LINK: Final = "link"
+XML_TAG_MANAGING_EDITOR: Final = "managingEditor"
+XML_TAG_NAME: Final = "name"
+XML_TAG_PUB_DATE: Final = "pubDate"
+XML_TAG_PUBLISHED: Final = "published"
+XML_TAG_RIGHTS: Final = "rights"
+XML_TAG_RSS: Final = "rss"
+XML_TAG_SOURCE: Final = "source"
+XML_TAG_SUBTITLE: Final = "subtitle"
+XML_TAG_SUMMARY: Final = "summary"
+XML_TAG_TITLE: Final = "title"
+XML_TAG_TTL: Final = "ttl"
+XML_TAG_UPDATED: Final = "updated"
+XML_TAG_URL: Final = "url"
+XML_TAG_WIDTH: Final = "width"
+
+UPDATE_OK: Final = "OK"
+UPDATE_OK_NO_DATA: Final = "OK_NO_DATA"
+UPDATE_ERROR: Final = "ERROR"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkdmarc
-Version: 5.9.6
+Version: 5.10.2
 Summary: A Python module and command line parser for SPF and DMARC records
 Project-URL: Homepage, https://github.com/domainaware/checkdmarc
 Project-URL: Documentation, https://domainaware.github.io/checkdmarc/
@@ -15,7 +15,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Security
-Requires-Dist: cryptography>=41.0.7
+Requires-Dist: cryptography~=45.0
 Requires-Dist: dnspython>=2.0.0
 Requires-Dist: expiringdict>=1.1.4
 Requires-Dist: importlib-resources>=6.0
@@ -51,6 +51,7 @@ A Python module and command line utility for validating SPF and DMARC DNS record
 - Can test multiple domains at once
 - CLI output in JSON or CSV format
 - Parsing and validation of many DNS records related to email
+  - SOA
   - MX
     - Tests STARTTLS and TLS support on each mail server, including certificate validation
   - SPF

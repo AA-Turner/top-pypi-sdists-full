@@ -10,31 +10,6 @@ class BlockList(ElementBase):
     name = 'blocklist'
     namespace = 'urn:xmpp:blocking'
     plugin_attrib = 'blocklist'
-    interfaces = {'items'}
-
-    def get_items(self):
-        result = set()
-        items = self.xml.findall('{%s}item' % self.namespace)
-        if items is not None:
-            for item in items:
-                jid = JID(item.attrib.get('jid', ''))
-                if jid:
-                    result.add(jid)
-        return result
-
-    def set_items(self, values):
-        self.del_items()
-        for jid in values:
-            if jid:
-                item = ET.Element('{%s}item' % self.namespace)
-                item.attrib['jid'] = JID(jid).full
-                self.xml.append(item)
-
-    def del_items(self):
-        items = self.xml.findall('{%s}item' % self.namespace)
-        if items is not None:
-            for item in items:
-                self.xml.remove(item)
 
 
 class Block(BlockList):
@@ -45,3 +20,11 @@ class Block(BlockList):
 class Unblock(BlockList):
     name = 'unblock'
     plugin_attrib = 'unblock'
+
+
+class BlockItem(ElementBase):
+    name = 'item'
+    namespace = 'urn:xmpp:blocking'
+    plugin_attrib = 'item'
+    plugin_multi_attrib = 'items'
+    interfaces = {'jid'}

@@ -1,0 +1,38 @@
+[tool.black]
+line-length = 120
+[tool.poetry]
+name = "odecloud"
+version = "0.14.2"
+description = "Python client for https://server.odecloud.app"
+authors = ["Vanielle <vanielle@odecloud.com>"]
+maintainers = ["OdeCloud <support@odecloud.com>"]
+license = "MIT"
+repository="https://gitlab.com/odetech/python_odecloud"
+readme = 'README.md'
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+certifi = "^2021.10.8"
+charset-normalizer = "^2.0.9"
+idna = "^3.3"
+requests = "^2.26.0"
+urllib3 = "^1.26.7"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

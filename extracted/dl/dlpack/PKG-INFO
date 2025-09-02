@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: dlpack
+Version: 0.1
+Summary: Machine learning for systems
+Home-page: https://github.com/dmlc/dlpack
+Author: dlpack
+Author-email: tianqi.tchen@gmail.com
+License: Apache-2.0
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6

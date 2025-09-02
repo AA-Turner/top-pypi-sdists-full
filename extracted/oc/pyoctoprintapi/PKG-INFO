@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: pyoctoprintapi
+Version: 0.1.14
+Summary: An asynchronous Python library for communicating with the OctoPrint API
+Home-page: https://github.com/rfleming71/pyoctoprintapi
+Author: Ryan Fleming
+Author-email: rfleming71@users.noreply.github.com
+License: MIT
+Keywords: octoprint,homeassistant
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE
+Requires-Dist: aiohttp

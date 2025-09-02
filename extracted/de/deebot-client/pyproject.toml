@@ -1,0 +1,155 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "deebot-client"
+license = "GPL-3.0-or-later"
+description = "Deebot client library in python 3"
+readme = "README.md"
+authors = [{ name = "Robert Resch", email = "robert@resch.dev" }]
+keywords = [
+    "home",
+    "automation",
+    "homeassistant",
+    "vacuum",
+    "robot",
+    "deebot",
+    "ecovacs",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.13.0"
+dependencies = [
+    "aiohttp~=3.10",
+    "aiomqtt>=2.0.0,<3.0",
+    "cachetools>=5.0.0,<7.0",
+    "defusedxml>=0.7.1",
+]
+version = "13.7.0"
+
+[project.urls]
+"Homepage" = "https://deebot.readthedocs.io/"
+"Source Code" = "https://github.com/DeebotUniverse/client.py"
+"Bug Reports" = "https://github.com/DeebotUniverse/client.py/issues"
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "**/*.rs" },
+]
+
+[dependency-groups]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    "maturin[patchelf]==1.9.4",
+    "maturin-import-hook==0.3.0",
+]
+lint = [
+    "mypy==1.17.1",
+    "pre-commit==4.3.0",
+    "types-cachetools>=5.5.0.20240820",
+    "types-mock>=5.1.0.20240425",
+]
+test = [
+    "pycountry==24.6.1",
+    "pytest-asyncio==1.1.0",
+    "pytest-codspeed>=3.1.2",
+    "pytest-cov==6.2.1",
+    "pytest-docker-fixtures==1.4.0",
+    "pytest-timeout==2.4.0",
+    "pytest==8.4.1",
+    "testfixtures==9.1.0",
+    "pytest-github-actions-annotate-failures==0.3.0",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "deebot_client.rs"
+auditwheel = "repair"
+exclude = [
+    { path = "**/.*/**", format = "sdist" },
+    { path = "**/.*", format = "sdist" },
+    { path = "*.ini", format = "sdist" },
+    { path = "tests/**", format = "sdist" },
+    { path = "scripts/**", format = "sdist" },
+    { path = "ci/**", format = "sdist" },
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+ignore = [
+    "ANN401", # Opinioated warning on disallowing dynamically typed expressions
+    "D203",   # Conflicts with other rules
+    "D213",   # Conflicts with other rules
+    "EM101",  # raw-string-in-exception
+
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in `__init__`
+    "E501", # line too long
+
+    "FBT", # flake8-boolean-trap
+
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+
+    # Conflicts with the Ruff formatter
+    "COM812",
+
+    "TRY003", # raise-vanilla-args: Avoid specifying long messages outside the exception class
+
+    # Remove later
+    "TD",     # Todos
+    "FIX002", # Line contains TODO, consider resolving the issue
+    "BLE001", # Do not catch blind exception: `Exception`
+
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["deebot_client"]
+required-imports = ["from __future__ import annotations"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"tests/fixtures/**" = [
+    "T201",   # print found
+    "TRY002", # raise-vanilla-class: Create your own exception
+]
+"tests/**" = [
+    "D100",    # Missing docstring in public module
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "N802",    # Function name {name} should be lowercase
+    "N816",    # Variable {name} in global scope should not be mixedCase
+    "PLR0913", # Too many arguments in function definition
+    "S101",    # Use of assert detected
+    "SLF001",  # Private member accessed: {access}
+    "T201",    # print found
+]
+"deebot_client/hardware/deebot/*" = [
+    "N999", # Invalid module name
+]
+"deebot_client/rs/*.pyi" = [
+    "PYI021", #  docstring-in-stub
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"svg.Path".msg = "Use map.Path instead"
+
+
+[tool.ruff.lint.mccabe]
+max-complexity = 13

@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: notify-events
+Version: 1.1.3
+Summary: Extension to integrate your project with Notify.Events service.
+Home-page: https://github.com/notify-events/python
+Author: Notify.Events
+Author-email: support@notify.events
+License: MIT
+Description: # Python client for Notify.Events
+        
+        A simple Python extension that simplifies the process of integrating your project with the [Notify.Events](https://notify.events) service to send messages to your channels.
+        
+        #### Instruction on another languages
+        
+        - [Р СѓСЃСЃРєРёР№](https://github.com/notify-events/python/blob/master/docs/ru-RU/README.md)
+        
+        # Installation
+        
+        You can install the Python client for Notify.Events from [PyPI](https://pypi.org/project/notify_events/):
+        
+        ```
+        pip install notify_events
+        ```
+        
+        # Usage
+        
+        To use this extension, you need to import the Message class into your script.
+        
+        ```python
+        from notify_events import Message
+        ```
+        
+        After that, you can create a Message object, set the necessary parameters and send the message to the channel.
+        
+        ### Usage example
+        
+        ```python
+        from notify_events import Message
+        
+        # Create a message object.
+        message = Message('Some <b>important</b> message', 'Title', Message.PRIORITY_HIGH, Message.LEVEL_WARNING)
+        
+        # Attach the file to the message.
+        message.add_file('path\to\local\file.zip', 'filename.zip')
+        
+        # Send a message to your channel in Notify.Events.
+        message.send('XXXXXXXX')
+        ```
+        
+        [List of all available functions](https://github.com/notify-events/python/blob/master/docs/en-US/Message.md)
+Keywords: notification,alert,teams,viber,telegram,signal,slack,sms,voice,call
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown

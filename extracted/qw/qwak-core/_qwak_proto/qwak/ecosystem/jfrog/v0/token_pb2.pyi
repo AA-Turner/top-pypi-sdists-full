@@ -144,22 +144,28 @@ class ArtifactoryImagePullTokenSpec(google.protobuf.message.Message):
     JFROG_TENANT_ID_FIELD_NUMBER: builtins.int
     REPOSITORY_KEY_FIELD_NUMBER: builtins.int
     TTL_SPEC_FIELD_NUMBER: builtins.int
+    REPOSITORY_KEYS_FIELD_NUMBER: builtins.int
     jfrog_tenant_id: builtins.str
     """JFrog tenant id"""
     repository_key: builtins.str
-    """Artifactory repository key"""
+    """Artifactory repository key
+    Deprecated: use `repository_keys` instead.
+    """
     @property
     def ttl_spec(self) -> global___JFrogTokenTTLSpec:
         """Ttl spec"""
+    @property
+    def repository_keys(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     def __init__(
         self,
         *,
         jfrog_tenant_id: builtins.str = ...,
         repository_key: builtins.str = ...,
         ttl_spec: global___JFrogTokenTTLSpec | None = ...,
+        repository_keys: collections.abc.Iterable[builtins.str] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["ttl_spec", b"ttl_spec"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["jfrog_tenant_id", b"jfrog_tenant_id", "repository_key", b"repository_key", "ttl_spec", b"ttl_spec"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["jfrog_tenant_id", b"jfrog_tenant_id", "repository_key", b"repository_key", "repository_keys", b"repository_keys", "ttl_spec", b"ttl_spec"]) -> None: ...
 
 global___ArtifactoryImagePullTokenSpec = ArtifactoryImagePullTokenSpec
 

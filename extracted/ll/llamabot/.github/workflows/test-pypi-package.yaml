@@ -1,0 +1,40 @@
+name: Daily test of the latest PyPI packages
+
+on:
+  schedule:
+    - cron: '14 3 * * *'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    name: Install LlamaBot from PyPI (Python ${{ matrix.python-version }})
+
+    strategy:
+      matrix:
+        python-version: [3.10.12, 3.11.4, 3.12]
+
+    # https://github.com/marketplace/actions/setup-miniconda#use-a-default-shell
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+
+      - name: Setup uv
+        # Install latest uv version using the installer
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install LlamaBot
+        # 17 June 2023: Figure out a way to move testing deps to the `pip install -e .` step below.
+        run: |
+          uv venv llamabot-env --python ${{ matrix.python-version }}
+          source llamabot-env/bin/activate
+          uv pip install llamabot[all]
+
+      - name: Test CLI
+        run: |
+          source llamabot-env/bin/activate
+          llamabot --help

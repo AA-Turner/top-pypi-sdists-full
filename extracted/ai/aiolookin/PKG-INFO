@@ -1,0 +1,16 @@
+Metadata-Version: 1.2
+Name: aiolookin
+Version: 1.0.0
+Summary: Client for interaction of the LOOKin device with the Home Assistant
+Home-page: https://github.com/ANMalko/aiolookin
+Author: Anton Malko
+Author-email: antonmalko@mail.ru
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8

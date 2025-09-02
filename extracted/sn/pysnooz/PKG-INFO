@@ -1,0 +1,154 @@
+Metadata-Version: 2.1
+Name: pysnooz
+Version: 0.10.0
+Summary: Control SNOOZ white noise machines.
+Home-page: https://github.com/AustinBrunkhorst/pysnooz
+License: MIT
+Author: Austin Brunkhorst
+Author-email: pysnooz@alb.dev
+Requires-Python: >=3.10,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries
+Requires-Dist: Events (>=0.4,<0.5)
+Requires-Dist: bleak (>=0.20.2)
+Requires-Dist: bleak-retry-connector (>=3.0.2)
+Requires-Dist: bluetooth-sensor-state-data (>=1.5.0)
+Requires-Dist: home-assistant-bluetooth (>=1.3.0)
+Requires-Dist: transitions (>=0.8.11,<0.9.0)
+Project-URL: Bug Tracker, https://github.com/AustinBrunkhorst/pysnooz/issues
+Project-URL: Changelog, https://github.com/AustinBrunkhorst/pysnooz/blob/main/CHANGELOG.md
+Project-URL: Repository, https://github.com/AustinBrunkhorst/pysnooz
+Description-Content-Type: text/markdown
+
+# PySnooz
+
+<p align="center">
+  <img src="header.svg" alt="Python Language + Bleak API + SNOOZ White Noise Machine" />
+</p>
+
+<p>
+  <a href="https://github.com/AustinBrunkhorst/pysnooz/actions?query=workflow%3ACI">
+    <img src="https://img.shields.io/github/actions/workflow/status/AustinBrunkhorst/pysnooz/ci.yml?branch=main&label=build&logo=github&style=flat&colorA=000000&colorB=000000" alt="CI Status" >
+  </a>
+  <a href="https://codecov.io/gh/AustinBrunkhorst/pysnooz">
+    <img src="https://img.shields.io/codecov/c/github/AustinBrunkhorst/pysnooz.svg?logo=codecov&logoColor=fff&style=flat&colorA=000000&colorB=000000" alt="Test coverage percentage">
+  </a>
+  <a href="https://pypi.org/project/pysnooz/">
+    <img src="https://img.shields.io/pypi/v/pysnooz.svg?logo=python&logoColor=fff&style=flat&colorA=000000&colorB=000000" alt="PyPI Version">
+  </a>
+</p>
+
+Control SNOOZ white noise machines with Bluetooth.
+
+## Installation
+
+Install this via pip (or your favourite package manager):
+
+`pip install pysnooz`
+
+## Supported devices
+
+- [SNOOZ Original](https://getsnooz.com/products/snooz-white-noise-machine)
+- [SNOOZ Pro](https://getsnooz.com/products/snooz-pro-white-noise-machine)
+- [Breez](https://getsnooz.com/products/snooz-breez-smart-bedroom-fan-sound-machine)
+
+## Usage
+
+```python
+import asyncio
+from datetime import timedelta
+from home_assistant_bluetooth import BluetoothServiceInfo
+from pysnooz.device import (
+  SnoozAdvertisementData,
+  SnoozDevice,
+  SnoozCommandResultStatus,
+  disable_night_mode,
+  enable_night_mode,
+  get_device_info,
+  set_auto_temp_enabled,
+  set_fan_speed,
+  set_light_brightness,
+  set_temp_target,
+  set_volume,
+  turn_fan_off,
+  turn_fan_on,
+  turn_light_off,
+  turn_light_on,
+  turn_off,
+  turn_on,
+)
+
+# found with discovery
+device_info = BluetoothServiceInfo(...)
+advertisement = parse_snooz_advertisement(device_info)
+
+device = SnoozDevice(device_info, advertisement)
+
+# optionally specify a volume to set before turning on
+await device.async_execute_command(turn_on(volume=100))
+
+# you can transition volume by specifying a duration
+await device.async_execute_command(turn_off(duration=timedelta(seconds=10)))
+
+other_commands = [
+  set_volume(50, duration=timedelta(seconds=10)),
+  set_light_brightness(75),
+  turn_light_on(),
+  turn_light_off(),
+  enable_night_mode(),
+  disable_night_mode(),
+
+  # the following commands are only supported by Breez
+  set_fan_speed(33, duration=timedelta(seconds=10)),
+  set_auto_temp_enabled(True),
+  set_temp_target(71)
+]
+for command in other_commands:
+  await device.async_execute_command(command)
+
+# view the result of a command execution
+result = await device.async_execute_command(turn_on())
+assert result.status == SnoozCommandResultStatus.SUCCESS
+result.duration # how long the command took to complete
+```
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- prettier-ignore-start -->
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bradleysryder"><img src="https://avatars.githubusercontent.com/u/39577543?v=4?s=80" width="80px;" alt="bradleysryder"/><br /><sub><b>bradleysryder</b></sub></a><br /><a href="https://github.com/AustinBrunkhorst/pysnooz/commits?author=bradleysryder" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mweinelt"><img src="https://avatars.githubusercontent.com/u/131599?v=4?s=80" width="80px;" alt="Martin Weinelt"/><br /><sub><b>Martin Weinelt</b></sub></a><br /><a href="https://github.com/AustinBrunkhorst/pysnooz/commits?author=mweinelt" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/epenet"><img src="https://avatars.githubusercontent.com/u/6771947?v=4?s=80" width="80px;" alt="epenet"/><br /><sub><b>epenet</b></sub></a><br /><a href="https://github.com/AustinBrunkhorst/pysnooz/commits?author=epenet" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+<!-- prettier-ignore-end -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+## Credits
+
+This package was created with
+[Cookiecutter](https://github.com/audreyr/cookiecutter) and the
+[browniebroke/cookiecutter-pypackage](https://github.com/browniebroke/cookiecutter-pypackage)
+project template.
+

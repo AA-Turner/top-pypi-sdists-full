@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: types-pynamodb
+Version: 0.1
+Summary: A dummy package.
+Home-page: UNKNOWN
+Author: Jelle Zijlstra
+Author-email: jelle.zijlstra@gmail.com
+License: MIT
+Keywords: types
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development
+License-File: LICENSE
+
+Dummy package to prevent malicious code.
+
+

@@ -1,0 +1,68 @@
+Metadata-Version: 2.2
+Name: aioacaia
+Version: 0.1.15
+Summary: An async implementation of PyAcaia
+Author-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
+Maintainer-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
+License: GPL-3.0-only
+Project-URL: Homepage, https://github.com/zweckj/aioacaia
+Project-URL: Repository, https://github.com/zweckj/aioacaia
+Project-URL: Documentation, https://github.com/zweckj/aioacaia
+Keywords: Acaia,Bluetooth,api,async,client
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: bleak>=0.20.2
+Provides-Extra: dev
+Requires-Dist: covdefaults==2.3.0; extra == "dev"
+Requires-Dist: coverage==7.6.7; extra == "dev"
+Requires-Dist: syrupy==4.7.2; extra == "dev"
+Requires-Dist: pytest==8.3.3; extra == "dev"
+Requires-Dist: pytest-asyncio==0.24.0; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+
+# aioacaia
+
+Async implementation of [pyacaia](https://github.com/lucapinello/pyacaia/tree/master/pyacaia), based on `asyncio` and `bleak`
+
+# Usage
+
+```python
+import asyncio
+from aioacaia import AcaiaScale
+from aioacaia.helpers import find_acaia_devices
+
+async def main()
+  addresses = await find_acaia_devices()
+  address = addresses[0]
+  scale = await AcaiaScale.create(mac=address, is_new_style_scale=False)
+  await scale.tare()
+  await scale.startStopTimer()
+  await scale.resetTimer()
+
+asyncio.run(main())
+```
+
+# Callback
+
+Weight and settings are available, if you pass a callback function to the constructor.
+In that callback you will either receive objects of type `Message` or `Settings`. A sample notification handler can look like this and can also be found in `decode.py`
+
+```python
+def notification_handler(sender, data) -> None:
+    msg = decode(data)[0]
+    if isinstance(msg, Settings):
+        print(f"Battery: {msg.battery}")
+        print(f"Unit: {msg.units}")
+    elif isinstance(msg, Message):
+        print(f"Weight: {msg.value}")
+
+scale = await AcaiaScale.create(mac=address, callback=notification_handler)
+```

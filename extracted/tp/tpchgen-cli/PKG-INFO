@@ -1,6 +1,0 @@
-Metadata-Version: 2.4
-Name: tpchgen-cli
-Version: 2.0.0
-Summary: Python CLI for TPC-H data generator
-Home-Page: https://github.com/clflushopt/tpchgen-rs
-Requires-Python: >=3.8

@@ -5,18 +5,33 @@
 # See the file LICENSE for copying permission.
 import logging
 
+from asyncio import Future
+from typing import (
+    Literal,
+    List,
+    Optional,
+    Set,
+    Union,
+)
+
 import slixmpp
 from slixmpp import Message
+from slixmpp.jid import JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins.xep_0377 import stanza
-from slixmpp.plugins.xep_0191 import Block
+from slixmpp.plugins.xep_0191 import BlockItem
 
 
 log = logging.getLogger(__name__)
 
+BlockedJIDs = Union[
+    JID,
+    Set[JID],
+    List[JID],
+]
 
 class XEP_0377(BasePlugin):
     """XEP-0377: Spam reporting"""
@@ -30,7 +45,7 @@ class XEP_0377(BasePlugin):
     ABUSE = 'urn:xmpp:reporting:abuse'
 
     def plugin_init(self):
-        register_stanza_plugin(Block, stanza.Report)
+        register_stanza_plugin(BlockItem, stanza.Report)
         register_stanza_plugin(stanza.Report, stanza.Text)
 
     def plugin_end(self):
@@ -39,3 +54,26 @@ class XEP_0377(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0030'].add_feature(stanza.Report.namespace)
 
+    def report(self,
+        jids: BlockedJIDs,
+        reason: Literal['spam', 'abuse'] = 'spam',
+        ifrom: Optional[JID] = None,
+        **iqkwargs,
+    ) -> Future:
+        """Report a JID or a list of JIDs.
+
+        :param jids: JID(s) to block.
+        """
+        iq = self.xmpp.make_iq_set(ifrom=ifrom)
+        if not isinstance(jids, (set, list)):
+            jids = [jids]
+
+        for jid in jids:
+            item = BlockItem(parent=iq['block'])
+            item['jid'] = jid
+            if reason == 'spam':
+                item['report']['reason'] = self.SPAM
+            else:
+                item['report']['reason'] = self.ABUSE
+
+        return iq.send(**iqkwargs)

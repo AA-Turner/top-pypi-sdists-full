@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: PyFronius
+Version: 0.8.0
+Summary: Client for Fronius SolarAPI JSON interface
+Author-email: Niels Mündler <n.muendler@web.de>, Matthias Alphart <farmio@alphart.net>, Gerrit Beine <mail@gerritbeine.de>
+License: MIT
+Project-URL: Repository, https://github.com/nielstron/pyfronius/
+Keywords: Fronius,SolarAPI,photovoltaics,pv
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Object Brokering
+Requires-Python: >=3.8.0
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: aiohttp
+Dynamic: license-file
+
+# PyFronius - a very basic Fronius python bridge
+[![Build Status](https://app.travis-ci.com/nielstron/pyfronius.svg?branch=master)](https://app.travis-ci.com/nielstron/pyfronius)
+[![Coverage Status](https://coveralls.io/repos/github/nielstron/pyfronius/badge.svg?branch=master)](https://coveralls.io/github/nielstron/pyfronius?branch=master)
+ [![PyPI version](https://badge.fury.io/py/PyFronius.svg)](https://pypi.org/project/pyfronius/)
+ ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/PyFronius.svg)
+ [![PyPI - Status](https://img.shields.io/pypi/status/PyFronius.svg)](https://pypi.org/project/pyfronius/)
+
+A package that connects to a Fronius device in the local network and provides data
+that is provided via the JSON API of the Fronius.
+This includes the grid consumption, grid return, photovoltaic production
+and many more details on the status of the local power supply.
+
+> This package is looking for maintainers. I do not own a Fronius device anymore and cannot test the package.
+> If you are interested in maintaining this package, please contact me.
+
+## Features 
+
+The package supports the following data provided by Fronius devices:
+
+- Power Flow (System scope)
+- Meter (System and Device scope)
+- Inverter (System and Device scope)
+- Storage (System and Device scope, Experimental) 
+- Active Devices
+- Logger Information
+- Inverter Information
+
+The package currently supportes the Fronius API V1 and V0
+and aims to support as many different device types as possible (Hybrid, GEN24,...).
+
+## Contributing
+
+Support may be enhanced based on the official documentation ([V1](https://www.fronius.com/~/downloads/Solar%20Energy/Operating%20Instructions/42%2C0410%2C2012.pdf), [V0](https://www.fronius.com/~/downloads/Solar%20Energy/Operating%20Instructions/42,0410,2011.pdf)).
+Pull requests are very welcome.
+
+If you own a Fronius device, feel free to provide us with raw data returned
+by fetching the API endpoints manually.

@@ -1,0 +1,44 @@
+name: mpl-latest
+
+on:
+  schedule:
+    - cron: "0 16 * * 1" # monday at noon est
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-3x:
+    name: Matplotlib nightly
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.x"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: "x64"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install \
+            --upgrade \
+            --pre \
+            --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple \
+            matplotlib
+          python -m pip install --upgrade --pre ipywidgets
+          python -m pip install ".[jupyter, test]"
+
+      - name: List installed Python packages
+        run: python -m pip list
+
+      - name: Tests
+        run: |
+          pytest --color=yes

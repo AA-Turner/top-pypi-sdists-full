@@ -1,6 +1,0 @@
-requires-atopile: ^0.3.0
-builds:
-  unconstructable:
-    entry: unconstructable.py:App
-  unimportable:
-    entry: unimportable.py:App

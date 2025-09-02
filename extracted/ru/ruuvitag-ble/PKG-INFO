@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: ruuvitag-ble
+Version: 0.2.1
+Summary: Manage Ruuvitag BLE devices
+Project-URL: Bug Tracker, https://github.com/bluetooth-devices/ruuvitag-ble/issues
+Author-email: Aarni Koskela <akx@iki.fi>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: bluetooth-data-tools>=1.0
+Requires-Dist: bluetooth-sensor-state-data>=1.6
+Requires-Dist: home-assistant-bluetooth>=1.6
+Requires-Dist: sensor-state-data>=2.9
+Description-Content-Type: text/markdown
+
+# ruuvitag-ble
+Parser for Ruuvitag BLE devices

@@ -1,0 +1,1042 @@
+openapi: 3.0.1
+info:
+  title: Tapis PgREST API
+  description: The Tapis PgREST API provides a RESTful interface to a managed SQL-db-as-a-service.
+  contact:
+    name: CICSupport
+    email: cicsupport@tacc.utexas.edu
+  license:
+    name: 3-Clause BSD License
+    url: 'https://opensource.org/licenses/BSD-3-Clause'
+  version: '1.0.0'
+externalDocs:
+  description: Tapis on readthedocs.io
+  url: 'https://tapis.readthedocs.io/en/latest/technical/pgrest.html'
+servers:
+- url: http://localhost:5000
+  description: Local Development
+- url: https://dev.develop.tapis.io
+  description: Develop Instance
+#security:
+#  - TapisJWT: []
+tags:
+  - name: Tables
+    description: Data API that allows users to get tables and add/update/delete rows in those tables. Users require role of PGREST_READ and above. This tag manages `/v3/pgrest/data` endpoints.
+  - name: Views
+    description: View API that allows users to get views that they satisfy the permission_rules for. Users require role of PGREST_USER and above. This tag manages `/v3/pgrest/views` endpoints.
+  - name: Manage Tables
+    description: Manage API that allows admins to create tables and configure their columns. Also allows for table deletion. Users require role of PGREST_ADMIN. This tag manages `/v3/pgrest/manage/tables` endpoints.
+  - name: Manage Views
+    description: Manage API that allows admins create PG views with specified permission rules and content. Also allows for view deletion. Users require role of PGREST_ADMIN. This tag manages `/v3/pgrest/manage/views` endpoints.
+  - name: Manage Roles
+    description: Manage API that allows admins to create SK roles and grant or revoke said roles to users. This allows admins to specify which users get to see which views. Users require role of PGREST_ROLE_ADMIN and above. This tag manages `/v3/pgrest/manage/roles` endpoints.
+paths:
+  #=== TABLES ===#
+  /v3/pgrest/manage/tables:
+    get:
+      tags:
+        - Manage Tables
+      summary: list_tables
+      description: List tables in the tenant's schema.
+      operationId: list_tables
+      x-swagger-router-controller: connexContr
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/arrayOfTables'
+    post:
+      tags:
+        - Manage Tables
+      summary: create_table
+      description: Create a table.
+      operationId: create_table
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTable'
+            examples:
+              widgets:
+                summary: An example of defining a simple table that holds "widgets".
+                value: {"table_name": "widgets", "root_url": "widgets", "columns": {"name": {"data_type": "varchar", "char_len": 255, "unique": true, "null": false }, "widget_type": {"data_type": "varchar", "char_len": 100, "default": "sprocket", "null": true, }, "count": {"data_type": "integer", "null": true}, "is_private": {"data_type": "boolean", "null": "true", "default": "true"}}}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/Table'
+
+  /v3/pgrest/manage/tables/{table_id}:
+    get:
+      tags:
+        - Manage Tables
+      summary: get_table
+      description: Get details about a specific table.
+      operationId: get_table
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: table_id
+        in: path
+        description: The id of the table.
+        required: true
+        schema:
+          type: string
+      - name: details
+        in: query
+        description: Get additional details about the table
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/Table'
+    put:
+      tags:
+        - Manage Tables
+      summary: update_table
+      description: Update a table definition with specific table operations.
+      operationId: update_table
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: table_id
+        in: path
+        description: The id of the table.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTable'
+            examples:
+              table_name:
+                summary: An example of updating a table's name.
+                value: {"table_name": "new_table_name"}
+              root_url:
+                summary: An example of updating a table's root_url.
+                value: {"root_url": "new_root_url"}
+              add_column:
+                summary: An example of adding a column to a table.
+                value: {"add_column": {"new_col_name": {"data_type": "varchar", "char_len": 255}}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/Table'
+
+    delete:
+      tags:
+        - Manage Tables
+      summary: delete_table
+      description: Delete a specific table and all associted data. WARNING -- this action cannot be undone.
+      operationId: delete_table
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: table_id
+        in: path
+        description: The id of the table to delete.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+
+
+  /v3/pgrest/data/{root_url}:
+    get:
+      tags:
+        - Tables
+      summary: get_table_rows
+      description: List objects in the table with specified root_url {root_url}.
+      operationId: get_table_rows
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: limit the number of records returned.
+        schema:
+          type: integer
+      - name: offset
+        in: query
+        description: index (offset) to start list.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRows'
+    post:
+      tags:
+        - Tables
+      summary: add_table_row
+      description: Create a new object in the table with specified root_url {root_url}.
+      operationId: add_table_row
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTableRow'
+            examples:
+              table_name:
+                summary: An example of adding a row to a table.
+                value: {"col1": "val1", "col2": "val2", "col3": "val3"}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRow'
+    put:
+      tags:
+        - Tables
+      summary: update_table_rows
+      description: Update multiple rows in a table atomically based on filter, if no filter, update all.
+      operationId: update_table_rows
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMultipleTableRows'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+
+
+  /v3/pgrest/data//{root_url}:
+    post:
+      tags:
+        - Tables
+      summary: add_table_rows
+      description: Create new objects in the table with specified root_url {root_url}.
+      operationId: add_table_rows
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTableRows'
+            examples:
+              table_name:
+                summary: An example of adding rows to a table.
+                value: [{"col1": "val1", "col2": "val2", "col3": "val3"}, {"col1": "val111", "col2": "val222", "col3": "val333"}]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRows'
+
+
+  /v3/pgrest/data/{root_url}/{item}:
+    get:
+      tags:
+        - Tables
+      summary: get_table_row
+      description: Get details about the specific object with id {item} on the table with root_url {root_url}.
+      operationId: get_table_row
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      - name: item
+        in: path
+        description: The id of an item (i.e., a row) on the table whose root_url is given by {root_url}.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRow'
+    put:
+      tags:
+        - Tables
+      summary: update_table_row
+      description: Update a specific object with id {item} from the table with root_url {root_url}.
+      operationId: update_table_row
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      - name: item
+        in: path
+        description: The id of an item (i.e., a row) on the table whose root_url is given by {root_url}.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTableRow'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRow'
+    delete:
+      tags:
+        - Tables
+      summary: delete_table_row
+      description: Delete a specific object with id {item} from the table with root_url {root_url}.
+      operationId: delete_table_row
+      parameters:
+      - name: root_url
+        in: path
+        description: The root_url parameter of the table.
+        required: true
+        schema:
+          type: string
+      - name: item
+        in: path
+        description: The id of an item (i.e., a row) on the table whose root_url is given by {root_url}.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+
+
+  #=== VIEWS ===#
+  /v3/pgrest/manage/views:
+    get:
+      tags:
+        - Manage Views
+      summary: list_views
+      description: List views in the tenant's schema.
+      operationId: list_views
+      x-swagger-router-controller: connexContr
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/arrayOfViews'
+    post:
+      tags:
+        - Manage Views
+      summary: create_view
+      description: Create a view.
+      operationId: create_view
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewView'
+            examples:
+              widgets:
+                summary: An example of defining a simple view that shows initial_table table.
+                value: {"view_name": "HELLO_View", "select_query": "*", "from_table": "initial_table", "permission_rules": ["hello_team_admin", "hello_team_member", "citizen_of_hello_world"]}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/View'
+
+  /v3/pgrest/manage/views/{view_name}:
+    get:
+      tags:
+        - Manage Views
+      summary: get_manage_view
+      description: Get details of a specific view.
+      operationId: get_manage_view
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: view_name
+        in: path
+        description: The id of the view.
+        required: true
+        schema:
+          type: string
+      - name: details
+        in: query
+        description: Get additional details about the view
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/View'
+    delete:
+      tags:
+        - Manage Views
+      summary: delete_view
+      description: Delete a specific view. WARNING -- this action cannot be undone.
+      operationId: delete_view
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: view_name
+        in: path
+        description: The name of the view to delete.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+
+  /v3/pgrest/manage/views/{view_name}/refresh:
+    get:
+      tags:
+        - Manage Views
+      summary: refresh_materialized_view
+      description: Refresh materialized view (views created with the materialized_view_raw_sql attribute).
+      operationId: refresh_materialized_view
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: view_name
+        in: path
+        description: The id of the view.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+
+  /v3/pgrest/views/{view_name}:
+    get:
+      tags:
+        - Views
+      summary: get_view
+      description: List objects in the view with root_url {view_name}.
+      operationId: get_view
+      parameters:
+      - name: view_name
+        in: path
+        description: The root_url parameter of the view.
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: limit the number of records returned.
+        schema:
+          type: integer
+      - name: offset
+        in: query
+        description: index (offset) to start list.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/TableRows'
+
+
+  #=== ROLES ===#
+  /v3/pgrest/manage/roles:
+    get:
+      tags:
+        - Manage Roles
+      summary: list_roles
+      description: List all roles for the tenant.
+      operationId: list_roles
+      x-swagger-router-controller: connexContr
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: string
+                    description: Roles in tenant
+    post:
+      tags:
+        - Manage Roles
+      summary: create_role
+      description: Create a role.
+      operationId: create_role
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewRole'
+            examples:
+              create_role:
+                summary: Create role named PGREST_My_New_Role
+                value: {"role_name": "PGREST_My_New_Role", "description": "This is my new example role made for this example!"}
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    type: string
+
+  /v3/pgrest/manage/roles/{role_name}:
+    get:
+      tags:
+        - Manage Roles
+      summary: get_role
+      description: Get role info and users in the role
+      operationId: get_role
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: role_name
+        in: path
+        description: The name of the role.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    $ref: '#/components/schemas/Role'
+    post:
+      tags:
+        - Manage Roles
+      summary: manage_role
+      description: Either grant or revoke role for users.
+      operationId: manage_role
+      x-swagger-router-controller: connexContr
+      parameters:
+      - name: role_name
+        in: path
+        description: The name of the role.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManageRole'
+            examples:
+              grant_role:
+                summary: Granting a role to userTest
+                value: {"username": "userTest", "method": "grant"}
+              revoke_role:
+                summary: Revoking a role from userTest
+                value: {"username": "userTest", "method": "revoke"}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BasicResponse'
+                properties:
+                  result:
+                    type: string
+
+
+components:
+  schemas:
+    BasicResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Version of the API
+        message:
+          type: string
+          description: Brief description of the response
+        status:
+          type: string
+          description: Whether the request was a success or failure.
+          enum: [success, error]
+
+
+    #=== TABLES ===#
+    Table:
+      type: object
+      properties:
+        table_name:
+          type: string
+          description: The name of the table.
+        root_url:
+          type: string
+          description: The url path used for the root_url associated with the records in the table.
+
+    arrayOfTables:
+      type: array
+      items:
+        $ref: '#/components/schemas/Table'
+
+    NewTable:
+      type: object
+      properties:
+        table_name:
+          type: string
+          description: The name to be used for the table.
+        root_url:
+          type: string
+          description: The url path to use for the root_url associated with the records in the table.
+        columns:
+          $ref: '#/components/schemas/TableColumns'
+        comments:
+          type: string
+          description: Text area to describe table. Returned when calling manage endpoints.
+        constraints:
+          $ref: '#/components/schemas/TableConstraints'
+        enums:
+          $ref: '#/components/schemas/TableEnums'
+        create:
+          type: boolean
+          description: Whether the "created" endpoint (HTTP verb "POST") for creating new rows is available.
+          default: True
+        delete:
+          type: boolean
+          description: Whether the "delete" endpoint (HTTP verb "delete") for deleting a specific row is available.
+          default: True
+        list_all:
+          type: boolean
+          description: Whether the "list all" endpoint (HTTP verb "GET") for listing all rows in the table is available.
+          default: True
+        list_single:
+          type: boolean
+          description: Whether the "get row" endpoint (HTTP verb "GET") for retrieving a specifc row in the table is available.
+          default: True
+        update:
+          type: boolean
+          description: Whether the "update" endpoint (HTTP verb "PUT") for updating a specific row is available.
+          default: True
+      required: [table_name, root_url, columns]
+
+    TableEnums:
+      type: object
+      description: Definition for enum to create. {enum_name":" [enum_val_1, ...]}
+
+    TableConstraints:
+      type: object
+      description: A description of the table constraints. Unique constraint is the only current constraint.
+      properties:
+        unique:
+          type: object
+          description: Object of constraint_name as key and list of columns to keep unique as value.
+
+    TableColumns:
+      type: object
+      description: A description of the columns of the table, in key/value pair format. Each key corresponds to a single collumn; the name of the key is the name of the column, and the value of the key decribes the type of the column and any additional validation information.
+      properties:
+        "null":
+          type: boolean
+          description: Whether the column can contain null values.
+        data_type:
+          type: string
+          description: The Postgres type of the column, such as "integer", "varchar", etc.
+        char_len:
+          type: integer
+          description: For columns of type "varchar", the max length of the column.
+        comments:
+          type: string
+          description: Text area to describe column. Shown in manage endpoints.
+        unique:
+          type: boolean
+          description: Whether the column can contain null values.
+        default:
+          type: boolean
+          description: Whether the column can contain null values.
+        primary_key:
+          type: string
+          description: Allows user to specify which column to act as a primary_key rather than defaulting to {table_name}_id.
+        foreign_key:
+          type: boolean
+          description: Whether this column should reference a foreign key in another table.
+        reference_table:
+          type: string
+          description: Only if foreign_key, sets which table to reference.
+        reference_column:
+          type: string
+          description: Only if foreign_key, sets when table column to reference.
+        on_event:
+          type: string
+          description: Only if foreign_key, sets whether to use ON DELETE or ON UPDATE postgres definition.
+          enum: [ON DELETE, ON UPDATE]
+        event_action:
+          type: string
+          description: Only if foreign_key, sets which event action to call when on_event event occurs.
+          enum: [CASCADE, SET NULL, SET DEFAULT, RESTRICT, NO ACTION]
+        serial_start:
+          type: integer
+          description: Only if data_type is serial. Delegates what number the data_type will start at.
+        serial_increment:
+          type: integer
+          description: Only if data_type is serial. Delegates what the serial increment between rows will be.
+      additionalProperties:
+        type: object
+      required: [data_type]
+
+    UpdateTable:
+      type: object
+      properties:
+        table_name:
+          type: string
+          description: Operation to change the table_name currently associated with the table.
+        root_url:
+          type: string
+          description: Operation to change the root_url currently associated with the table.
+        comments:
+          type: string
+          description: Operation to change the comments currently associated with the table (Overwrites existing).
+        endpoints:
+          type: array
+          items:
+            type: string
+          description: Operation to change the endpoints a table currently has available.
+        column_type:
+          type: string
+          description: Operation to change the column_type of a particular column in table ("col_name, new_type" format).
+        add_column:
+          $ref: '#/components/schemas/TableColumns'
+          description: Operation to add a column to a table.
+        drop_column:
+          type: string
+          description: Operation to drop a column in a table (Not reversible).
+        set_default:
+          type: string
+          description: Operation to set a new default on a column in a table ("col_name, new_default" format).
+        drop_default:
+          type: string
+          description: Operation to drop a default currently set on a column in a table.
+
+
+    #=== TABLE ROWS ===#
+    TableRow:
+      type: object
+      description: The values row.
+
+    TableRows:
+      type: array
+      items:
+        $ref: '#/components/schemas/TableRow'
+
+    NewTableRow:
+      type: object
+      properties:
+        data:
+          type: object
+          description: The values of the row to add.
+
+    NewTableRows:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            description: The values of the row to add.
+
+    UpdateTableRow:
+      type: object
+      description: A JSON object of key/value pairs describing the updates to be made to the item. Each key should be the name of a column and each corresponding value should be the new value to update the column to.
+
+    UpdateMultipleTableRows:
+      type: object
+      description: Update multiple rows in the same way atomically, where the set of rows to be updated is described with a "where" clause and the update to be performed is defined by a JSON object of column names and column values (the new values to apply to all records).
+      properties:
+        where:
+          type: object
+          description: A JSON object describing a where clause of records to update; each record on the table matching the where clause will be updates.
+          properties:
+            sub_value:
+              type: object
+              properties:
+                operator:
+                  type: string
+                  description: The operator to use in the where clause when comparing rows to be updated.
+                value:
+                  description: The value to use in the where clause when comparing rows to be updated.
+                  oneOf:
+                    - type: integer
+                    - type: string
+                    - type: boolean
+      additionalProperties:
+        type: object
+      required: [where]
+
+
+    #=== VIEWS ===#
+    View:
+      type: object
+      properties:
+        view_name:
+          type: string
+          description: The name of the view.
+        root_url:
+          type: string
+          description: The url path used for the root root_url associated with the view.
+        endpoints:
+          type: string
+          description: Which endpoints are available for the view. (This doesn't work/doesn't mean anything)
+        manage_view_id:
+          type: string
+          description: View ID to manage the view with. Serial IDs allocated per tenant.
+        tenant_id:
+          type: string
+          description: The name of the tenant this view is created in.
+        comments:
+          type: string
+          description: Text area to describe view. Returned when calling manage endpoints.
+
+    arrayOfViews:
+      type: array
+      items:
+        $ref: '#/components/schemas/View'
+
+    NewView:
+      type: object
+      properties:
+        view_name:
+          type: string
+          description: The name of the view to create.
+        select_query:
+          type: string
+          description: Query to run on 'from_table' to create a view from.
+        from_table:
+          type: string
+          description: Table to run select query on and create view from.
+        comments:
+          type: string
+          description: Text area to describe view. Returned when calling manage endpoints.
+        permission_rules:
+          type: array
+          items:
+            type: string
+          description: Roles users who access this view must have in security kernel to have permission to see this view.
+        raw_sql:
+          type: string
+          description: Admin only. Full support of SQL when creating complex views.
+        materialized_view_raw_sql:
+          type: string
+          description: Admin only. Full support of SQL when creating complex materialized views.
+
+      required: [view_name]
+
+
+    #=== ROLES ===#
+    Role:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The id of the role.
+        tenant:
+          type: string
+          description: Tenant the role is in.
+        description:
+          type: string
+          description: Description of the role defined at role creation.
+        owner:
+          type: string
+          description: The owner of the role.
+        ownerTenant:
+          type: string
+          description: The tenant of the owner of the role.
+        created:
+          type: string
+          description: When the role was created.
+        createdby:
+          type: string
+          description: Who created the role.
+        createdbyTenant:
+          type: string
+          description: The tenant of the creator of the role.
+        updated:
+          type: string
+          description: When the role was last updated.
+        updatedby:
+          type: string
+          description: Who last updated the role.
+        updatedbyTenant:
+          type: string
+          description: The tenant of the user who last updated the role.
+        usersInRole:
+          type: array
+          items:
+            type: string
+          description: Users who currently have this role granted to them.
+
+    NewRole:
+      type: object
+      properties:
+        role_name:
+          type: string
+          description: The name of the role to create.
+        description:
+          type: string
+          description: A description of the role.
+      required: [role_name, description]
+
+    ManageRole:
+      type: object
+      properties:
+        username:
+          type: string
+          description: The username to manage role for.
+        method:
+          type: string
+          description: Whether to revoke or grant role
+          enum: [grant, revoke]
+      required: [method, username]
+

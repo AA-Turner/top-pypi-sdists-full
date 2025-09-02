@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: elifearticle
+Version: 0.24.0
+Summary: eLife article objects.
+Home-page: https://github.com/elifesciences/elife-article
+Maintainer: eLife Sciences Publications Ltd.
+Maintainer-email: tech-team@elifesciences.org
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: elifetools>=0.43.0
+Requires-Dist: GitPython
+
+# elife-article
+
+eLife article objects.
+
+## Requirements
+
+As specified in `setup.py` in the `install_requires` property.
+
+## License
+
+Licensed under [MIT](https://opensource.org/licenses/mit-license.php).

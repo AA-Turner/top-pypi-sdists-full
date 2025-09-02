@@ -1,0 +1,174 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.46.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name        = "axis"
+version     = "65"
+license     = {text = "MIT"}
+description = "A Python library for communicating with devices from Axis Communications"
+readme      = "README.md"
+authors     = [{name = "Robert Svensson", email = "Kane610@users.noreply.github.com"}]
+keywords    = ["axis", "vapix", "homeassistant"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+]
+requires-python = ">=3.12.0"
+dependencies    = [
+    "faust-cchardet>=2.1.18",
+    "httpx>=0.26",
+    "orjson>3.9",
+    "packaging>23",
+    "xmltodict>=0.13.0",
+]
+
+[project.optional-dependencies]
+requirements = [
+    "httpx==0.28.1",
+    "orjson==3.11.1",
+    "packaging==25.0",
+    "xmltodict==0.14.2",
+]
+requirements-test = [
+    "mypy==1.17.1",
+    "pytest==8.4.1",
+    "pytest-aiohttp==1.1.0",
+    "pytest-asyncio==0.26.0",
+    "pytest-cov==6.2.1",
+    "respx==0.22.0",
+    "ruff==0.11.11",
+    "types-xmltodict==v0.14.0.20241009",
+]
+requirements-dev = [
+    "pre-commit==4.2.0"
+]
+
+[project.urls]
+"Source Code" = "https://github.com/Kane610/axis"
+"Bug Reports" = "https://github.com/Kane610/axis/issues"
+"Forum" = "https://community.home-assistant.io/t/axis-camera-component/"
+
+[project.scripts]
+axis = "axis.__main__:main"
+
+[tool.coverage.report]
+fail_under = 95
+exclude_also = [
+    "if TYPE_CHECKING:"
+]
+
+[tool.setuptools.packages.find]
+include = ["axis*"]
+
+[tool.setuptools.package-data]
+"axis" = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=axis --cov-report term-missing"
+asyncio_mode = "auto"
+log_cli = false
+log_cli_level = "DEBUG"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+lint.select = [
+    # "A", # flake8-builtins
+    "ANN", # flake8-annotations
+    # "ARG", # flake8-unused-arguments
+    "ASYNC", # flake8-async
+    "B",   # bugbear
+    "BLE", # flake8-blind-except
+    "C",   # complexity
+    "C4",  # flake8-comprehensions
+    "COM", # flake8-commas
+    "D",  # docstrings
+    "E",  # pycodestyle
+    "EM", # flake8-errmsg
+    # "ERA", # eradicate
+    "EXE", # flake8-executable
+    "F",   # pyflakes/autoflake
+    "FA",  # flake8-future-annotations
+    "FIX", # flake8-fixme
+    "FLY", # flynt
+    "G", # flake8-logging-format
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "INP", # flake8-no-pep420
+    "INT", # flake8-gettext
+    "ISC", # flake8-implicit-str-concat
+    "LOG", # flake8-logging
+    "N",   # pep8-naming
+    "PERF", # A Linter for performance anti-patterns
+    "PGH",  # pygrep-hooks
+    "PIE",  # flake8-pie
+    "PL",   # pylint
+    "PERF", # Perflint
+    "PT",  # pytest
+    "PYI", # flake8-pyi
+    "Q",   # flake8-quotes
+    "RET", # flake8-return
+    "RSE", # flake8-raise
+    "RUF", # Ruff-specific rules
+    "S",   # flake8-bandit
+    "SIM", # flake8-simplify
+    # "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "T10",  # flake8-debugger
+    "T20",  # flake8-print
+    "TCH",  # flake8-type-checking
+    "TD",   # flake8-todos
+    # "TID", # flake8-tidy-imports
+    # "TRY", # tryceratops
+    "UP", # pyupgrade
+    "W",  # pycodestyle
+]
+
+lint.ignore = [
+    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed in {name}
+    "COM812", # Trailing comma missing
+    "D203", # 1 blank line required before class docstring
+    "D213", # Multi-line docstring summary should start at the second line
+    "E501", # Checks for lines that exceed the specified maximum character length
+    "ISC001",  # Implicitly concatenated string literals on one line
+    "N818", # Exception name {name} should be named with an Error suffix
+    "PLR0912", # Maximum number of branches allowed for a function or method body
+    "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
+    "PLR0915", # Too many statements ({statements} > {max_statements})
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+    "S324", # Probable use of insecure hash functions in {library}: {string}
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["axis"]
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25

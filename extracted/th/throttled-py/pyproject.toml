@@ -1,0 +1,111 @@
+[tool.poetry]
+name = "throttled-py"
+version = "2.2.3"
+description = "🔧 High-performance Python rate limiting library with multiple algorithms (Fixed Window, Sliding Window, Token Bucket, Leaky Bucket & GCRA) and storage backends (Redis, In-Memory)."
+authors = ["ZhuoZhuoCrayon <crayon.ccxx@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "throttled" },
+]
+
+homepage = "https://github.com/ZhuoZhuoCrayon/throttled-py"
+repository = "https://github.com/ZhuoZhuoCrayon/throttled-py"
+documentation = "https://throttled-py.readthedocs.io"
+
+[tool.poetry.urls]
+Changes = "https://github.com/ZhuoZhuoCrayon/throttled-py/releases"
+"Bug Tracker" = "https://github.com/ZhuoZhuoCrayon/throttled-py/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+redis = { version = "^5.2.1", optional = true }
+
+[tool.poetry.extras]
+in-memory = []
+redis = ["redis"]
+all = ["redis"]
+
+[tool.poetry.group.dev.dependencies]
+poetry-setup = "^0.3.6"
+twine = "^6.0.1"
+ipython = [
+    { version = "^7.34.0", python = "~3.8 || ~3.9" },
+    { version = "^8", python = "^3.10" }
+]
+pre-commit = "^3.4.0"
+pytest = "^8.3.4"
+pytest-cov = [
+    {version = "^2", python = "~3.8"},
+    {version = "^6", python = "^3.9"}
+]
+pytest-asyncio = [
+    {version = "~0.24.0", python = "~3.8"},
+    {version = "^0.26.0", python = "^3.9"}
+]
+fakeredis = {extras = ["lua"], version = "^2.26.2"}
+
+[[tool.poetry.source]]
+priority = "primary"
+name = "tencent-mirror"
+url = "https://mirrors.tencent.com/pypi/simple/"
+
+[build-system]
+requires = [
+    "poetry-core>=1.0.0; python_version != '3.8'",
+    "poetry-core>=1.0.0,<2; python_version == '3.8'"
+]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+python_requires = ">= 3.8"
+ignore = "F405,W503,E203,TYP001"
+max-line-length = 89
+max-complexity = 26
+format = "pylint"
+show_source = "false"
+statistics = "true"
+count = "true"
+exclude = [
+    "migrations",
+    "*.pyc",
+    ".git",
+    "__pycache__",
+    "static",
+    "node_modules",
+    "templates",
+    "bin",
+    "config",
+    "scripts",
+    "script",
+]
+#per-file-ignores = """
+#    xxx.py: E501
+#"""
+
+[tool.black]
+line-length = 89
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+# refer: https://pycqa.github.io/isort/docs/configuration/options.html
+profile = "black"
+line_length = 89
+skip_glob = ["*/migrations/*", "*/node_modules/*"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

@@ -1,0 +1,27 @@
+# This workflow will upload an esptool Python package when a release is created
+
+name: Publish PyPi Package
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  pypi-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    - name: Build Package
+      run: |
+        pip install -e '.[dev]'
+        python -m build
+    - name: Publish package ${{ github.event.release.tag_name }}
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}

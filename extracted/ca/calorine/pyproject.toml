@@ -1,0 +1,53 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "pybind11>=2.10.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calorine"
+description = "A Python library for building and sampling NEP models via the GPUMD package"
+dynamic = ["version"]
+dependencies = [
+    "ase>=3.23.0",
+    "matplotlib",
+    "numpy",
+    "scikit-learn",
+    "pandas>=0.23",
+]
+requires-python = ">=3.8"
+authors = [
+  {name = "The calorine developers team"}
+]
+maintainers = [
+  {name = "The calorine developers team"}
+]
+readme = "README.rst"
+keywords = ["chemistry", "physics", "scientific"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Physics"
+]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Documentation = "https://calorine.materialsmodeling.org"
+Repository = "https://gitlab.com/materials-modeling/calorine/"
+
+[tool.setuptools.dynamic]
+version = {attr = "calorine.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["calorine*"]

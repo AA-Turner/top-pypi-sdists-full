@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eheimdigital"
+description = "Offers a Python API for the EHEIM Digital smart aquarium devices."
+dynamic = ["version"]
+dependencies = [
+    "aiohttp",
+    "yarl",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/autinerd/eheimdigital"
+
+[tool.hatch.version]
+path = "eheimdigital/__init__.py"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+output-format = "concise"
+preview = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D211", "D213", "COM812", "D203", "ISC001", "E501", "EXE002", "CPY001", "PLR0913", "PLR0904", "DOC201"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "RUF018"]
+
+[tool.uv]
+dev-dependencies = ["ruff", "pytest", "pytest-asyncio"]

@@ -1,0 +1,73 @@
+[build-system]
+build-backend = 'poetry.core.masonry.api'
+requires = ['poetry-core']
+
+[project]
+classifiers = ['Environment :: Console', 'Intended Audience :: Developers', 'Operating System :: OS Independent', 'Programming Language :: Python', 'Programming Language :: Python :: 3', 'Programming Language :: Python :: 3 :: Only', 'Programming Language :: Python :: 3.9', 'Programming Language :: Python :: 3.10', 'Programming Language :: Python :: 3.11', 'Programming Language :: Python :: 3.12', 'Programming Language :: Python :: 3.13', 'Topic :: Software Development :: Quality Assurance']
+description = 'Sonar Scanner for the Python Ecosystem'
+dynamic = ['dependencies']
+keywords = ['sonar', 'sonarqube', 'sonarcloud', 'cleancode']
+license = 'LGPL-3.0-only'
+name = 'pysonar'
+readme = 'README.md'
+version = "1.1.0.2035"
+
+[[project.authors]]
+email = 'quality.data-ml@sonarsource.com'
+name = '[Code Quality] Data & ML Squad'
+
+[project.urls]
+homepage = 'https://github.com/SonarSource/sonar-scanner-python'
+repository = 'https://github.com/SonarSource/sonar-scanner-python'
+
+[tool]
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.coverage]
+[tool.coverage.run]
+branch = true
+relative_files = true
+
+[tool.poetry]
+[tool.poetry.dependencies]
+jproperties = '2.1.2'
+pyfakefs = '5.8.0'
+python = '>=3.9'
+requests = '2.32.4'
+responses = '0.25.6'
+tomli = '2.2.1'
+
+[tool.poetry.group]
+[tool.poetry.group.dev]
+[tool.poetry.group.dev.dependencies]
+black = '25.1.0'
+coverage = '>=7.3.3'
+debugpy = '1.8.13'
+licenseheaders = '>=0.8.8'
+mypy = '>=1.7.1'
+pytest = '8.3.5'
+pytest-cov = '6.1.1'
+pytest-docker = '3.2.0'
+pytest-subtests = '0.14.1'
+types-requests = '^2.32.0.20250328'
+
+[[tool.poetry.packages]]
+from = 'src'
+include = 'pysonar_scanner'
+
+[tool.poetry.scripts]
+pysonar = 'pysonar_scanner.__main__:main'
+
+[[tool.poetry.source]]
+name = 'sonarsource-pypi'
+url = 'https://repox.jfrog.io/repox/api/pypi/sonarsource-pypi/simple'
+
+[tool.pytest]
+[tool.pytest.ini_options]
+addopts = ['--import-mode=importlib', '--strict-markers']
+log_cli = true
+log_cli_level = 'INFO'
+markers = ['its: marks tests as its']
+pythonpath = ['src']

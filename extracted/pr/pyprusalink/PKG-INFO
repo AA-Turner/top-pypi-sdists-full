@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: pyprusalink
+Version: 2.1.1
+Summary: Library to interact with PrusaLink v2
+Author-email: The Home Assistant Authors <hello@home-assistant.io>
+License: Apache-2.0
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Home Automation
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx
+
+# PyPrusaLink
+
+Python library to interact with PrusaLink API v2.

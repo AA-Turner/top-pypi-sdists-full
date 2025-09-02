@@ -9,6 +9,16 @@ steps:
         from_secret: codeberg_package_nicoco
     commands:
     - maturin publish -i $TAG --username nicoco --password $TOKEN --repository-url https://codeberg.org/api/packages/poezio/pypi/ --no-sdist
+    depends_on: []
+
+  build-and-publish-musl:
+    image: codeberg.org/poezio/maturin-musllinux:${ARCH}
+    environment:
+      TOKEN:
+        from_secret: codeberg_package_nicoco
+    commands:
+    - maturin publish -i $TAG --username nicoco --password $TOKEN --repository-url https://codeberg.org/api/packages/poezio/pypi/ --no-sdist
+    depends_on: []
 
 matrix:
   TAG:
@@ -17,3 +27,9 @@ matrix:
     - "3.11"
     - "3.12"
     - "3.13"
+  ARCH:
+    - amd64
+    - arm64
+
+labels:
+  platform: linux/${ARCH}

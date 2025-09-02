@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "docker-stubs"
+version = "0.1.0"
+description = "Stubs package for the Python Docker API."
+authors = ["Robbie Dozier <rdozier@mimsoftware.com>"]
+readme = "README.md"
+packages = [{include = "docker-stubs"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.9.1"
+mypy = "^1.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

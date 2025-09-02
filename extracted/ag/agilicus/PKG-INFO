@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: agilicus
-Version: 1.299.3
+Version: 1.299.5
 Summary: Agilicus SDK
-Home-page: https://www.agilicus.com/
 License: MIT
 Author: Agilicus Devs
 Author-email: dev@agilicus.com
@@ -14,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: billing
 Requires-Dist: PyJWT (>=2.8.0,<3.0.0)
 Requires-Dist: appdirs (>=1.4.4,<2.0.0)
@@ -38,6 +38,7 @@ Requires-Dist: shortuuid (>=1.0.13,<2.0.0)
 Requires-Dist: six (>=1.14.0,<2.0.0)
 Requires-Dist: stripe (>=2.60,<13.0) ; extra == "billing"
 Requires-Dist: xdg (>=5.1.1,<6.0.0)
+Project-URL: Homepage, https://www.agilicus.com/
 Project-URL: Repository, https://github.com/Agilicus
 Description-Content-Type: text/markdown
 

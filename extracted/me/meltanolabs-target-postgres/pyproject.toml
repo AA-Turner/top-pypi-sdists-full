@@ -1,0 +1,126 @@
+[project]
+name = "meltanolabs-target-postgres"
+dynamic = ["version"]
+description = "Singer target for Postgres, built with the Meltano SDK for Singer Targets."
+authors = [{ name = "Meltano Team and Contributors", email = "hello@meltano.com" }]
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+maintainers = [{ name = "Meltano Team and Contributors", email = "hello@meltano.com" }]
+keywords = [
+    "Postgres",
+    "Singer",
+    "ELT",
+    "Meltano",
+    "Meltano SDK",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "paramiko>=3,<4",
+    "psycopg[binary]==3.2.9",
+    "psycopg2-binary==2.9.10",
+    "sqlalchemy~=2.0",
+    "sshtunnel==0.4.0",
+    "singer-sdk~=0.48.0",
+]
+
+[project.optional-dependencies]
+faker = ["faker~=37.1"]
+
+[project.urls]
+Homepage = "https://meltano.com"
+Repository = "https://github.com/MeltanoLabs/target-postgres"
+Documentation = "https://github.com/MeltanoLabs/target-postgres/blob/main/README.md"
+
+[project.scripts]
+target-postgres = "target_postgres.target:TargetPostgres.cli"
+
+[dependency-groups]
+dev = [
+    { include-group = "testing" },
+    { include-group = "typing" },
+    "remote-pdb>=2.1.0",
+]
+lint = [
+    "ruff>=0.1.14",
+]
+testing = [
+    "pytest>=7.4.2",
+]
+typing = [
+    "mypy>=1.6.1",
+    "types-paramiko>=3.3.0.0,<4",
+    "types-simplejson>=3.19.0.2",
+    "types-sqlalchemy>=1.4.53.38",
+    "types-jsonschema>=4.19.0.3",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["target_postgres"]
+
+[tool.hatch.build.targets.wheel]
+include = ["target_postgres"]
+
+[tool.mypy]
+exclude = "tests"
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["sshtunnel"]
+ignore_missing_imports = true
+
+[build-system]
+requires = [
+    "hatchling==1.27.0",
+    "hatch-vcs==0.5.0",
+]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
+[tool.ruff.lint]
+select = [
+  "F",    # Pyflakes
+  "W",    # pycodestyle warnings
+  "E",    # pycodestyle errors
+  "FA",   # flake8-future-annotations
+  "I",    # isort
+  "N",    # pep8-naming
+  "D",    # pydocsyle
+  "UP",   # pyupgrade
+  "ICN",  # flake8-import-conventions
+  "RET",  # flake8-return
+  "SIM",  # flake8-simplify
+  "TC",   # flake8-type-checking
+  "PL",   # Pylint
+  "PERF", # Perflint
+  "RUF",  # ruff
+]
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = ["sqlalchemy"]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+sqlalchemy = "sa"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

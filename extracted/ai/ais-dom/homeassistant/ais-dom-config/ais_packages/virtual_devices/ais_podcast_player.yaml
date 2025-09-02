@@ -1,7 +1,0 @@
-input_select:
-  podcast_type:
-    name: 'Typ podcasta:'
-    options:
-      - "-"
-    initial: "-"
-    icon: mdi:format-list-bulleted-type

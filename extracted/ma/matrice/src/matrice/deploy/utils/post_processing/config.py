@@ -59,6 +59,9 @@ APP_NAME_TO_USECASE = {
     "People Tracking" : "people_tracking",
     "wildlife_monitoring": "wildlife_monitoring",
     "pcb_defect_detection": "pcb_defect_detection",
+    "underground_pipeline_defect" : "underground_pipeline_defect",
+    "suspicious_activity_detection": "suspicious_activity_detection",
+    "natural_disaster_detection": "natural_disaster_detection",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -123,6 +126,9 @@ APP_NAME_TO_CATEGORY = {
     
     "wildlife_monitoring": "environmental",
     "pcb_defect_detection": "manufacturing",
+    "underground_pipeline_defect" : "general",
+    "suspicious_activity_detection": "security",
+    "natural_disaster_detection": "environmental",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

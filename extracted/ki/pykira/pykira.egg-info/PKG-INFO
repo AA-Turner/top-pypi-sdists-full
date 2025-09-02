@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: pykira
+Version: 0.1.3
+Summary: Communicate with Kira IR-IP modules
+Home-page: https://github.com/stu-gott/pykira
+Author: Stu Gott
+Author-email: stu-gott@users.noreply.github.com
+License: MIT
+Keywords: kira infrared remote
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Provides-Extra: dev
+Provides-Extra: test
+License-File: LICENSE.md
+
+Lightweight Python 2 and Python 3 module to send and respond to UDP packets from Keene Electronic's IR-IP bridge.

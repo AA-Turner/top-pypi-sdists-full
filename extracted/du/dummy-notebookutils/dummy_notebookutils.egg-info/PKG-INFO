@@ -1,0 +1,40 @@
+Metadata-Version: 2.2
+Name: dummy-notebookutils
+Version: 1.5.4
+Summary: A package that allows to use synapse mssparkutils without actual functionality. This helps to generate the build.
+Home-page: https://github.com/Azure/azure-synapse-analytics
+Author: Microsoft Corporation
+Author-email: runtimeexpdg@microsoft.com
+License: MIT License
+Classifier: Development Status :: 3 - Alpha
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: summary
+
+## Dummy NotebookUtils/MsSparkUtils for Python
+
+This is a pure dummy interfaces package which mirrors [MsSparkUtils' APIs](https://learn.microsoft.com/en-us/azure/synapse-analytics/spark/microsoft-spark-utilities?pivots=programming-language-r) of [Azure Synapse Analytics](https://learn.microsoft.com/en-us/azure/synapse-analytics/) for python users,customer of Azure Synapse Analytics can download this package from PyPi to generate the build.
+
+## Getting started
+Install dummy_notebookutils with pip:
+
+```shell
+pip install dummy-notebookutils
+```
+## Examples
+```
+from notebookutils import mssparkutils
+mssparkutils.fs.ls("/")
+```
+> NOTICE: again, the package only mirrors APIs of synapse mssparkutils without actual functionality. The main goal is to help customer generating the local build. You always need upload your built package to synapse workspace for end to end testing.

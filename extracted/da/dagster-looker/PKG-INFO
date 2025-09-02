@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: dagster_looker
+Version: 0.27.8
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-looker
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: dagster==1.11.8
+Requires-Dist: lkml
+Requires-Dist: looker_sdk<24.18.0
+Requires-Dist: sqlglot>=25.19.0
+Requires-Dist: python-liquid<2
+Requires-Dist: cattrs<23.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist

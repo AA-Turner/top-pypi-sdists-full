@@ -1,0 +1,90 @@
+name: Run coverage tests
+on:
+  workflow_call:
+jobs:
+  coverage:
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTEST_ADDOPTS: --verbose
+      CFLAGS: -Wall -Wpedantic -Werror -std=c17 -Wconversion
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-24.04]
+        python-version: [pypy3.11, "3.x", 3.14]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+      - run: sudo apt-get update
+      - run: sudo apt-get install lcov
+      - name: Setup locales
+        run: |
+          sudo locale-gen ru_RU.UTF-8
+          sudo locale-gen ps_AF.UTF-8
+      - name: Cache GNU GMP builds
+        id: cache-gmp
+        uses: actions/cache@v4
+        with:
+          path: .local
+          key: ${{ matrix.os }}-${{ hashFiles('scripts/*') }}
+      - run: bash scripts/cibw_before_all.sh
+        if: steps.cache-gmp.outputs.cache-hit != 'true'
+      - run: pip install --upgrade pip
+      - run: |
+          pip install --verbose .[tests] -Cbuild-dir=build \
+                                         -Csetup-args=-Dbuildtype=debug \
+                                         -Csetup-args=-Db_coverage=true
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
+      - run: pytest --hypothesis-profile=default
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.local/lib
+      - name: Get coverage data
+        run: |
+          lcov --capture --directory build/ --output-file coverage.info
+          lcov --remove coverage.info "*.h" --ignore-errors unused \
+               --output-file coverage.info
+          cp coverage.info build/coverage-${{ matrix.python-version }}.info
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: |
+            build/coverage-${{ matrix.python-version }}.info
+          retention-days: 1
+  merge-coverage:
+    runs-on: ubuntu-24.04
+    needs:
+      - coverage
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: sudo apt-get update
+      - run: sudo apt-get install lcov
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: build/
+          merge-multiple: true
+      - run: genhtml build/coverage*.info --output-directory build/coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            build/coverage/
+            build/coverage*.info
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          gcov_ignore: pythoncapi_compat.h
+          gcov_include: fmt.c
+                        gmp.c
+                        zz.c
+                        utils.c
+          gcov_args: --no-external
+          fail_ci_if_error: true

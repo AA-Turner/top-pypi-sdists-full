@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: parsedmarc
+Version: 8.18.7
+Summary: A Python package and CLI for parsing aggregate and forensic DMARC reports
+Project-URL: Homepage, https://domainaware.github.io/parsedmarc
+Author-email: Sean Whalen <whalenster@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: DMARC,parser,reporting
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Dist: azure-identity>=1.8.0
+Requires-Dist: azure-monitor-ingestion>=1.0.0
+Requires-Dist: boto3>=1.16.63
+Requires-Dist: dateparser>=1.1.1
+Requires-Dist: dnspython>=2.0.0
+Requires-Dist: elasticsearch-dsl==7.4.0
+Requires-Dist: elasticsearch<7.14.0
+Requires-Dist: expiringdict>=1.1.4
+Requires-Dist: geoip2>=3.0.0
+Requires-Dist: google-api-core>=2.4.0
+Requires-Dist: google-api-python-client>=2.35.0
+Requires-Dist: google-auth-httplib2>=0.1.0
+Requires-Dist: google-auth-oauthlib>=0.4.6
+Requires-Dist: google-auth>=2.3.3
+Requires-Dist: imapclient>=2.1.0
+Requires-Dist: kafka-python-ng>=2.2.2
+Requires-Dist: lxml>=4.4.0
+Requires-Dist: mailsuite>=1.9.18
+Requires-Dist: msgraph-core==0.2.2
+Requires-Dist: opensearch-py<=3.0.0,>=2.4.2
+Requires-Dist: publicsuffixlist>=0.10.0
+Requires-Dist: pygelf>=0.4.2
+Requires-Dist: requests>=2.22.0
+Requires-Dist: tqdm>=4.31.1
+Requires-Dist: urllib3>=1.25.7
+Requires-Dist: xmltodict>=0.12.0
+Provides-Extra: build
+Requires-Dist: hatch>=1.14.0; extra == 'build'
+Requires-Dist: myst-parser[linkify]; extra == 'build'
+Requires-Dist: nose; extra == 'build'
+Requires-Dist: pytest; extra == 'build'
+Requires-Dist: pytest-cov; extra == 'build'
+Requires-Dist: ruff; extra == 'build'
+Requires-Dist: sphinx; extra == 'build'
+Requires-Dist: sphinx-rtd-theme; extra == 'build'
+Description-Content-Type: text/markdown
+
+# parsedmarc
+
+[![Build
+Status](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml/badge.svg)](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml)
+[![Code
+Coverage](https://codecov.io/gh/domainaware/parsedmarc/branch/master/graph/badge.svg)](https://codecov.io/gh/domainaware/parsedmarc)
+[![PyPI
+Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project/parsedmarc/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/parsedmarc?color=blue)](https://pypistats.org/packages/parsedmarc)
+
+<p align="center">
+  <img src="https://github.com/domainaware/parsedmarc/raw/master/docs/source/_static/screenshots/dmarc-summary-charts.png?raw=true" alt="A screenshot of DMARC summary charts in Kibana"/>
+</p>
+
+`parsedmarc` is a Python module and CLI utility for parsing DMARC
+reports. When used with Elasticsearch and Kibana (or Splunk), it works
+as a self-hosted open-source alternative to commercial DMARC report
+processing services such as Agari Brand Protection, Dmarcian, OnDMARC,
+ProofPoint Email Fraud Defense, and Valimail.
+
+> [!NOTE]
+> __Domain-based Message Authentication, Reporting, and Conformance__ (DMARC) is an email authentication protocol.
+
+## Help Wanted
+
+This project is maintained by one developer. Please consider
+reviewing the open
+[issues](https://github.com/domainaware/parsedmarc/issues) to see how
+you can contribute code, documentation, or user support. Assistance on
+the pinned issues would be particularly helpful.
+
+Thanks to all
+[contributors](https://github.com/domainaware/parsedmarc/graphs/contributors)!
+
+## Features
+
+- Parses draft and 1.0 standard aggregate/rua reports
+- Parses forensic/failure/ruf reports
+- Can parse reports from an inbox over IMAP, Microsoft Graph, or Gmail
+    API
+- Transparently handles gzip or zip compressed reports
+- Consistent data structures
+- Simple JSON and/or CSV output
+- Optionally email the results
+- Optionally send the results to Elasticsearch, Opensearch, and/or Splunk, for use
+    with premade dashboards
+- Optionally send reports to Apache Kafka

@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "django-bulk-hooks"
+version = "0.1.251"
+description = "Hook-style hooks for Django bulk operations like bulk_create and bulk_update."
+authors = ["Konrad Beck <konrad.beck@merchantcapital.co.za>"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/AugendLimited/django-bulk-hooks"
+repository = "https://github.com/AugendLimited/django-bulk-hooks"
+keywords = ["django", "bulk", "hooks"]
+packages = [
+    { include = "django_bulk_hooks" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+Django = ">=4.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-django = "^4.5.0"
+pytest-cov = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

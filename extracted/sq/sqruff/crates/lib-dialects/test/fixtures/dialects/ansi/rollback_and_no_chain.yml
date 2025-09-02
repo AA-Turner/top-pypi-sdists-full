@@ -1,7 +1,0 @@
-file:
-- statement:
-  - transaction_statement:
-    - keyword: rollback
-    - keyword: and
-    - keyword: no
-    - keyword: chain

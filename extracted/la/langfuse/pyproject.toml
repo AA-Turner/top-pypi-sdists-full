@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "langfuse"
 
-version = "3.3.2"
+version = "3.3.3"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -26,15 +26,15 @@ pytest = ">=7.4,<9.0"
 pytest-timeout = "^2.1.0"
 pytest-xdist = "^3.3.1"
 pre-commit = "^3.2.2"
-pytest-asyncio = ">=0.21.1,<0.24.0"
+pytest-asyncio = ">=0.21.1,<1.2.0"
 pytest-httpserver = "^1.0.8"
-ruff = ">=0.1.8,<0.6.0"
+ruff = ">=0.1.8,<0.13.0"
 mypy = "^1.0.0"
-langchain-openai = ">=0.0.5,<0.3"
-langgraph = "^0.2.62"
+langchain-openai = ">=0.0.5,<0.4"
+langgraph = ">=0.2.62,<0.7.0"
 
 [tool.poetry.group.docs.dependencies]
-pdoc = "^14.4.0"
+pdoc = "^15.0.4"
 
 [tool.poetry.extras]
 openai = ["openai"]

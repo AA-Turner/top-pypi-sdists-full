@@ -1,0 +1,120 @@
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.9
+    hooks:
+      - id: ruff
+        exclude: ^(.github|.*object.*\.py$)
+        args:
+          - --fix
+          - --line-length=127
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args:
+          - "--in-place"
+          - "--remove-duplicate-keys"
+          - "--remove-unused-variables"
+          - "--remove-all-unused-imports"
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words-list=
+          - --skip="./.*,*.csv,*.json,*.ambr"
+          - --quiet-level=2
+        exclude_types: [csv, json]
+        exclude: tests/__snapshots__/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast
+      - id: check-yaml
+        exclude: mkdocs\.yml
+      - id: check-json
+        exclude: (.vscode|.devcontainer)
+      - id: check-added-large-files
+        args: [--maxkb=800]
+      - id: debug-statements
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude_types: [json]
+        exclude: (CODEOWNERS)$
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude_types: [png, yaml]
+        exclude: (\.md|\.yml|\.jpg|\.png|\.ambr|CODEOWNERS)$
+      - id: trailing-whitespace
+        exclude_types: [json]
+      - id: pretty-format-json
+        args: [--autofix, --no-ensure-ascii]
+        exclude: ^src/(.*url|.+ua)\.json$
+      - id: check-executables-have-shebangs
+        stages: [manual]
+      - id: check-case-conflict
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        exclude_types: [json]
+        exclude: \.md$
+  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.14.0
+    hooks:
+      - id: pretty-format-toml
+        args: [--autofix]
+  - repo: https://github.com/numpy/numpydoc
+    rev: v1.8.0
+    hooks:
+      - id: numpydoc-validation
+        files: ^(src)/.+\.py$
+        exclude: |
+          (?x)(
+              tests/|
+              docs/
+          )
+  - repo: https://github.com/cdce8p/python-typing-update
+    rev: v0.7.1
+    hooks:
+      # Run `python-typing-update` hook manually from time to time
+      # to update python typing syntax.
+      # Will require manual work, before submitting changes!
+      # pre-commit run --hook-stage manual python-typing-update --all-files
+      - id: python-typing-update
+        stages: [manual]
+        args:
+          - --py311-plus
+          - --force
+          - --keep-updates
+        files: ^(src|tests)/.+\.py$
+        additional_dependencies:
+          - black==24.4.2
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.1
+    hooks:
+      - id: pyupgrade
+        args: [--py311-plus]
+        exclude: ^.*object.*\.py$
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.26.0
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pylint-dev/pylint
+    rev: v3.3.7
+    hooks:
+      - id: pylint

@@ -1,0 +1,78 @@
+Metadata-Version: 2.1
+Name: aioaseko
+Version: 1.0.0
+Summary: Async Python package for the Aseko Pool Live API
+Home-page: https://github.com/milanmeu/aioaseko
+Author: Milan Meulemans
+Author-email: milan.meulemans@live.be
+License: LGPLv3+
+Project-URL: Homepage, https://github.com/milanmeu/aioaseko
+Project-URL: Bug Tracker, https://github.com/milanmeu/aioaseko/issues
+Project-URL: Source Code, https://github.com/milanmeu/aioaseko/tree/main/aioaseko
+Project-URL: Documentation, https://github.com/milanmeu/aioaseko/blob/main/README.md
+Project-URL: Donate, https://github.com/sponsors/milanmeu
+Keywords: aseko pool live api asin aqua
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Topic :: Home Automation
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+Requires-Dist: aiohttp
+Requires-Dist: gql
+Requires-Dist: apischema
+
+# aioAseko package 
+[![PyPI](https://img.shields.io/pypi/v/aioaseko)](https://pypi.org/project/aioaseko/) ![PyPI - Downloads](https://img.shields.io/pypi/dm/aioaseko) [![PyPI - License](https://img.shields.io/pypi/l/aioaseko?color=blue)](https://github.com/milanmeu/aioaseko/blob/main/COPYING)
+
+An async Python wrapper for the Aseko Pool Live API.
+
+The library supports Aseko ASIN AQUA devices.
+The Aseko ASIN Pool is partially supported.
+The library is currently limited to a selection of features available on aseko.cloud.
+
+
+## Installation
+```bash
+pip install aioaseko
+```
+
+## Usage
+### Import
+```python
+from aioaseko import Aseko
+```
+
+### Create an `Aseko` instance and login
+```python
+api = Aseko("aioAseko@example.com", "passw0rd")
+await api.login()
+```
+
+## Example
+```python
+from asyncio import run
+
+from aioaseko import Aseko, InvalidCredentials, Unit
+
+async def main():
+    api = Aseko("aioAseko@example.com", "passw0rd")
+    try:
+        await api.login()
+    except InvalidCredentials:
+        print("The username or password is wrong.")
+        return
+    units = await api.get_units()
+    for unit in units:
+        if isinstance(unit, Unit):
+            print(f"Unit: {unit.name} ({unit.serial_number})")
+            print(f"Air temperature: {unit.air_temperature}")
+            print(f"Water flow to probes: {unit.water_flow_to_probes}")
+run(main())
+```

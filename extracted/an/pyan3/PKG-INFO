@@ -1,0 +1,24 @@
+Metadata-Version: 1.1
+Name: pyan3
+Version: 1.2.0
+Summary: Offline call graph generator for Python 3
+Home-page: https://github.com/Technologicat/pyan
+Author: Juha Jeronen
+Author-email: juha.m.jeronen@gmail.com
+License: GPL 2.0
+Description: Generate approximate call graphs for Python programs.
+        
+        Pyan takes one or more Python source files, performs a (rather superficial) static analysis, and constructs a directed graph of the objects in the combined source, and how they define or use each other. The graph can be output for rendering by GraphViz or yEd.
+Keywords: call-graph,static-code-analysis
+Platform: Linux
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Software Development
+Provides: pyan

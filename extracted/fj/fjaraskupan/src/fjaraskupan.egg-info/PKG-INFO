@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: fjaraskupan
+Version: 2.3.3
+Summary: A python library for speaking to fjäråskupan
+Author: Joakim Plate
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/elupus/fjaraskupan
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Framework :: AsyncIO
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: bleak>=0.19
+Requires-Dist: bleak-retry-connector>=4.4.3
+Provides-Extra: tests
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-mock; extra == "tests"
+Requires-Dist: pytest>3.6.4; extra == "tests"
+Dynamic: license-file
+
+********************************
+Fjäråskupan Bluetooth Control
+********************************
+This module support controlling Fjäråskupan kitchen fans over bluetooth
+
+Status
+______
+
+.. image:: https://github.com/elupus/fjaraskupan/actions/workflows/python-package.yml/badge.svg
+    :target: https://github.com/elupus/fjaraskupan
+
+Module
+======
+
+Code to set fan speed using library.
+
+.. code-block:: python
+
+
+    async def run():
+        async with Device("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE") as device:
+            await device.set_fan_speed(5)
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete (run())
+
+
+
+Commandline
+===========
+
+Scan for possible devices.
+
+.. code-block:: bash
+
+  python -m fjaraskupan scan
+
+
+Code to set fan speed using commandline.
+
+.. code-block:: bash
+
+  python -m fjaraskupan fan AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE 5
+
+
+To get help on possible commands 
+
+.. code-block:: bash
+
+  python -m fjaraskupan -h
+  python -m fjaraskupan light -h
+  python -m fjaraskupan fan -h

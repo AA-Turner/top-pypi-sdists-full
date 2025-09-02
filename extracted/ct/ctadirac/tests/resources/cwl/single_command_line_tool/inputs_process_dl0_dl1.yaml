@@ -1,9 +1,0 @@
-dl0:
-  class: File
-  path: lfn:///ctao/simpipe/prod6/gamma-diffuse/010xxx/gamma_cone10_run010000.simtel.zst
-
-processing_config:
-  class: File
-  path: process_config.yaml
-
-dl1_filename: lfn:///ctao/datapipe/test.dl1.h5

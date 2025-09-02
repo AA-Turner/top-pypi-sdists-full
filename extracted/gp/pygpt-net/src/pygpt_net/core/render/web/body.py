@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.19 07:00:00                  #
+# Updated Date: 2025.09.01 23:00:00                  #
 # ================================================== #
 
 import os
@@ -15,6 +15,7 @@ from random import shuffle as _shuffle
 
 from typing import Optional, List, Dict
 
+from pygpt_net.core.text.utils import elide_filename
 from pygpt_net.core.events import Event
 from pygpt_net.item.ctx import CtxItem
 from pygpt_net.utils import trans
@@ -24,6 +25,7 @@ from .syntax_highlight import SyntaxHighlight
 import pygpt_net.js_rc
 import pygpt_net.css_rc
 import pygpt_net.fonts_rc
+
 
 class Body:
 
@@ -1066,7 +1068,7 @@ class Body:
             num_all: Optional[int] = None
     ) -> str:
         """
-        Get image HTML
+        Get media image/video/audio HTML
 
         :param url: URL to image
         :param num: number of image
@@ -1075,7 +1077,26 @@ class Body:
         """
         url, path = self.window.core.filesystem.extract_local_url(url)
         basename = os.path.basename(path)
-        return f'<div class="extra-src-img-box" title="{url}"><div class="img-outer"><div class="img-wrapper"><a href="{url}"><img src="{path}" class="image"></a></div><a href="{url}" class="title">{basename}</a></div></div><br/>'
+
+        # if video file then embed video player
+        ext = os.path.splitext(basename)[1].lower()
+        video_exts = (".mp4", ".webm", ".ogg", ".mov", ".avi", ".mkv")
+        if ext in video_exts:
+            # check if .webm file exists for better compatibility
+            if ext != ".webm":
+                webm_path = os.path.splitext(path)[0] + ".webm"
+                if os.path.exists(webm_path):
+                    path = webm_path
+                    ext = ".webm"
+            return f'''
+            <div class="extra-src-video-box" title="{url}">
+                <video class="video-player" controls>
+                    <source src="{path}" type="video/{ext[1:]}">
+                </video>
+                <p><a href="{url}" class="title">{elide_filename(basename)}</a></p>
+            </div>
+            '''
+        return f'<div class="extra-src-img-box" title="{url}"><div class="img-outer"><div class="img-wrapper"><a href="{url}"><img src="{path}" class="image"></a></div><a href="{url}" class="title">{elide_filename(basename)}</a></div></div><br/>'
 
     def get_url_html(
             self,

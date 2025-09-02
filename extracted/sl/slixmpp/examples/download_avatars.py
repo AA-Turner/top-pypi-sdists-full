@@ -12,7 +12,6 @@ from argparse import ArgumentParser
 import asyncio
 import slixmpp
 from slixmpp.exceptions import XMPPError
-from slixmpp import asyncio
 
 
 FILE_TYPES = {

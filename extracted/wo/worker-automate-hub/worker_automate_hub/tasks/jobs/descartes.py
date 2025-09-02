@@ -18,6 +18,7 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
     RpaProcessoEntradaDTO,
 )
 from worker_automate_hub.utils.logger import logger
+from pywinauto.keyboard import send_keys
 from worker_automate_hub.utils.toast import show_toast
 from worker_automate_hub.utils.util import (
     send_to_webhook,
@@ -65,7 +66,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         # Fecha a instancia do emsys - caso esteja aberta
         await kill_all_emsys()
-        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_38.exe")
+        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_10.exe")
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
@@ -151,18 +152,23 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         # await worker_sleep(1)
 
         # Preenche o campo do cliente com o número da filial
-        console.print("Preenchendo o campo do cliente com o número da filial...\n")
-        cliente_field_position = await find_element_center(
-            ASSETS_BASE_PATH + "field_cliente.png", (795, 354, 128, 50), 10
-        )
-        if cliente_field_position == None:
-            cliente_field_position = (884, 384)
+        console.print("Preenchendo o campo do cliente com o número da filial...\n")   
+        campo = pre_venda.child_window(class_name="TDBIEditNumber", found_index=2)
+        campo.set_focus()
+        send_keys(task.configEntrada["filialEmpresaOrigem"])
+        send_keys("{TAB}")
 
-        pyautogui.click(cliente_field_position)
-        pyautogui.hotkey("ctrl", "a")
-        pyautogui.hotkey("del")
-        pyautogui.write(task.configEntrada["filialEmpresaOrigem"])
-        pyautogui.hotkey("tab")
+        # cliente_field_position = await find_element_center(
+        #     ASSETS_BASE_PATH + "field_cliente.png", (795, 354, 128, 50), 10
+        # )
+        # if cliente_field_position == None:
+            # cliente_field_position = (884, 384)
+
+        # pyautogui.click(cliente_field_position)
+        # pyautogui.hotkey("ctrl", "a")
+        # pyautogui.hotkey("del")
+        # pyautogui.write(task.configEntrada["filialEmpresaOrigem"])
+        # pyautogui.hotkey("tab")
         await worker_sleep(10)
 
         try:
@@ -273,34 +279,38 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         # Define representante para "1"
         console.print("Definindo representante para '1'\n")
-        screenshot_path = take_screenshot()
-        field_representante_position = find_target_position(
-            screenshot_path, "Representante", 0, 50, attempts=15
-        )
+        campo_representate = pre_venda.child_window(class_name="TDBIEditCode", found_index=3)
+        campo_representate.set_focus()
+        send_keys("1")
+        send_keys("{TAB}")
+        # screenshot_path = take_screenshot()
+        # field_representante_position = find_target_position(
+        #     screenshot_path, "Representante", 0, 50, attempts=15
+        # )
 
-        if field_representante_position == None:
-            field_representante_position = await find_element_center(
-                ASSETS_BASE_PATH + "field_representante.png", (679, 416, 214, 72), 15
-            )
-            if field_representante_position is not None:
-                lista = list(field_representante_position)
-                lista[0] += 50
-                lista[1] += 1
-                field_representante_position = tuple(lista)
+        # if field_representante_position == None:
+        #     field_representante_position = await find_element_center(
+        #         ASSETS_BASE_PATH + "field_representante.png", (679, 416, 214, 72), 15
+        #     )
+        #     if field_representante_position is not None:
+        #         lista = list(field_representante_position)
+        #         lista[0] += 50
+        #         lista[1] += 1
+        #         field_representante_position = tuple(lista)
 
-        if field_representante_position is not None:
-            pyautogui.doubleClick(field_representante_position)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.hotkey("del")
-            pyautogui.write("1")
-            pyautogui.hotkey("tab")
-        else:
-            pyautogui.doubleClick(800, 457)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.hotkey("del")
-            pyautogui.write("1")
-            pyautogui.hotkey("tab")
-            # pyautogui.move(789, 523)
+        # if field_representante_position is not None:
+        #     pyautogui.doubleClick(field_representante_position)
+        #     pyautogui.hotkey("ctrl", "a")
+        #     pyautogui.hotkey("del")
+        #     pyautogui.write("1")
+        #     pyautogui.hotkey("tab")
+        # else:
+        #     pyautogui.doubleClick(800, 457)
+        #     pyautogui.hotkey("ctrl", "a")
+        #     pyautogui.hotkey("del")
+        #     pyautogui.write("1")
+        #     pyautogui.hotkey("tab")
+        #     # pyautogui.move(789, 523)
         await worker_sleep(5)
 
         # Seleciona modelo de capa
@@ -322,29 +332,36 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         #         model_descarte_position = tuple(lista)
 
         # if model_descarte_position == None:
-        model_descarte_position = (848, 527)
+        # model_descarte_position = (848, 527)
 
-        if model_descarte_position is not None:
-            # pyautogui.click(848, 527)
-            pyautogui.click(model_descarte_position)
-            pyautogui.click(1500, 800)
-            pyautogui.write("B")
-            pyautogui.hotkey("tab")
-        else:
-            log_msg = f"Campo Modelo na capa da nota não encontrado | Número da nota: {nota_fiscal} | Valor: {valor_nota}"
-            await send_to_webhook(
-                task.configEntrada["urlRetorno"],
-                "ERRO",
-                log_msg,
-                task.configEntrada["uuidSimplifica"],
-                nota_fiscal,
-                valor_nota,
-                True
-            )
+        # if model_descarte_position is not None:
+        #     # pyautogui.click(848, 527)
+        #     pyautogui.click(model_descarte_position)
+        #     pyautogui.click(1500, 800)
+        #     pyautogui.write("B")
+        #     pyautogui.hotkey("tab")
+        # else:
+        #     log_msg = f"Campo Modelo na capa da nota não encontrado | Número da nota: {nota_fiscal} | Valor: {valor_nota}"
+        #     await send_to_webhook(
+        #         task.configEntrada["urlRetorno"],
+        #         "ERRO",
+        #         log_msg,
+        #         task.configEntrada["uuidSimplifica"],
+        #         nota_fiscal,
+        #         valor_nota,
+        #         True
+        #     )
+        #     return RpaRetornoProcessoDTO(
+        #         sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+        #     )
+        try:
+            modelo = pre_venda.child_window(class_name="TDBIComboBox", found_index=0)
+            modelo.set_focus()
+            modelo.select("BAIXA DE EST. DECORRENTE DE PERDA, ROUBO OU DETERIORACAO")
+        except:
             return RpaRetornoProcessoDTO(
-                sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                sucesso=False, retorno="Modelo de capa não existe", status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
-
         # Abre Menu itens
         console.print("Abrindo Menu Itens...\n")
         menu_itens = await find_element_center(
@@ -352,7 +369,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         )
 
         if menu_itens == None:
-            menu_itens = (570, 317)
+            menu_itens = (570, 296)
 
         if menu_itens is not None:
             pyautogui.click(menu_itens)
@@ -380,10 +397,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             screenshot_path = take_screenshot()
             # Clica no botão inclui para abrir a tela de item
             console.print("Clicando em Incluir...\n")
-            button_incluir = (
-                905,
-                573,
-            )  # find_target_position(screenshot_path, "Incluir", 0, 0, attempts=15)
+            button_incluir = (905,546,)
             if button_incluir is not None:
                 pyautogui.click(button_incluir)
                 console.print("\nClicou em 'Incluir'", style="bold green")
@@ -401,6 +415,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 return RpaRetornoProcessoDTO(
                     sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
+
             await worker_sleep(3)
 
             # Digita Almoxarifado
@@ -441,7 +456,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             console.print("Preenchendo o campo do item...\n")
             field_item = (
                 841,
-                339,
+                337,
             )  # find_target_position(screenshot_path, "Item", 0, 130, 15)
             pyautogui.doubleClick(field_item)
             pyautogui.hotkey("del")
@@ -932,7 +947,6 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 pyautogui.click(875, 596)
             else:
                 pyautogui.click(581, 747)  
-                  
             logger.info("\nNota Transmitida")
             console.print("\nNota Transmitida", style="bold green")
 

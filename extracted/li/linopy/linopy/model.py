@@ -12,7 +12,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 import pandas as pd
@@ -317,7 +317,7 @@ class Model:
 
     @solver_dir.setter
     def solver_dir(self, value: str | Path) -> None:
-        if not isinstance(value, (str, Path)):
+        if not isinstance(value, str | Path):
             raise TypeError("'solver_dir' must path-like.")
         self._solver_dir = Path(value)
 
@@ -614,7 +614,7 @@ class Model:
             if sign is None or rhs is None:
                 raise ValueError(msg_sign_rhs_not_none)
             data = lhs.to_constraint(sign, rhs).data
-        elif isinstance(lhs, (list, tuple)):
+        elif isinstance(lhs, list | tuple):
             if sign is None or rhs is None:
                 raise ValueError(msg_sign_rhs_none)
             data = self.linexpr(*lhs).to_constraint(sign, rhs).data
@@ -633,7 +633,7 @@ class Model:
             if sign is not None or rhs is not None:
                 raise ValueError(msg_sign_rhs_none)
             data = lhs.data
-        elif isinstance(lhs, (Variable, ScalarVariable, ScalarLinearExpression)):
+        elif isinstance(lhs, Variable | ScalarVariable | ScalarLinearExpression):
             if sign is None or rhs is None:
                 raise ValueError(msg_sign_rhs_not_none)
             data = lhs.to_linexpr().to_constraint(sign, rhs).data
@@ -710,7 +710,7 @@ class Model:
                 "Objective already defined."
                 " Set `overwrite` to True to force overwriting."
             )
-        self.objective.expression = expr  # type: ignore[assignment]
+        self.objective.expression = expr
         self.objective.sense = sense
 
     def remove_variables(self, name: str) -> None:
@@ -881,17 +881,33 @@ class Model:
         blocks = replace_by_map(self.objective.vars, block_map)
         self.objective = self.objective.assign(blocks=blocks)
 
+    @overload
     def linexpr(
-        self, *args: tuple[ConstantLike, str | Variable | ScalarVariable] | Callable
+        self, *args: Sequence[Sequence | pd.Index | DataArray] | Mapping
+    ) -> LinearExpression: ...
+
+    @overload
+    def linexpr(
+        self, *args: tuple[ConstantLike, str | Variable | ScalarVariable] | ConstantLike
+    ) -> LinearExpression: ...
+
+    def linexpr(
+        self,
+        *args: tuple[ConstantLike, str | Variable | ScalarVariable]
+        | ConstantLike
+        | Callable
+        | Sequence[Sequence | pd.Index | DataArray]
+        | Mapping,
     ) -> LinearExpression:
         """
         Create a linopy.LinearExpression from argument list.
 
         Parameters
         ----------
-        args : tuples of (coefficients, variables) or tuples of
-               coordinates and a function
-            If args is a collection of coefficients-variables-tuples, the resulting
+        args : A mixture of tuples of (coefficients, variables) and constants
+            or a function and tuples of coordinates
+
+            If args is a collection of coefficients-variables-tuples and constants, the resulting
             linear expression is built with the function LinearExpression.from_tuples.
             * coefficients : int/float/array_like
                 The coefficient(s) in the term, if the coefficients array
@@ -900,6 +916,8 @@ class Model:
             * variables : str/array_like/linopy.Variable
                 The variable(s) going into the term. These may be referenced
                 by name.
+            * constant: int/float/array_like
+                The constant value to add to the expression
 
             If args is a collection of coordinates with an appended function at the
             end, the function LinearExpression.from_rule is used to build the linear
@@ -910,7 +928,7 @@ class Model:
                 The first argument of the function is the underlying `linopy.Model`.
                 The following arguments are given by the coordinates for accessing
                 the variables. The function has to return a
-                `ScalarLinearExpression`. Therefore use the direct getter when
+                `ScalarLinearExpression`. Therefore, use the direct getter when
                 indexing variables.
             * coords : coordinate-like
                 Coordinates to be processed by `xarray.DataArray`. For each
@@ -957,9 +975,14 @@ class Model:
             return LinearExpression.from_rule(self, rule, coords)  # type: ignore
         if not isinstance(args, tuple):
             raise TypeError(f"Not supported type {args}.")
-        tuples = [  # type: ignore
-            (c, self.variables[v]) if isinstance(v, str) else (c, v) for (c, v) in args
-        ]
+
+        tuples: list[tuple[ConstantLike, VariableLike] | ConstantLike] = []
+        for arg in args:
+            if isinstance(arg, tuple):
+                c, v = arg
+                tuples.append((c, self.variables[v]) if isinstance(v, str) else (c, v))
+            else:
+                tuples.append(arg)
         return LinearExpression.from_tuples(*tuples, model=self)
 
     @property
@@ -1260,24 +1283,65 @@ class Model:
         """
         Compute a set of infeasible constraints.
 
-        This function requires that the model was solved with `gurobi` and the
-        termination condition was infeasible.
+        This function requires that the model was solved with `gurobi` or `xpress`
+        and the termination condition was infeasible. The solver must have detected
+        the infeasibility during the solve process.
 
         Returns
         -------
         labels : list[int]
             Labels of the infeasible constraints.
         """
-        if "gurobi" not in available_solvers:
-            raise ImportError("Gurobi is required for this method.")
+        solver_model = getattr(self, "solver_model", None)
 
-        import gurobipy
+        # Check for Gurobi
+        if "gurobi" in available_solvers:
+            try:
+                import gurobipy
 
-        solver_model = getattr(self, "solver_model")
+                if solver_model is not None and isinstance(
+                    solver_model, gurobipy.Model
+                ):
+                    return self._compute_infeasibilities_gurobi(solver_model)
+            except ImportError:
+                pass
 
-        if not isinstance(solver_model, gurobipy.Model):
-            raise NotImplementedError("Solver model must be a Gurobi Model.")
+        # Check for Xpress
+        if "xpress" in available_solvers:
+            try:
+                import xpress
 
+                if solver_model is not None and isinstance(
+                    solver_model, xpress.problem
+                ):
+                    return self._compute_infeasibilities_xpress(solver_model)
+            except ImportError:
+                pass
+
+        # If we get here, either the solver doesn't support IIS or no solver model is available
+        if solver_model is None:
+            # Check if this is a supported solver without a stored model
+            solver_name = getattr(self, "solver_name", "unknown")
+            if solver_name in ["gurobi", "xpress"]:
+                raise ValueError(
+                    "No solver model available. The model must be solved first with "
+                    "'gurobi' or 'xpress' solver and the result must be infeasible."
+                )
+            else:
+                # This is an unsupported solver
+                raise NotImplementedError(
+                    f"Computing infeasibilities is not supported for '{solver_name}' solver. "
+                    "Only Gurobi and Xpress solvers support IIS computation."
+                )
+        else:
+            # We have a solver model but it's not a supported type
+            raise NotImplementedError(
+                "Computing infeasibilities is only supported for Gurobi and Xpress solvers. "
+                f"Current solver model type: {type(solver_model).__name__}"
+            )
+
+    def _compute_infeasibilities_gurobi(self, solver_model: Any) -> list[int]:
+        """Compute infeasibilities for Gurobi solver."""
         solver_model.computeIIS()
         f = NamedTemporaryFile(suffix=".ilp", prefix="linopy-iis-", delete=False)
         solver_model.write(f.name)
@@ -1292,13 +1356,86 @@ class Model:
                 match = pattern.match(line_decoded)
                 if match:
                     labels.append(int(match.group(1)))
+        f.close()
         return labels
+
+    def _compute_infeasibilities_xpress(self, solver_model: Any) -> list[int]:
+        """Compute infeasibilities for Xpress solver."""
+        # Compute all IIS
+        solver_model.iisall()
+
+        # Get the number of IIS found
+        num_iis = solver_model.attributes.numiis
+        if num_iis == 0:
+            return []
+
+        labels = set()
+
+        # Create constraint mapping for efficient lookups
+        constraint_to_index = {
+            constraint: idx
+            for idx, constraint in enumerate(solver_model.getConstraint())
+        }
+
+        # Retrieve each IIS
+        for iis_num in range(1, num_iis + 1):
+            iis_constraints = self._extract_iis_constraints(solver_model, iis_num)
+
+            # Convert constraint objects to indices
+            for constraint_obj in iis_constraints:
+                if constraint_obj in constraint_to_index:
+                    labels.add(constraint_to_index[constraint_obj])
+                # Note: Silently skip constraints not found in mapping
+                # This can happen if the model structure changed after solving
+
+        return sorted(list(labels))
+
+    def _extract_iis_constraints(self, solver_model: Any, iis_num: int) -> list[Any]:
+        """
+        Extract constraint objects from a specific IIS.
+
+        Parameters
+        ----------
+        solver_model : xpress.problem
+            The Xpress solver model
+        iis_num : int
+            IIS number (1-indexed)
+
+        Returns
+        -------
+        list[Any]
+            List of xpress.constraint objects in the IIS
+        """
+        # Prepare lists to receive IIS data
+        miisrow: list[Any] = []  # xpress.constraint objects in the IIS
+        miiscol: list[Any] = []  # xpress.variable objects in the IIS
+        constrainttype: list[str] = []  # Constraint types ('L', 'G', 'E')
+        colbndtype: list[str] = []  # Column bound types
+        duals: list[float] = []  # Dual values
+        rdcs: list[float] = []  # Reduced costs
+        isolationrows: list[str] = []  # Row isolation info
+        isolationcols: list[str] = []  # Column isolation info
+
+        # Get IIS data from Xpress
+        solver_model.getiisdata(
+            iis_num,
+            miisrow,
+            miiscol,
+            constrainttype,
+            colbndtype,
+            duals,
+            rdcs,
+            isolationrows,
+            isolationcols,
+        )
+
+        return miisrow
 
     def print_infeasibilities(self, display_max_terms: int | None = None) -> None:
         """
         Print a list of infeasible constraints.
 
-        This function requires that the model was solved using `gurobi`
+        This function requires that the model was solved using `gurobi` or `xpress`
         and the termination condition was infeasible.
 
         Parameters
@@ -1323,7 +1460,7 @@ class Model:
         """
         Compute a set of infeasible constraints.
 
-        This function requires that the model was solved with `gurobi` and the
+        This function requires that the model was solved with `gurobi` or `xpress` and the
         termination condition was infeasible.
 
         Returns

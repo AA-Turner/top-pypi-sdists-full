@@ -1,10 +1,12 @@
 # Client implementation goes here
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 
 import requests
 import urllib3
 from pydantic import BaseModel
 from requests.exceptions import RequestException
+from urllib.parse import urlparse
+import uuid as _uuid
 
 from scrapegraph_py.config import API_BASE_URL, DEFAULT_HEADERS
 from scrapegraph_py.exceptions import APIError
@@ -15,6 +17,7 @@ from scrapegraph_py.models.agenticscraper import (
 )
 from scrapegraph_py.models.crawl import CrawlRequest, GetCrawlRequest
 from scrapegraph_py.models.feedback import FeedbackRequest
+from scrapegraph_py.models.scrape import GetScrapeRequest, ScrapeRequest
 from scrapegraph_py.models.markdownify import GetMarkdownifyRequest, MarkdownifyRequest
 from scrapegraph_py.models.searchscraper import (
     GetSearchScraperRequest,
@@ -35,6 +38,9 @@ class Client:
         timeout: Optional[float] = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        mock: Optional[bool] = None,
+        mock_handler: Optional[Callable[[str, str, Dict[str, Any]], Any]] = None,
+        mock_responses: Optional[Dict[str, Any]] = None,
     ):
         """Initialize Client using API key from environment variable.
 
@@ -43,18 +49,32 @@ class Client:
             timeout: Request timeout in seconds. None means no timeout (infinite)
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
+            mock: If True, the client will not perform real HTTP requests and
+                  will return stubbed responses. If None, reads from SGAI_MOCK env.
         """
         from os import getenv
 
+        # Allow enabling mock mode from environment if not explicitly provided
+        if mock is None:
+            mock_env = getenv("SGAI_MOCK", "0").strip().lower()
+            mock = mock_env in {"1", "true", "yes", "on"}
+        
         api_key = getenv("SGAI_API_KEY")
+        # In mock mode, we don't need a real API key
         if not api_key:
-            raise ValueError("SGAI_API_KEY environment variable not set")
+            if mock:
+                api_key = "sgai-00000000-0000-0000-0000-000000000000"
+            else:
+                raise ValueError("SGAI_API_KEY environment variable not set")
         return cls(
             api_key=api_key,
             verify_ssl=verify_ssl,
             timeout=timeout,
             max_retries=max_retries,
             retry_delay=retry_delay,
+            mock=bool(mock),
+            mock_handler=mock_handler,
+            mock_responses=mock_responses,
         )
 
     def __init__(
@@ -64,6 +84,9 @@ class Client:
         timeout: Optional[float] = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        mock: bool = False,
+        mock_handler: Optional[Callable[[str, str, Dict[str, Any]], Any]] = None,
+        mock_responses: Optional[Dict[str, Any]] = None,
     ):
         """Initialize Client with configurable parameters.
 
@@ -74,6 +97,12 @@ class Client:
             timeout: Request timeout in seconds. None means no timeout (infinite)
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
+            mock: If True, the client will bypass HTTP calls and return
+                  deterministic mock responses
+            mock_handler: Optional callable to generate custom mock responses
+                           given (method, url, request_kwargs)
+            mock_responses: Optional mapping of path (e.g. "/v1/credits") to
+                            static response or callable returning a response
         """
         logger.info("🔑 Initializing Client")
 
@@ -98,6 +127,9 @@ class Client:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.mock = bool(mock)
+        self.mock_handler = mock_handler
+        self.mock_responses = mock_responses or {}
 
         # Create a session for connection pooling
         self.session = requests.Session()
@@ -123,6 +155,9 @@ class Client:
 
     def _make_request(self, method: str, url: str, **kwargs) -> Any:
         """Make HTTP request with error handling."""
+        # Short-circuit when mock mode is enabled
+        if getattr(self, "mock", False):
+            return self._mock_response(method, url, **kwargs)
         try:
             logger.info(f"🚀 Making {method} request to {url}")
             logger.debug(f"🔍 Request parameters: {kwargs}")
@@ -155,6 +190,71 @@ class Client:
             logger.error(f"🔴 Connection Error: {str(e)}")
             raise ConnectionError(f"Failed to connect to API: {str(e)}")
 
+    def _mock_response(self, method: str, url: str, **kwargs) -> Any:
+        """Return a deterministic mock response without performing network I/O.
+
+        Resolution order:
+        1) If a custom mock_handler is provided, delegate to it
+        2) If mock_responses contains a key for the request path, use it
+        3) Fallback to built-in defaults per endpoint family
+        """
+        logger.info(f"🧪 Mock mode active. Returning stub for {method} {url}")
+
+        # 1) Custom handler
+        if self.mock_handler is not None:
+            try:
+                return self.mock_handler(method, url, kwargs)
+            except Exception as handler_error:
+                logger.warning(f"Custom mock_handler raised: {handler_error}. Falling back to defaults.")
+
+        # 2) Path-based override
+        try:
+            parsed = urlparse(url)
+            path = parsed.path.rstrip("/")
+        except Exception:
+            path = url
+
+        override = self.mock_responses.get(path)
+        if override is not None:
+            return override() if callable(override) else override
+
+        # 3) Built-in defaults
+        def new_id(prefix: str) -> str:
+            return f"{prefix}-{_uuid.uuid4()}"
+
+        upper_method = method.upper()
+
+        # Credits endpoint
+        if path.endswith("/credits") and upper_method == "GET":
+            return {"remaining_credits": 1000, "total_credits_used": 0}
+
+        # Feedback acknowledge
+        if path.endswith("/feedback") and upper_method == "POST":
+            return {"status": "success"}
+
+        # Create-like endpoints (POST)
+        if upper_method == "POST":
+            if path.endswith("/crawl"):
+                return {"crawl_id": new_id("mock-crawl")}
+            # All other POST endpoints return a request id
+            return {"request_id": new_id("mock-req")}
+
+        # Status-like endpoints (GET)
+        if upper_method == "GET":
+            if "markdownify" in path:
+                return {"status": "completed", "content": "# Mock markdown\n\n..."}
+            if "smartscraper" in path:
+                return {"status": "completed", "result": [{"field": "value"}]}
+            if "searchscraper" in path:
+                return {"status": "completed", "results": [{"url": "https://example.com"}]}
+            if "crawl" in path:
+                return {"status": "completed", "pages": []}
+            if "agentic-scrapper" in path:
+                return {"status": "completed", "actions": []}
+
+        # Generic fallback
+        return {"status": "mock", "url": url, "method": method, "kwargs": kwargs}
+
     def markdownify(self, website_url: str, headers: Optional[dict[str, str]] = None):
         """Send a markdownify request"""
         logger.info(f"🔍 Starting markdownify request for {website_url}")
@@ -179,6 +279,49 @@ class Client:
         logger.debug("✅ Request ID validation passed")
 
         result = self._make_request("GET", f"{API_BASE_URL}/markdownify/{request_id}")
+        logger.info(f"✨ Successfully retrieved result for request {request_id}")
+        return result
+
+    def scrape(
+        self,
+        website_url: str,
+        render_heavy_js: bool = False,
+        headers: Optional[dict[str, str]] = None,
+    ):
+        """Send a scrape request to get HTML content from a website
+        
+        Args:
+            website_url: The URL of the website to get HTML from
+            render_heavy_js: Whether to render heavy JavaScript (defaults to False)
+            headers: Optional headers to send with the request
+        """
+        logger.info(f"🔍 Starting scrape request for {website_url}")
+        logger.debug(f"🔧 Render heavy JS: {render_heavy_js}")
+        if headers:
+            logger.debug("🔧 Using custom headers")
+
+        request = ScrapeRequest(
+            website_url=website_url,
+            render_heavy_js=render_heavy_js,
+            headers=headers,
+        )
+        logger.debug("✅ Request validation passed")
+
+        result = self._make_request(
+            "POST", f"{API_BASE_URL}/scrape", json=request.model_dump()
+        )
+        logger.info("✨ Scrape request completed successfully")
+        return result
+
+    def get_scrape(self, request_id: str):
+        """Get the result of a previous scrape request"""
+        logger.info(f"🔍 Fetching scrape result for request {request_id}")
+
+        # Validate input using Pydantic model
+        GetScrapeRequest(request_id=request_id)
+        logger.debug("✅ Request ID validation passed")
+
+        result = self._make_request("GET", f"{API_BASE_URL}/scrape/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
         return result
 

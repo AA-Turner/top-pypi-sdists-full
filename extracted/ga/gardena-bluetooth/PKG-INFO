@@ -1,0 +1,58 @@
+Metadata-Version: 2.3
+Name: gardena-bluetooth
+Version: 1.6.0
+Summary: 
+License: MIT
+Author: Joakim Plate
+Author-email: elupus@ecce.se
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: cli
+Provides-Extra: test
+Requires-Dist: asyncclick (>=8.1.3.4,<9.0.0.0) ; extra == "cli" or extra == "test"
+Requires-Dist: black (>=23.3.0,<24.0.0) ; extra == "test"
+Requires-Dist: bleak (>=0.20.2)
+Requires-Dist: bleak-retry-connector (>=3.0.2)
+Requires-Dist: pytest-asyncio (>=0.21.0,<0.22.0) ; extra == "test"
+Requires-Dist: ruff (>=0.0.272,<0.0.273) ; extra == "test"
+Requires-Dist: tzlocal (>=5.0.1,<6.0.0)
+Description-Content-Type: text/x-rst
+
+*************************
+Gardena Bluetooth Control
+*************************
+
+This module support controlling gardena bluetooth enabled watering
+computers.
+
+It's main target is for use with Home Assistant. But can be used
+standalone as well. Its mainly consist of list of know services
+and characteristics, and parser for these.
+
+.. note::
+    The devices only allow a single paired connection, and require
+    a factory reset to allow a new controller to connect.
+
+Module
+======
+
+Commandline
+===========
+
+Scan for possible devices
+
+.. code-block:: bash
+
+    python -m gardena_bluetooth scan
+
+Connect to device and dump it's data
+
+.. code-block:: bash
+
+    pyhton -m gardena_bluetooth connect [ADDRESS]
+

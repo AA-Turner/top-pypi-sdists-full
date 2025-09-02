@@ -5,7 +5,7 @@
 # See the file LICENSE for copying permission.
 from slixmpp.plugins.base import register_plugin
 
-from slixmpp.plugins.xep_0191.stanza import Block, Unblock, BlockList
+from slixmpp.plugins.xep_0191.stanza import Block, Unblock, BlockList, BlockItem
 from slixmpp.plugins.xep_0191.blocking import XEP_0191
 
 

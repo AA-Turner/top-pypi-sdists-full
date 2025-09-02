@@ -1,8 +1,9 @@
 [project]
 name = "slixmpp"
-version = "1.10.0"
+version = "1.11.0"
 description = "Slixmpp is an elegant Python library for XMPP (aka Jabber)."
 readme = "README.rst"
+license = "MIT"
 authors = [
     { name = "Florent Le Coz", email = "louiz@louiz.org" },
     { name = "Mathieu Pasquet (mathieui)", email = "mathieui@mathieui.net" },

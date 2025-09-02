@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "pyweatherflowudp"
+version = "1.4.5"
+description = "An event-based asynchronous library to read UDP packets from Weatherflow weather systems on a local network without any reliance on the cloud."
+license = "MIT"
+authors = ["Nathan Spencer <natekspencer@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/briis/pyweatherflowudp"
+repository = "https://github.com/briis/pyweatherflowudp"
+keywords = ["WeatherFlow", "UDP", "asynchronous", "local"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Pint = ">=0.19"
+PsychroLib = "^2.5.0"
+
+[tool.poetry.group.test.dependencies]
+black = ">=22.3,<24.0"
+flake8 = "^5.0.4"
+isort = "^5.10.1"
+mypy = ">=0.991,<1.6"
+pydocstyle = "^6.1.1"
+pylint = ">=2.12.1,<4.0.0"
+pytest = "^7.1"
+pytest-asyncio = ">=0.20,<0.22"
+pytest-cov = "^4.0.0"
+pytest-timeout = "^2.0.1"
+tox = "^4.0.18"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

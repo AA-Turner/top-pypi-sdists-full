@@ -1,0 +1,2675 @@
+openapi: 3.0.3
+info:
+  title: Tapis Files API
+  description: The Tapis Files API provides for management of file resources on Tapis systems
+  version: '1.8.2'
+  termsOfService: "https://tapis-project.org"
+  contact:
+    name: "Files API - CICSupport"
+    url: "https://tapis-project.org"
+    email: "cicsupport@tacc.utexas.edu"
+  license:
+    name: 3-Clause BSD License
+    url: 'https://opensource.org/licenses/BSD-3-Clause'
+externalDocs:
+  description: Tapis Project
+  url: 'https://tapis-project.org'
+servers:
+  - url: 'http://localhost:8080/'
+    description: Local test environment
+    variables: {}
+  - url: 'https://dev.develop.tapis.io/'
+    description: Development environment
+    variables: {}
+tags:
+  - name: General
+    description: General service health and readiness
+  - name: File Operations
+    description: |
+      Manage file resources on Tapis systems. List, upload, copy, native operations, etc.
+      Note that not all operations are supported for all system types.
+  - name: Content
+    description: Download a file or directory. Not supported for all system types.
+  - name: Transfers
+    description: |
+      Manage file transfers between two systems. Initiate, cancel and retrieve status.
+      Note that not all combinations of system types are supported. For example, transfers involving a GLOBUS
+      system must be GLOBUS to GLOBUS.
+  - name: Permissions
+    description: |
+      The permissions model allows for fine grained access control of paths on a Tapis system. The system owner
+      may grant READ and MODIFY permission to specific users. MODIFY implies READ.
+  
+      Please note that Tapis also supports a higher level approach to granting access known as *Sharing*.
+
+      Finally, be aware that Tapis permissions are independent of native permissions enforced by the underlying system host.
+  - name: Sharing
+    description: |
+      In addition to fine grained permissions support, Tapis also supports a higher level approach to granting access.
+      This approach is known simply as *sharing*. The sharing API allows you to share a path with a set of users as
+      well as share publicly with all users in a tenant.
+      Sharing a path grants users READ access to the path. If the system has a dynamic *effectiveUserId*, then
+      MODIFY access is also granted.
+      Note that if system type is ``IRODS`` and the attribute *useProxy* is set to ``true`` then the system is
+      also treated as having a dynamic *effectiveUserId* and users will be granted MODIFY access. 
+
+      In the context of running a job, sharing will also grant users READ and MODIFY access to the path.
+      
+      Please note that the underlying host associated with a system typically also has it's own access controls.
+
+# ------------------------------------------------------------------------------
+# --- Paths -------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+paths:
+
+  # --- Paths for /files -----------------------------------------------------
+  '/v3/files/healthcheck':
+    get:
+      tags:
+        - General
+      description: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Message received.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+  '/v3/files/readycheck':
+    get:
+      tags:
+        - General
+      description: Ready check
+      operationId: readyCheck
+      responses:
+        '200':
+          description: Service ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '503':
+          description: Service unavailable.
+
+  # --- Paths for /files/ops -----------------------------------------------------
+  /v3/files/ops/{systemId}/{path}:
+    get:
+      tags:
+        - File Operations
+      description: |
+        List files or objects on a Tapis system. Type for items will depend on system type. For example, for LINUX
+        they will be posix files and for S3 they will be storage objects. For S3 the recurse flag is ignored and all
+        objects with keys matching the path as a prefix are included.
+        
+        For system types that support directory hierarchies the maximum recursion depth is 20.
+        
+        Note that S3 buckets do not have a hierarchical structure. There are no directories. Everything is an object
+        associated with a key.
+
+        Certain services may use the query parameter *impersonationId* to be used in place of the requesting
+        Tapis user. Tapis will use this user Id when performing authorization and resolving the *effectiveUserId*
+        for the system.
+        
+        Certain services may use the query parameter *sharedCtx* to indicate that the request is in a shared
+        context. *sharedCtx* must be set to the share grantor.
+        Tapis will include the share grantor as part of authorization checks.
+      operationId: listFiles
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+          example: system123
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+          example: directoryA/directoryB/
+        - name: pattern
+          in: query
+          description: |
+            Wildcard pattern (glob) or regular expression to filter the results returned by this request.  Regular 
+            expressions must have the prefix "regex:".  Only files where the name matches the pattern will be 
+            returned.  The pattern is evaluated against the filename portion of the path only, and not the entire 
+            path.  For example to match a file that begins with "myFile" you could use a pattern of "myFile*" or 
+            "regex:myFile.*".  Or, to match files that end with .txt, you could supply a pattern of "*.txt" or 
+            "regex:.*\.txt$".  Recursive listings filter only against filnames also - so even if the directory 
+            doesn't match the pattern, files in the directory can be returned.  See documentation for Java regex 
+            for the exact details of how Java handles regular expressions.  NOTE - this is only supported for linux 
+            systems at present.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: pagination limit
+          schema:
+            type: integer
+            format: int32
+            default: 1000
+          example: 100
+        - name: offset
+          in: query
+          description: pagination offset
+          schema:
+            type: integer
+            format: int64
+            default: 0
+          example: 1000
+        - name: recurse
+          in: query
+          description: Recursive listing. Maximum recursion depth is 20.
+          schema:
+            type: boolean
+            default: false
+          example: false
+        - name: impersonationId
+          in: query
+          description: Restricted. Only certain services may impersonate a Tapis user.
+          schema:
+            type: string
+        - name: sharedCtx
+          in: query
+          description: Restricted. Only certain services may indicate that the request is in a shared context. Must be set to the share grantor.
+          schema:
+            $ref: '#/components/schemas/UserNameString'
+      responses:
+        '200':
+          description: A list of files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListingResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    put:
+      tags:
+        - File Operations
+      description: |
+        Move or copy a file, directory or object on {systemID} at path {path}.
+        Not all operations supported for all system types.
+      operationId: moveCopy
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveCopyRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    post:
+      tags:
+        - File Operations
+      description: |
+        The file or object will be uploaded at the {path} independent of the original name.
+      operationId: insert
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    delete:
+      tags:
+        - File Operations
+      description: |
+        Delete a file, directory or object on {systemID} at path {path}.
+ 
+        For a LINUX directory this will be a recursive delete.
+ 
+        For an S3 system, the path will represent either a single object or all objects in the bucket with a prefix
+        matching the system *rootDir* if the path is the empty string.
+ 
+        **WARNING** For an S3 system if the path is the empty string, then all objects in the bucket with a key matching
+        the prefix *rootDir* will be deleted. So if the *rootDir* is also the empty string, then all objects in the bucket
+        will be removed.
+      operationId: delete
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+  /v3/files/ops/{systemId}:
+    post:
+      tags:
+        - File Operations
+      description: |
+        Create a directory on the system at the given path. Not supported for all system types. Currently supported
+        for LINUX, IRODS and GLOBUS type systems.
+
+        Certain services may use the query parameter *sharedCtx* to indicate that the request is in a shared
+        context. *sharedCtx* must be set to the share grantor.
+        Tapis will include the share grantor as part of authorization checks.
+
+        If the path already exists as a directory, no error will be returned.
+      operationId: mkdir
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: sharedCtx
+          in: query
+          description: Restricted. Only certain services may indicate that the request is in a shared context. Must be set to the share grantor.
+          schema:
+            $ref: '#/components/schemas/UserNameString'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MkdirRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+
+  # --- Paths for /files/utils -----------------------------------------------------
+  /v3/files/utils/linux/{systemId}/{path}:
+    get:
+      tags:
+        - File Operations
+      description: |
+        Get native stat information for a file or directory for a system of type LINUX.
+      operationId: getStatInfo
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+          example: system123
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+          example: directoryA/file1
+        - name: followLinks
+          in: query
+          description: When path is a symbolic link whether to get information about the link (false) or the link target (true)
+          schema:
+            type: boolean
+            default: false
+          example: true
+      responses:
+        '200':
+          description: Linux stat information for the file or directory.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStatInfoResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    post:
+      tags:
+        - File Operations
+      description: |
+        Run a native operation on a path. Operations are chmod, chown or chgrp. For a system of type LINUX.
+      operationId: runLinuxNativeOp
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          description: If path is a directory this indicates whether or not to apply the changes recursively
+          schema:
+            type: boolean
+            default: false
+          example: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NativeLinuxOpRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NativeLinuxOpResultResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+
+  /v3/files/utils/linux/facl/{systemId}/{path}:
+    get:
+      tags:
+        - File Operations
+      description: |
+        Get file ACLs for files or directories for a system of type LINUX.
+      operationId: getFacl
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+          example: system123
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+          example: /directoryA/directoryB/
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NativeLinuxGetFaclResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    post:
+      tags:
+        - File Operations
+      description: |
+        Set file ACLs for files or directories for a system of type LINUX.
+
+        This can be used for a single file or directory, or can be recursive.  If recursion is
+        used, it can be made to follow symlinks, or not follow symlinks.
+
+        The operations support adding or removing Acl Entries as well as removing all acls or all
+        default acls
+      operationId: setFacl
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          description: System ID
+          schema:
+            type: string
+          example: system123
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+          example: /directoryA/directoryB/
+      requestBody:
+        required: true
+        description: A JSON object specifying updated sharing information.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NativeLinuxSetFaclRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NativeLinuxSetFaclResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+
+  # --- Paths for /files/content -------------------------------------------------
+  /v3/files/content/{systemId}/{path}:
+    get:
+      tags:
+        - Content
+      description: |
+        Get file or directory contents as a stream of data.
+
+        Certain services may use the query parameter *impersonationId* to be used in place of the requesting
+        Tapis user. Tapis will use this user Id when performing authorization and resolving the *effectiveUserId*
+        for the system.
+        
+        Use the query parameter *zip* to request a stream compressed using the ZIP file format. This is not allowed
+        if system *rootDir* plus *path* would result in all files on the host being included. Please download
+        individual directories, files or objects.
+        
+        Certain services may use the query parameter *sharedCtx* to indicate that the request is in a shared
+        context. *sharedCtx* must be set to the share grantor.
+        Tapis will include the share grantor as part of authorization checks.
+      operationId: getContents
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+          example: system123
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+          example: directoryA/directoryB/
+        - name: range
+          in: header
+          description: Optional range of bytes to send. If not specified all content
+            will be sent.
+          schema:
+            $ref: '#/components/schemas/HeaderByteRange'
+          example: range=0,999
+        - name: zip
+          in: query
+          description: Indicates a zip output stream should be provided.
+          schema:
+            type: boolean
+          example: false
+        - name: more
+          in: header
+          description: Send 1k of UTF-8 encoded string back starting at 'page' 1, e.g. more=1
+          schema:
+            type: integer
+            format: int64
+        - name: impersonationId
+          in: query
+          description: Restricted. Only certain services may impersonate a Tapis user.
+          schema:
+            type: string
+        - name: sharedCtx
+          in: query
+          description: Restricted. Only certain services may indicate that the request is in a shared context. Must be set to the share grantor.
+          schema:
+            $ref: '#/components/schemas/UserNameString'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Not Authenticated
+        '404':
+          description: Not Found
+        '403':
+          description: Permission Denied
+
+  # --- Paths for /files/transfers -----------------------------------------------
+  /v3/files/transfers:
+    get:
+      tags:
+        - Transfers
+      description: |
+        Get a list of transfer tasks starting with the most recent.
+      operationId: getRecentTransferTasks
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: limit
+          in: query
+          description: pagination limit
+          schema:
+            type: integer
+            format: int32
+            default: 1000
+          example: 100
+        - name: offset
+          in: query
+          description: pagination offset
+          schema:
+            type: integer
+            format: int32
+            default: 0
+          example: 1000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTaskListResponse'
+    post:
+      tags:
+        - Transfers
+      description: |
+        Create a background task which will transfer files between systems.
+        Note that not all combinations of system types are supported. For example, transfers involving a GLOBUS
+        system must be GLOBUS to GLOBUS.
+      operationId: createTransferTask
+      security:
+        - TapisJWT: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReqTransfer'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTaskResponse'
+  /v3/files/transfers/{transferTaskId}:
+    get:
+      tags:
+        - Transfers
+      description: |
+        Retrieve a transfer task. By default only the top level attributes are included in the result.
+        The top level attributes are: tenantId, uuid, status, username, tag, created, startTime, endTime, errorMessage.
+        The query parameter *includeSummary* may be set to *true* to also include totalTransfers, completeTransfers
+        and estimatedTotalBytes. The default for *includeSummary* is *false*.
+
+        Certain services may use the query parameter *impersonationId* to be used in place of the requesting
+        Tapis user. Tapis will use this user Id when performing authorization and resolving the *effectiveUserId*
+        for the system.
+
+        TransferTask attributes:
+          - *tenantId*: tenant associated with the transfer task.
+          - *uuid*: Unique id of the transfer task.
+          - *tag*: Optional tag provided by user who requested the transfer.
+          - *username*: Tapis user who requested the transfer. 
+          - *status*: ACCEPTED, STAGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, FAILED_OPT, PAUSED
+          - *created*: Timestamp 
+          - *startTime*: Timestamp
+          - *endTime*: Timestamp
+          - *errorMessage*: Error message, if applicable.
+          - *totalTransfers*: Total number of child transfers requested.
+          - *completeTransfers*: Number of child transfers completed.
+          - *estimatedTotalBytes*: Estimate of total number of bytes transferred by all child tasks.
+      operationId: getTransferTask
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: transferTaskId
+          in: path
+          description: Transfer task ID
+          required: true
+          schema:
+            type: string
+          example: 6491c2a5-acb2-40ef-b2c0-bc1fc4cd7e6c
+        - name: includeSummary
+          in: query
+          description: Indicates if summary information such as *estimatedTotalBytes* should be included.
+          schema:
+            type: boolean
+        - name: impersonationId
+          in: query
+          description: Restricted. Only certain services may impersonate a Tapis user.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTaskResponse'
+    delete:
+      tags:
+        - Transfers
+      description: |
+        Request that a transfer task be cancelled.
+      operationId: cancelTransferTask
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: transferTaskId
+          in: path
+          description: Transfer task ID
+          required: true
+          schema:
+            type: string
+          example: 6491c2a5-acb2-40ef-b2c0-bc1fc4cd7e6c
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringResponse'
+  /v3/files/transfers/{transferTaskId}/details:
+    get:
+      tags:
+        - Transfers
+      description: |
+        Retrieve all information for a transfer task, including totalTransfers, completedTransfers, estimatedTotalBytes,
+        list of parents and list of children for each parent.
+
+        Certain services may use the query parameter *impersonationId* to be used in place of the requesting
+        Tapis user. Tapis will use this user Id when performing authorization and resolving the *effectiveUserId*
+        for the system.
+
+        For more information on transfer task attributes please see *getTransferTask*.
+      operationId: getTransferTaskDetails
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: transferTaskId
+          in: path
+          description: Transfer task ID
+          required: true
+          schema:
+            type: string
+          example: 6491c2a5-acb2-40ef-b2c0-bc1fc4cd7e6c
+        - name: impersonationId
+          in: query
+          description: Restricted. Only certain services may impersonate a Tapis user.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTaskResponse'
+
+  # --- Paths for /files/permissions ---------------------------------------------
+  /v3/files/permissions/{systemId}/{path}:
+    get:
+      tags:
+        - Permissions
+      description: |
+        Get the Tapis permissions for a user for the system and path.
+        If no user specified then permissions are retrieved for the user making the request.
+      operationId: getPermissions
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: Username to list
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FilePermission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilePermissionResponse'
+    post:
+      tags:
+        - Permissions
+      description: |
+        Grant access to a path for a user. Access may be READ or MODIFY. MODIFY implies READ.
+      operationId: grantPermissions
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePermissionRequest'
+        required: true
+      responses:
+        '200':
+          description: FilePermission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilePermissionResponse'
+    delete:
+      tags:
+        - Permissions
+      description: |
+        Revoke access for a user for the system and path. All access is revoked.
+      operationId: deletePermissions
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          description: System ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: Path relative to the system *rootDir*
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: Username to remove
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FilePermission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringResponse'
+
+  # --- Paths for /share and /unshare -------------------------------------------------------
+  '/v3/files/share/{systemId}/{path}':
+    get:
+      tags:
+        - Sharing
+      summary: Retrieve all sharing information for a path on a system
+      description: |
+        Retrieve all sharing information for a path on a system. This includes all users with whom the path
+        has been shared and whether or not the path has been made publicly available.
+        Sharing a path grants users READ access to the path or, in the context of running a job, it grants users READ
+        and MODIFY access to the path.
+      operationId: getShareInfo
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespShareInfo'
+        '400':
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '404':
+          description: System not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+    post:
+      tags:
+        - Sharing
+      summary: Share a path on a system with one or more users.
+      description: |
+        Create or update sharing information for a path on a system. The path will be shared with the list of users
+        provided in the request body. Requester must be owner of the system. For LINUX systems path sharing is
+        hierarchical.
+        Sharing a path grants users READ access to the path or, in the context of running a job, it grants users READ
+        and MODIFY access to the path.
+      operationId: sharePath
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: A JSON object specifying updated sharing information.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReqShareUpdate'
+      responses:
+        '200':
+          description: Sharing information updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '400':
+          description: Input error. Invalid JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+
+  '/v3/files/share_public/{systemId}/{path}':
+    post:
+      tags:
+        - Sharing
+      summary: Share a path on a system publicly with all users in the tenant.
+      description: |
+        Share a path on a system with all users in the tenant. Requester must be owner of the system.
+        Sharing a path grants users READ access to the path or, in the context of running a job, it grants users READ
+        and MODIFY access to the path.
+      operationId: sharePathPublic
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Path shared publicly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+
+  '/v3/files/unshare/{systemId}/{path}':
+    post:
+      tags:
+        - Sharing
+      summary: Unshare a path on a system with one or more users.
+      description: |
+        Create or update sharing information for a path on a system. The path will be unshared with the list of users
+        provided in the request body. Requester must be owner of the system.
+      operationId: unSharePath
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: A JSON object specifying updated sharing information.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReqShareUpdate'
+      responses:
+        '200':
+          description: Sharing information updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '400':
+          description: Input error. Invalid JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+
+  '/v3/files/unshare_public/{systemId}/{path}':
+    post:
+      tags:
+        - Sharing
+      summary: Remove public access for a path on a system.
+      description: |
+        Remove public sharing for a path on a system. Requester must be owner of the system.
+      operationId: unSharePathPublic
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Path public access removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+
+  '/v3/files/unshare_all/{systemId}/{path}':
+    post:
+      tags:
+        - Sharing
+      summary: Remove all shares for a path on a system including public access.
+      description: |
+        Remove all shares for a path on a system including public access. This will also be done for all sub-paths.
+      operationId: unSharePathAll
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: recurse
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: All share access removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespBasic'
+
+  # --- Paths for PostIts  -------------------------------------------------------
+  '/v3/files/postits/{systemId}/{path}':
+    post:
+      summary: Create a PostIt
+      tags: 
+        - PostIts
+      description: |
+        Create a PostIt.  The PostIt will grant access to a file url.
+        The newly created PostIt can be redeemed by anyone without 
+        further authorization.  This will nearly identical to calling
+        the files service getContents endpoint.
+      operationId: createPostIt
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: systemId
+          description: The name of the system to create the PostIt for.
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdString'
+        - name: path
+          in: path
+          required: true
+          description: Path relative to the system *rootDir*
+          example: /DirectoryA/DirectoryB/file.txt
+          schema: 
+            type: string
+      requestBody:
+        required: true
+        description: A JSON document describing the PostIt to be created.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostItRequest'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostItResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+  '/v3/files/postits':
+    get:
+      summary: List PostIts.
+      tags: 
+        - PostIts
+      description: |
+        Retrieve a list of all PostIts.  Use *listType* and *select* query 
+        parameters to limit results. Query parameter *listType* allows for filtering 
+        results based on authorization. Options for *listType* are
+          - *OWNED* Include only items owned by requester (Default)
+          - *ALL* Include all items requester is authorized to view. (Tenant admins can view all PostIts in their tenant).
+      operationId: listPostIts
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: listType
+          in: query 
+          schema: 
+            $ref: '#/components/schemas/ListTypeEnum'
+        - name: limit
+          in: query
+          description: Limit number of items returned. For example limit=10. Use -1 for unlimited. Default is 100.
+          schema:
+            type: integer
+            default: 100
+        - name: orderBy
+          in: query
+          description: Attribute for sorting. Direction may be included. For example orderBy=id(desc). Default direction is (asc).
+          schema:
+            type: string
+        - name: skip
+          in: query
+          description: Number of items to skip. Use one of skip or startAfter. For example skip=10. Default is 0.
+          schema:
+            type: integer
+        - name: startAfter
+          in: query
+          description: Where to start when sorting. Use one of skip or startAfter. Must also specify orderBy. For example, limit=10&orderBy=id(asc)&startAfter=&lt;postitid&gt;
+          schema:
+            type: string
+        - name: select
+          in: query
+          description: List of attributes to be included as part of each result item. Keywords *allAttributes* and *summaryAttributes* are supported. For example select=id,owner,path
+          schema:
+            type: string
+            default: 'summaryAttributes'
+
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostItListResponse'    
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+  '/v3/files/postits/{postitId}':
+    get:
+      summary: Get PostIt.
+      tags: 
+        - PostIts
+      description: Get a single PostIt.  This does not redeem the PostIt. 
+      operationId: getPostIt
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: postitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostItResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    patch:
+      summary: Modify a PostIt
+      tags: 
+        - PostIts
+      description: |
+        Update selected fields of a PostIt. 
+      operationId: updatePostIt
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: postitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: A JSON document describing the PostIt to be updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostItRequest'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostItResponse'          
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+    delete:
+      summary: Delete a PostIt
+      tags: 
+        - PostIts
+      description: Delete a PostIt. 
+      operationId: deletePostIt
+      security:
+        - TapisJWT: []
+      parameters:
+        - name: postitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespChangeCount'
+
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+  '/v3/files/postits/redeem/{postitId}':
+    get:
+      summary: Redeem PostIt.
+      tags: 
+        - PostIts
+      description: Redeem a PostIt.  This will return the file that is pointed to by the PostIt.  No authentication is required.
+        If the *zip* query param is provided it controls if the content is zipped or not.  If zip is not provided, it defaults
+        to false unless the path pointed to by the PostIt is a directory.  In the case of a directory, the default is zip=true.
+        Directories must by redeemed in zipped format, so either accept the default, or specify zip=true.
+      operationId: redeemPostIt
+      parameters:
+        - name: postitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zip
+          in: query
+          description: Indicates a zip output stream should be provided.  If zip is not provided it defaults to false unless
+            the path is a directory.  In the case of a directory the content will be zipped.
+          schema:
+            type: boolean
+          example: false
+        - name: download
+          in: query
+          description: If set to true, this will force a browser to initiate a file download.  If set to false, the content-disposition header will be set to inline causing the browser to render the document.  If download is not provided it defaults to false. 
+          schema:
+            type: boolean
+          example: false
+      responses:
+        '200':
+          description: Success.
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '403':
+          description: Permission Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStringResponse'
+
+# ------------------------------------------------------------------------------
+# --- Components ---------------------------------------------------------------
+# ------------------------------------------------------------------------------
+components:
+  securitySchemes:
+    TapisJWT:
+      type: apiKey
+      description: Tapis signed JWT token authentication
+      name: X-Tapis-Token
+      in: header
+  schemas:
+    # ------------------------------------------------------------------------------
+    # --- Model objects ------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    HeaderByteRange:
+      type: object
+      properties:
+        min:
+          type: integer
+          format: int64
+        max:
+          type: integer
+          format: int64
+    # --- FileInfo -----------------------------------------------------------------
+    FileInfo:
+      type: object
+      properties:
+        mimeType:
+          type: string
+        type:
+          $ref: '#/components/schemas/FileTypeEnum'
+        owner:
+          type: string
+        group:
+          type: string
+        nativePermissions:
+          type: string
+        url:
+          type: string
+        lastModified:
+          type: string
+          format: date-time
+        name:
+          type: string
+        path:
+          type: string
+        size:
+          type: integer
+          description: size in kB
+          format: int64
+    # --- FileStatInfo -----------------------------------------------------------------
+    FileStatInfo:
+      type: object
+      properties:
+        absolutePath:
+          type: string
+        uid:
+          type: integer
+          format: int32
+        gid:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int64
+        perms:
+          type: string
+        accessTime:
+          type: integer
+          format: int64
+        modifyTime:
+          type: integer
+          format: int64
+        dir:
+          type: boolean
+        link:
+          type: boolean
+    # --- AclEntryInfo -----------------------------------------------------------------
+    AclEntryInfo:
+      type: object
+      properties:
+        defaultAcl:
+          type: boolean
+        type:
+          type: string
+        principal:
+          type: string
+        permissions:
+          type: string
+    FileListingResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    # --- FilePermission -----------------------------------------------------------
+    FilePermission:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        username:
+          type: string
+        systemId:
+          type: string
+        path:
+          type: string
+        permission:
+          $ref: '#/components/schemas/PermEnum'
+    SharedFileObject:
+      type: object
+      properties:
+        creator:
+          type: string
+          description: Username who shared the file/directory
+        sharedWith:
+          type: string
+          description: Username who was granted access
+        created:
+          type: string
+          description: Creation timestamp in UTC
+        expiresIn:
+          type: integer
+          description: Number of seconds in which the share was set to expire.
+          format: int32
+        url:
+          type: string
+          description: Link to the shared file.
+    ShareFileRequest:
+      required:
+        - expiresIn
+        - username
+      type: object
+      properties:
+        username:
+          type: string
+          description: The user with which to share
+        expiresIn:
+          maximum: 604800
+          minimum: 1
+          type: integer
+          description: Time in seconds of expiration. minimum=1, maximum=604800 (1
+            week)
+          format: int32
+    # --- TransferTask -------------------------------------------------------------
+    TransferTask:
+      type: object
+      properties:
+        username:
+          type: string
+        tenantId:
+          type: string
+        tag:
+          type: string
+        uuid:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TransferStatusEnum'
+        parentTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransferTaskParent'
+        estimatedTotalBytes:
+          type: integer
+          format: int64
+        totalBytesTransferred:
+          type: integer
+          format: int64
+        totalTransfers:
+          type: integer
+          format: int32
+        completeTransfers:
+          type: integer
+          format: int32
+        errorMessage:
+          type: string
+        created:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+    # --- TransferTaskParent -------------------------------------------------------
+    TransferTaskParent:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        username:
+          type: string
+        sourceURI:
+          type: string
+        destinationURI:
+          type: string
+        totalBytes:
+          type: integer
+          format: int64
+        bytesTransferred:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int32
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransferTaskChild'
+        errorMessage:
+          type: string
+        uuid:
+          type: string
+          description: Unique ID of the task.
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TransferStatusEnum'
+        created:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+    # --- TransferTaskChild --------------------------------------------------------
+    TransferTaskChild:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        username:
+          type: string
+        sourceURI:
+          type: string
+        destinationURI:
+          type: string
+        totalBytes:
+          type: integer
+          format: int64
+        bytesTransferred:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int32
+        errorMessage:
+          type: string
+        parentTaskId:
+          type: integer
+          format: int32
+        retries:
+          type: integer
+          format: int32
+        dir:
+          type: boolean
+        uuid:
+          type: string
+          description: Unique ID of the task.
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TransferStatusEnum'
+        created:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+    # --- PostIt -------------------------------------------------------------
+    PostIt:
+      type: object
+      properties:
+        postitId:
+          type: string
+          format: uuid
+          description: The unique ID of the PostIt.
+        systemId:
+          type: string
+          description: The ID of the system where the file pointed to by the PostIt resides.
+        owner:
+          type: string
+          description: The owner of the PostIt.
+        tenantId:
+          type: string
+          description: the tenant that tthe PostIt belongs to.
+        path:
+          type: string
+          description: Path relative to the system *rootDir*
+        allowedUses:
+          type: integer
+          format: int32
+          description: The number of times the PostIt may be redeemed.  This number minus *uses* is the number of uses remaining.
+        timesUsed:
+          type: integer
+          format: int32
+          description: The number of times the PostIt has already been retrieved.
+        jwtUser:
+          type: string
+          description: Authenticated user from the JWT (may be different than OBO user).
+        jwtTenantId:
+          type: string
+          description: Tenant of authenticated user from the JWT (may be different than OBO user's tenant).
+
+        redeemUrl:
+          type: string
+          description: The url to use to retrieve the file pointed to by the PostIt.
+        expiration:
+          type: string
+          format: date-time
+          description: The expiration date/time of the PostIt.
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp in UTC
+        updated:
+          type: string
+          format: date-time
+          description: Last update timestamp in UTC
+    # --- String types with constraints ------------------------------------
+    IdString:
+      type: string
+      minLength: 1
+      maxLength: 80
+    UserNameString:
+      type: string
+      minLength: 1
+      maxLength: 60
+    # -------------------------------------------------------------------------
+    # --- Request objects -----------------------------------------------------
+    # -------------------------------------------------------------------------
+    MkdirRequest:
+      required:
+        - path
+      type: object
+      properties:
+        path:
+          pattern: ^(?!.*\.\.).*
+          type: string
+    MoveCopyRequest:
+      required:
+        - newPath
+        - operation
+      type: object
+      properties:
+        operation:
+          type: string
+          enum:
+            - MOVE
+            - COPY
+        newPath:
+          type: string
+          description: Paths must be absolute, ../.. is not allowed
+    CreatePermissionRequest:
+      required:
+        - permission
+        - username
+      type: object
+      properties:
+        username:
+          type: string
+        permission:
+          $ref: '#/components/schemas/PermEnum'
+    ReqShareUpdate:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UserNameString'
+    ReqTransfer:
+      required:
+        - elements
+      type: object
+      properties:
+        tag:
+          type: string
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReqTransferElement'
+    ReqTransferElement:
+      required:
+        - destinationURI
+        - sourceURI
+      type: object
+      properties:
+        sourceURI:
+          type: string
+        destinationURI:
+          type: string
+        optional:
+          type: boolean
+          default: false
+          description: Allow the full transfer to succeed even if this element fails.
+        transferType:
+          type: string
+          enum:
+          - TRANSFER
+          - SERVICE_MOVE_DIRECTORY_CONTENTS
+          - SERVICE_MOVE_FILE_OR_DIRECTORY
+          default: null
+          description: |
+            If this value is set to anything other than TRANSFER, both the source and target MUST,
+            be on the same tapis system.  If the value is SERVICE_MOVE_DIRECTORY_CONTENTS, the 
+            source URI is expected to be a directory, and the contents of that directory will be
+            transfered to the target URI.  The target must be an existing directory or the operation
+            will fail.  If the value is SERVICE_MOVE_FILE_OR_DIRECTORY the file or directory will
+            be moved to the target URI.  If the target already exists, it will be overwritten.
+        srcSharedCtx:
+          $ref: '#/components/schemas/UserNameString'
+        destSharedCtx:
+          $ref: '#/components/schemas/UserNameString'
+    NativeLinuxOpRequest:
+      required:
+        - argument
+        - operation
+      type: object
+      properties:
+        operation:
+          type: string
+          enum:
+            - CHMOD
+            - CHOWN
+            - CHGRP
+        argument:
+          type: string
+          description: Argument for native linux operation
+    NativeLinuxSetFaclRequest:
+      required:
+        - operation
+        - aclString
+      type: object
+      properties:
+        operation: 
+          type: string
+          enum:
+            - ADD
+            - REMOVE
+            - REMOVE_DEFAULT
+            - REMOVE_ALL
+        recursionMethod:
+          type: string
+          enum:
+            - NONE
+            - PHYSICAL
+            - LOGICAL
+          default: NONE
+          description: |
+            Recursion may be set to physical (don't follow symlinks) or
+            logical (follow symlinks), or none (don't recurse).
+        aclString:
+          type: string
+          description: |
+            specifies the actual acl string to set.  Multiple acls may be separated by 
+            commas.
+            Examples - user:myuser:rwx,group 
+                       group:mygroup:rw 
+                       user:myuser:rwx,group,group:mygroup:rw 
+    CreatePostItRequest:
+      type: object
+      properties:
+        allowedUses:
+          type: integer
+          format: int32
+          description: | 
+            Number of times that the new PostIt can be redeemed. The
+            default is one use.  Setting the value to -1 (negative one)
+            will allow the PostIt to be redeemed an unlimited number of
+            times.
+          default: 1
+        validSeconds:
+          type: integer
+          format: int32
+          description: | 
+            Number of seconds until the PostIt expires.  
+            Default is 30 days.
+          default: 2592000
+
+    UpdatePostItRequest:
+      type: object
+      properties:
+        allowedUses:
+          type: integer
+          format: int32
+          description: Number of times that the new PostIt can be redeemed.
+        expiration:
+          type: string
+          format: date-time
+          description: Expiration date of the PostIt.
+        unlimited:
+          type: boolean
+          description: If set to true, this PostIt will have unlimited uses and not expire.
+
+      
+    # -------------------------------------------------------------------------
+    # --- Response objects ----------------------------------------------------
+    # -------------------------------------------------------------------------
+    RespBasic:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        result:
+          type: object
+        metadata:
+          type: object
+    FileStringResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    StringResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    RespString:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    RespChangeCount:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        result:
+          $ref: '#/components/schemas/ResultChangeCount'
+        metadata:
+          type: object
+    ResultChangeCount:
+      type: object
+      properties:
+        changes:
+          type: integer
+          format: int32
+          example: 1
+    RespFileList:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    FileStatInfoResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/FileStatInfo'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    NativeLinuxOpResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/NativeLinuxOpResultResponse'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    NativeLinuxOpResultResponse:
+      type: object
+      properties:
+        command:
+          type: string
+        exitCode:
+          type: integer
+          format: int32
+        stdOut:
+          type: string
+        stdErr:
+          type: string
+    NativeLinuxSetFaclResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/NativeLinuxSetFaclResult'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    NativeLinuxSetFaclResult:
+      type: object
+      properties:
+        command:
+          type: string
+        exitCode:
+          type: integer
+          format: int32
+        stdOut:
+          type: string
+        stdErr:
+          type: string
+    NativeLinuxGetFaclResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          items:
+            $ref: '#/components/schemas/AclEntryInfo'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+        
+    FilePermissionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/FilePermission'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    RespShareInfo:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        result:
+          $ref: '#/components/schemas/ResultShareInfo'
+        metadata:
+          type: object
+    ResultShareInfo:
+      type: object
+      properties:
+        isPublic:
+          type: boolean
+          description: Indicates given path is shared publicly
+        isPublicPath:
+          type: string
+          description: Path that resulted in specified path being shared publicly
+        userSet:
+          type: array
+          description: Set of users with whom the path is shared.
+          items:
+            $ref: '#/components/schemas/UserNameString'
+        userShareInfoSet:
+          type: array
+          description: List of additional share information for each user.
+          items:
+            $ref: '#/components/schemas/UserShareInfo'
+    UserShareInfo:
+      type: object
+      properties:
+        username:
+          $ref: '#/components/schemas/UserNameString'
+        path:
+          type: string
+          description: Path that resulted in specified path being shared with the user
+    TransferTaskResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/TransferTask'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    TransferTaskListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransferTask'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    PostItResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          $ref: '#/components/schemas/PostIt'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    PostItListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostIt'
+        version:
+          type: string
+        commit:
+          type: string
+        build:
+          type: string
+        metadata:
+          type: object
+    # -------------------------------------------------------------------------
+    # --- Enums ---------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    TransferStatusEnum:
+      type: string
+      description: The status of the task, such as ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+      example: PENDING
+      enum:
+        - ACCEPTED
+        - STAGED
+        - IN_PROGRESS
+        - COMPLETED
+        - CANCELLED
+        - FAILED
+        - FAILED_OPT
+        - PAUSED
+    PermEnum:
+      type: string
+      enum:
+        - READ
+        - MODIFY
+    ListTypeEnum:
+      type: string
+      default: OWNED
+      enum:
+        - OWNED
+        - ALL
+    FileTypeEnum:
+      type: string
+      enum:
+        - file
+        - dir
+        - symbolic_link
+        - other
+        - unknown
+

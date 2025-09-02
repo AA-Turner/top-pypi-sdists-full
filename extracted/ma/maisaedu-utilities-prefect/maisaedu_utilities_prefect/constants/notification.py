@@ -1,2 +1,0 @@
-SLACK = 'slack'
-TEAMS = 'teams'

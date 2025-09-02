@@ -1,0 +1,14 @@
+name: cppimport
+channels:
+  - conda-forge
+dependencies:
+  - pybind11
+  - mako
+  - black
+  - regex>=2021
+  - flake8
+  - isort
+  - pytest
+  - pytest-cov
+  - pre-commit
+  - filelock

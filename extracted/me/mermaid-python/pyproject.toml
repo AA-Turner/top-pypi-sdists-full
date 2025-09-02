@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mermaid-python"
+version = "0.1"
+dependencies = [
+    "ipython"
+]
+description = "A package for generating diagrams using Mermaid JS"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools.packages]
+find = {}  # Scan the project directory with the default parameters

@@ -1,0 +1,58 @@
+Metadata-Version: 2.1
+Name: PyFlume
+Version: 0.8.7
+Summary: Package to integrate with Flume Sensor
+Home-page: https://github.com/ChrisMandich/PyFlume
+Author: ChrisMandich
+Author-email: Chris@Mandich.net
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyjwt
+Requires-Dist: ratelimit
+Requires-Dist: requests
+Requires-Dist: backports.zoneinfo; python_version < "3.9"
+
+# Flume API Integration
+## Overview
+The Flume API Integration provides a comprehensive set of classes and methods to interact with various Flume endpoints. This integration allows developers to retrieve and manage notifications, usage alerts, devices, leak alerts, data, and authentication within the Flume environment.
+
+## Retrieve API Key
+You can find your Client ID and Client Secret under "API Access" on the [settings page](https://portal.flumewater.com/settings). These credentials are essential for interacting with the Flume API.
+
+## Modules
+Below are the details of each module, each documented in its corresponding file:
+
+### Notifications
+Retrieve notifications from the Flume API, including filtering based on the read status.
+- [Read the Notifications documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/notifications.md)
+
+### Usage Alerts
+Manage and retrieve usage alert notifications from the Flume API.
+- [Read the Usage Alerts documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/usage.md)
+
+### Devices
+Retrieve information related to Flume devices, including their list from the API.
+- [Read the Devices documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/devices.md)
+
+### Leak Alerts
+Manage and retrieve leak notifications from the Flume API.
+- [Read the Leak Alerts documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/leak.md)
+
+### Data Retrieval
+Retrieve and update data from the Flume API, working with authentication and various data endpoints.
+- [Read the Data Retrieval documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/data.md)
+
+### Authentication
+Authentication module to handle tokens and user credentials within the Flume environment.
+- [Read the Authentication documentation](https://github.com/ChrisMandich/PyFlume/blob/master/docs/auth.md)
+
+## Getting Started
+To get started with the Flume API Integration, refer to the individual documentation files for each module. They provide detailed information on dependencies, initialization, methods, and example usage.
+
+For any questions or additional support, please refer to the official Flume API documentation or contact the development team.
+
+## Contributing
+Feel free to contribute to the codebase by opening issues, submitting pull requests, or suggesting improvements.

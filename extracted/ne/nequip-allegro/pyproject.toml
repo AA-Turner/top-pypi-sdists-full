@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nequip-allegro"
+dynamic = ["version"]
+description = "Allegro is an open-source code for building highly scalable and accurate equivariant deep learning interatomic potentials."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "The NequIP Developers", email = "allegro-nequip@g.harvard.edu"},
+]
+dependencies = [
+    "nequip>=0.13.0",
+]
+
+[project.urls]
+Repository = "https://github.com/mir-group/allegro"
+
+[tool.setuptools]
+packages = {find = {include = ["allegro", "allegro.*"]}}
+
+[tool.setuptools.dynamic]
+version = {attr = "allegro._version.__version__"}
+
+[tool.ruff]
+line-length = 88
+exclude = [
+    ".eggs",
+    "*.egg",
+    "build",
+    "dist",
+    "docs",
+    ".git",
+    "__pycache__",
+    "examples",
+    "tmp"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90"]
+ignore = ["E226", "E501", "E741", "E743", "C901", "E203"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[project.entry-points."nequip.extension"]
+init_always = "allegro"

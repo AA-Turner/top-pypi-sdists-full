@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: filesizeview
+Version: 0.0.8
+Summary: Graphical display of file sizes on terminal
+Home-page: https://github.com/heiner/filesizeview
+Requires-Python: >=3.0
+Description-Content-Type: text/markdown
+
+
+# filesizeview
+
+> A program to display the contents of a directory as rectangles
+> with sizes according to the files sizes. It is supposed to work
+> like Konqueror's "File Size View", but it uses curses.
+
+Original author (early 2000s): [@mkuettler](https://github.com/mkuettler).
+
+![Screenshot](https://github.com/heiner/filesizeview/blob/master/screenshot.png)
+
+Usage:
+
+```sh
+$ python filesizeview.py path/to/large/dir
+```
+
+Or:
+
+```sh
+pip install filesizeview
+filesizeview path/to/large/dir
+```

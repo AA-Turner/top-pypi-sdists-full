@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: rucio-clients
+Version: 38.1.0
+Summary: Rucio Client Lite Package
+Home-page: https://rucio.cern.ch/
+Author: Rucio
+Author-email: rucio-dev@cern.ch
+License: Apache License, Version 2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.9, <4
+License-File: LICENSE
+License-File: AUTHORS.rst
+Requires-Dist: click
+Requires-Dist: requests
+Requires-Dist: urllib3
+Requires-Dist: dogpile-cache
+Requires-Dist: packaging
+Requires-Dist: tabulate
+Requires-Dist: jsonschema
+Requires-Dist: rich
+Requires-Dist: typing_extensions
+Provides-Extra: ssh
+Requires-Dist: paramiko; extra == "ssh"
+Provides-Extra: kerberos
+Requires-Dist: kerberos; extra == "kerberos"
+Requires-Dist: pykerberos; extra == "kerberos"
+Requires-Dist: requests-kerberos; extra == "kerberos"
+Provides-Extra: swift
+Requires-Dist: python-swiftclient; extra == "swift"
+Provides-Extra: argcomplete
+Requires-Dist: argcomplete; extra == "argcomplete"
+Provides-Extra: sftp
+Requires-Dist: paramiko; extra == "sftp"
+Provides-Extra: dumper
+Requires-Dist: python-magic; extra == "dumper"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

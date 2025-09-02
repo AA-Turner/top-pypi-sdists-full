@@ -1,0 +1,25 @@
+[project]
+name = "airtouch5py"
+version = "0.3.0"
+description = ""
+requires-python = ">=3.10,<4.0"
+authors = [
+    {name = "Dave Leaver", email = "danzel@localhost.geek.nz"}
+]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+bitarray = "^3.4.2"
+crc = "^7.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+ufmt = "^2.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

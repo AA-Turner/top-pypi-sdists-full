@@ -15,9 +15,9 @@ import subprocess as sub
 import sys
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,11 @@ from linopy.constants import (
 )
 
 if TYPE_CHECKING:
+    import gurobipy
+
     from linopy.model import Model
+
+EnvType = TypeVar("EnvType")
 
 QUADRATIC_SOLVERS = [
     "gurobi",
@@ -195,7 +199,7 @@ def maybe_adjust_objective_sign(
     return solution
 
 
-class Solver(ABC):
+class Solver(ABC, Generic[EnvType]):
     """
     Abstract base class for solving a given linear problem.
 
@@ -242,7 +246,7 @@ class Solver(ABC):
         log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
-        env: None = None,
+        env: EnvType | None = None,
         explicit_coordinate_names: bool = False,
     ) -> Result:
         """
@@ -262,7 +266,7 @@ class Solver(ABC):
         log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
-        env: None = None,
+        env: EnvType | None = None,
     ) -> Result:
         """
         Abstract method to solve a linear problem from a problem file.
@@ -281,7 +285,7 @@ class Solver(ABC):
         log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
-        env: None = None,
+        env: EnvType | None = None,
         explicit_coordinate_names: bool = False,
     ) -> Result:
         """
@@ -322,7 +326,7 @@ class Solver(ABC):
         return SolverName[self.__class__.__name__]
 
 
-class CBC(Solver):
+class CBC(Solver[None]):
     """
     Solver subclass for the CBC solver.
 
@@ -503,7 +507,7 @@ class CBC(Solver):
         return Result(status, solution, CbcModel(mip_gap, runtime))
 
 
-class GLPK(Solver):
+class GLPK(Solver[None]):
     """
     Solver subclass for the GLPK solver.
 
@@ -673,7 +677,7 @@ class GLPK(Solver):
         return Result(status, solution)
 
 
-class Highs(Solver):
+class Highs(Solver[None]):
     """
     Solver subclass for the Highs solver. Highs must be installed
     for usage. Find the documentation at https://www.maths.ed.ac.uk/hall/HiGHS/.
@@ -919,7 +923,7 @@ class Highs(Solver):
         return Result(status, solution, h)
 
 
-class Gurobi(Solver):
+class Gurobi(Solver["gurobipy.Env | dict[str, Any] | None"]):
     """
     Solver subclass for the gurobi solver.
 
@@ -942,7 +946,7 @@ class Gurobi(Solver):
         log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
-        env: None = None,
+        env: gurobipy.Env | dict[str, Any] | None = None,
         explicit_coordinate_names: bool = False,
     ) -> Result:
         """
@@ -962,8 +966,8 @@ class Gurobi(Solver):
             Path to the warmstart file.
         basis_fn : Path, optional
             Path to the basis file.
-        env : None, optional
-            Gurobi environment for the solver
+        env : gurobipy.Env or dict, optional
+            Gurobi environment for the solver, pass env directly or kwargs for creation.
         explicit_coordinate_names : bool, optional
             Transfer variable and constraint names to the solver (default: False)
 
@@ -974,6 +978,8 @@ class Gurobi(Solver):
         with contextlib.ExitStack() as stack:
             if env is None:
                 env_ = stack.enter_context(gurobipy.Env())
+            elif isinstance(env, dict):
+                env_ = stack.enter_context(gurobipy.Env(params=env))
             else:
                 env_ = env
 
@@ -998,7 +1004,7 @@ class Gurobi(Solver):
         log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
-        env: None = None,
+        env: gurobipy.Env | dict[str, Any] | None = None,
     ) -> Result:
         """
         Solve a linear problem from a problem file using the Gurobi solver.
@@ -1017,8 +1023,8 @@ class Gurobi(Solver):
             Path to the warmstart file.
         basis_fn : Path, optional
             Path to the basis file.
-        env : None, optional
-            Gurobi environment for the solver
+        env : gurobipy.Env or dict, optional
+            Gurobi environment for the solver, pass env directly or kwargs for creation.
 
         Returns
         -------
@@ -1031,6 +1037,8 @@ class Gurobi(Solver):
         with contextlib.ExitStack() as stack:
             if env is None:
                 env_ = stack.enter_context(gurobipy.Env())
+            elif isinstance(env, dict):
+                env_ = stack.enter_context(gurobipy.Env(params=env))
             else:
                 env_ = env
 
@@ -1150,7 +1158,7 @@ class Gurobi(Solver):
         return Result(status, solution, m)
 
 
-class Cplex(Solver):
+class Cplex(Solver[None]):
     """
     Solver subclass for the Cplex solver.
 
@@ -1221,6 +1229,17 @@ class Cplex(Solver):
         CONDITION_MAP = {
             "integer optimal solution": "optimal",
             "integer optimal, tolerance": "optimal",
+            "integer infeasible": "infeasible",
+            "time limit exceeded": "time_limit",
+            "time limit exceeded, no integer solution": "infeasible",
+            "error termination": "error",
+            "error termination, no integer solution": "error",
+            "memory limit exceeded": "internal_solver_error",
+            "memory limit exceeded, no integer solution": "internal_solver_error",
+            "aborted": "user_interrupt",
+            "integer unbounded": "unbounded",
+            "integer infeasible or unbounded": "infeasible_or_unbounded",
+            "Unknown status value": "unknown",
         }
         io_api = read_io_api_from_problem_file(problem_fn)
         sense = read_sense_from_problem_file(problem_fn)
@@ -1295,7 +1314,7 @@ class Cplex(Solver):
         return Result(status, solution, m)
 
 
-class SCIP(Solver):
+class SCIP(Solver[None]):
     """
     Solver subclass for the SCIP solver.
 
@@ -1448,7 +1467,7 @@ class SCIP(Solver):
         return Result(status, solution, m)
 
 
-class Xpress(Solver):
+class Xpress(Solver[None]):
     """
     Solver subclass for the xpress solver.
 
@@ -1585,7 +1604,7 @@ class Xpress(Solver):
 mosek_bas_re = re.compile(r" (XL|XU)\s+([^ \t]+)\s+([^ \t]+)| (LL|UL|BS)\s+([^ \t]+)")
 
 
-class Mosek(Solver):
+class Mosek(Solver[None]):
     """
     Solver subclass for the Mosek solver.
 
@@ -1915,7 +1934,7 @@ class Mosek(Solver):
         return Result(status, solution)
 
 
-class COPT(Solver):
+class COPT(Solver[None]):
     """
     Solver subclass for the COPT solver.
 
@@ -2030,9 +2049,9 @@ class COPT(Solver):
 
         # TODO: check if this suffices
         condition = m.MipStatus if m.ismip else m.LpStatus
-        termination_condition = CONDITION_MAP.get(condition, condition)
+        termination_condition = CONDITION_MAP.get(condition, str(condition))
         status = Status.from_termination_condition(termination_condition)
-        status.legacy_status = condition
+        status.legacy_status = str(condition)
 
         def get_solver_solution() -> Solution:
             # TODO: check if this suffices
@@ -2056,7 +2075,7 @@ class COPT(Solver):
         return Result(status, solution, m)
 
 
-class MindOpt(Solver):
+class MindOpt(Solver[None]):
     """
     Solver subclass for the MindOpt solver.
 
@@ -2199,7 +2218,7 @@ class MindOpt(Solver):
         return Result(status, solution, m)
 
 
-class PIPS(Solver):
+class PIPS(Solver[None]):
     """
     Solver subclass for the PIPS solver.
     """

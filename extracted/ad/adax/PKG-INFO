@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: adax
+Version: 0.4.0
+Summary: A python3 library to communicate with Adax
+Home-page: https://github.com/Danielhiversen/pyAdax
+Author: Daniel Hjelseth Hoyer
+Author-email: mail@dahoiv.net
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.5.3
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.0.6
+Requires-Dist: async_timeout>=3.0.0
+
+A python3 library to communicate with Adax

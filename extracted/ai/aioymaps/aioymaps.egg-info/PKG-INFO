@@ -1,0 +1,62 @@
+Metadata-Version: 2.1
+Name: aioymaps
+Version: 1.2.5
+Summary: Async client for Yandex Maps
+Home-page: https://github.com/devbis/aioymaps/
+Author: Ivan Belokobylskiy
+Author-email: belokobylskij@gmail.com
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.0.0
+
+``aioymaps`` is an asynchronous library provides API to fetch json information
+about transport stops from Yandex Maps
+
+
+Requirements
+============
+``aioymaps`` requires python 3.5 or higher due to async/await syntax and aiohttp
+library
+
+
+Installation
+============
+
+Use pip to install the library:
+::
+
+    pip install aioymaps
+
+Or install manually.
+::
+
+    sudo python ./setup.py install
+
+
+Usage
+=====
+::
+
+    from aioymaps import YandexMapsRequester
+
+    requester = YandexMapsRequester()
+    data = await requester.get_stop_info('stop__10067199')
+    print(data)
+
+
+Or you can use it in your shell:
+::
+
+    python -m aioymaps -s group__219
+

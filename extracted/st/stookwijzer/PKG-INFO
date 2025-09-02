@@ -1,0 +1,32 @@
+Metadata-Version: 2.2
+Name: stookwijzer
+Version: 1.6.1
+Summary: Stookwijzer package
+Home-page: https://github.com/fwestenberg/stookwijzer
+Download-URL: https://github.com/fwestenberg/stookwijzer/releases/latest
+Author: fwestenberg
+Author-email: 
+License: MIT
+Keywords: Stookwijzer,Home-Assistant
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: pytz
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
+
+Stookwijzer package

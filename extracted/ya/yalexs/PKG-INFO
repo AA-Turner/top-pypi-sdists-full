@@ -1,0 +1,122 @@
+Metadata-Version: 2.3
+Name: yalexs
+Version: 9.0.1
+Summary: Python API for Yale Access (formerly August) Smart Lock and Doorbell
+License: MIT
+Author: J. Nick Koston
+Author-email: nick@koston.org
+Requires-Python: >=3.10,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Dist: aiofiles (>=23)
+Requires-Dist: aiohttp (>=3.10.5)
+Requires-Dist: ciso8601 (>=2.1.3)
+Requires-Dist: freenub (>=0.1.0)
+Requires-Dist: propcache (>=0.0.0)
+Requires-Dist: pyjwt (>=2.8.0)
+Requires-Dist: python-dateutil (>=2.9.0)
+Requires-Dist: python-socketio[asyncio-client] (>=5.11.3)
+Requires-Dist: requests (>=2)
+Requires-Dist: typing-extensions (>=4.5.0)
+Project-URL: Bug Tracker, https://github.com/bdraco/yalexs/issues
+Project-URL: Changelog, https://github.com/bdraco/yalexs/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://yalexs.readthedocs.io
+Project-URL: Repository, https://github.com/bdraco/yalexs
+Description-Content-Type: text/markdown
+
+# yalexs [![PyPI version](https://badge.fury.io/py/yalexs.svg)](https://badge.fury.io/py/yalexs) [![Build Status](https://github.com/bdraco/yalexs/workflows/CI/badge.svg)](https://github.com/bdraco/yalexs) [![codecov](https://codecov.io/gh/bdraco/yalexs/branch/master/graph/badge.svg)](https://codecov.io/gh/bdraco/yalexs) [![Python Versions](https://img.shields.io/pypi/pyversions/yalexs.svg)](https://pypi.python.org/pypi/yalexs/)
+
+Python API for Yale Access (formerly August) Smart Lock and Doorbell. This is used in [Home Assistant](https://home-assistant.io) but should be generic enough that can be used elsewhere.
+
+## Yale Access formerly August
+
+This library is a fork of Joe Lu's excellent august library from https://github.com/snjoetw/py-august
+
+## Classes
+
+### Authenticator
+
+Authenticator is responsible for all authentication related logic, this includes authentication and verifying the account belongs to the user by sending a verification code to email or phone.
+
+#### Constructor
+
+| Argument                  | Description                                                                                                                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| api                       | See Api class.                                                                                                                                                                                                                              |
+| login_method              | Login method, either "phone" or "email".                                                                                                                                                                                                    |
+| username                  | If you're login_method is phone, then this is your full phone# including "+" and country code; otherwise enter your email address here.                                                                                                     |
+| password                  | Password.                                                                                                                                                                                                                                   |
+| install_id\*              | ID that's generated when Yale Access app is installed. If not specified, Authenticator will auto-generate one. If an install_id is provisioned, then it's good to provide the provisioned install_id as you'll bypass verification process. |
+| access_token_cache_file\* | Path to access_token cache file. If specified, access_token info will be cached in the file. Subsequent authentication will utilize information in the file to determine correct authentication state.                                      |
+
+\* means optional
+
+#### Methods
+
+##### authenticate
+
+Authenticates using specified login_method, username and password.
+
+Outcome of this method is an Authentication object. Use Authentication.state figure out authentication state. User is authenticated only if Authentication.state = AuthenticationState.AUTHENTICATED.
+
+If an authenticated access_token is already in the access_token_cache_file, this method will return cached authentication.
+
+##### send_verification_code
+
+Sends a 6-digits verification code to phone or email depending on login_method.
+
+##### validate_verification_code
+
+Validates verification code. This method returns ValidationResult. Check the value to see if verification code is valid or not.
+
+## Install
+
+```bash
+pip install yalexs
+```
+
+## Usage
+
+```python
+import asyncio
+from aiohttp import ClientSession
+
+from yalexs.api_async import ApiAsync
+from yalexs.authenticator_async import AuthenticatorAsync
+from yalexs.const import Brand
+from yalexs.alarm import ArmState
+
+
+async def main():
+    api = ApiAsync(ClientSession(), timeout=20, brand=Brand.YALE_HOME)
+    authenticator = AuthenticatorAsync(api, "email", "EMAIL_ADDRESS", "PASSWORD}",
+        access_token_cache_file="auth.txt",install_id="UUID")
+    await authenticator.async_setup_authentication()
+    authentication = await authenticator.async_authenticate()
+    access_token = authentication.access_token
+
+    # if(authentication.state == AuthenticationState.REQUIRES_VALIDATION) :
+    #   await authenticator.async_send_verification_code()
+    # await authenticator.async_validate_verification_code("12345")
+
+    # DO STUFF HERE LIKE GET THE ALARMS, LOCS, ETC....
+    alarms = await api.async_get_alarms(access_token)
+    locks = api.get_locks(access_token)
+
+    # OR ARM YOUR ALARM
+    await api.async_arm_alarm(access_token, alarms[0], ArmState.Away)
+
+
+
+asyncio.run(main())
+```
+

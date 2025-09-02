@@ -1,0 +1,249 @@
+Metadata-Version: 2.4
+Name: ffmpeg-progress-yield
+Version: 1.0.3
+Summary: Run an ffmpeg command with progress
+Keywords: ffmpeg
+Author: Werner Robitza
+Author-email: Werner Robitza <werner.robitza@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.md
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: tqdm>=4.38.0
+Requires-Python: >=3.9
+Project-URL: Homepage, https://github.com/slhck/ffmpeg-progress-yield
+Project-URL: Repository, https://github.com/slhck/ffmpeg-progress-yield
+Description-Content-Type: text/markdown
+
+# ffmpeg-progress-yield
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-7-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
+
+[![PyPI version](https://img.shields.io/pypi/v/ffmpeg-progress-yield.svg)](https://pypi.org/project/ffmpeg-progress-yield) [![Python package](https://github.com/slhck/ffmpeg-progress-yield/actions/workflows/python-package.yml/badge.svg)](https://github.com/slhck/ffmpeg-progress-yield/actions/workflows/python-package.yml)
+
+Run an ffmpeg command with its progress yielded.
+
+![](ffmpeg-progress-yield.gif)
+
+Contents:
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [As a library](#as-a-library)
+  - [On the command line](#on-the-command-line)
+- [Caveats](#caveats)
+- [Contributors](#contributors)
+- [License](#license)
+
+-------------
+
+## Requirements
+
+- Python 3.9 or higher
+- ffmpeg v3.1 or above from <http://ffmpeg.org/> installed in your \$PATH
+
+## Installation
+
+If you want to use the CLI only, via [uv](https://docs.astral.sh/uv/getting-started/installation/):
+
+```bash
+uvx ffmpeg-progress-yield
+```
+
+Or install via [pipx](https://pipx.pypa.io/latest/installation/).
+
+To install the library:
+
+```bash
+pip3 install --user ffmpeg-progress-yield
+```
+
+## Usage
+
+### As a library
+
+In your Python project, import the helper class, instantiate a context manager, and run `run_command_with_progress`.
+
+For more information see the [API documentation](https://htmlpreview.github.io/?https://github.com/slhck/ffmpeg-progress-yield/blob/master/docs/ffmpeg_progress_yield.html).
+
+Example:
+
+```python
+from ffmpeg_progress_yield import FfmpegProgress
+
+cmd = [
+    "ffmpeg", "-i", "test/test.mp4", "-c:v", "libx264", "-vf", "scale=1920x1080", "-preset", "fast", "-f", "null", "/dev/null",
+]
+
+with FfmpegProgress(cmd) as ff:
+    for progress in ff.run_command_with_progress():
+        print(f"{progress}/100")
+```
+
+The command will yield the current progress in percent as a float number.
+
+`run_command_with_progress` takes a `duration_override` argument where you can manually override the duration of the command in seconds. This is useful if your input doesn't have an implicit duration (e.g. if you use `testsrc`).
+
+If you have `tqdm` installed, you can create a fancy progress bar:
+
+```python
+from tqdm import tqdm
+from ffmpeg_progress_yield import FfmpegProgress
+
+cmd = [
+    "ffmpeg", "-i", "test/test.mp4", "-c:v", "libx264", "-vf", "scale=1920x1080", "-preset", "fast", "-f", "null", "/dev/null",
+]
+
+with FfmpegProgress(cmd) as ff:
+    with tqdm(total=100, position=1, desc="Test") as pbar:
+        for progress in ff.run_command_with_progress():
+            pbar.update(progress - pbar.n)
+
+    # get the output
+    print(ff.stderr)
+```
+
+You can also quit the command early on by calling `.quit()`:
+
+```python
+with FfmpegProgress(cmd) as ff:
+    for progress in ff.run_command_with_progress():
+        if progress > 50:
+            ff.quit()
+            break
+```
+
+This will send a hard quit to the ffmpeg process, and may not wait for it to finish. Your encoded file may have truncated data. To quit gracefully, use `.quit_gracefully()` instead, which sends 'q' to the ffmpeg process, and waits for it to finish (e.g., wait for an encoder to flush its buffers).
+
+This is probably most useful in asynchronous environments, where you can run the command in a separate thread, and quit it from the main thread (e.g. using a [Condition Variable](https://docs.python.org/3/library/threading.html#threading.Condition)).
+
+#### Process Cleanup and Context Manager Support
+
+The library automatically handles process cleanup to prevent lingering ffmpeg processes. It provides multiple layers of safety:
+
+1. **Automatic cleanup**: Processes are automatically cleaned up even if exceptions occur during iteration
+2. **Context manager support**: Use `with` statements for guaranteed cleanup
+3. **Finalizer fallback**: Processes are cleaned up during garbage collection as a last resort
+
+### On the command line
+
+Simply prefix your ffmpeg command with `ffmpeg-progress-yield`:
+
+```bash
+ffmpeg-progress-yield ffmpeg -i input.mp4 output.mp4
+```
+
+It will show a progress bar, and once the command is done, show the ffmpeg stderr output.
+
+Full usage notes:
+
+```
+usage: ffmpeg-progress-yield [-h] [-d DURATION] [-n] [-p] [-x] [-l LOG_FILE] ...
+
+ffmpeg-progress-yield v0.12.0
+
+positional arguments:
+  ffmpeg_command        Any ffmpeg command. Do not quote this argument.
+
+options:
+  -h, --help            show this help message and exit
+  -d, --duration DURATION
+                        Duration of the video in seconds (override). (default: None)
+  -n, --dry-run         Print ffmpeg command and exit. (default: False)
+  -p, --progress-only   Print progress only and do not print stderr at exit. (default: False)
+  -x, --exclude-progress
+                        Exclude progress lines from ffmpeg log. (default: False)
+  -l, --log-file LOG_FILE
+                        Send ffmpeg log output to specified file. (default: None)
+```
+
+#### Duration override
+
+If you want to manually override the duration to, say, 12.5 seconds (e.g. because your input doesn't have an implicit one):
+
+```bash
+ffmpeg-progress-yield --duration 12.5 ffmpeg -f lavfi -i testsrc -t 12.5 output.mp4
+```
+
+#### Exclude progress from the CLI
+
+You can also redirect the output to a log file:
+
+```bash
+ffmpeg-progress-yield --exclude-progress --log-file log.txt ffmpeg -i input.mp4 output.mp4
+```
+
+This will exclude the progress bar from the output, and redirect it to a log file.
+
+## Caveats
+
+Currently, we do not differentiate between `stderr` and `stdout`. This means progress will be mixed with the ffmpeg log, unless you use `--exclude-progress` (or `exclude_progress` in the Python API).
+
+You can also check out [`ffmpeg-progress`](https://github.com/Tatsh/ffmpeg-progress) for a similar project with a different feature set.
+
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="http://slhck.info/"><img src="https://avatars.githubusercontent.com/u/582444?v=4?s=100" width="100px;" alt="Werner Robitza"/><br /><sub><b>Werner Robitza</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=slhck" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/WyattBlue"><img src="https://avatars.githubusercontent.com/u/57511737?v=4?s=100" width="100px;" alt="WyattBlue"/><br /><sub><b>WyattBlue</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=WyattBlue" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kskadart"><img src="https://avatars.githubusercontent.com/u/120260513?v=4?s=100" width="100px;" alt="Kirill Konovalov"/><br /><sub><b>Kirill Konovalov</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=kskadart" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ammgws"><img src="https://avatars.githubusercontent.com/u/20397027?v=4?s=100" width="100px;" alt="Jason Nader"/><br /><sub><b>Jason Nader</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/issues?q=author%3Aammgws" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/LaunchLee"><img src="https://avatars.githubusercontent.com/u/80872691?v=4?s=100" width="100px;" alt="Launch Lee"/><br /><sub><b>Launch Lee</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=LaunchLee" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/scufre"><img src="https://avatars.githubusercontent.com/u/21089866?v=4?s=100" width="100px;" alt="scufre"/><br /><sub><b>scufre</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=scufre" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/AlexanderS"><img src="https://avatars.githubusercontent.com/u/149450?v=4?s=100" width="100px;" alt="Alexander Sulfrian"/><br /><sub><b>Alexander Sulfrian</b></sub></a><br /><a href="https://github.com/slhck/ffmpeg-progress-yield/commits?author=AlexanderS" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td align="center" size="13px" colspan="7">
+        <img src="https://raw.githubusercontent.com/all-contributors/all-contributors-cli/1b8533af435da9854653492b1327a23a4dbd0a10/assets/logo-small.svg">
+          <a href="https://all-contributors.js.org/docs/en/bot/usage">Add your contributions</a>
+        </img>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+## License
+
+The MIT License (MIT)
+
+Copyright (c) 2021-2025 Werner Robitza
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

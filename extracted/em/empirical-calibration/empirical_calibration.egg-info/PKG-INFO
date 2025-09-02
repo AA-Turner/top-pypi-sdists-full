@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: empirical_calibration
+Version: 0.12
+Summary: Package for empirical calibration
+Home-page: https://github.com/google/empirical_calibration
+Author: Google LLC
+Author-email: no-reply@google.com
+License: Apache 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: numpy>=1.11.1
+Requires-Dist: pandas
+Requires-Dist: patsy
+Requires-Dist: scipy
+Requires-Dist: six
+Requires-Dist: scikit-learn

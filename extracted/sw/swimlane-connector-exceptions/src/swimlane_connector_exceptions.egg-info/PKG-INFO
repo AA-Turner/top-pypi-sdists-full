@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: swimlane-connector-exceptions
+Version: 1.0.1
+Summary: Custom exceptions to use in Swimlane Connectors.
+Home-page: https://github.com/swimlane/swimlane-connector-exceptions
+Author: Swimlane
+Author-email: info@swimlane.com
+License: UNKNOWN
+Project-URL: Bug Tracker, https://github.com/swimlane/swimlane-connector-exceptions/issues
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# swimlane-connector-exceptions
+
+This package contains exceptions classes to be used in Swimlane Connectors.
+

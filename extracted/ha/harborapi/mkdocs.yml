@@ -1,0 +1,165 @@
+site_name: harborapi
+
+repo_url: https://github.com/unioslo/harborapi
+repo_name: unioslo/harborapi
+edit_uri: edit/main/docs/
+
+theme:
+  name: "material"
+  palette:
+    scheme: slate
+    primary: deep purple
+    accent: orange
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - navigation.indexes
+    - content.code.copy
+
+plugins:
+  - search
+  - exclude-search:
+      exclude:
+        - reference/client.md
+  - autorefs
+  - mkdocstrings:
+      watch:
+        - harborapi
+      enable_inventory: true
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+          options:
+            docstring_style: numpy
+            members_order: source
+            docstring_section_style: table
+            show_source: false
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - admonition
+  - footnotes
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+nav:
+  - index.md
+  - "Usage":
+      - usage/index.md
+      - usage/authentication.md
+      - usage/models.md
+      - "Methods":
+          - usage/methods/index.md
+          - usage/methods/read.md
+          - usage/methods/create-update.md
+          - usage/methods/delete.md
+      - usage/exceptions.md
+      - usage/validation.md
+      - usage/retry.md
+      - usage/responselog.md
+      - usage/logging.md
+      - usage/async-sync.md
+      - usage/creating-system-robot.md
+      - usage/rich.md
+      - "Extended functionality":
+          - "usage/ext/index.md"
+          - "usage/ext/artifact.md"
+          - "usage/ext/api.md"
+          - "usage/ext/report.md"
+  - "Recipes":
+      - recipes/index.md
+      - "Artifacts":
+          - recipes/artifacts/get-artifact.md
+          - recipes/artifacts/get-artifacts.md
+          - recipes/artifacts/delete-artifact.md
+          - recipes/artifacts/get-artifact-scan-overview.md
+          - recipes/artifacts/get-artifact-vulnerabilities.md
+      - "Client":
+          - recipes/client/reauth.md
+      - "Repositories":
+          - recipes/repos/get-repo.md
+          - recipes/repos/get-repos-project.md
+          - recipes/repos/get-repos.md
+      - "Projects":
+          - recipes/projects/get-project.md
+          - recipes/projects/get-projects.md
+          - recipes/projects/create-project.md
+          - recipes/projects/update-project.md
+          - recipes/projects/delete-project.md
+      - "Retention":
+          - recipes/retention/get-retention.md
+      - "Scan":
+          - recipes/scan/scan-artifact.md
+      - "User":
+          - recipes/user/get-current-user.md
+      - "harborapi.ext":
+          - "recipes/ext/index.md"
+          - "recipes/ext/conc-artifact.md"
+          - recipes/ext/artifactowner.md
+          - recipes/ext/artifact-vulns.md
+          - "recipes/ext/conc-repo.md"
+  - "Endpoints":
+      - endpoints/index.md
+      - endpoints/artifacts.md
+      - endpoints/auditlogs.md
+      - endpoints/configure.md
+      - endpoints/cveallowlist.md
+      - endpoints/gc.md
+      - endpoints/health.md
+      - endpoints/icon.md
+      - endpoints/immutable.md
+      - endpoints/labels.md
+      - endpoints/ldap.md
+      - endpoints/oidc.md
+      - endpoints/permissions.md
+      - endpoints/ping.md
+      - endpoints/projects.md
+      - endpoints/projectmetadata.md
+      - endpoints/purge.md
+      - endpoints/quota.md
+      - endpoints/registries.md
+      - endpoints/replication.md
+      - endpoints/repositories.md
+      - endpoints/retention.md
+      - endpoints/robots.md
+      - endpoints/robotv1.md
+      - endpoints/scan.md
+      - endpoints/scanall.md
+      - endpoints/scanexport.md
+      - endpoints/scanners.md
+      - endpoints/search.md
+      - endpoints/statistics.md
+      - endpoints/systeminfo.md
+      - endpoints/users.md
+      - endpoints/usergroups.md
+      - endpoints/webhooks.md
+  - "Reference":
+      - reference/index.md
+      - reference/auth.md
+      - reference/client.md
+      - reference/client_sync.md
+      - reference/exceptions.md
+      - reference/responselog.md
+      - reference/retry.md
+      - reference/types.md
+      - reference/utils.md
+      - "harborapi.models":
+          - reference/models/_models.md
+          - reference/models/_scanner.md
+          - reference/models/base.md
+          - reference/models/models.md
+          - reference/models/mappings.md
+          - reference/models/scanner.md
+          - reference/models/buildhistory.md
+          - reference/models/oidc.md
+      - "harborapi.ext":
+          - reference/ext/api.md
+          - reference/ext/artifact.md
+          - reference/ext/cve.md
+          - reference/ext/report.md

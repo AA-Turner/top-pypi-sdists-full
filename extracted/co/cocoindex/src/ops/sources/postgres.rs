@@ -2,7 +2,11 @@ use crate::ops::sdk::*;
 
 use crate::ops::shared::postgres::{bind_key_field, get_db_pool};
 use crate::settings::DatabaseConnectionSpec;
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
+use indoc::formatdoc;
 use sqlx::postgres::types::PgInterval;
+use sqlx::postgres::{PgListener, PgNotification};
 use sqlx::{PgPool, Row};
 
 type PgValueDecoder = fn(&sqlx::postgres::PgRow, usize) -> Result<Value>;
@@ -11,6 +15,11 @@ type PgValueDecoder = fn(&sqlx::postgres::PgRow, usize) -> Result<Value>;
 struct FieldSchemaInfo {
     schema: FieldSchema,
     decoder: PgValueDecoder,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NotificationSpec {
+    channel_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +32,8 @@ pub struct Spec {
     included_columns: Option<Vec<String>>,
     /// Optional: ordinal column for tracking changes
     ordinal_column: Option<String>,
+    /// Optional: notification for change capture
+    notification: Option<NotificationSpec>,
 }
 
 #[derive(Clone)]
@@ -33,10 +44,91 @@ struct PostgresTableSchema {
     ordinal_field_schema: Option<FieldSchemaInfo>,
 }
 
-struct Executor {
+struct NotificationContext {
+    channel_name: String,
+    function_name: String,
+    trigger_name: String,
+}
+
+struct PostgresSourceExecutor {
     db_pool: PgPool,
     table_name: String,
     table_schema: PostgresTableSchema,
+    notification_ctx: Option<NotificationContext>,
+}
+
+impl PostgresSourceExecutor {
+    /// Append value and ordinal columns to the provided columns vector.
+    /// Returns the optional index of the ordinal column in the final selection.
+    fn build_selected_columns(
+        &self,
+        columns: &mut Vec<String>,
+        options: &SourceExecutorReadOptions,
+    ) -> Option<usize> {
+        let base_len = columns.len();
+        if options.include_value {
+            columns.extend(
+                self.table_schema
+                    .value_columns
+                    .iter()
+                    .map(|col| format!("\"{}\"", col.schema.name)),
+            );
+        }
+
+        if options.include_ordinal {
+            if let Some(ord_schema) = &self.table_schema.ordinal_field_schema {
+                if options.include_value {
+                    if let Some(val_idx) = self.table_schema.ordinal_field_idx {
+                        return Some(base_len + val_idx);
+                    }
+                }
+                columns.push(format!("\"{}\"", ord_schema.schema.name));
+                return Some(columns.len() - 1);
+            }
+        }
+
+        None
+    }
+
+    /// Decode all value columns from a row, starting at the given index offset.
+    fn decode_row_data(
+        &self,
+        row: &sqlx::postgres::PgRow,
+        options: &SourceExecutorReadOptions,
+        ordinal_col_index: Option<usize>,
+        value_start_idx: usize,
+    ) -> Result<PartialSourceRowData> {
+        let value = if options.include_value {
+            let mut fields = Vec::with_capacity(self.table_schema.value_columns.len());
+            for (i, info) in self.table_schema.value_columns.iter().enumerate() {
+                let value = (info.decoder)(row, value_start_idx + i)?;
+                fields.push(value);
+            }
+            Some(SourceValue::Existence(FieldValues { fields }))
+        } else {
+            None
+        };
+
+        let ordinal = if options.include_ordinal {
+            if let (Some(idx), Some(ord_schema)) = (
+                ordinal_col_index,
+                self.table_schema.ordinal_field_schema.as_ref(),
+            ) {
+                let val = (ord_schema.decoder)(row, idx)?;
+                Some(value_to_ordinal(&val))
+            } else {
+                Some(Ordinal::unavailable())
+            }
+        } else {
+            None
+        };
+
+        Ok(PartialSourceRowData {
+            value,
+            ordinal,
+            content_version_fp: None,
+        })
+    }
 }
 
 /// Map PostgreSQL data types to CocoIndex BasicValueType and a decoder function
@@ -303,35 +395,24 @@ fn value_to_ordinal(value: &Value) -> Ordinal {
 }
 
 #[async_trait]
-impl SourceExecutor for Executor {
+impl SourceExecutor for PostgresSourceExecutor {
     async fn list(
         &self,
-        options: &SourceExecutorListOptions,
-    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRowMetadata>>>> {
+        options: &SourceExecutorReadOptions,
+    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRow>>>> {
         let stream = try_stream! {
-            // Build query to select primary key columns
+            // Build selection including PKs (for keys), and optionally values and ordinal
             let pk_columns: Vec<String> = self
                 .table_schema
                 .primary_key_columns
                 .iter()
                 .map(|col| format!("\"{}\"", col.schema.name))
                 .collect();
+            let pk_count = pk_columns.len();
+            let mut select_parts = pk_columns;
+            let ordinal_col_index = self.build_selected_columns(&mut select_parts, options);
 
-            let mut select_parts = pk_columns.clone();
-            let mut ordinal_col_index: Option<usize> = None;
-            if options.include_ordinal
-                && let Some(ord_schema) = &self.table_schema.ordinal_field_schema
-            {
-                // Only append ordinal column if present.
-                select_parts.push(format!("\"{}\"", ord_schema.schema.name));
-                ordinal_col_index = Some(select_parts.len() - 1);
-            }
-
-            let mut query = format!(
-                "SELECT {} FROM \"{}\"",
-                select_parts.join(", "),
-                self.table_name
-            );
+            let mut query = format!("SELECT {} FROM \"{}\"", select_parts.join(", "), self.table_name);
 
             // Add ordering by ordinal column if specified
             if let Some(ord_schema) = &self.table_schema.ordinal_field_schema {
@@ -340,38 +421,21 @@ impl SourceExecutor for Executor {
 
             let mut rows = sqlx::query(&query).fetch(&self.db_pool);
             while let Some(row) = rows.try_next().await? {
-                let parts = self
-                    .table_schema
-                    .primary_key_columns
+                // Decode key from PKs (selected first)
+                let parts = self.table_schema.primary_key_columns
                     .iter()
                     .enumerate()
                     .map(|(i, info)| (info.decoder)(&row, i)?.into_key())
-                    .collect::<Result<Box<[KeyValue]>>>()?;
-                let key = FullKeyValue(parts);
+                    .collect::<Result<Box<[KeyPart]>>>()?;
+                let key = KeyValue(parts);
 
-                // Compute ordinal if requested
-                let ordinal = if options.include_ordinal {
-                    if let (Some(col_idx), Some(_ord_schema)) = (
-                        ordinal_col_index,
-                        self.table_schema.ordinal_field_schema.as_ref(),
-                    ) {
-                        let val = match self.table_schema.ordinal_field_idx {
-                            Some(idx) => (self.table_schema.value_columns[idx].decoder)(&row, col_idx)?,
-                            None => (self.table_schema.ordinal_field_schema.as_ref().unwrap().decoder)(&row, col_idx)?,
-                        };
-                        Some(value_to_ordinal(&val))
-                    } else {
-                        Some(Ordinal::unavailable())
-                    }
-                } else {
-                    None
-                };
+                // Decode value and ordinal
+                let data = self.decode_row_data(&row, options, ordinal_col_index, pk_count)?;
 
-                yield vec![PartialSourceRowMetadata {
+                yield vec![PartialSourceRow {
                     key,
                     key_aux_info: serde_json::Value::Null,
-                    ordinal,
-                    content_version_fp: None,
+                    data,
                 }];
             }
         };
@@ -380,31 +444,13 @@ impl SourceExecutor for Executor {
 
     async fn get_value(
         &self,
-        key: &FullKeyValue,
+        key: &KeyValue,
         _key_aux_info: &serde_json::Value,
-        options: &SourceExecutorGetOptions,
+        options: &SourceExecutorReadOptions,
     ) -> Result<PartialSourceRowData> {
         let mut qb = sqlx::QueryBuilder::new("SELECT ");
         let mut selected_columns: Vec<String> = Vec::new();
-
-        if options.include_value {
-            selected_columns.extend(
-                self.table_schema
-                    .value_columns
-                    .iter()
-                    .map(|col| format!("\"{}\"", col.schema.name)),
-            );
-        }
-
-        if options.include_ordinal {
-            if let Some(ord_schema) = &self.table_schema.ordinal_field_schema {
-                // Append ordinal column if not already provided by included value columns,
-                // or when value columns are not selected at all
-                if self.table_schema.ordinal_field_idx.is_none() || !options.include_value {
-                    selected_columns.push(format!("\"{}\"", ord_schema.schema.name));
-                }
-            }
-        }
+        let ordinal_col_index = self.build_selected_columns(&mut selected_columns, options);
 
         if selected_columns.is_empty() {
             qb.push("1");
@@ -440,50 +486,244 @@ impl SourceExecutor for Executor {
         }
 
         let row_opt = qb.build().fetch_optional(&self.db_pool).await?;
-
-        let value = if options.include_value {
-            match &row_opt {
-                Some(row) => {
-                    let mut fields = Vec::with_capacity(self.table_schema.value_columns.len());
-                    for (i, info) in self.table_schema.value_columns.iter().enumerate() {
-                        let value = (info.decoder)(&row, i)?;
-                        fields.push(value);
-                    }
-                    Some(SourceValue::Existence(FieldValues { fields }))
-                }
-                None => Some(SourceValue::NonExistence),
-            }
-        } else {
-            None
+        let data = match &row_opt {
+            Some(row) => self.decode_row_data(&row, options, ordinal_col_index, 0)?,
+            None => PartialSourceRowData {
+                value: Some(SourceValue::NonExistence),
+                ordinal: Some(Ordinal::unavailable()),
+                content_version_fp: None,
+            },
         };
 
-        let ordinal = if options.include_ordinal {
-            match (&row_opt, &self.table_schema.ordinal_field_schema) {
-                (Some(row), Some(ord_schema)) => {
-                    // Determine index without scanning the row metadata.
-                    let col_index = if options.include_value {
-                        match self.table_schema.ordinal_field_idx {
-                            Some(idx) => idx,
-                            None => self.table_schema.value_columns.len(),
-                        }
+        Ok(data)
+    }
+
+    async fn change_stream(
+        &self,
+    ) -> Result<Option<BoxStream<'async_trait, Result<SourceChangeMessage>>>> {
+        let Some(notification_ctx) = &self.notification_ctx else {
+            return Ok(None);
+        };
+        // Create the notification channel
+        self.create_notification_function(notification_ctx).await?;
+
+        // Set up listener
+        let mut listener = PgListener::connect_with(&self.db_pool).await?;
+        listener.listen(&notification_ctx.channel_name).await?;
+
+        let stream = stream! {
+            while let Ok(notification) = listener.recv().await {
+                let change = self.parse_notification_payload(&notification);
+                yield change.map(|change| SourceChangeMessage {
+                    changes: vec![change],
+                    ack_fn: None,
+                });
+            }
+        };
+
+        Ok(Some(stream.boxed()))
+    }
+
+    fn provides_ordinal(&self) -> bool {
+        self.table_schema.ordinal_field_schema.is_some()
+    }
+}
+
+impl PostgresSourceExecutor {
+    async fn create_notification_function(
+        &self,
+        notification_ctx: &NotificationContext,
+    ) -> Result<()> {
+        let channel_name = &notification_ctx.channel_name;
+        let function_name = &notification_ctx.function_name;
+        let trigger_name = &notification_ctx.trigger_name;
+
+        let json_object_expr = |var: &str| {
+            let mut fields = (self.table_schema.primary_key_columns.iter())
+                .chain(self.table_schema.ordinal_field_schema.iter())
+                .map(|col| {
+                    let field_name = &col.schema.name;
+                    if matches!(
+                        col.schema.value_type.typ,
+                        ValueType::Basic(BasicValueType::Bytes)
+                    ) {
+                        format!("'{field_name}', encode({var}.\"{field_name}\", 'base64')")
                     } else {
-                        // Only ordinal was selected
-                        0
-                    };
-                    let val = (ord_schema.decoder)(&row, col_index)?;
-                    Some(value_to_ordinal(&val))
-                }
-                _ => Some(Ordinal::unavailable()),
+                        format!("'{field_name}', {var}.\"{field_name}\"")
+                    }
+                });
+            format!("jsonb_build_object({})", fields.join(", "))
+        };
+
+        let statements = [
+            formatdoc! {r#"
+            CREATE OR REPLACE FUNCTION {function_name}() RETURNS TRIGGER AS $$
+            BEGIN
+                PERFORM pg_notify('{channel_name}', jsonb_build_object(
+                    'op', TG_OP,
+                    'fields',
+                    CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN {json_object_expr_new}
+                    WHEN TG_OP = 'DELETE' THEN {json_object_expr_old}
+                    ELSE NULL END
+                )::text);
+                RETURN NULL;
+            END;
+            $$ LANGUAGE plpgsql;
+            "#,
+                    function_name = function_name,
+                    channel_name = channel_name,
+                    json_object_expr_new = json_object_expr("NEW"),
+                    json_object_expr_old = json_object_expr("OLD"),
+            },
+            format!(
+                "DROP TRIGGER IF EXISTS {trigger_name} ON \"{table_name}\";",
+                trigger_name = trigger_name,
+                table_name = self.table_name,
+            ),
+            formatdoc! {r#"
+            CREATE TRIGGER {trigger_name}
+                AFTER INSERT OR UPDATE OR DELETE ON "{table_name}"
+                FOR EACH ROW EXECUTE FUNCTION {function_name}();
+            "#,
+                trigger_name = trigger_name,
+                table_name = self.table_name,
+                function_name = function_name,
+            },
+        ];
+
+        let mut tx = self.db_pool.begin().await?;
+        for stmt in statements {
+            sqlx::query(&stmt).execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    fn parse_notification_payload(&self, notification: &PgNotification) -> Result<SourceChange> {
+        let mut payload: serde_json::Value = serde_json::from_str(notification.payload())?;
+        let payload = payload
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!("'fields' field is not an object"))?;
+
+        let Some(serde_json::Value::String(op)) = payload.get_mut("op") else {
+            return Err(anyhow::anyhow!(
+                "Missing or invalid 'op' field in notification"
+            ));
+        };
+        let op = std::mem::take(op);
+
+        let mut fields = std::mem::take(
+            payload
+                .get_mut("fields")
+                .ok_or_else(|| anyhow::anyhow!("Missing 'fields' field in notification"))?
+                .as_object_mut()
+                .ok_or_else(|| anyhow::anyhow!("'fields' field is not an object"))?,
+        );
+
+        // Extract primary key values to construct the key
+        let mut key_parts = Vec::with_capacity(self.table_schema.primary_key_columns.len());
+        for pk_col in &self.table_schema.primary_key_columns {
+            let field_value = fields.get_mut(&pk_col.schema.name).ok_or_else(|| {
+                anyhow::anyhow!("Missing primary key field: {}", pk_col.schema.name)
+            })?;
+
+            let key_part = Self::decode_key_ordinal_value_in_json(
+                std::mem::take(field_value),
+                &pk_col.schema.value_type.typ,
+            )?
+            .into_key()?;
+            key_parts.push(key_part);
+        }
+
+        let key = KeyValue(key_parts.into_boxed_slice());
+
+        // Extract ordinal if available
+        let ordinal = if let Some(ord_schema) = &self.table_schema.ordinal_field_schema {
+            if let Some(ord_value) = fields.get_mut(&ord_schema.schema.name) {
+                let value = Self::decode_key_ordinal_value_in_json(
+                    std::mem::take(ord_value),
+                    &ord_schema.schema.value_type.typ,
+                )?;
+                Some(value_to_ordinal(&value))
+            } else {
+                Some(Ordinal::unavailable())
             }
         } else {
             None
         };
 
-        Ok(PartialSourceRowData {
-            value,
-            ordinal,
-            content_version_fp: None,
+        let data = match op.as_str() {
+            "DELETE" => PartialSourceRowData {
+                value: Some(SourceValue::NonExistence),
+                ordinal,
+                content_version_fp: None,
+            },
+            "INSERT" | "UPDATE" => {
+                // For INSERT/UPDATE, we signal that the row exists but don't include the full value
+                // The engine will call get_value() to retrieve the actual data
+                PartialSourceRowData {
+                    value: None, // Let the engine fetch the value
+                    ordinal,
+                    content_version_fp: None,
+                }
+            }
+            _ => return Err(anyhow::anyhow!("Unknown operation: {}", op)),
+        };
+
+        Ok(SourceChange {
+            key,
+            key_aux_info: serde_json::Value::Null,
+            data,
         })
+    }
+
+    fn decode_key_ordinal_value_in_json(
+        json_value: serde_json::Value,
+        value_type: &ValueType,
+    ) -> Result<Value> {
+        let result = match (value_type, json_value) {
+            (_, serde_json::Value::Null) => Value::Null,
+            (ValueType::Basic(BasicValueType::Bool), serde_json::Value::Bool(b)) => {
+                BasicValue::Bool(b).into()
+            }
+            (ValueType::Basic(BasicValueType::Bytes), serde_json::Value::String(s)) => {
+                let bytes = BASE64_STANDARD.decode(&s)?;
+                BasicValue::Bytes(bytes::Bytes::from(bytes)).into()
+            }
+            (ValueType::Basic(BasicValueType::Str), serde_json::Value::String(s)) => {
+                BasicValue::Str(s.into()).into()
+            }
+            (ValueType::Basic(BasicValueType::Int64), serde_json::Value::Number(n)) => {
+                if let Some(i) = n.as_i64() {
+                    BasicValue::Int64(i).into()
+                } else {
+                    bail!("Invalid integer value: {}", n)
+                }
+            }
+            (ValueType::Basic(BasicValueType::Uuid), serde_json::Value::String(s)) => {
+                let uuid = s.parse::<uuid::Uuid>()?;
+                BasicValue::Uuid(uuid).into()
+            }
+            (ValueType::Basic(BasicValueType::Date), serde_json::Value::String(s)) => {
+                let dt = s.parse::<chrono::NaiveDate>()?;
+                BasicValue::Date(dt).into()
+            }
+            (ValueType::Basic(BasicValueType::LocalDateTime), serde_json::Value::String(s)) => {
+                let dt = s.parse::<chrono::NaiveDateTime>()?;
+                BasicValue::LocalDateTime(dt).into()
+            }
+            (ValueType::Basic(BasicValueType::OffsetDateTime), serde_json::Value::String(s)) => {
+                let dt = s.parse::<chrono::DateTime<chrono::FixedOffset>>()?;
+                BasicValue::OffsetDateTime(dt).into()
+            }
+            (_, json_value) => {
+                bail!(
+                    "Got unsupported JSON value for type {value_type}: {}",
+                    serde_json::to_string(&json_value)?
+                );
+            }
+        };
+        Ok(result)
     }
 }
 
@@ -533,6 +773,7 @@ impl SourceFactoryBase for Factory {
 
     async fn build_executor(
         self: Arc<Self>,
+        source_name: &str,
         spec: Spec,
         context: Arc<FlowInstanceContext>,
     ) -> Result<Box<dyn SourceExecutor>> {
@@ -547,10 +788,22 @@ impl SourceFactoryBase for Factory {
         )
         .await?;
 
-        let executor = Executor {
+        let notification_ctx = spec.notification.map(|spec| {
+            let channel_name = spec.channel_name.unwrap_or_else(|| {
+                format!("{}__{}__cocoindex", context.flow_instance_name, source_name)
+            });
+            NotificationContext {
+                function_name: format!("{channel_name}_n"),
+                trigger_name: format!("{channel_name}_t"),
+                channel_name,
+            }
+        });
+
+        let executor = PostgresSourceExecutor {
             db_pool,
             table_name: spec.table_name.clone(),
             table_schema,
+            notification_ctx,
         };
 
         Ok(Box::new(executor))

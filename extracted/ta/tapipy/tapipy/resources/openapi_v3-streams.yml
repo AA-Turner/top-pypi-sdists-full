@@ -1,0 +1,4151 @@
+openapi: 3.0.0
+
+info:
+  title: "Streams API"
+  description: "Manage Tapis Streams API."
+  version: "1"
+  termsOfService: "https://tapis-project.org"
+  contact:
+    name: "Streams API"
+    url: "https://tapis-project.org"
+    email: "cicsupport@tacc.utexas.edu"
+  license:
+    name: "BSD 3"
+    url: "https://github.com/tapis-project/streams-api"
+
+servers:
+  - url: http://localhost:5000
+    description: Local Development
+  - url: https://dev.develop.tapis.io
+    description: Develop Instance
+
+paths:
+  ### Begin of Hello
+  /v3/streams/hello:
+    get:
+      tags:
+        - Hello
+      summary: Say Hello
+      description: Say Hello
+      operationId: hello
+      x-swagger-router-controller: connexContr
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: string
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Hello
+
+  ### Begin of Ready
+  /v3/streams/ready:
+    get:
+      tags:
+        - Ready
+      summary: Check readiness of InfluxDB, Chords and Kapacitor
+      description: Readiness check
+      operationId: ready
+      x-swagger-router-controller: connexContr
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: string
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Ready
+
+  ### Begin of Healthcheck
+  /v3/streams/healthcheck:
+    get:
+      tags:
+        - Healthcheck
+      summary: Healthcheck
+      description: Checks health of meta, kapacitor, influx and chords
+      operationId: healthcheck
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: tenant
+          in: query
+          description: Tenant id to check healthcheck
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: string
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Healthcheck
+
+  ### Begin of Projects
+  /v3/streams/projects:
+    get:
+      tags:
+        - Projects
+      summary: List projects.
+      description: List projects.
+      operationId: list_projects
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for sites.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Projects
+      summary: Create a project.
+      description: Create a project.
+      operationId: create_project
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProject"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Project"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/projects/{project_id}:
+    get:
+      tags:
+        - Projects
+      summary: Get project details.
+      description: Get project details.
+      operationId: get_project
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Project"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Projects
+      summary: Update a project
+      description: Update a project
+      operationId: update_project
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProject"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Project"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project
+      description: Delete a project
+      operationId: delete_project
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project Deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Project"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Projects
+
+  ### Begin of Sites
+  /v3/streams/projects/{project_id}/sites:
+    get:
+      tags:
+        - Sites
+      summary: List sites.
+      description: List sites.
+      operationId: list_sites
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: a formated query string for sites.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Site"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Sites
+      summary: Create a site. (single or bulk)
+      description: Create a site. (single or bulk)
+      operationId: create_site
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSiteRequest"
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Site"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/projects/{project_id}/sites/{site_id}:
+    get:
+      tags:
+        - Sites
+      summary: Get site details.
+      description: Get site details.
+      operationId: get_site
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Site"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Site not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Sites
+      summary: Update a site
+      description: Update a site
+      operationId: update_site
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSite"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Site"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Site not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Sites
+      summary: Delete a site
+      description: Delete a site
+      operationId: delete_site
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Site Deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Site"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Site not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Sites
+
+  ### Begin of Instruments
+  /v3/streams/projects/{project_id}/sites/{site_id}/instruments:
+    get:
+      tags:
+        - Instruments
+      summary: List instruments
+      description: List instruments
+      operationId: list_instruments
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: a formated query string for instruments.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A list of instruments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Instrument"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Instruments
+      summary: Create instruments (single or bulk)
+      description: Create instruments (single or bulk)
+      operationId: create_instrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewInstRequest"
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Instrument"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/projects/{project_id}/sites/{site_id}/instruments/{inst_id}:
+    get:
+      tags:
+        - Instruments
+      summary: Get instrument details
+      description: Get instrument details
+      operationId: get_instrument
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Instrument"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Instrument not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Instruments
+      summary: Update an instrument
+      description: Update an instrument
+      operationId: update_instrument
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInst"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Instrument"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Instrument not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Instruments
+      summary: Delete an instrument
+      description: Delete an instrument
+      operationId: delete_instrument
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Instrument"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Instrument not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Instruments
+
+  ### Begin of Variables
+  /v3/streams/projects/{project_id}/sites/{site_id}/instruments/{inst_id}/variables:
+    get:
+      tags:
+        - Variables
+      summary: List variables.
+      description: List variables.
+      operationId: list_variables
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: a formated query string for variables.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Variable"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Variables
+      summary: Create variable (single or bulk).
+      description: Create variable (single or bulk).
+      operationId: create_variable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewVarRequest"
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Variable"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/projects/{project_id}/sites/{site_id}/instruments/{inst_id}/variables/{var_id}:
+    get:
+      tags:
+        - Variables
+      summary: Get variable details
+      description: Get details of a specific variable by its id
+      operationId: get_variable
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+        - name: var_id
+          in: path
+          description: User provided, unique identifier within in the Instrument name space. will be used as the chords shortname
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Variable"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Variable not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Variables
+      summary: Update a variable
+      description: Update a variable
+      operationId: update_variable
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+        - name: var_id
+          in: path
+          description: User provided, unique identifier within in the Instrument name space. will be used as the chords shortname
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVariable"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Variable"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Variable not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Variables
+      summary: Delete a variable
+      description: Delete a variable
+      operationId: delete_variable
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: User uniquely defined ID for site.
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: User uniquely defined ID for instrument.
+          required: true
+          schema:
+            type: string
+        - name: var_id
+          in: path
+          description: User provided, unique identifier within in the Instrument name space. will be used as the chords shortname
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Variable"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Variable not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Variables
+
+  ### Begin of Measurements
+  /v3/streams/measurements:
+    post:
+      tags:
+        - Measurements
+      summary: Create a measurement.
+      description: Create a measurement.
+      operationId: create_measurement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMeasurement"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Measurements"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/measurements/{inst_id}:
+    get:
+      tags:
+        - Measurements
+      summary: List measurements when only inst_id is provided
+      description: Download measurements
+      operationId: download_measurements
+      parameters:
+        - name: inst_id
+          in: path
+          description: Unique id of instruments
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: a formated query string for measurements.
+          schema:
+            type: string
+        - name: var_ids
+          in: query
+          description: a comma seperated list of variable ids
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+        - name: start_date
+          in: query
+          description: start date of measurements
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: end date of measurements
+          schema:
+            type: string
+        - name: with_metadata
+          in: query
+          description: if to include metadata with json format - defaults to false
+          schema:
+            type: boolean
+        - name: format
+          in: query
+          description: json or csv download format
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Measurements"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/projects/{project_id}/sites/{site_id}/instruments/{inst_id}/measurements:
+    get:
+      tags:
+        - Measurements
+      summary: List measurements.
+      description: List measurements.
+      operationId: list_measurements
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+        - name: site_id
+          in: path
+          description: Site ID generated by CHORDS
+          required: true
+          schema:
+            type: string
+        - name: inst_id
+          in: path
+          description: Instrument ID generated by CHORDS
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: a formated query string for measurements.
+          schema:
+            type: string
+        - name: var_ids
+          in: query
+          description: a comma seperated list of variable ids
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+        - name: start_date
+          in: query
+          description: start date of measurements
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: end date of measurements
+          schema:
+            type: string
+        - name: geojson
+          in: query
+          description: geojson polygon to spatial search
+          schema:
+            type: object
+        - name: format
+          in: query
+          description: json or csv download format
+          schema:
+            type: string
+        - name: with_metadata
+          in: query
+          description: if to include metadata with json format- defaults to false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Measurements"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Measurements
+
+  ### begin of Ontology
+  /v3/streams/ontologies:
+    get:
+      tags:
+        - Ontologies
+      summary: List ontologies.
+      description: List ontologies.
+      operationId: list_ontologies
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for ontology label.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Ontology"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Ontologies
+      summary: Add an ontology .
+      description: Add an ontology .
+      operationId: add_ontology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewOntology"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Ontology"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/ontologies/{onto_id}:
+    get:
+      tags:
+        - Ontologies
+      summary: Get ontology details.
+      description: Get ontology details.
+      operationId: get_ontology
+      parameters:
+        - name: onto_id
+          in: path
+          description: Unique ID of ontology generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Ontology"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Ontologies
+      summary: Update an ontology
+      description: Update an ontology
+      operationId: update_ontology
+      parameters:
+        - name: onto_id
+          in: path
+          description: Unique ID of ontology generated by Tapis
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewOntology"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Ontology"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Ontologies
+      summary: Delete an ontology
+      description: Delete an ontology
+      operationId: delete_ontology
+      parameters:
+        - name: onto_id
+          in: path
+          description: Unique ID of ontology generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ontology Deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Ontology"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Ontology
+
+  ### Begin of Channels
+  /v3/streams/channels:
+    get:
+      tags:
+        - Channels
+      summary: List channels.
+      description: List channels.
+      operationId: list_channels
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for channel.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Channel"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Channels
+      summary: Create channels.
+      description: Create channels.
+      operationId: create_channels
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewChannel"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Channel"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/channels/{channel_id}:
+    get:
+      tags:
+        - Channels
+      summary: Get channels details
+      description: Get details of a specific channel by its id
+      operationId: get_channel
+      parameters:
+        - name: channel_id
+          in: path
+          description: Unique channel id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Channel"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Channel not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Channels
+      summary: Update a channel
+      description: Update a channel
+      operationId: update_channel
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: channel_id
+          in: path
+          description: Unique channel id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannel"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Channel"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Channel not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Channels
+      summary: Delete a channel
+      description: Delete a channel
+      operationId: delete_channel
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: channel_id
+          in: path
+          description: Unique channel id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Channel"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Channel not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Channels
+      summary: Update channel status
+      description: Update channel status
+      operationId: update_status
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: channel_id
+          in: path
+          description: Unique channel id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelStatus"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Channel"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Channel not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Channels
+
+  ### Begin of Alerts
+  /v3/streams/channels/{channel_id}/alerts:
+    get:
+      tags:
+        - Channels
+      summary: List alerts for given channel id
+      description: Get details of a specific channel by its id
+      operationId: list_alerts
+      parameters:
+        - name: channel_id
+          in: path
+          description: Unique channel id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Alert"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Alert not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Alerts
+
+  ### Begin of Templates
+  /v3/streams/templates:
+    get:
+      tags:
+        - Templates
+      summary: List templates.
+      description: List templates.
+      operationId: list_templates
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for channel.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Template"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Templates
+      summary: Create template.
+      description: Create template.
+      operationId: create_template
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewTemplate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Template"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v3/streams/templates/{template_id}:
+    get:
+      tags:
+        - Templates
+      summary: Get templates.
+      description: Get template.
+      operationId: get_template
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: template_id
+          in: path
+          description: Unique template id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Template"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Templates
+      summary: Update template.
+      description: Update template.
+      operationId: update_template
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: template_id
+          in: path
+          description: Unique template id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewTemplate"
+      responses:
+        "201":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Template"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Templates
+
+  ### Begin of Units
+  /units:
+    get:
+      tags:
+        - Units
+      summary: List units.
+      description: List units.
+      operationId: list_units
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for units.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Unit"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unit not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Units
+
+  ### Begin of Measured Properties
+  /measured_properties:
+    get:
+      tags:
+        - Measured_Properties
+      summary: List measured_properties.
+      description: List measured_properties.
+      operationId: list_measured_properties
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: query
+          in: query
+          description: a formated query string for units.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: limit the number of records returned.
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: index (skip) to start list.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MeasuredProperty"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: measured properties not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Measured Properties
+
+  ### Begin of Roles
+  /v3/streams/roles:
+    get:
+      tags:
+        - Roles
+      summary: List roles for a given user
+      description: Get roles for a given user
+      operationId: list_roles
+      parameters:
+        - name: user
+          in: query
+          description: Check roles for this user
+          required: true
+          schema:
+            type: string
+        - name: resource_type
+          in: query
+          description: Check roles for this user
+          required: true
+          schema:
+            type: string
+            enum: [project, channel]
+        - name: resource_id
+          in: query
+          description: Project id or channel id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Roles"
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Alert not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Roles
+      summary: Grant user role.
+      description: Grant user role.
+      operationId: grant_role
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRole"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Roles"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Roles
+
+  ### Begin of Revoke Role
+  /v3/streams/roles/revokeRole:
+    post:
+      tags:
+        - Revoke Roles
+      summary: Revoke user role.
+      description: Revoke user role.
+      operationId: revoke_role
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeRole"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Roles"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Revoke Role
+
+  ### Begin of Archives
+  /v3/streams/projects/{project_id}/archives:
+    post:
+      tags:
+        - Archives
+      summary: Archive a projects data and metadata
+      description: Archive a projects data and metadata
+      operationId: archive_project
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewArchive"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: object
+                    items:
+                      $ref: "#/components/schemas/Archive"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags:
+        - Archives
+      summary: List Archive policies for a project
+      description: List Archives policies for a project
+      operationId: list_archives
+      parameters:
+        - name: project_id
+          in: path
+          description: Unique ID of project generated by Tapis
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Archives"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  ### End of Archives
+
+  ### Begin of Transfer
+  /v3/streams/transfer:
+    post:
+      tags:
+        - Transfer Instrument Data
+      summary: Transfer an instruments data to a system
+      description: Transfer an instruments data to a system
+      operationId: transfer_data
+      x-swagger-router-controller: connexContr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Transfer"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transfer"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+### End of Transfer
+
+ ### Begin of Search
+  /v3/streams/search/{resource_type}:
+    get:
+      tags:
+        - Search across all streams end points
+      summary: Search projects, sites, intruments and variables
+               owned by a user
+      description: Search endpoint for streams resources
+      operationId: search
+      x-swagger-router-controller: connexContr
+      parameters:
+        - name: resource_type
+          in: path
+          required: true
+          schema: 
+            enum: [project,site,instrument,variable]
+        - name: listType
+          in: query
+          description: Determines additional filtering of results based on ownership, permissions and sharing. Default is to only see items owned by requester.
+          schema:
+            $ref: '#/components/schemas/ListTypeEnum'
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: computeTotal
+          in: query
+          description: Compute total number of results that would have been returned if unlimited. Default is false.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BasicResponse"
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResponse"
+
+        "400":
+          description: Input error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Resource not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+### End of Transfer
+
+### Begin of Components
+components:
+  schemas:
+    BasicResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Version of the API
+        message:
+          type: string
+          description: Brief description of the response
+        status:
+          type: string
+          description: Whether the request was a success or failure.
+          enum: [success]
+
+    ErrorResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Version of the API
+        message:
+          type: string
+          description: Brief description of the response
+        status:
+          type: string
+          description: Whether the request was a success or failure.
+          enum: [failure]
+
+    BasicResult:
+      type: object
+      properties:
+        resource_name:
+          type: string
+          description: Name of the resource.
+        resource_id:
+          type: string
+          description: Id of the resource.
+        resource_owner:
+          type: string
+          description: Owner of the resource
+        resource_type:
+          type: string
+          description: Type of the resource
+
+    Project:
+      type: object
+      properties:
+        project_name:
+          type: string
+          description: Project name
+        project_id:
+          type: string
+          description: The unique identifier for project
+        owner:
+          type: string
+          description: The owner of project
+        funding_resource:
+          type: string
+          description: Funding for the project.
+        pi:
+          type: string
+          description: Principal investigator
+        project_url:
+          type: string
+          description: url of the project
+        bucket:
+          type: string
+          description: id of the infludx storage bucket
+        active:
+          type: boolean
+          description: Current status of the project
+        metadata:
+          type: object
+          description: User defined metadata for the site
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+  
+    SearchProject:
+      type: object
+      properties:
+        project_name:
+          type: string
+          description: Project name
+        project_id:
+          type: string
+          description: The unique identifier for project
+        owner:
+          type: string
+          description: The owner of project
+        funding_resource:
+          type: string
+          description: Funding for the project.
+        pi:
+          type: string
+          description: Principal investigator
+        project_url:
+          type: string
+          description: url of the project
+        bucket:
+          type: string
+          description: id of the infludx storage bucket
+        active:
+          type: boolean
+          description: Current status of the project
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+
+    NewProject:
+      type: object
+      properties:
+        project_name:
+          type: string
+          description: Project name.
+        description:
+          type: string
+          description: Project description.
+        owner:
+          type: string
+          description: Project owner.
+        pi:
+          type: string
+          description: Principal investigator.
+        funding_resource:
+          type: string
+          description: Funding for the project.
+        project_url:
+          type: string
+          description: url of the project
+        active:
+          type: boolean
+          description: Current status of the project
+        metadata:
+          type: object
+          description: User defined metadata for the site
+      required: [project_name, owner, pi]
+
+    Site:
+      type: object
+      properties:
+        site_name:
+          type: string
+          description: Site name
+        site_id:
+          type: string
+          description: User uniquely defined ID for site.
+        owner:
+          type: string
+          description: The owner for site
+        metadata:
+          type: object
+          description: User defined metadata for the site
+        longitude:
+          type: number
+          description: longitude
+        latitude:
+          type: number
+          description: latitude
+        elevation:
+          type: number
+          description: elevation
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+    SearchSite:
+      type: object
+      properties:
+        site_name:
+          type: string
+          description: Site name
+        site_id:
+          type: string
+          description: User uniquely defined ID for site.
+        owner:
+          type: string
+          description: The owner for site
+        project_id:
+          type: string
+          description: Necessary to search site
+        longitude:
+          type: number
+          description: longitude
+        latitude:
+          type: number
+          description: latitude
+        elevation:
+          type: number
+          description: elevation
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+
+    NewSiteRequest:
+      type: array
+      items:
+        $ref: "#/components/schemas/NewSite"
+
+    NewSite:
+      type: object
+      properties:
+        site_name:
+          type: string
+          description: Resource name.
+        site_id:
+          type: string
+          description: User uniquely defined ID for site.
+        description:
+          type: string
+        latitude:
+          type: number
+          description: Latitude of site.
+        longitude:
+          type: number
+          description: Longitude of site.
+        elevation:
+          type: number
+          description: Elevation of site.
+        metadata:
+          type: object
+          description: User defined metadata for the site
+      required:
+        [site_name, site_id, latitude, longitude, elevation, description]
+
+    UpdateSite:
+      type: object
+      properties:
+        site_name:
+          type: string
+          description: Resource name.
+        description:
+          type: string
+        latitude:
+          type: number
+          description: Latitude of site.
+        longitude:
+          type: number
+          description: Longitude of site.
+        elevation:
+          type: number
+          description: Elevation of site.
+        metadata:
+          type: object
+          description: User defined metadata for the site
+      required: [site_name, latitude, longitude, elevation, description]
+
+    Instrument:
+      type: object
+      properties:
+        inst_id:
+          type: string
+          description: User provided Instrument ID
+        inst_name:
+          type: string
+          description: Instrument name
+        inst_description:
+          type: string
+          description: Instrument description
+        chords_id:
+          type: string
+          description: ID generated by CHORDS
+        owner:
+          type: string
+          description: Owner of the instrument
+        site_id:
+          type: string
+          description: The CHORDS site id to which instrument attached to
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+        tags:
+          type: array
+          items:
+            type: string
+          description: arrays of tags on the instruments
+        metadata:
+          type: object
+          description: User entered metadata for the instruments
+    SearchInstrument:
+        type: object
+        properties:
+          inst_id:
+            type: string
+            description: User provided Instrument ID
+          inst_name:
+            type: string
+            description: Instrument name
+          inst_description:
+            type: string
+            description: Instrument description
+          owner:
+            type: string
+            description: Owner of the instrument
+          site_id:
+            type: string
+            description: The CHORDS site id to which instrument attached to
+          project_id:
+            type: string
+            description: The project id to which instrument attached to
+          created_at:
+            type: string
+            description: ISO8601 datetime string for object creation date
+          last_updated:
+            type: string
+            description: ISO8601 datetime string for object updated date
+          tags:
+            type: array
+            items:
+              type: string
+            description: arrays of tags on the instruments
+         
+    NewInstRequest:
+      type: array
+      items:
+        $ref: "#/components/schemas/NewInstrument"
+
+    NewInstrument:
+      type: object
+      properties:
+        inst_name:
+          type: string
+          description: Instrument name
+        inst_id:
+          type: string
+          description: User uniquely defined ID for instrument.
+        inst_description:
+          type: string
+          description: Instrument description
+        topic_category_id:
+          type: string
+          description: Instrument category
+        tags:
+          type: array
+          description: tags array
+          items:
+            type: string
+        metadata:
+          type: object
+          description: User enetered metadata on instruments
+      required: [inst_name, inst_id, inst_description]
+
+    UpdateInst:
+      type: object
+      properties:
+        inst_name:
+          type: string
+          description: Instrument name
+        inst_description:
+          type: string
+          description: More information on instrument
+        tags:
+          type: array
+          description: tags array
+          items:
+            type: string
+        metadata:
+          type: object
+          description: user metadata on instruments
+      required: [inst_name]
+
+    NewVarRequest:
+      type: array
+      items:
+        $ref: "#/components/schemas/NewVariable"
+
+    NewVariable:
+      type: object
+      properties:
+        var_id:
+          type: string
+          description: User provided, unique identifier within in the Instrument name space. will be used as the chords shortname
+        var_name:
+          type: string
+          description: Variable name.
+        units:
+          type: string
+          description: Unit name
+        measured_property_id:
+          type: number
+          description: Id of the Property measured by the variable type
+        metadata:
+          type: object
+          description: User entered metadata for the variable
+        shortname:
+          type: string
+          description: User entered short name
+      required: [var_id, var_name]
+
+    UpdateVariable:
+      type: object
+      properties:
+        var_name:
+          type: string
+          description: Variable name.
+        units:
+          type: string
+          description: Unit name
+        measured_property_id:
+          type: number
+          description: Id of the Property measured by the variable type
+        metadata:
+          type: object
+          description: User entered metadata for the variable
+        shortname:
+          type: string
+          description: User entered short name
+      required: [var_name]
+
+    Variable:
+      type: object
+      properties:
+        var_name:
+          type: string
+          description: The name of variable.
+        var_id:
+          type: string
+          description: The unique identifier for variable.
+        owner:
+          type: string
+          description: The owner for variable.
+        inst_id:
+          type: string
+          description: The instrument id generated by CHORDS.
+        shortname:
+          type: string
+          description: The shortname of variable.
+        unit:
+          type: string
+          description: The unit to measure property of variable.
+        unit_abbrev:
+          type: string
+          description: The unit abbrevation to measure variable.
+        measured_property:
+          type: string
+          description: The property measured by variable.
+        metadata:
+          type: object
+          description: User entered metadata for the variable
+        chords_id:
+          type: integer
+          description: Variable ID in chords
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+          
+    SearchVariable:
+      type: object
+      properties:
+        var_name:
+          type: string
+          description: The name of variable.
+        var_id:
+          type: string
+          description: The unique identifier for variable.
+        owner:
+          type: string
+          description: The owner for variable.
+        inst_id:
+          type: string
+          description: The instrument id generated by CHORDS.
+        shortname:
+          type: string
+          description: The shortname of variable.
+        unit:
+          type: string
+          description: The unit to measure property of variable.
+        unit_abbrev:
+          type: string
+          description: The unit abbrevation to measure variable.
+        measured_property:
+          type: string
+          description: The property measured by variable.
+        metadata:
+          type: object
+          description: User entered metadata for the variable
+        chords_id:
+          type: integer
+          description: Variable ID in chords
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        last_updated:
+          type: string
+          description: ISO8601 datetime string for object updated date
+
+    Measurements:
+      type: object
+      properties:
+        instrument:
+          type: object
+          description: The instrument metadata - if with_metadata is set to True.
+          $ref: "#/components/schemas/Instrument"
+        site:
+          type: object
+          description: The site metadata - if with_metadata is set to True.
+          $ref: "#/components/schemas/Site"
+        measurements_in_file:
+          type: integer
+          description: The count of measurements records.
+      #unexpected typing behavior, still works (assigns to type any rather than generating DatetimeValues type)
+      additionalProperties:
+        $ref: "#/components/schemas/DatetimeValues"
+      example:
+        { "2021-05-15T15:23:00+05:00": 7.2, "2021-05-15T25:23:00+05:00": 7.3 }
+
+    DatetimeValues:
+      type: object
+      additionalProperties:
+        type: number
+      description: example "ph":{"2021-05-15T15:23:00+05:00":7.2,"2021-05-15T25:23:00+05:00":7.3}
+
+    NewMeasurement:
+      type: object
+      properties:
+        inst_id:
+          type: string
+        vars:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeasurementValues"
+      required: [inst_id, vars]
+
+    MeasurementValues:
+      type: object
+      description: Measurement objects. Example [{"temp1":"75.0","pc_hmd":"34","datetime":"2021-05-15T15:23:00+05:00"},{"temp1":"77.0","pc_hmd":"36","datetime":"2021-05-15T15:54:00+05:00"}]
+      properties:
+        datetime:
+          type: string
+          description: Datetime ISO8601 formated string
+      additionalProperties:
+        type: number
+      required: [datetime]
+
+    NewOntology:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Standard set of concepts snd their relatiobship defined in a scientific domain
+        onto_id:
+          type: string
+          description: unique identifier for an Ontology
+        url:
+          type: string
+          description: URL for the Ontology
+        additionalProperties:
+          type: string
+
+    NewOntologyRequest:
+      type: array
+      items:
+        $ref: "#/components/schemas/NewOntology"
+
+    Ontology:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Standard set of concepts snd their relatiobship defined in a scientific domain
+        onto_id:
+          type: string
+          description: unique identifier for an Ontology
+        url:
+          type: string
+          description: URL for the Ontology
+        additionalProperties:
+          type: string
+
+    Channel:
+      type: object
+      properties:
+        channel_name:
+          type: string
+          description: The name of channel.
+        channel_id:
+          type: string
+          description: The id generated by Tapis.
+        created_at:
+          type: string
+          description: The time of channel creation
+        status:
+          type: string
+          description: The status of channel
+          enum: [INACTIVE, ACTIVE]
+        last_updated:
+          type: string
+          description: The time of channel update
+        task_id:
+          type: string
+          description: task id from Kapacitor
+        triggers_with_actions:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: object
+                properties:
+                  actor_base_url:
+                    type: string
+                    description: base url for tenant
+                  actor_id:
+                    type: string
+                    description: actor id
+                  message:
+                    type: string
+                    description: message posted to the actor
+                  method:
+                    type: string
+                    description: ACTOR
+                  nonces:
+                    type: string
+                    description: Abaco nonces
+              condition:
+                oneOf:
+                  - $ref: "#/components/schemas/Threshold"
+                  - $ref: "#/components/schemas/Deadman"
+              inst_ids:
+                type: array
+                items:
+                  type: string
+        template_id:
+          type: string
+          description: Template id
+        permissions:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                type: string
+
+    NewChannel:
+      type: object
+      properties:
+        channel_id:
+          type: string
+          description: User defined channel id.
+        channel_name:
+          type: string
+          description: User defined channel name.
+        template_id:
+          type: string
+          description: Template id. (public templates include default_threshold or default_deadman)
+        type:
+          type: string
+          enum:
+            - threshold
+            - deadman
+          default: threshold
+          description: Type of Checks (threshold or deadman)
+        triggers_with_actions:
+          type: array
+          items:
+            type: object
+            properties:
+              inst_ids:
+                type: array
+                items:
+                  type: string
+              condition:
+                oneOf:
+                  - $ref: "#/components/schemas/Threshold"
+                  - $ref: "#/components/schemas/Deadman"
+              action:
+                type: object
+                properties:
+                  method:
+                    type: string
+                  actor_id:
+                    type: string
+                  message:
+                    type: string
+      required:
+        - channel_id
+        - channel_name
+        - template_id
+
+    UpdateChannel:
+      type: object
+      properties:
+        channel_name:
+          type: string
+          description: User defined channel name.
+        template_id:
+          type: string
+          description: Template id. (public templates include default_threshold or default_deadman)
+        type:
+          type: string
+          enum:
+            - threshold
+            - deadman
+          default: threshold
+          description: Type of Checks (threshold or deadman)
+        triggers_with_actions:
+          type: array
+          items:
+            type: object
+            properties:
+              inst_ids:
+                type: array
+                items:
+                  type: string
+              condition:
+                oneOf:
+                  - $ref: "#/components/schemas/Threshold"
+                  - $ref: "#/components/schemas/Deadman"
+              action:
+                type: object
+                properties:
+                  method:
+                    type: string
+                  actor_id:
+                    type: string
+                  message:
+                    type: string
+      required:
+        - channel_name
+        
+    ListTypeEnum:
+      type: string
+      default: OWNED
+      enum:
+        - OWNED
+        - SHARED_PUBLIC
+        - ALL
+        
+    Threshold:
+      type: object
+      properties:
+        key:
+          type: string
+        operator:
+          type: string
+        val:
+          type: number
+      required: [key, operator, val]
+
+    Deadman:
+      type: object
+      properties:
+        key:
+          type: string
+        every:
+          type: string
+          example: "10m"
+        offset:
+          type: string
+          example: "15s"
+        report_zero:
+          type: boolean
+        time_since:
+          type: string
+          example: "15s"
+        stale_time:
+          type: string
+          example: "10m"
+      required: [key, time_since]
+    
+    Unit:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of unit.
+        abbrevation:
+          type: string
+          description: The abbrevation for the unit
+        ontology:
+          type: string
+          description: Name of the ontology this unit belongs too.
+        category:
+          type: string
+          description: category of unit.
+
+    UpdateChannelStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Whether the request was a success or failure.
+          enum: [INACTIVE, ACTIVE]
+
+    UpdateTemplate:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Whether the request was a success or failure.
+          enum: [INACTIVE, ACTIVE]
+
+    MeasuredProperty:
+      type: object
+      properties:
+        label:
+          type: string
+          description: The label of property.
+        url:
+          type: string
+          description: The url for the properties ontology
+        ontology:
+          type: string
+          description: Name of the ontology this unit belongs too.
+
+    Alert:
+      type: object
+      properties:
+        actor_id:
+          type: string
+          description: Abaco actor id
+        alert_id:
+          type: string
+          description: Alert id
+        channel_id:
+          type: string
+          description: Unique channel id
+        channel_name:
+          type: string
+          description: User defined channel name
+        created_at:
+          type: string
+          description: Time of alert creation
+        execution_id:
+          type: string
+          description: Abaco execution id
+        message:
+          type: string
+          description: alert message
+
+    Template:
+      type: object
+      properties:
+        created_at:
+          type: string
+          description: Time for template creation
+        last_updated:
+          type: string
+          description: Time for template update
+        permissions:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                type: string
+        script:
+          type: string
+        template_id:
+          type: string
+        type:
+          type: string
+
+    NewTemplate:
+      type: object
+      properties:
+        template_id:
+          type: string
+          description: User defined template id
+        script:
+          type: string
+        type:
+          type: string
+
+    Roles:
+      type: object
+      properties:
+        roleNames:
+          type: array
+          items:
+            type: string
+          description: User role
+
+    NewRole:
+      type: object
+      properties:
+        user:
+          type: string
+          description: User id whom the role is to be granted
+        resource_id:
+          type: string
+          description: project or channel id/id
+        resource_type:
+          type: string
+          description: Resource type should be either project or channel
+          enum: [project, channel, template]
+        role_name:
+          type: string
+          description: role name
+          enum: [admin, manager, user]
+
+    RevokeRole:
+      type: object
+      properties:
+        user:
+          type: string
+          description: User id whom the role is to be revoked
+        resource_id:
+          type: string
+          description: project or channel id/id
+        resource_type:
+          type: string
+          description: Resource type should be either project or channel
+          enum: [project, channel, template]
+        role_name:
+          type: string
+          description: role name
+          enum: [admin, manager, user]
+
+    NewArchive:
+      type: object
+      properties:
+        archive_type:
+          type: string
+          description: The type of archive object - system or chords
+          enum: [system, chords]
+        owner:
+          type: string
+          description: Owner of this archive
+        settings:
+          type: object
+          properties:
+            project_id:
+              type: string
+              description: ID of Project to archive
+            system_id:
+              type: string
+              description: ID os System ID to send archive too.
+            path:
+              type: string
+              description: The directory path to write archive to on selected System.
+            archive_format:
+              type: string
+              description: The archive file format - zip is currently supported
+              enum: [zip] #will be [zip,tar]
+            data_format:
+              type: string
+              description: The data measurement format - csv or JSON is currently supported
+              enum: [csv, json]
+            frequency:
+              type: string
+              description: How often should this archive occur - currently supports one-time_now
+              enum: [one-time]
+            range:
+              type: string
+              description: The range of data to archive_type - all or custom supported
+              enum: [custom, all] #day, week, month, year coming soon
+            start_date:
+              type: string
+              description: A ISO8601 formatted datetime string for the starting time for archival data- only for custom range
+            end_date:
+              type: string
+              description: A ISO8601 formatted datetime string for the end time for archival data - only for custom range
+    Archives:
+      type: array
+      items:
+        $ref: "#/components/schemas/Archive"
+
+    Archive:
+      type: object
+      properties:
+        archive_id:
+          type: string
+          description: the unique id assigned to the archive
+        archive_type:
+          type: string
+          description: The type of archive object - system or chords
+          enum: [system, chords]
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        owner:
+          type: string
+          description: Owner of this archive
+        settings:
+          type: object
+          properties:
+            project_id:
+              type: string
+              description: ID of Project to archive
+            system_id:
+              type: string
+              description: ID os System ID to send archive too.
+            path:
+              type: string
+              description: The directory path to write archive to on selected System.
+            archive_format:
+              type: string
+              description: The archive file format - zip is currently supported
+              enum: [zip] #will be [zip,tar]
+            data_format:
+              type: string
+              description: The data measurement format - csv or JSON is currently supported
+              enum: [csv, json]
+            frequency:
+              type: string
+              description: How often should this archive occur - currently supports one-time_now
+              enum: [one-time]
+            range:
+              type: string
+              description: The range of data to archive_type - all or custom supported
+              enum: [custom, all] #day, week, month, year coming soon
+            start_date:
+              type: string
+              description: A ISO8601 formatted datetime string for the starting time for archival data- only for custom range
+            end_date:
+              type: string
+              description: A ISO8601 formatted datetime string for the end time for archival data - only for custom range
+
+    Transfer:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: The filename to create on the destination
+        created_at:
+          type: string
+          description: ISO8601 datetime string for object creation date
+        owner:
+          type: string
+          description: Owner of this archive
+        system_id:
+          type: string
+          description: ID os System ID to send archive too.
+        path:
+          type: string
+          description: The directory path to write archive to on selected System.
+        project_id:
+          type: string
+          description: The Project the data is within.
+        inst_id:
+          type: string
+          description: The Instrument to pull measurement data from for the start and end dates.
+        data_format:
+          type: string
+          description: The data measurement format - csv or JSON is currently supported
+        start_date:
+          type: string
+          description: A ISO8601 formatted datetime string for the starting time for archival data
+        end_date:
+          type: string
+          description: A ISO8601 formatted datetime string for the ending time for archival data
+    
+    ResultMetadata:
+       type: object
+       properties:
+        total_count:
+          type: integer
+          description: count of result set
+
+    SearchObject:
+      type: object
+      properties:
+        name:
+          type: string
+          description: name of project, site, instrument or variable
+        created_at:
+          type: string
+          description: ISO8601 datetime string for resource creation date
+        owner:
+          type: string
+          description: Owner of this resource
+        resource_id:
+          type: string
+          description: Resource id.
+
+    SearchResponse:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            recordCount:
+              type: integer
+            recordLimit:
+              type: integer
+            recordsSkipped:
+              type: integer
+            orderBy:
+              type: string
+            startAfter:
+              type: string
+            totalCount:
+              type: integer
+        result_set:
+          type: array
+          items:
+            type: object 
+            $ref: '#/components/schemas/SearchObject'
+             
+    Application:
+      type: object
+### End of Components

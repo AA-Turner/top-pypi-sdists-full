@@ -18,6 +18,8 @@ base = [
     "python-snappy",
     "pyyaml",
     "imagehash",
+    "pandas",
+    "xgboost",
 ]
 
 # Install base dependencies first

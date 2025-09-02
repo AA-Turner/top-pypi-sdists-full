@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: pyvolumio
+Version: 0.1.5
+Summary: A python library to control Volumio.
+Home-page: https://github.com/OnFreund/PyVolumio
+Author: On Freund
+Author-email: onfreund@gmail.com
+License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.7.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+
+# PyVolumio
+
+A python interface control [Volumio](https://volumio.org/).
+
+## Installation
+
+You can install pyvolumio from [PyPI](https://pypi.org/project/pyvolumio/):
+
+    pip3 install pyvolumio
+
+Python 3.7 and above are supported.
+
+
+## How to use
+
+```python
+from pyvolumio import Volumio
+v = Volumio("<host>", <port>)
+# you can also pass in your own session
+v = Volumio("<host>", <port>, <session>)
+
+info = await v.get_system_info()
+state = await v.get_state()
+
+await v.play()
+await v.pause()
+await v.stop()
+await v.volume_up()
+...
+```
+

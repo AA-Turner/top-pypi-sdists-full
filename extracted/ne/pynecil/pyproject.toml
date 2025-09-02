@@ -1,0 +1,84 @@
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:"
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "TRY", "UP", "D", "W"]
+extend-ignore = ["D213", "D202", "D203", "D213", "UP038", "TRY003"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=pynecil/ --cov-report=term-missing"
+asyncio_mode = "auto"
+
+[tool.hatch]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+source = "regex_commit"
+tag_sign = false
+commit_extra_args = ["-e"]
+path = "pynecil/__init__.py"
+
+[tool.hatch.envs.default]
+python = "3.12"
+installer = "uv"
+dependencies = [
+    "aiohttp==3.12.13",
+    "bleak==0.22.3",
+    "mypy==1.16.1",
+    "ruff==0.12.1",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "mkdocs-material==9.6.14",
+    "mkdocstrings[python]==0.29.1",
+    "pytest-asyncio==1.0.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+test-cov-xml = "pytest --cov-report=xml"
+lint = [
+  "ruff format .",
+  "ruff --fix .",
+  "mypy pynecil/",
+]
+lint-check = [
+  "ruff format --check .",
+  "ruff check .",
+  "mypy pynecil/",
+]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+
+[build-system]
+requires = ["hatchling", "hatch-regex-commit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pynecil"
+authors = [
+  { name = "Manfred Dennerlein Rodelo", email = "manfred@dennerlein.name" }
+]
+description = "Python library to communicate with Pinecil V2 soldering irons via Bluetooth"
+readme = "README.md"
+dynamic = ["version"]
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent"
+]
+requires-python = ">=3.11"
+dependencies = [
+    "bleak>=0.22.0",
+    "aiohttp>=3.11.10"
+]
+
+[project.urls]
+Documentation = "https://tr4nt0r.github.io/pynecil/"
+Source = "https://github.com/tr4nt0r/pynecil"

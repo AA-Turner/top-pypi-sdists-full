@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.36.0
+Version: 1.36.1
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Framework :: Pydantic :: 2
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: azure-ai-projects >= 1.0.0b12
-Requires-Dist: azure-ai-agents >= 1.1.0b4
+Requires-Dist: azure-ai-agents >= 1.2.0b3
 Requires-Dist: aiohttp ~= 3.8
 Requires-Dist: cloudevents ~=1.0
 Requires-Dist: pydantic >=2.0,!=2.10.0,!=2.10.1,!=2.10.2,!=2.10.3,<2.12

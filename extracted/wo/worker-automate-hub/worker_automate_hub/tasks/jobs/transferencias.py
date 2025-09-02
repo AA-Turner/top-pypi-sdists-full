@@ -67,7 +67,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         # Fecha a instancia do emsys - caso esteja aberta
         await kill_all_emsys()
-        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_38.exe")
+        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_10.exe")
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,

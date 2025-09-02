@@ -1,0 +1,41 @@
+Metadata-Version: 2.1
+Name: pytest-speed
+Version: 0.3.5
+Summary: Modern benchmarking library for python with pytest integration.
+Project-URL: repository, https://github.com/samuelcolvin/pytest-speed
+Author-email: Samuel Colvin <s@muelcolvin.com>
+License-Expression: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Framework :: Pytest
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.7
+Requires-Dist: click>=7
+Requires-Dist: pytest>=7
+Requires-Dist: rich>=12
+Description-Content-Type: text/markdown
+
+# pytest-speed
+
+Modern benchmarking library for python with pytest integration.
+
+`pytest-speed` is mostly backwards compatible with `pytest-benchmark` but adds:
+* clearer output using rich
+* clearer comparison of benchmarks
+* some extra functionality, e.g. running multiple benchmarks from a single test

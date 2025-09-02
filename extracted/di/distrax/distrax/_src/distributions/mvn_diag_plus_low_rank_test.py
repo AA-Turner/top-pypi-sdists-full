@@ -22,6 +22,7 @@ from distrax._src.distributions.mvn_diag_plus_low_rank import MultivariateNormal
 from distrax._src.utils import equivalence
 
 import jax
+import jax.experimental
 import jax.numpy as jnp
 import numpy as np
 from tensorflow_probability.substrates import jax as tfp
@@ -180,13 +181,14 @@ class MultivariateNormalDiagPlusLowRankTest(equivalence.EquivalenceTest):
       ('float32', jnp.float32),
       ('float64', jnp.float64))
   def test_sample_dtype(self, dtype):
-    dist_params = {
-        'loc': np.array([0., 0.], dtype),
-        'scale_diag': np.array([1., 1.], dtype)}
-    dist = MultivariateNormalDiagPlusLowRank(**dist_params)
-    samples = self.variant(dist.sample)(seed=jax.random.PRNGKey(0))
-    self.assertEqual(samples.dtype, dist.dtype)
-    chex.assert_type(samples, dtype)
+    with jax.experimental.enable_x64(dtype.dtype.itemsize == 8):
+      dist_params = {
+          'loc': np.array([0., 0.], dtype),
+          'scale_diag': np.array([1., 1.], dtype)}
+      dist = MultivariateNormalDiagPlusLowRank(**dist_params)
+      samples = self.variant(dist.sample)(seed=jax.random.PRNGKey(0))
+      self.assertEqual(samples.dtype, dist.dtype)
+      chex.assert_type(samples, dtype)
 
   @chex.all_variants
   @parameterized.named_parameters(
@@ -334,6 +336,8 @@ class MultivariateNormalDiagPlusLowRankTest(equivalence.EquivalenceTest):
     elif mode_string == 'tfp_to_distrax':
       result1 = self.variant(getattr(tfp_dist1, function_string))(distrax_dist2)
       result2 = self.variant(getattr(tfp_dist2, function_string))(distrax_dist1)
+    else:
+      raise ValueError(f'Unsupported mode: {mode_string}')
     self.assertion_fn(rtol=3e-3)(result1, expected_result1)
     self.assertion_fn(rtol=3e-3)(result2, expected_result2)
 

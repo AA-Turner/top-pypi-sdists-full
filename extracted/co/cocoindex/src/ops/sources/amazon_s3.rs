@@ -63,8 +63,8 @@ fn datetime_to_ordinal(dt: &aws_sdk_s3::primitives::DateTime) -> Ordinal {
 impl SourceExecutor for Executor {
     async fn list(
         &self,
-        _options: &SourceExecutorListOptions,
-    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRowMetadata>>>> {
+        _options: &SourceExecutorReadOptions,
+    ) -> Result<BoxStream<'async_trait, Result<Vec<PartialSourceRow>>>> {
         let stream = try_stream! {
             let mut continuation_token = None;
             loop {
@@ -85,11 +85,14 @@ impl SourceExecutor for Executor {
                             // Only include files (not folders)
                             if key.ends_with('/') { continue; }
                             if self.pattern_matcher.is_file_included(key) {
-                                batch.push(PartialSourceRowMetadata {
-                                    key: FullKeyValue::from_single_part(key.to_string()),
+                                batch.push(PartialSourceRow {
+                                    key: KeyValue::from_single_part(key.to_string()),
                                     key_aux_info: serde_json::Value::Null,
-                                    ordinal: obj.last_modified().map(datetime_to_ordinal),
-                                    content_version_fp: None,
+                                    data: PartialSourceRowData {
+                                        ordinal: obj.last_modified().map(datetime_to_ordinal),
+                                        content_version_fp: None,
+                                        value: None,
+                                    },
                                 });
                             }
                         }
@@ -110,9 +113,9 @@ impl SourceExecutor for Executor {
 
     async fn get_value(
         &self,
-        key: &FullKeyValue,
+        key: &KeyValue,
         _key_aux_info: &serde_json::Value,
-        options: &SourceExecutorGetOptions,
+        options: &SourceExecutorReadOptions,
     ) -> Result<PartialSourceRowData> {
         let key_str = key.single_part()?.str_value()?;
         if !self.pattern_matcher.is_file_included(key_str) {
@@ -184,6 +187,10 @@ impl SourceExecutor for Executor {
             }
         };
         Ok(Some(stream.boxed()))
+    }
+
+    fn provides_ordinal(&self) -> bool {
+        true
     }
 }
 
@@ -257,7 +264,7 @@ impl Executor {
                     {
                         let decoded_key = decode_form_encoded_url(&s3.object.key)?;
                         changes.push(SourceChange {
-                            key: FullKeyValue::from_single_part(decoded_key),
+                            key: KeyValue::from_single_part(decoded_key),
                             key_aux_info: serde_json::Value::Null,
                             data: PartialSourceRowData::default(),
                         });
@@ -324,6 +331,7 @@ impl SourceFactoryBase for Factory {
 
     async fn build_executor(
         self: Arc<Self>,
+        _source_name: &str,
         spec: Spec,
         _context: Arc<FlowInstanceContext>,
     ) -> Result<Box<dyn SourceExecutor>> {

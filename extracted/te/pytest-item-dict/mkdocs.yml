@@ -1,0 +1,22 @@
+site_name: pytest-item-dict
+site_description: Get a hierarchical dict of session.items
+site_author: Adam Nogowski
+
+theme: readthedocs
+
+repo_url: https://github.com/anogowski/pytest-item-dict
+
+nav:
+  - Home: index.md
+  - Examples: examples.md
+  - Src:
+      - ItemDictPlugin: src/plugin.md
+      - CollectionDict: src/collect_dict.md
+      - TestDict: src/test_dict.md
+      - ItemDictEnums: src/item_dict_enums.md
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["src/pytest_item_dict", "examples"] # Specify the directories to search for Python files

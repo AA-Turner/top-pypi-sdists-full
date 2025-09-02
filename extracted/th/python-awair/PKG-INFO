@@ -1,0 +1,63 @@
+Metadata-Version: 2.1
+Name: python-awair
+Version: 0.2.4
+Summary: asyncio client for the Awair GraphQL and Local APIs
+Home-page: https://github.com/ahayworth/python_awair
+License: MIT
+Keywords: awair,getawair,api,async,asyncio
+Author: Andrew Hayworth
+Author-email: ahayworth@gmail.com
+Requires-Python: >=3.6,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Dist: aiohttp (>=3.6.1,<4.0.0)
+Requires-Dist: voluptuous (>=0.11.7)
+Project-URL: Repository, https://github.com/ahayworth/python_awair
+Project-URL: Say Thanks, https://saythanks.io/to/ahayworth@gmail.com
+Description-Content-Type: text/markdown
+
+# python_awair
+
+![Latest PyPI version](https://img.shields.io/pypi/v/python_awair.svg)
+![CI](https://github.com/ahayworth/python_awair/workflows/CI/badge.svg?branch=master)
+[![codecov](https://codecov.io/gh/ahayworth/python_awair/branch/master/graph/badge.svg)](https://codecov.io/gh/ahayworth/python_awair)
+[![Documentation Status](https://readthedocs.org/projects/python-awair/badge/?version=latest)](https://python-awair.readthedocs.io/en/latest/?badge=latest)
+
+This is an async library which accesses portions of the [Awair](https://getawair.com) REST API. It exists primarily
+to support the Home Assistant integration, but is considered active and supported by its author. PRs welcome!
+
+Features:
+- Object-oriented approach to querying and handling data
+- Supports the "user" portion of the API.
+- Possible to list devices, user information, and to query for a variety of sensor data over various timeframes.
+
+Not yet supported:
+- Device API usage
+- Organization API
+- Device management (such as changing the display of a device)
+
+Dive into our [documentation](https://python-awair.readthedocs.io/en/latest) to get started!
+
+# Development
+
+- We manage dependencies and builds via [poetry](https://python-poetry.org)
+- We use [pytest](https://github.com/pytest-dev/pytest) and [tox](https://github.com/tox-dev/tox) to test
+- A variety of linters are available and CI enforces them
+
+After installing and configuring poetry:
+- Run `poetry install` to install dev dependencies
+- Run `poetry shell` to drop into a virtualenv
+- Run `poetry run tox` (or just `tox` if you're in a virtualenv) to test
+  - Run `poetry run tox -e lint` (or just `tox -e lint` if you're in a virtualenv) to run linters.
+

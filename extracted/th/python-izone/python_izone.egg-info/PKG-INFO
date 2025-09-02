@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: python-izone
+Version: 1.2.9
+Summary: A python interface to the iZone airconditioner controller
+Home-page: https://github.com/Swamp-Ig/pizone
+Author: Penny Wood
+Author-email: pypl@ninjateaparty.com
+Keywords: iZone,IoT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Home Automation
+Classifier: Topic :: System :: Hardware
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Provides-Extra: test
+Provides-Extra: all
+License-File: licence.txt
+
+
+# piZone - python interface to iZone aircon system
+
+This is a python interface to the [iZone](https://izone.com.au/) airconditioning system.
+
+The specifications for the interface are contained in the [included pdf](./AC-DOC-1401-11_iZoneEthernetInterface.pdf).
+
+## Usage
+
+

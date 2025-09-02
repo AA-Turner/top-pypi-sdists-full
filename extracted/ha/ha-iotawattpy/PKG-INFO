@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: ha-iotawattpy
+Version: 0.1.2
+Summary: Python library for the IoTaWatt Energy device
+Home-page: https://github.com/gtdiehl/iotawattpy
+Author: Greg Diehl
+Author-email: greg.diehl.gtd@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.16.1
+
+![Python package](https://github.com/gtdiehl/iotawattpy/workflows/Python%20package/badge.svg)
+
+# iotawattpy
+ Python interface for the IoTaWatt device

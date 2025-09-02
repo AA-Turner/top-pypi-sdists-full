@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: aiolyric
+Version: 2.0.2
+Summary: Python package for the Honeywell Lyric Platform
+Home-page: https://github.com/timmo001/aiolyric
+Author: Aidan Timson (Timmo)
+Author-email: aidan@timmo.dev
+License: Apache-2.0
+Keywords: aiolyric,api,async,asyncio,honeywell lyric,honeywell,lyric,integration
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.12.15
+Requires-Dist: packaging>=24.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# aiolyric
+
+Python package for the Honeywell Lyric Platform.
+
+## Attributions / Contributions
+
+- [@bramkragten](https://github.com/bramkragten) for the original implementation. Referenced his [package](https://github.com/bramkragten/python-lyric) quite a bit whilst writing this one.
+- [@ludeeus](https://github.com/ludeeus) for his generator class. Made reading json into objects super simple. :tada:
+- [Everyone else](https://github.com/timmo001/aiolyric/graphs/contributors). Thanks for the help!

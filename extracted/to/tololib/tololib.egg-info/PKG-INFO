@@ -1,0 +1,69 @@
+Metadata-Version: 2.2
+Name: tololib
+Version: 1.2.2
+Summary: Python Library and Command Line Interface for Communicating with TOLO Steam Generators
+Home-page: https://gitlab.com/MatthiasLohr/tololib
+Author: Matthias Lohr
+Author-email: mail@mlohr.com
+License: MIT
+Project-URL: Documentation, https://gitlab.com/MatthiasLohr/tololib/wikis
+Project-URL: Source, https://gitlab.com/MatthiasLohr/tololib
+Project-URL: Tracker, https://gitlab.com/MatthiasLohr/tololib/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Home Automation
+Classifier: Typing :: Typed
+Requires-Python: >=3.7, <4
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
+
+# TOLOlib
+
+**Python Library and Command Line Interface for Communicating with TOLO Steam Generators**
+
+![](https://img.shields.io/pypi/pyversions/tololib)
+![](https://img.shields.io/pypi/dm/tololib)
+![](https://img.shields.io/pypi/l/tololib)
+![](https://gitlab.com/MatthiasLohr/tololib/badges/main/pipeline.svg)
+![](https://gitlab.com/MatthiasLohr/tololib/badges/main/coverage.svg)
+
+This library supports controlling and requesting information frmo TOLO Sauna/Steam Bath systems.
+It is the core of the [Home Assistant TOLO Integration](https://www.home-assistant.io/integrations/tolo/).
+If you are missing any features or you found any bugs or irregularities,
+please do not hesitate to [open an issue](https://gitlab.com/MatthiasLohr/tololib/-/issues/new).
+
+
+## Links
+
+  * [API Documentation](https://matthiaslohr.gitlab.io/tololib/)
+  * [Official Website of Steamtec/TOLO](https://www.tolosauna.com/)
+
+
+## Legal Notice
+
+This project is a community project, published under the [MIT License](LICENSE.md).
+See [LICENSE.md](https://gitlab.com/MatthiasLohr/tololib/-/blob/main/LICENSE.md) for more information.
+
+Neither this project, nor the author is in any professional affiliation with companies behind TOLO.
+
+Copyright (c) 2021-2025 by [Matthias Lohr](https://mlohr.com/) &lt;[mail@mlohr.com](mailto:mail@mlohr.com)&gt;

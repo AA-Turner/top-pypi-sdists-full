@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: rxv
+Version: 0.7.0
+Summary: Automation Library for Yamaha RX-V473, RX-V573, RX-V673, RX-V773 receivers
+Home-page: https://github.com/wuub/rxv
+Author: Wojciech Bederski
+Author-email: github@wuub.net
+Maintainer: Wojciech Bederski
+Maintainer-email: github@wuub.net
+License: BSD
+Project-URL: Source, https://github.com/wuub/rxv
+Project-URL: Tracker, https://github.com/wuub/rxv/issues
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: tox
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Description-Content-Type: text/x-rst
+Provides-Extra: testing
+License-File: LICENSE
+
+UNKNOWN
+

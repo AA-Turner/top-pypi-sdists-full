@@ -1,5 +1,5 @@
-import decimal
 import datetime
+import decimal
 
 
 class ExaTimeDelta(datetime.timedelta):
@@ -22,11 +22,15 @@ class ExaTimeDelta(datetime.timedelta):
             hours=int(val[11:13]),
             minutes=int(val[14:16]),
             seconds=int(val[17:19]),
-            microseconds=int(round(float(val[20:29].ljust(9, '0')) / 1000)) if len(val) > 20 else 0,
+            microseconds=(
+                int(round(float(val[20:29].ljust(9, "0")) / 1000))
+                if len(val) > 20
+                else 0
+            ),
         )
-        if val[0] == '-':
+        if val[0] == "-":
             # normalize according to Python timedelta rules (days are negative; remaining parts apply back "up" towards 0)
-            # - eg. -6 days, 1:00:00.000000 would represent 5 days, 23 hours ago (6 days back, 1 hour forward)
+            # - e.g. -6 days, 1:00:00.000000 would represent 5 days, 23 hours ago (6 days back, 1 hour forward)
             (seconds, microseconds) = td.reverse_seconds()
             if seconds or microseconds:
                 td = cls(days=td.days - 1, seconds=seconds, microseconds=microseconds)
@@ -63,7 +67,7 @@ def exasol_mapper(val, data_type):
     """
     Convert into Python 3 data types according to Exasol manual
 
-    strptime() function is slow, so we use direct string slicing for performance sake
+    strptime() function is slow, so we use direct string slicing for performance reasons
     More details about this problem: http://ze.phyr.us/faster-strptime/
 
     DECIMAL(p,0)           -> int
@@ -80,18 +84,24 @@ def exasol_mapper(val, data_type):
 
     if val is None:
         return None
-    elif data_type['type'] == 'DECIMAL':
-        if data_type['scale'] == 0:
+    elif data_type["type"] == "DECIMAL":
+        if data_type["scale"] == 0:
             return int(val)
         else:
             return decimal.Decimal(val)
-    elif data_type['type'] == 'DATE':
+    elif data_type["type"] == "DATE":
         return datetime.date(int(val[0:4]), int(val[5:7]), int(val[8:10]))
-    elif data_type['type'] == 'TIMESTAMP':
-        return datetime.datetime(int(val[0:4]), int(val[5:7]), int(val[8:10]),           # year, month, day
-                                 int(val[11:13]), int(val[14:16]), int(val[17:19]),      # hour, minute, second
-                                 int(val[20:26].ljust(6, '0')) if len(val) > 20 else 0)  # microseconds (if available)
-    elif data_type['type'] == 'INTERVAL DAY TO SECOND':
+    elif data_type["type"] == "TIMESTAMP":
+        return datetime.datetime(
+            int(val[0:4]),
+            int(val[5:7]),
+            int(val[8:10]),  # year, month, day
+            int(val[11:13]),
+            int(val[14:16]),
+            int(val[17:19]),  # hour, minute, second
+            int(val[20:26].ljust(6, "0")) if len(val) > 20 else 0,
+        )  # microseconds (if available)
+    elif data_type["type"] == "INTERVAL DAY TO SECOND":
         return ExaTimeDelta.from_interval(val)
     else:
         return val

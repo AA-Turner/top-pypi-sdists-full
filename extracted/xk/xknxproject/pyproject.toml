@@ -1,0 +1,157 @@
+[build-system]
+requires = ["setuptools>=62.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xknxproject"
+authors = [
+  { name = "Marvin Wichmann", email = "me@marvin-wichmann.de" },
+  { name = "Matthias Alphart", email = "farmio@alphart.net" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+]
+dependencies = ["pyzipper>=0.3.6", "striprtf>=0.0.26"]
+description = "A library to gather information from ETS project files used for KNX"
+dynamic = ["version"]
+keywords = ["KNX", "ETS", "Home Assistant"]
+license = { text = "GPL-2.0-only" }
+readme = "README.md"
+requires-python = ">=3.9.0"
+
+[project.urls]
+homepage = "https://github.com/XKNX/xknxproject"
+
+
+[tool.setuptools.dynamic]
+version = { attr = "xknxproject.__version__.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["xknxproject*"]
+
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+show_error_codes = true
+ignore_missing_imports = true
+implicit_reexport = true
+warn_unreachable = true
+
+
+[tool.pylint.master]
+ignore = "test"
+persistent = "no"
+reports = "no"
+
+[tool.pylint.message_control]
+# Reasons disabled:
+# format - handled by ruff
+# locally-disabled - it spams too much
+# duplicate-code - unavoidable
+# cyclic-import - doesn't test if both import on load
+# unused-argument - generic callbacks and setup methods create a lot of warnings
+# raise-missing-from - we use this in order to avoid too generic exception to the user
+# too-many-* - are not enforced for the sake of readability
+# too-few-* - same as too-many-*
+# abstract-method - with intro of async there are always methods missing
+# inconsistent-return-statements - doesn't handle raise
+# too-many-ancestors - it's too strict.
+# wrong-import-order - isort guards this
+# fixme - TODO
+disable = [
+  "format",
+  "abstract-method",
+  "cyclic-import",
+  "duplicate-code",
+  "fixme",
+  "inconsistent-return-statements",
+  "locally-disabled",
+  "not-context-manager",
+  "raise-missing-from",
+  "too-few-public-methods",
+  "too-many-ancestors",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-instance-attributes",
+  "too-many-lines",
+  "too-many-locals",
+  "too-many-positional-arguments",
+  "too-many-public-methods",
+  "too-many-return-statements",
+  "too-many-statements",
+  "too-many-boolean-expressions",
+  "unused-argument",
+  "wrong-import-order",
+]
+# disabled for tests via command line options in Makefile:
+#   - no-self-use
+#   - protected-access
+#   - abstract-class-instantiated
+enable = ["use-symbolic-message-instead"]
+
+[tool.pylint.format]
+expected-line-ending-format = "LF"
+
+[tool.pylint.reports]
+score = "no"
+output-format = "colorized"
+
+
+[tool.pytest.ini_options]
+testpaths = "test"
+
+
+[tool.ruff.lint]
+select = [
+  "A",     # builtins shadowing
+  "ANN",   # annotations
+  "ASYNC", # async
+  "B",     # bugbear
+  "C4",    # comprehensions
+  "D",     # pydocstyle
+  "E",     # pycodestyle
+  "F",     # pyflakes
+  "FLY",   # flynt
+  "FURB",  # refurb
+  "G",     # logging
+  "I",     # isort
+  "LOG",   # logging
+  "PTH",   # pathlib
+  "RUF",   # ruff specific
+  "SLF",   # private member access
+  "SIM",   # simplify
+  "T20",   # print
+  "UP",    # pyupgrade
+  "W",     # pydocstyle warning
+]
+ignore = [
+  "D202",
+  "D203",
+  "D212",
+  "E501",   # line too long
+  "SIM102", # collapsible-if
+  "SIM105", #suppressible-exception
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"script/*" = ["T20"] # print-used
+"test/*" = [
+  "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+  "SLF",    # private member access
+  "SIM117", # multiple-with-statements
+]
+
+
+[tool.ruff.lint.flake8-builtins]
+builtins-allowed-modules = [
+  # been there before ruff check A005 was added - backwards compatibility
+  "parser",
+  "xml",
+]

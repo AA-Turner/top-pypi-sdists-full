@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zhinst
-Version: 25.7.0
+Version: 25.7.1
 Summary: Zurich Instruments Python API
 Author: Zurich Instrument
 Author-email: info@zhinst.com
@@ -19,7 +19,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: zhinst.core==25.7.0.507
 Requires-Dist: zhinst.utils==0.7.0
-Requires-Dist: zhinst.toolkit==1.0.1
+Requires-Dist: zhinst.toolkit==1.1.0
 Dynamic: license-file
 
 # Zurich Instruments LabOne Packages

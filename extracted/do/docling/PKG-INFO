@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.48.0
+Version: 2.49.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -51,6 +51,7 @@ Requires-Dist: pluggy<2.0.0,>=1.0.0
 Requires-Dist: pylatexenc<3.0,>=2.10
 Requires-Dist: scipy<2.0.0,>=1.6.0
 Requires-Dist: accelerate<2,>=1.0.0
+Requires-Dist: polyfactory>=2.22.2
 Provides-Extra: tesserocr
 Requires-Dist: tesserocr<3.0.0,>=2.7.1; extra == "tesserocr"
 Provides-Extra: ocrmac
@@ -60,6 +61,7 @@ Requires-Dist: transformers<5.0.0,>=4.46.0; extra == "vlm"
 Requires-Dist: accelerate<2.0.0,>=1.2.1; extra == "vlm"
 Requires-Dist: mlx-vlm<1.0.0,>=0.3.0; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "vlm"
 Requires-Dist: vllm<1.0.0,>=0.10.0; (python_version >= "3.10" and sys_platform == "linux" and platform_machine == "x86_64") and extra == "vlm"
+Requires-Dist: qwen-vl-utils>=0.0.11; extra == "vlm"
 Provides-Extra: rapidocr
 Requires-Dist: rapidocr<4.0.0,>=3.3; python_version < "3.14" and extra == "rapidocr"
 Requires-Dist: onnxruntime<2.0.0,>=1.7.0; extra == "rapidocr"

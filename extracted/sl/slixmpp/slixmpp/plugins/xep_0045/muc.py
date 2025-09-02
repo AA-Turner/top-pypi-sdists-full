@@ -196,9 +196,9 @@ class XEP_0045(BasePlugin):
     def _handle_groupchat_decline(self, decl: Message):
         """Handle an invitation decline."""
         if self.xmpp.is_component:
-            self.xmpp.event('groupchat_invite', decl)
+            self.xmpp.event('groupchat_decline', decl)
         else:
-            if decl['from'] in self.room.keys():
+            if decl['from'] in self.rooms.keys():
                 self.xmpp.event('groupchat_decline', decl)
 
     def _handle_config_change(self, msg: Message):

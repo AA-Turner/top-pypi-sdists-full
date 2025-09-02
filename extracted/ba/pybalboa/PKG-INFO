@@ -1,0 +1,53 @@
+Metadata-Version: 2.3
+Name: pybalboa
+Version: 1.1.3
+Summary: Module to communicate with a Balboa spa wifi adapter.
+Keywords: Balboa,spa,hot tub,asynchronous
+Author: Nathan Spencer
+Author-email: natekspencer@gmail.com
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Project-URL: Homepage, https://github.com/garbled1/pybalboa
+Project-URL: Repository, https://github.com/garbled1/pybalboa
+Description-Content-Type: text/x-rst
+
+pybalboa
+--------
+
+Python Module to interface with a balboa spa
+
+Requires Python 3 with asyncio.
+
+To Install::
+
+  pip install pybalboa
+
+To test::
+
+  python3 pybalboa <ip-of-spa-wifi> <debug-flag>
+
+To Use
+``````
+
+See ``__main__.py`` for usage examples.
+
+Minimal example::
+
+  import asyncio
+  import pybalboa
+
+  async with pybalboa.SpaClient(spa_host) as spa:
+    # read/run spa commands
+  return
+
+
+Related
+```````
+- https://github.com/ccutrer/balboa_worldwide_app/wiki - invaluable wiki for Balboa module protocol
+

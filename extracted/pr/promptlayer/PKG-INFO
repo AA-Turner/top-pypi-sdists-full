@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: promptlayer
-Version: 1.0.66
+Version: 1.0.67
 Summary: PromptLayer is a platform for prompt engineering and tracks your LLM requests.
 License: Apache-2.0
 Author: Magniv

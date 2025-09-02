@@ -1,0 +1,50 @@
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+
+[tool.poetry]
+name = "idasen"
+description = "ikea IDÅSEN desk API and CLI."
+authors = ["Alex Martens <alex@thinglab.org>"]
+version = "0.12.0"
+license = "MIT"
+readme = "README.rst"
+repository = "https://github.com/newAM/idasen"
+documentation = "https://newam.github.io/idasen"
+keywords = ["ikea", "idasen", "bluetooth", "linak", "ble"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+bleak = ">=0.15"
+pyyaml = ">=5.3.1"
+voluptuous = ">=0.12"
+
+[tool.poetry.dev-dependencies]
+black = "24.2.0"
+coveralls = "^3"
+flake8 = { version = "^7", python = ">=3.8.1,<4.0" }
+flake8-bugbear = { version = "^24.2.6", python = ">=3.8.1,<4.0" }
+pep8-naming = "^0.13.3"
+pytest = "^8.1.0"
+pytest-asyncio = "^0.23"
+pytest-cov = "^4.1.0"
+sphinx = "^7.1.2"
+sphinx-rtd-theme = "^2.0.0"
+toml = "^0.10.2"
+mypy = "^1.8"
+types-PyYAML = "^6.0.12"
+
+[tool.poetry.scripts]
+idasen = "idasen.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.mypy]
+warn_unused_configs = true
+ignore_missing_imports = true

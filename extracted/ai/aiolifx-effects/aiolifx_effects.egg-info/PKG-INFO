@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: aiolifx-effects
+Version: 0.3.2
+Summary: aiolifx light effects
+Home-page: https://github.com/amelchio/aiolifx_effects
+Author: Anders Melchiorsen
+Author-email: amelchio@nogoto.net
+License: MIT
+Keywords: aiolifx,lifx
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3 :: Only
+License-File: LICENSE.txt

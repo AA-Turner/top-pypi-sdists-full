@@ -497,7 +497,7 @@ class WildLifeMonitoringUseCase(BaseProcessor):
             human_text_lines.append(f"\t- No detections")
             
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
-        human_text_lines.append(f"Total Animal Detected:- {len(total_counts)}")
+        human_text_lines.append(f"Total Animal Detected:- {cumulative_total}")
         for cat, count in total_counts_dict.items():
             if count > 0:
                 human_text_lines.append(f"\t{cat}: {count}")

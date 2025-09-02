@@ -1,0 +1,40 @@
+"""Setup for pywizlight."""
+
+import os
+import re
+
+import setuptools
+
+with open("README.md") as fh:
+    long_description = fh.read()
+
+
+def get_version() -> str:
+    """Define the version number."""
+    version_file = open(os.path.join("pywizlight", "_version.py"))
+    version_contents = version_file.read()
+    match = re.search('__version__ = "(.*?)"', version_contents)
+    assert match
+    return match.group(1)
+
+
+setuptools.setup(
+    name="pywizlight",
+    version=get_version(),
+    author="Stephan Traub",
+    author_email="sbidy@hotmail.com",
+    description="A python connector for WiZ light bulbs (e.g SLV Play)",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    license="MIT",
+    url="https://github.com/sbidy/pywizlight",
+    packages=setuptools.find_packages(exclude=["test.py", "tests"]),
+    entry_points={"console_scripts": ["wizlight = pywizlight.cli:main"]},
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    install_requires=["click"],
+    python_requires=">=3.7",
+)

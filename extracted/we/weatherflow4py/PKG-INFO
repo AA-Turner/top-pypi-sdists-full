@@ -1,0 +1,37 @@
+Metadata-Version: 2.3
+Name: weatherflow4py
+Version: 1.4.1
+Summary: Python library used by Home Assistant to interact with the WeatherFlow REST API
+License: MIT
+Author: Jeef
+Author-email: jeeftor@users.noreply.github.com
+Requires-Python: >=3.12,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiohttp (>=3.9.1)
+Requires-Dist: dataclasses-json (>=0.6.3,<0.7.0)
+Requires-Dist: marshmallow (>=3.20.1,<4.0.0)
+Requires-Dist: websockets (>=11.0)
+Description-Content-Type: text/markdown
+
+# Weatherflow4py
+
+Simple Python library used by Home Assistant to interact with the WeatherFlow RESTApi
+
+
+It supports Rest and WebSockets
+
+
+### Utilizes these resources
+
+- https://apidocs.tempestwx.com/reference/quick-start
+- https://weatherflow.github.io/Tempest/api/swagger/
+- https://weatherflow.github.io/Tempest/api/ws.html
+
+
+- [PyPi Link](https://pypi.org/project/weatherflow4py/)
+- [Test PyPi Link](https://test.pypi.org/project/weatherflow4py/)
+o
+

@@ -61,3 +61,5 @@ file_dir    = '/Users/songweizhi/Desktop/Sponge_r226/02_AOA_genomes/GCA_GCF_1167
 file_ext    = 'txt'
 summary_txt = '/Users/songweizhi/Desktop/Sponge_r226/02_AOA_genomes/GCA_GCF_1167_metadata/tmp2_summary.txt'
 
+
+print(['na']*3)

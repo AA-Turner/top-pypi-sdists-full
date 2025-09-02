@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydoclint
-Version: 0.6.11
+Version: 0.7.0
 Summary: A Python docstring linter that checks arguments, returns, yields, and raises sections
 Author: jsh9
 License: MIT
@@ -46,7 +46,9 @@ Currently, _pydoclint_ supports three docstring styles:
 [numpy](https://numpydoc.readthedocs.io/en/latest/format.html),
 [Google](https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html),
 and
-[Sphinx](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html).
+[Sphinx](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html),
+with some
+[minor style deviations](https://jsh9.github.io/pydoclint/style_deviations.html).
 
 Another note: this linter and [pydocstyle](https://github.com/PyCQA/pydocstyle)
 serves complementary purposes. It is recommended that you use both together.
@@ -57,7 +59,7 @@ here: [https://jsh9.github.io/pydoclint](https://jsh9.github.io/pydoclint)
 The corresponding Github repository of _pydoclint_ is:
 [https://github.com/jsh9/pydoclint](https://github.com/jsh9/pydoclint)
 
----
+______________________________________________________________________
 
 **Table of Contents**
 
@@ -128,10 +130,10 @@ other built-in _flake8_ linters on your code.
 Should you use _pydoclint_ as a native command line tool or a _flake8_ plugin?
 Here's comparison:
 
-|                 | Pros                                     | Cons                                                          |
-| --------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| Native tool     | Slightly faster; supports "baseline" [*] | No inline or project-wide omission support right now [**]     |
-| _flake8_ plugin | Supports inline or project-wide omission | Slightly slower because other flake8 plugins are run together |
+|                 | Pros                                      | Cons                                                          |
+| --------------- | ----------------------------------------- | ------------------------------------------------------------- |
+| Native tool     | Slightly faster; supports "baseline" [\*] | No inline or project-wide omission support right now [\*\*]   |
+| _flake8_ plugin | Supports inline or project-wide omission  | Slightly slower because other flake8 plugins are run together |
 
 \*) "Baseline" allows you to log the current violation state of your existing
 project, making adoption of _pydoclint_ much easier.

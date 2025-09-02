@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: pyosoenergyapi
+Version: 1.2.4
+Summary: A Python library to interface with the OSO Energy API
+Home-page: https://github.com/osohotwateriot/apyosohotwaterapi
+Author: OSO Energy
+Author-email: osowh.iot@gmail.com
+Project-URL: Bug Tracker, https://github.com/osohotwateriot/apyosohotwaterapi/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: loguru
+Dynamic: license-file
+Dynamic: requires-dist
+
+# Introduction
+This is a library which intefaces with the OSO Energy platform. 
+This library is built mainly to integrate with the Home Assistant platform,
+but it can also be used independently
+
+

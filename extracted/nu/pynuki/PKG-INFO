@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: pynuki
+Version: 1.6.3
+Summary: Python bindings for nuki.io bridges
+Home-page: https://github.com/pschmitt/pynuki
+License: GPL-3.0-only
+Author: Philipp Schmitt
+Author-email: philipp@schmitt.co
+Requires-Python: >3.8,<4.0
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: pynacl (>=1.5.0,<2.0.0)
+Requires-Dist: requests (>=2.27,<3)
+Project-URL: Repository, https://github.com/pschmitt/pynuki
+Description-Content-Type: text/markdown
+
+# pynuki
+
+![PyPI](https://img.shields.io/pypi/v/pynuki)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pynuki)
+![PyPI - License](https://img.shields.io/pypi/l/pynuki)
+[![CI](https://github.com/pschmitt/pynuki/workflows/CI/badge.svg)](https://github.com/pschmitt/pynuki/actions?query=workflow%3A%22CI%22)
+
+Python library for interacting with Nuki locks and openers
+
+## Installation
+
+```bash
+pip install -U pynuki
+```
+
+## Usage
+
+```python
+from pynuki import NukiBridge
+
+bridges = NukiBridge.discover()
+br = bridges[0]
+br.token = "YOUR_TOKEN"
+
+# Locks
+br.locks[0].lock()
+br.locks[0].unlock()
+
+# Openers
+br.openers[0].activate_rto()
+br.openers[0].deactivate_rto()
+```
+

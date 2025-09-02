@@ -1,0 +1,41 @@
+cache-dir = ".ruff_cache"
+line-length = 100
+indent-width = 4
+target-version = "py311"
+include = ["fluidattacks_core/**/*.py", "test/**/*.py"]
+
+[lint]
+select = ["ALL"]
+ignore = [
+  "ANN401",
+  "ASYNC109",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D107",
+  "EM101",
+  "EM102",
+  "N818",
+  "PLR0913",
+  "PLR2004",
+  "PTH107",
+  "PTH123",
+  "PTH118",
+  "S101",
+  "SIM117",
+  "RET504",
+  "TRY003",
+  "TRY400",
+  "TRY401",
+]
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"

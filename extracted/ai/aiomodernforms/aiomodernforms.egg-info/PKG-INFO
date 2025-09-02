@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: aiomodernforms
+Version: 0.1.8
+Summary: Asynchronous Python client for Modern Forms fans.
+Home-page: https://github.com/wonderslug/aiomodernforms
+Author: Brian Towles
+Author-email: brian@towles.com
+License: MIT license
+Description: # Python: Async IO Modern Forms API Client
+        
+        ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/wonderslug/aiomodernforms/Continuous%20Integration)
+        ![Codecov](https://img.shields.io/codecov/c/github/wonderslug/aiomodernforms)
+        [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+        ![PyPI](https://img.shields.io/pypi/v/aiomodernforms)
+        
+        Asynchronous Python client for Modern Forms Fans.
+        
+        ## About
+        
+        This package allows you to control and monitor Modern Forms fans
+        programmatically. It is mainly created to allow third-party programs to automate
+        the behavior of the Modern Forms fans
+        
+        ## Installation
+        
+        ```bash
+        pip install aiomodernforms
+        ```
+        
+        ## Usage
+        
+        ```python
+        """Asynchronous Python client for Async IO Modern Forms fan."""
+        import asyncio
+        from datetime import datetime, timedelta
+        
+        import aiomodernforms
+        from aiomodernforms.const import LIGHT_POWER_ON
+        
+        
+        async def main():
+            """Turn on the fan light."""
+            async with aiomodernforms.ModernFormsDevice("192.168.3.197") as fan:
+                await fan.update()
+                print(fan.status)
+                await fan.light(
+                    on=LIGHT_POWER_ON,
+                    brightness=50,
+                    sleep=datetime.now() + timedelta(minutes=2),
+                )
+                print(fan.status)
+        
+        
+        if __name__ == "__main__":
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        ```
+        
+Keywords: modernforms,api,async,client
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown

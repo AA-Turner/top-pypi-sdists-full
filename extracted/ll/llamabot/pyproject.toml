@@ -1,0 +1,195 @@
+# https://setuptools.pypa.io/en/latest/userguide/quickstart.html
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = false
+fail-under = 100
+exclude = ["setup.py", "docs", "build", "examples"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*", "^no_docstring_func$", "^empty_func$"]
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+
+[tool.pytest.ini_options]
+addopts = "-v --cov --cov-report term-missing -m 'not llm_eval' --durations=10"
+testpaths = [
+    "tests",
+]
+norecursedirs = ["archive/*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+
+[project]
+name = "llamabot"
+version = "0.13.6"
+# Runtime dependencies below
+dependencies = [
+    "openai",
+    "loguru",
+    "python-dotenv",
+    "typer>=0.15.3",
+    "pyprojroot",
+    "beautifulsoup4",
+    "litellm>=1.71.0", # this is necessary to guarantee that ollama_chat models are supported for structured outputs
+    "python-slugify",
+    "pydantic>=2.0",
+    "numpy",
+    "jinja2",
+    "fastapi>=0.115.9",
+    "uvicorn",
+    "tenacity",
+    "python-multipart",
+    "httpx",
+    "tqdm",
+    "sqlalchemy",
+    "pdfminer.six",
+    "numpydoc", # Temporarily added on 2025-05-10 to fix LiteLLM's omission of this dependency.
+    "chonkie",
+    "starlette",
+    "duckduckgo-search",
+    "networkx",
+    "docstring-parser>=0.17.0,<0.18"
+]
+requires-python = ">=3.9,<3.13"
+description = "A Pythonic interface to LLMs."
+readme = "README.md"
+
+[project.urls]
+"Documentation" = "https://ericmjl.github.io/llamabot"
+"Source Code" = "https://github.com/ericmjl/llamabot"
+
+[project.scripts]
+llamabot = "llamabot.cli:app"
+
+[project.optional-dependencies]
+notebooks = [
+    "ics",
+    "tzlocal",
+    "modal",
+    "ipykernel",
+]
+rag = [
+    "lancedb>=0.22",
+    "tantivy",
+    "rank-bm25",
+    "pylance",
+    "sentence-transformers",
+    "rerankers",
+]
+agent = [
+    "docker",
+    "markdownify",
+]
+cli = [
+    "nbformat",
+    "python-frontmatter",
+    "rich",
+    "gitpython",
+    "prompt-toolkit",
+    "case-converter",
+    "pyperclip",
+    "astor",
+]
+all = [
+    "llamabot[notebooks,rag,agent,cli]"
+]
+
+[dependency-groups]
+notebooks = ["ollama>=0.4.4,<0.5"]
+agent = []
+cli = []
+
+[tool.pixi.project]
+name = "llamabot"
+description = "A Pythonic interface to LLMs"
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["osx-arm64", "linux-64", "osx-64", "linux-aarch64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+llamabot = { path = ".", editable = true }
+
+[tool.pixi.feature.tests.pypi-dependencies]
+pytest = "*"
+hypothesis = "*"
+pytest-cov = "*"
+pytest-mock = "*"
+tuna = "*"
+
+[tool.pixi.feature.devtools.pypi-dependencies]
+pre-commit = "*"
+ipython = "*"
+bump2version = "*"
+ty = "*"
+
+[tool.pixi.feature.docs.pypi-dependencies]
+mkdocs = "*"
+mkdocs-material = "*"
+mknotebooks = "*"
+
+# TASKS BELOW!
+[tool.pixi.tasks]
+llamabot-cli = "llamabot --help"
+
+[tool.pixi.feature.notebooks.tasks]
+jlab = "jupyter lab"
+
+[tool.pixi.feature.tests.tasks]
+test = "pytest"
+
+[tool.pixi.feature.tests.dependencies]
+pytest-asyncio = ">=1.0.0,<2"
+
+[tool.pixi.feature.docs.tasks]
+docs = "mkdocs serve"
+build-docs = "mkdocs build"
+
+[tool.pixi.environments]
+default = ["tests", "devtools", "docs", "notebooks", "rag", "agent", "cli"]
+docs = ["docs"]
+notebooks = ["notebooks", "rag", "agent"] # for those who just want to run notebooks
+bare = ["devtools"]
+
+[tool.pixi.dependencies]
+python-multipart = "*"
+numpydoc = ">=1.8.0,<2"
+
+[tool.ty.environment]
+python = "./.pixi/envs/default"

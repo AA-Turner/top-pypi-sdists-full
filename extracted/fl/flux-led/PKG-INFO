@@ -1,0 +1,86 @@
+Metadata-Version: 2.4
+Name: flux_led
+Version: 1.2.0
+Summary: A Python library to communicate with the flux_led smart bulbs
+Home-page: https://github.com/Danielhiversen/flux_led
+Author: Daniel Hjelseth Høyer
+Author-email: mail@dahoiv.net
+License: LGPL-3.0-or-later
+Keywords: flux_led,smart bulbs,light
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: webcolors
+Requires-Dist: typing_extensions; python_version < "3.8"
+Requires-Dist: async_timeout>=3.0.0
+Provides-Extra: setup
+Requires-Dist: pytest-runner>=5.2; extra == "setup"
+Provides-Extra: test
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: ruff==0.11.2; extra == "test"
+Requires-Dist: codecov>=2.1.4; extra == "test"
+Requires-Dist: pytest>=5.4.3; extra == "test"
+Requires-Dist: pytest-cov>=2.9.0; extra == "test"
+Requires-Dist: pytest-raises>=0.11; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest-runner>=5.2; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: ruff==0.11.2; extra == "dev"
+Requires-Dist: codecov>=2.1.4; extra == "dev"
+Requires-Dist: pytest>=5.4.3; extra == "dev"
+Requires-Dist: pytest-cov>=2.9.0; extra == "dev"
+Requires-Dist: pytest-raises>=0.11; extra == "dev"
+Requires-Dist: bump2version>=1.0.1; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: ipython>=7.15.0; extra == "dev"
+Requires-Dist: m2r2>=0.2.7; extra == "dev"
+Requires-Dist: pytest-runner>=5.2; extra == "dev"
+Requires-Dist: Sphinx>=3.4.3; extra == "dev"
+Requires-Dist: sphinx_rtd_theme>=0.5.1; extra == "dev"
+Requires-Dist: tox>=3.15.2; extra == "dev"
+Requires-Dist: twine>=3.1.1; extra == "dev"
+Requires-Dist: wheel>=0.34.2; extra == "dev"
+Provides-Extra: all
+Requires-Dist: webcolors; extra == "all"
+Requires-Dist: typing_extensions; python_version < "3.8" and extra == "all"
+Requires-Dist: async_timeout>=3.0.0; extra == "all"
+Requires-Dist: pytest-runner>=5.2; extra == "all"
+Requires-Dist: pytest-asyncio; extra == "all"
+Requires-Dist: ruff==0.11.2; extra == "all"
+Requires-Dist: codecov>=2.1.4; extra == "all"
+Requires-Dist: pytest>=5.4.3; extra == "all"
+Requires-Dist: pytest-cov>=2.9.0; extra == "all"
+Requires-Dist: pytest-raises>=0.11; extra == "all"
+Requires-Dist: bump2version>=1.0.1; extra == "all"
+Requires-Dist: coverage>=5.1; extra == "all"
+Requires-Dist: ipython>=7.15.0; extra == "all"
+Requires-Dist: m2r2>=0.2.7; extra == "all"
+Requires-Dist: pytest-runner>=5.2; extra == "all"
+Requires-Dist: Sphinx>=3.4.3; extra == "all"
+Requires-Dist: sphinx_rtd_theme>=0.5.1; extra == "all"
+Requires-Dist: tox>=3.15.2; extra == "all"
+Requires-Dist: twine>=3.1.1; extra == "all"
+Requires-Dist: wheel>=0.34.2; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

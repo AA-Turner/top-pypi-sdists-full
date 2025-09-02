@@ -45,7 +45,7 @@ class AdminMediaChooser(BaseChooser):
 
     @property
     def media(self):
-        tab_js = ["wagtailmedia/js/tabs.js"] if WAGTAIL_VERSION >= (7, 1) else []
+        tab_js = [] if WAGTAIL_VERSION >= (7, 1) else ["wagtailmedia/js/tabs.js"]
         js = [
             *tab_js,
             "wagtailmedia/js/media-chooser-modal.js",

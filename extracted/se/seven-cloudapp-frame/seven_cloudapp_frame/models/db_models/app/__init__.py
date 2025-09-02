@@ -1,0 +1,1 @@
+__all__=["app_info_model", "app_relation_model", "app_template_model"]

@@ -1,0 +1,75 @@
+[project]
+name = "django-minio-storage"
+description = "Django file storage using the minio python client"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE", "LICENSE-APACHE"]
+requires-python = ">=3.9"
+dependencies = [
+  "django>=4.2",
+  "minio>=7.1.16",
+]
+classifiers=[
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Framework :: Django",
+]
+authors = [
+  {name = "Thomas Frössman", email = "thomasf@jossystem.se"},
+  {name = "Tom Houlé", email = "tom@kafunsho.be"},
+]
+maintainers = [
+  {name = "Thomas Frössman", email = "thomasf@jossystem.se"},
+]
+readme = "README.md"
+dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools>=77.0.3", "setuptools_scm[toml]>=6.2"]
+
+[project.urls]
+Homepage = "https://github.com/py-pa/django-minio-storage"
+Repository = "https://github.com/py-pa/django-minio-storage"
+Documentation = "https://django-minio-storage.readthedocs.io/"
+
+[tool.setuptools_scm]
+write_to =  "minio_storage/version.py"
+write_to_template = '__version__ = "{version}"'
+tag_regex =  "^v(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "C9",
+    "DJ",
+    "E",
+    "F",
+    "I",
+    "ISC",
+    "NPY",
+    "PLC",
+    "PLE",
+    "PLW",
+    "RUF010",
+    "RUF013",
+    "S5",
+    "S6",
+    "UP",
+    "W",
+]
+ignore = ["E203"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
+addopts = ["--tb=short"]
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+django_find_project = false
+DJANGO_SETTINGS_MODULE = "django_minio_storage_tests.settings"

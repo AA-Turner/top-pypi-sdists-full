@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: SmartlingApiSdk
+Version: 3.1.7
+Summary: python library to work with Smartling translation services APIs
+Home-page: 
+Author: Smartling, Inc.
+Author-email: aartamonov@smartling.com
+License: Apache License v2.0
+Keywords: translation localization internationalization
+
+python SDK to work with Smartling API for computer assisted translation

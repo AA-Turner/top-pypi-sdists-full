@@ -8,11 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 
-from git_changelog import Changelog
-from git_changelog.cli import build_and_render
-from git_changelog.commit import AngularConvention
-from git_changelog.templates import get_template
-from git_changelog.versioning import bump_semver
+from git_changelog import AngularConvention, Changelog, build_and_render, bump_semver, get_template
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -32,7 +28,7 @@ def test_bumping_latest(repo: GitRepo) -> None:
         repo: Temporary Git repository (fixture).
     """
     changelog = Changelog(repo.path, convention=AngularConvention, bump="auto")
-    # features, no breaking changes: minor bumped
+    # Features, no breaking changes: minor bumped.
     assert changelog.versions_list[0].planned_tag is not None
     assert changelog.versions_list[0].planned_tag.lstrip("v") == bump_semver(
         VERSIONS[-2],
@@ -122,7 +118,7 @@ def test_no_duplicate_rendering(repo: GitRepo, tmp_path: Path) -> None:
         template="keepachangelog",
     )
 
-    # When bump_latest is True, there's only one insertion marker
+    # With automatic bumping, there's only one insertion marker
     assert len(re.findall("<!-- insertion marker -->", rendered)) == 1
     latest_tag = "1.2.0"
     assert latest_tag in rendered

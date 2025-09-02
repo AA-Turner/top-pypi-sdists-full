@@ -1,0 +1,138 @@
+name: Run tests on pull requests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  OPENAI_API_KEY: dummy_key
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      has-code-changes: ${{ steps.changes.outputs.has-code-changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for code changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "has-code-changes=true" >> $GITHUB_OUTPUT
+          else
+            # For pull requests, check if there are non-docs changes
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -v '^docs/' | grep -v '\.md$' | grep -q .; then
+              echo "has-code-changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "has-code-changes=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  test-matrix:
+    needs: check-changes
+    runs-on: ubuntu-latest
+    name: ${{ matrix.test-type }} (Python ${{ matrix.python-version }}, ${{ matrix.environment-type }})
+    if: ${{ needs.check-changes.outputs.has-code-changes == 'true' }}
+
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12]
+        environment-type: ['pixi', 'uv']
+        test-type: ['unit-tests', 'smoke-tests', 'bare-package']
+        exclude:
+          # Unit tests only run with pixi
+          - test-type: unit-tests
+            environment-type: uv
+          # Smoke tests only run with uv
+          - test-type: smoke-tests
+            environment-type: pixi
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Update apt and install curl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+
+      # Setup Pixi if needed
+      - name: Setup Pixi Environment
+        if: ${{ matrix.environment-type == 'pixi' }}
+        uses: prefix-dev/setup-pixi@v0.9.0
+        with:
+          pixi-version: latest
+          cache: true
+          environments: ${{ matrix.test-type == 'bare-package' && 'bare' || '' }}
+
+      # Setup uv if needed
+      - name: Setup uv
+        if: ${{ matrix.environment-type == 'uv' }}
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python for uv
+        if: ${{ matrix.environment-type == 'uv' }}
+        run: uv venv llamabot-env --python ${{ matrix.python-version }}
+
+      # Install Ollama for tests that need it
+      - name: Install Ollama
+        if: ${{ matrix.test-type == 'unit-tests' || matrix.test-type == 'bare-package' }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          sleep 3
+
+      # Install Gemma model for bare package test
+      - name: Cache Ollama
+        if: ${{ matrix.test-type == 'bare-package' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama
+          key: ${{ runner.os }}-ollama
+
+      - name: Install gemma2:2b
+        if: ${{ matrix.test-type == 'bare-package' }}
+        run: ollama pull gemma2:2b
+
+      # Run the appropriate test based on matrix variables
+      - name: Run unit tests
+        if: ${{ matrix.test-type == 'unit-tests' }}
+        run: pixi run test
+
+      - name: Run smoke tests (pixi)
+        if: ${{ matrix.test-type == 'smoke-tests' && matrix.environment-type == 'pixi' && github.repository_owner == 'ericmjl' }}
+        run: pixi run llamabot-cli
+
+      - name: Run smoke tests (uv)
+        if: ${{ matrix.test-type == 'smoke-tests' && matrix.environment-type == 'uv' && github.repository_owner == 'ericmjl' }}
+        run: |
+          source llamabot-env/bin/activate
+          uv pip install .[all]
+          llamabot --help
+
+      - name: Run bare package test (pixi)
+        if: ${{ matrix.test-type == 'bare-package' && matrix.environment-type == 'pixi' }}
+        run: pixi run -e bare python scripts/yo.py
+
+      - name: Run bare package test (uv)
+        if: ${{ matrix.test-type == 'bare-package' && matrix.environment-type == 'uv' }}
+        run: |
+          source llamabot-env/bin/activate
+          uv pip install .[all]
+          python scripts/yo.py
+
+      # Upload code coverage only for unit tests
+      - name: Upload code coverage
+        if: ${{ matrix.test-type == 'unit-tests' }}
+        uses: codecov/codecov-action@v4
+        with:
+          verbose: true

@@ -1,0 +1,81 @@
+[tool.poetry]
+name = "python-awair"
+version = "0.2.4"
+description = "asyncio client for the Awair GraphQL and Local APIs"
+authors = ["Andrew Hayworth <ahayworth@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/ahayworth/python_awair"
+repository = "https://github.com/ahayworth/python_awair"
+keywords = ["awair", "getawair", "api", "async", "asyncio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed"
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+aiohttp = "^3.6.1"
+voluptuous = ">=0.11.7"
+
+[tool.poetry.dev-dependencies]
+black = "^19.10b0"
+codecov = "^2.0.22"
+coverage = "^5.0.4"
+flake8 =  "^3.7.9"
+flake8-docstrings =  "^1.5.0"
+isort =  "^4.3.21"
+mypy =  ">=0.770"
+pydocstyle =  "^5.0.2"
+pylint =  "^2.4.4"
+pyls-mypy = { git = "https://github.com/tomv564/pyls-mypy" }
+pytest = ">=5.2"
+pytest-aiohttp = "^0.3.0"
+pytest-cov = ">=2.8.1"
+python-language-server =  "^0.31.9"
+sphinx =  "^3.0.1"
+sphinx-readable-theme =  "^1.3.0"
+tox = "^3.14.6"
+vcrpy = "^4.0.2"
+
+[tool.poetry.urls]
+"Say Thanks" = "https://saythanks.io/to/ahayworth@gmail.com"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py36, py37, py38, py39, py310
+isolated_build = True
+skipsdist = True
+skip_missing_interpreters = True
+
+[testenv]
+whitelist_externals = poetry
+commands = poetry run pytest {posargs}
+
+[testenv:lint]
+whitelist_externals = poetry
+commands =
+  poetry run black . --check
+  poetry run isort --check python_awair/ tests/
+  poetry run flake8 python_awair/ tests/
+  poetry run pylint python_awair/ tests/
+  poetry run mypy python_awair/ tests/
+
+[testenv:coverage]
+whitelist_externals =
+  poetry
+  codecov
+passenv = CI CODECOV* GITHUB_ACTION GITHUB_REF GITHUB_REPOSITORY GITHUB_HEAD_REF GITHUB_SHA GITHUB_RUN_ID
+commands =
+  poetry run pytest --cov=python_awair {posargs}
+  codecov
+"""
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,7 +1,6 @@
 from typing import Any
-from orionis.app import Orionis
 from orionis.container.exceptions import OrionisContainerAttributeError, OrionisContainerException
-from orionis.foundation.application import IApplication
+from orionis.foundation.application import IApplication, Application
 from typing import TypeVar
 
 T = TypeVar('T')
@@ -35,7 +34,7 @@ class FacadeMeta(type):
 class Facade(metaclass=FacadeMeta):
 
     # Application instance to resolve services
-    _app: IApplication = Orionis()
+    _app: IApplication = Application()
 
     @classmethod
     def getFacadeAccessor(cls) -> str:

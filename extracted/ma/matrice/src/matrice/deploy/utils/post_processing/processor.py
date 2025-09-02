@@ -105,6 +105,10 @@ from .usecases import (
 
     WildLifeMonitoringUseCase,
     PCBDefectUseCase,
+    UndergroundPipelineDefectUseCase,
+
+    SusActivityUseCase,
+    NaturalDisasterUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -256,6 +260,9 @@ class PostProcessor:
         registry.register_use_case("general", "people_tracking", PeopleTrackingUseCase)
         registry.register_use_case("environmental", "wildlife_monitoring", WildLifeMonitoringUseCase)
         registry.register_use_case("manufacturing", "pcb_defect_detection", PCBDefectUseCase)
+        registry.register_use_case("general", "underground_pipeline_defect", UndergroundPipelineDefectUseCase)
+        registry.register_use_case("security", "suspicious_activity_detection", SusActivityUseCase)
+        registry.register_use_case("environmental", "natural_disaster_detection", NaturalDisasterUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -461,6 +468,10 @@ class PostProcessor:
             elif isinstance(use_case, WildLifeMonitoringUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, PCBDefectUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, SusActivityUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, NaturalDisasterUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             
             #Put all IMAGE based usecases here

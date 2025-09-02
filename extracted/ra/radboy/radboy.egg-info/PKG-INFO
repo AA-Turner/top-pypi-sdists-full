@@ -1,0 +1,60 @@
+Metadata-Version: 2.4
+Name: radboy
+Version: 0.0.607
+Summary: A Retail Calculator for Android/Linux
+Author: Carl Joseph Hirner III
+Author-email: Carl Hirner III <k.j.hirner.wisdom@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://google.com
+Project-URL: Issues, https://google.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: scipy
+Requires-Dist: inputimeout
+Requires-Dist: gdown
+Requires-Dist: biip
+Requires-Dist: sympy
+Requires-Dist: scipy
+Requires-Dist: plotext
+Requires-Dist: haversine
+Requires-Dist: holidays
+Requires-Dist: odfpy
+Requires-Dist: qrcode[pil]
+Requires-Dist: chardet
+Requires-Dist: nanoid
+Requires-Dist: random-password-generator
+Requires-Dist: cython
+Requires-Dist: pint
+Requires-Dist: pyupc-ean
+Requires-Dist: openpyxl
+Requires-Dist: plyer
+Requires-Dist: colored
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: Pillow
+Requires-Dist: python-barcode
+Requires-Dist: qrcode
+Requires-Dist: requests
+Requires-Dist: sqlalchemy
+Requires-Dist: argparse
+Requires-Dist: geocoder
+Requires-Dist: beautifulsoup4
+Requires-Dist: pycryptodome
+Requires-Dist: forecast_weather
+Requires-Dist: boozelib
+Requires-Dist: pint_pandas
+Requires-Dist: xlsxwriter
+Dynamic: author
+Dynamic: requires-python
+
+to use this application at its simplest
+
+`pip install radboy==$VERSION`
+
+create a Run.py file and paste the following into it and save
+`from radboy import Run`
+
+for lookups to be made possible please explore the in-prompt help text as a populated data file is not yet ready for use comsumption.# Radboy
+# Radboy

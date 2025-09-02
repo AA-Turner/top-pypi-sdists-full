@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: celluloid
+Version: 0.2.0
+Summary: Easy matplotlib animation.
+Home-page: https://github.com/jwkvam/celluloid
+Author: Jacques Kvam
+Author-email: jwkvam+pypi@gmail.com

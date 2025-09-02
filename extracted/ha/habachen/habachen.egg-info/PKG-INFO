@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: habachen
+Version: 0.5.2
+Summary: Yet Another Fast Japanese String Converter
+Home-page: https://github.com/Hizuru3/python-habachen
+Author: Hizuru
+License: MIT
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: Japanese
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Text Processing :: Linguistic
+Requires-Python: >=3.8
+License-File: LICENSE
+
+
+Habachen provides a fast implementation of Japanese text converters
+that support half-width/full-width characters but also hiragana/katakana.

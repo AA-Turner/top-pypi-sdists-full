@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: vaex-server
+Version: 0.9.0
+Summary: Webserver and client for vaex for a remote dataset
+Home-page: https://www.github.com/maartenbreddels/vaex
+Author: Maarten A. Breddels
+Author-email: maartenbreddels@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN

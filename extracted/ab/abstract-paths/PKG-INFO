@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: abstract_paths
+Version: 0.0.0.143
+Author: putkoff
+Author-email: partners@abstractendeavors.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: flask
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+
+# Unknown Package (vUnknown Version)
+
+No description available
+
+## Installation
+
+```bash
+pip install Unknown Package
+```
+
+## Dependencies
+
+None
+
+## Modules
+
+### src/abstract_paths/abstractFileImporter.py
+
+Description of script based on prompt: You are analyzing a Python script 'abstractFileImp (mock response)
+
+### src/abstract_paths/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_paths/getnu.py
+
+Description of script based on prompt: You are analyzing a Python script 'getnu.py' locat (mock response)
+

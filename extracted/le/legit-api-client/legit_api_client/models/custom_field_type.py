@@ -34,6 +34,8 @@ class CustomFieldType(str, Enum):
     DATE = 'Date'
     FILE = 'File'
     STRINGLIST = 'StringList'
+    SINGLESELECT = 'SingleSelect'
+    MULTISELECT = 'MultiSelect'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

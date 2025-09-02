@@ -1,0 +1,155 @@
+Metadata-Version: 2.4
+Name: dlt-cratedb
+Version: 0.0.2
+Summary: dlt destination adapter for CrateDB
+Author-email: Andreas Motl <andreas.motl@crate.io>
+License-Expression: Apache-2.0
+Project-URL: Changelog, https://github.com/crate/dlt-cratedb/blob/main/CHANGES.md
+Project-URL: Documentation, https://github.com/crate/dlt-cratedb/tree/main/docs
+Project-URL: Issues, https://github.com/crate/dlt-cratedb/issues
+Project-URL: Repository, https://github.com/crate/dlt-cratedb
+Keywords: CrateDB,data,destination,dlt,elt,etl,i/o,postgresql,sql
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Adaptive Technologies
+Classifier: Topic :: Communications
+Classifier: Topic :: Database
+Classifier: Topic :: Documentation
+Classifier: Topic :: Education
+Classifier: Topic :: Internet
+Classifier: Topic :: Office/Business
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Pre-processors
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Version Control
+Classifier: Topic :: System :: Archiving
+Classifier: Topic :: System :: Benchmark
+Classifier: Topic :: System :: Clustering
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: dlt[postgres]
+Provides-Extra: develop
+Requires-Dist: mypy<1.13,>=1.11; extra == "develop"
+Requires-Dist: poethepoet<1; extra == "develop"
+Requires-Dist: pyproject-fmt<3; extra == "develop"
+Requires-Dist: ruff<0.6; extra == "develop"
+Requires-Dist: validate-pyproject<1,>=0.23; extra == "develop"
+Provides-Extra: release
+Requires-Dist: build<2; extra == "release"
+Requires-Dist: twine<7,>=6; extra == "release"
+Provides-Extra: test
+Requires-Dist: duckdb; extra == "test"
+Requires-Dist: pytest<9; extra == "test"
+Requires-Dist: pytest-cov<6; extra == "test"
+Requires-Dist: sqlfluff<2.4; extra == "test"
+Dynamic: license-file
+
+# CrateDB destination adapter for dlt
+
+[![Status][badge-status]][project-pypi]
+[![CI][badge-ci]][project-ci]
+[![Coverage][badge-coverage]][project-coverage]
+[![Downloads per month][badge-downloads-per-month]][project-downloads]
+
+[![License][badge-license]][project-license]
+[![Release Notes][badge-release-notes]][project-release-notes]
+[![PyPI Version][badge-package-version]][project-pypi]
+[![Python Versions][badge-python-versions]][project-pypi]
+[![Python Versions][badge-dlt-versions]][dlt]
+
+» [Documentation]
+| [Releases]
+| [Issues]
+| [Source code]
+| [License]
+| [CrateDB]
+| [Community Forum]
+| [Bluesky]
+
+## About
+
+The [dlt-cratedb] package is temporary for shipping the code until
+[DLT-2733] is ready for upstreaming into main [dlt].
+
+## Documentation
+
+Please refer to the [handbook].
+
+## What's inside
+
+- The `cratedb` adapter is heavily based on the `postgres` adapter.
+- The `CrateDbSqlClient` deviates from the original `Psycopg2SqlClient` by
+  accounting for [CRATEDB-15161] per `SystemColumnWorkaround`.
+- A few more other patches.
+
+## Backlog
+
+We are tracking corresponding [issues] and a few more [backlog] items
+to be resolved as we go.
+
+
+[backlog]: https://github.com/crate/dlt-cratedb/blob/main/docs/backlog.md
+[CRATEDB-15161]: https://github.com/crate/crate/issues/15161
+[dlt]: https://github.com/dlt-hub/dlt
+[DLT-2733]: https://github.com/dlt-hub/dlt/pull/2733
+[dlt-cratedb]: https://pypi.org/project/dlt-cratedb
+[issues]: https://github.com/crate/dlt-cratedb/issues
+[handbook]: https://github.com/crate/dlt-cratedb/blob/main/docs/cratedb.md
+
+[CrateDB]: https://cratedb.com/database
+[Bluesky]: https://bsky.app/search?q=cratedb
+[Community Forum]: https://community.cratedb.com/
+[Documentation]: https://github.com/crate/dlt-cratedb
+[Issues]: https://github.com/crate/dlt-cratedb/issues
+[License]: https://github.com/crate/dlt-cratedb/blob/main/LICENSE.txt
+[managed on GitHub]: https://github.com/crate/dlt-cratedb
+[Source code]: https://github.com/crate/dlt-cratedb
+[Releases]: https://github.com/surister/dlt-cratedb/releases
+
+[badge-ci]: https://github.com/crate/dlt-cratedb/actions/workflows/tests.yml/badge.svg
+[badge-dlt-versions]: https://img.shields.io/badge/dlt-1.10%2C%201.11%2C%201.12-blue.svg
+[badge-bluesky]: https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff&label=Follow%20%40CrateDB
+[badge-coverage]: https://codecov.io/gh/crate/dlt-cratedb/branch/main/graph/badge.svg
+[badge-downloads-per-month]: https://pepy.tech/badge/dlt-cratedb/month
+[badge-license]: https://img.shields.io/github/license/crate/dlt-cratedb
+[badge-package-version]: https://img.shields.io/pypi/v/dlt-cratedb.svg
+[badge-python-versions]: https://img.shields.io/pypi/pyversions/dlt-cratedb.svg
+[badge-release-notes]: https://img.shields.io/github/release/crate/dlt-cratedb?label=Release+Notes
+[badge-status]: https://img.shields.io/pypi/status/dlt-cratedb.svg
+[project-ci]: https://github.com/crate/dlt-cratedb/actions/workflows/tests.yml
+[project-coverage]: https://app.codecov.io/gh/crate/dlt-cratedb
+[project-downloads]: https://pepy.tech/project/dlt-cratedb/
+[project-license]: https://github.com/crate/dlt-cratedb/blob/main/LICENSE
+[project-pypi]: https://pypi.org/project/dlt-cratedb
+[project-release-notes]: https://github.com/crate/dlt-cratedb/releases

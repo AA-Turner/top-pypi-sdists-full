@@ -1,0 +1,48 @@
+[project]
+name = "bir_mcp"
+version = "0.3.13"
+description = "MCP server for BirBank"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "altair>=5.5.0",
+    "atlassian-python-api>=4.0.4",
+    "bidict>=0.23.1",
+    "cachetools>=5.5.2",
+    "detect-secrets>=1.5.0",
+    "fastapi>=0.116.1",
+    "fastmcp>=2.10.2",
+    "gitpython>=3.1.44",
+    "langchain>=0.3.26",
+    "langchain-community>=0.3.27",
+    "markdownify>=1.2.0",
+    "oracledb>=3.2.0",
+    "pandas>=2.3.1",
+    "py-consul>=1.6.0",
+    "python-gitlab[graphql]>=6.1.0",
+    "typer>=0.16.0",
+    "vl-convert-python>=1.8.0",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+bir_mcp = "bir_mcp.main:main"
+
+[tool.ruff.lint]
+# Ignore unused imports in __init__.py files
+per-file-ignores = { "**/__init__.py" = ["F401"] }
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:Field name \"schema\" in .* shadows an attribute in parent \"BaseModel\":UserWarning",
+    "ignore:Field .* has conflict with model configuration.*:pydantic.warnings.PydanticDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests that require real API access",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.4.1", "pytest-asyncio>=1.1.0", "pytest-mock>=3.14.1"]

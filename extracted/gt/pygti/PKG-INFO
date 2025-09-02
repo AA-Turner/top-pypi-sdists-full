@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: pygti
+Version: 0.10.0
+Summary: Access public transport information in Hamburg, Germany.
+Project-URL: Homepage, https://github.com/vigonotion/pygti
+Author-email: Tom Schneider <mail@vigonotion.com>
+License-File: LICENSE.md
+Requires-Python: >=3.6.0
+Requires-Dist: aiohttp
+Requires-Dist: pytz
+Requires-Dist: voluptuous

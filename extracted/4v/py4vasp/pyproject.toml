@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "py4vasp"
+version = "0.10.2"
+description = "Tool for assisting with the analysis and setup of VASP calculations."
+authors = [
+    "VASP Software GmbH <py4vasp@vasp.at>",
+    "Martin Schlipf <martin.schlipf@gmail.com>",
+    "Henrique Miranda <miranda.henrique@gmail.com>",
+    "Orest Dubay <orest-d@users.noreply.github.com>",
+    "Jonathan Lahnsteiner <jonathan.lahnsteiner@gmx.at>",
+    "Eisuke Kawashima <e-kwsm@users.noreply.github.com>",
+    "Sudarshan Vijay <sudarshan.vijay@protonmail.com>",
+    "Marie-Therese Huebsch <marie-therese.huebsch@vasp.at>",
+    "Michael Wolloch <michael.wolloch@vasp.at>",
+]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://vasp.at/py4vasp/latest"
+repository = "https://github.com/vasp-dev/py4vasp"
+
+[tool.poetry.urls]
+"Support Forum" = "https://vasp.at/forum/"
+
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+numpy = ">=1.23"
+h5py = ">=3.7.0"
+pandas = ">=1.4.3"
+nglview = ">=3.0.5"
+ase = ">=3.22.1"
+plotly = ">=5.9.0"
+kaleido = ">=0.2.1,<0.2.1.post1 || >0.2.1.post1"
+ipython = ">=8.12"
+scipy = ">=1.12.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.1.2"
+pytest-cov = ">=3.0.0"
+pylint = ">=2.15"
+hypothesis = ">=6.48.1"
+black = ">=22.6.0"
+isort = ">=5.10.1"
+ipykernel = ">=6.25.0"
+pre-commit = ">=3.3.3"
+
+[tool.poetry.group.doc.dependencies]
+sphinx = ">=5.0.2"
+sphinx-automodapi = ">=0.14.1"
+
+[tool.poetry.scripts]
+error-analysis = "py4vasp.scripts.error_analysis:main"
+
+[tool.isort]
+profile = "black"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

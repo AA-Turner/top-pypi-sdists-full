@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: xcomponent
+Version: 0.6.4
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: User Interfaces
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Classifier: Typing :: Typed
+Requires-Dist: furo>=2024.5.6 ; extra == 'docs'
+Requires-Dist: linkify-it-py>=2.0.3,<3 ; extra == 'docs'
+Requires-Dist: myst-parser>=4.0.0,<5 ; extra == 'docs'
+Requires-Dist: sphinx>=8.0.0,<9 ; extra == 'docs'
+Requires-Dist: sphinx-autodoc2>=0.5.0,<1 ; extra == 'docs'
+Provides-Extra: docs
+License-File: LICENSE
+Summary: A component base template engige - inspired by JSX
+Author-email: Guillaume Gauvrit <guillaume@gauvr.it>
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://mardiros.github.io/xcomponent
+Project-URL: Documentation, https://mardiros.github.io/xcomponent
+Project-URL: Repository, https://github.com/mardiros/xcomponent.git
+Project-URL: Issues, https://github.com/mardiros/xcomponent/issues
+Project-URL: Changelog, https://mardiros.github.io/xcomponent/user/changelog.html
+
+# XComponent
+
+## What Is XComponent
+
+XComponent is a template engine, inspired by JSX, to embed template in Python.
+
+It diverge from all existing Python template engine since all the templates
+must be written in Python code.
+
+This is a design decision and a matter of preference for the locality of behavior.
+
+> ⚠️ **Under Development**
+
+**Hello world example:**
+
+```python
+
+from xcomponent import Catalog
+
+catalog = Catalog()
+
+
+@catalog.component()
+def HelloWorld(name: str = "world") -> str:
+    return """<p>Hello {name}</p>"""
+
+HelloWorld(name)
+# will render <p>Hello Bob</p>
+
+catalog.render("<HelloWorld name='Bob'/>")
+# will also render <p>Hello Bob</p>
+```
+
+## How it works
+
+Using XComponent, templates are stored in a catalog of components, and then
+they can be rendered to HTML.
+
+All components can be reused in other component in order to build an HTML document
+at the end.
+
+Using curly brace let's have a friendly expression language, inspired by Python,
+JSX and rust.
+
+[Getting started ?](https://mardiros.github.io/xcomponent/)
+

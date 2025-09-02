@@ -1,9 +1,10 @@
 import datetime
 import pkgutil
 import webbrowser
+from multiprocessing import Pipe
 from pathlib import Path
 from shutil import move
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mktemp
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import flask
@@ -11,6 +12,7 @@ import flask
 from abstra_internals.cloud_api import get_api_key_info, get_project_info
 from abstra_internals.consts.filepaths import TEST_DATA_FILEPATH
 from abstra_internals.controllers.execution.execution import ExecutionController
+from abstra_internals.controllers.execution.execution_client import HeadlessClient
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
 from abstra_internals.credentials import (
@@ -64,8 +66,10 @@ from abstra_internals.templates import (
     new_script_code,
 )
 from abstra_internals.utils.ai import AiWs
+from abstra_internals.utils.diff import compute_updated_code_from_replacements
 from abstra_internals.utils.file import module2path, path2module
 from abstra_internals.utils.validate import validate_json
+from abstra_internals.utils.websockets import bind_ws_with_connection
 
 
 class UnknownNodeTypeError(Exception):
@@ -357,41 +361,6 @@ class MainController:
             return None
         return Settings.root_path.joinpath(file).read_text(encoding="utf-8")
 
-    def write_file(self, file: str, content: str):
-        """
-        Write content to a file in the project workspace.
-
-        This method writes the provided text content to a specified file within the
-        project directory. If the file does not exist, it will be created. If it does
-        exist, its contents will be overwritten.
-
-        Args:
-            file (str): Relative path to the file from the project root directory.
-                Should include the file extension.
-            content (str): The text content to write to the file.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Write a new script file
-            controller.write_file("scripts/data_processor.py", "print('Hello, World!')")
-
-            # Update an existing configuration file
-            controller.write_file("config.json", '{"key": "value"}')
-            ```
-
-        Note:
-            - The file will be created if it does not exist
-            - Existing files will be overwritten with new content
-            - Path should be relative to the project root directory
-
-        Copywritings:
-            Write content to a file
-            Writing content to a file...
-        """
-        Settings.root_path.joinpath(file).write_text(content, encoding="utf-8")
-
     def check_file_exists(self, file_path: str):
         """
         Check if a file exists in the project workspace.
@@ -679,6 +648,180 @@ class MainController:
         return FileSystemService.search_in_files(
             Settings.root_path, query, glob, use_ignore=True
         )
+
+    def replace_code_context(self, file: str, replacements: List[Dict[str, str]]):
+        """
+        Replace specific code sections using exact context matching (RECOMMENDED).
+
+        This is the most reliable and efficient method for code updates. Instead of
+        replacing entire file content, it performs surgical edits by finding exact
+        context matches and replacing them atomically.
+
+        **When to use**:
+        - Single line changes, function updates, variable modifications
+        - Small to medium changes (<50% of file)
+        - When you want maximum reliability and minimal payload size
+        - 90%+ reduction in data transfer compared to full content replacement
+
+        Args:
+            file (str): Relative path to the file from the project root directory MUST INCLUDE THE EXTENSION (e.g. "script.py")
+            replacements (List[Dict[str, str]]): List of replacement operations, each containing:
+                - 'old_context': Exact string to find and replace (must match exactly)
+                - 'new_context': String to replace it with
+                - 'max_occurrences' (optional): Limit replacements (default: unlimited)
+
+        Returns:
+            Dict[str, Any]: Operation result with success status and details.
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # Single function update
+            controller.replace_code_context("utils.py", [
+                {
+                    "old_context": "def process_data():\\n    return 'old logic'",
+                    "new_context": "def process_data():\\n    return 'new improved logic'"
+                }
+            ])
+
+            # Multiple replacements in one operation (atomic)
+            controller.replace_code_context("config.py", [
+                {
+                    "old_context": "DEBUG = False",
+                    "new_context": "DEBUG = True"
+                },
+                {
+                    "old_context": "API_URL = 'staging'",
+                    "new_context": "API_URL = 'production'"
+                }
+            ])
+
+            # Replace with occurrence limit
+            controller.replace_code_context("form.py", [
+                {
+                    "old_context": "temp_var = None",
+                    "new_context": "temp_var = []",
+                    "max_occurrences": 2  # Only replace first 2 occurrences
+                }
+            ])
+
+            # Atomic replacements example
+            controller.replace_code_context("script.py", [
+                {
+                    "old_context": "aaabbb",
+                    "new_context": "cccddd"
+                },
+                {
+                    "old_context": "cccddd",
+                    "new_context": "xxxkkk"
+                }
+            ])
+            # Result: Both patterns matched against original text simultaneously
+            ```
+
+        Safety Features:
+            - Atomic operation: all replacements applied simultaneously from original text
+            - No cascading effects between replacements
+            - Rollback capability if any operation fails
+            - Context matching prevents positioning errors
+
+        Copywritings:
+            Replace code sections using exact context matching
+            Performing atomic context-based code replacements...
+        """
+        file_path = Settings.root_path.joinpath(file)
+        if not file_path.is_file():
+            raise Exception(f"File {file} does not exist")
+
+        original_content = file_path.read_text(encoding="utf-8")
+
+        try:
+            modified_content = compute_updated_code_from_replacements(
+                original_content, replacements
+            )
+
+            temp_file = Path(mkdtemp()) / file_path.name
+            temp_file.write_text(modified_content, encoding="utf-8")
+            move(str(temp_file), str(file_path))
+
+            return {
+                "success": True,
+                "file": file,
+                "total_operations": len(replacements),
+            }
+
+        except Exception as e:
+            raise Exception(f"Atomic context replacement failed: {str(e)}")
+
+    def replace_file_content(self, file: str, content: str):
+        """
+        Replace entire file content (use sparingly).
+
+        This method performs a complete file content replacement. While sometimes
+        necessary, it should be avoided for small changes.
+
+        **When to use**:
+        - Complete file rewrites or major refactoring (>50% changes)
+        - New file creation with substantial content
+        - When context-based operations aren't feasible
+
+        **When not to use**:
+        - Avoid for small changes (use replace_code_context instead)
+
+        **Drawbacks**:
+        - High latency for large files
+        - Bandwidth inefficient for small changes
+
+        Args:
+            file (str): Relative path to the file from the project root directory, MUST INCLUDE THE EXTENSION (e.g. "script.py")
+            content (str): Complete new file content.
+
+        Returns:
+            Dict[str, Any]: Operation result with success status and file info.
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # Complete file replacement (use only when necessary)
+            content = '''
+            from abstra.forms import NumberInput, TextInput, run
+
+            personal_details = [
+                TextInput("First Name"),
+                NumberInput("Age")
+            ]
+            company_details = [
+                TextInput("Company"),
+                TextInput("Job Title")
+            ]
+
+            state = run([personal_details, company_details])
+            print(state)
+            '''
+
+            controller.replace_file_content("new_form.py", content)
+            ```
+
+        Note:
+            - Creates file if it doesn't exist
+            - Completely overwrites existing content
+            - Consider using replace_code_context for targeted changes
+            - Use atomic write operation for safety
+
+        Copywritings:
+            Replace entire file content
+            Replacing complete file content...
+        """
+        try:
+            temp_file = Path(mkdtemp()) / file
+            with temp_file.open("w", encoding="utf-8") as f:
+                f.write(content)
+            move(str(temp_file), Settings.root_path.joinpath(file))
+            return {"success": True}
+        except Exception as e:
+            raise Exception(f"File content replacement failed: {str(e)}")
 
     def update_workspace(self, changes: Dict[str, Any]):
         project = self.repositories.project.load()
@@ -1136,17 +1279,20 @@ class MainController:
         """
         Update properties of an existing workflow stage.
 
-        This method allows modification of stage properties, including metadata
-        updates and code content changes. Special handling is provided for
-        code content updates and test data modifications.
+        This method allows modification of stage metadata properties. For code
+        modifications, use the specialized code editing methods instead.
+
+        WARNING:  **For code updates, use dedicated methods**:
+        - `replace_code_context()` for targeted code changes (RECOMMENDED)
+        - `replace_file_content()` for complete file rewrites
 
         Args:
             id (str): Unique identifier of the stage to update.
             changes (Dict[str, Any]): Dictionary containing the properties to update.
-                Special keys:
-                - 'code_content': Updates the stage's Python code file. (Always check abstra modules before creating any file)
-                - 'test_data': Updates the project's test data
-                - Other keys update stage metadata (title, position, etc.)
+
+            Supported keys:
+                - 'title': Stage display name
+                - 'workflow_position': [x, y] coordinates in workflow editor
 
         Returns:
             Stage: The updated stage object with new properties applied.
@@ -1164,27 +1310,20 @@ class MainController:
                 "workflow_position": (100, 150)
             })
 
-            # Update stage code content
-            new_code = '''
-            import abstra.forms as af
-            af.display("Updated form content")
-            '''
-            controller.update_stage("form-123", {
-                "code_content": new_code,
-                "title": "Updated Form"
-            })
+            # Don't use for code updates - use dedicated methods instead:
+            # controller.update_stage("form-123", {"code_content": "..."})  # Avoid
 
-            # Update test data for the project
-            controller.update_stage("any-stage-id", {
-                "test_data": '{"user": "test", "email": "test@example.com"}'
-            })
+            # Better: Use context-based code editing
+            controller.replace_code_context("forms/form_123.py", [{
+                "old_context": "af.display('old message')",
+                "new_context": "af.display('new message')"
+            }])
             ```
 
         Note:
-            - Code content updates are handled atomically using temporary files
-            - Test data updates apply globally to the project
+            - Only updates stage metadata, not code content
             - Stage metadata updates are validated before being applied
-            - The stage file is updated only if code_content is provided
+            - Use specialized code editing methods for reliable code modifications
 
         Copywritings:
             Update properties of an existing stage
@@ -1545,12 +1684,13 @@ class MainController:
         if not job:
             raise Exception(f"Job with id {id} not found")
 
-        print(f"Running job {job.id} ({job.title})")
-
+        _, child_conn = Pipe()
+        ctx = JobContext()
         return ExecutionController(
             repositories=self.repositories,
             stage=job,
-            context=JobContext(),
+            context=ctx,
+            client=HeadlessClient(context=ctx, conn=child_conn),
         ).run()
 
     def debug_run_hook(self, id: str, request: Request):
@@ -1577,14 +1717,9 @@ class MainController:
 
         context = HookContext(
             request=request,
-            response=Response(
-                body="",
-                headers={},
-                status=200,
-            ),
         )
-
-        client = HookClient(context=context)
+        parent_conn, child_conn = Pipe()
+        client = HookClient(context=context, conn=child_conn)
 
         run_data = ExecutionController(
             repositories=self.repositories,
@@ -1593,13 +1728,13 @@ class MainController:
             context=context,
         ).run()
 
-        if context.response is None or client.context.response is None:
-            flask.abort(500)
+        response = parent_conn.recv()
+        assert isinstance(response, Response)
 
         return {
-            "body": client.context.response.body,
-            "status": context.response.status,
-            "headers": context.response.headers,
+            "body": response.body,
+            "status": response.status,
+            "headers": response.headers,
             **run_data,
         }
 
@@ -1624,15 +1759,19 @@ class MainController:
 
         script = self.get_script(id)
         if not script:
-            raise Exception(f"Tasklet with id {id} not found")
+            raise Exception(f"Script with id {id} not found")
 
         if not task_id:
-            raise Exception(f"Tasklet with id {id} not found")
+            raise Exception("Task ID is required for script execution")
+
+        _, child_conn = Pipe()
+        ctx = ScriptContext(task_id=task_id)
 
         return ExecutionController(
             repositories=self.repositories,
             stage=script,
-            context=ScriptContext(task_id=task_id),
+            context=ctx,
+            client=HeadlessClient(context=ctx, conn=child_conn),
         ).run()
 
     def debug_run_form_with_ai(self, id, prompt: str, url_params: Dict[str, str] = {}):
@@ -1657,8 +1796,10 @@ class MainController:
         if not form:
             raise Exception(f"Form with id {id} not found")
 
+        parent_conn, child_conn = Pipe()
+        bind_ws_with_connection(ws, parent_conn, block=False)
         client = FormClient(
-            ws=ws,  # type: ignore
+            conn=child_conn,
             context=context,
             production_mode=False,
         )
@@ -1669,3 +1810,28 @@ class MainController:
             client=client,
             context=context,
         ).run()
+
+    def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
+        """
+        Run a code snippet immediately.
+
+        Use this code for testing parts of the code you want to build before writing, debugging or auxiliary tasks.
+        """
+
+        tempfile = Path(mktemp(suffix=".py"))
+
+        stage = self.create_job(title, str(tempfile), (0, 0))
+        tempfile.write_text(code)
+
+        _, child_conn = Pipe()
+        ctx = JobContext()
+        execution_result = ExecutionController(
+            repositories=self.repositories,
+            stage=stage,
+            context=ctx,
+            client=HeadlessClient(context=ctx, conn=child_conn),
+        ).run()
+
+        self.delete_job(stage.id, remove_file=True)
+
+        return execution_result

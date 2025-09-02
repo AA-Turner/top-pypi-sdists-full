@@ -28,6 +28,7 @@ class CustomFieldEntity(str, Enum):
     """
     UNKNOWN = 'Unknown'
     PRODUCTUNIT = 'ProductUnit'
+    REPOSITORY = 'Repository'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

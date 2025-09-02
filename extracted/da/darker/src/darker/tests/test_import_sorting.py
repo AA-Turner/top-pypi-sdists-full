@@ -1,6 +1,7 @@
 """Tests for :mod:`darker.import_sorting`"""
 
-# pylint: disable=unused-argument,protected-access,too-many-arguments,use-dict-literal
+# pylint: disable=no-member,protected-access,redefined-outer-name,use-dict-literal
+# pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
 
 from importlib import reload
 from pathlib import Path
@@ -11,9 +12,8 @@ import pytest
 
 import darker.import_sorting
 from darker.git import EditedLinenumsDiffer
-from darker.tests.helpers import isort_present
+from darker.tests.helpers import isort_present, unix_and_windows_newline_repos
 from darkgraylib.git import RevisionRange
-from darkgraylib.testtools.git_repo_plugin import GitRepoFixture
 from darkgraylib.utils import TextDocument, joinlines
 
 ORIGINAL_SOURCE = ("import sys", "import os", "", "print(42)")
@@ -35,6 +35,17 @@ def test_import_sorting_importable_with_and_without_isort(present):
         reload(darker.import_sorting)
 
 
+@pytest.fixture(scope="module")
+def apply_isort_repo_root(request, tmp_path_factory):
+    """Git repository fixture for `test_apply_isort`."""
+    with unix_and_windows_newline_repos(request, tmp_path_factory) as repos:
+        for newline, repo in repos.items():
+            repo.add(
+                {"test1.py": joinlines(ORIGINAL_SOURCE, newline)}, commit="Initial"
+            )
+        yield {newline: repo.root for newline, repo in repos.items()}
+
+
 @pytest.mark.parametrize("encoding", ["utf-8", "iso-8859-1"])
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.kwparametrize(
@@ -51,17 +62,21 @@ def test_import_sorting_importable_with_and_without_isort(present):
     dict(content=("import   sys", "import os", "", "print(42)"), expect=ISORTED_SOURCE),
     dict(content=("import sys", "import   os", "", "print(42)"), expect=ISORTED_SOURCE),
 )
-def test_apply_isort(git_repo, encoding, newline, content, expect):
+def test_apply_isort(apply_isort_repo_root, encoding, newline, content, expect):
     """Imports are sorted if edits overlap them, with encoding and newline intact"""
-    git_repo.add({"test1.py": joinlines(ORIGINAL_SOURCE, newline)}, commit="Initial")
+    repo_root = apply_isort_repo_root[newline]
     edited_linenums_differ = EditedLinenumsDiffer(
-        git_repo.root, RevisionRange("HEAD", ":WORKTREE:")
+        repo_root, RevisionRange("HEAD", ":WORKTREE:")
     )
     src = Path("test1.py")
     content_ = TextDocument.from_lines(content, encoding=encoding, newline=newline)
 
     result = darker.import_sorting.apply_isort(
-        content_, src, exclude=[], edited_linenums_differ=edited_linenums_differ
+        content_,
+        src,
+        repo_root,
+        exclude=[],
+        edited_linenums_differ=edited_linenums_differ,
     )
 
     assert result.lines == expect
@@ -85,17 +100,23 @@ def test_apply_isort(git_repo, encoding, newline, content, expect):
         expect=("import   sys", "import os", "", "print(42)"),
     ),
 )
-def test_apply_isort_exclude(git_repo, encoding, newline, content, exclude, expect):
+def test_apply_isort_exclude(
+    apply_isort_repo_root, encoding, newline, content, exclude, expect
+):
     """Import sorting is skipped if file path matches exclusion patterns"""
-    git_repo.add({"test1.py": joinlines(ORIGINAL_SOURCE, newline)}, commit="Initial")
+    repo_root = apply_isort_repo_root[newline]
     edited_linenums_differ = EditedLinenumsDiffer(
-        git_repo.root, RevisionRange("HEAD", ":WORKTREE:")
+        repo_root, RevisionRange("HEAD", ":WORKTREE:")
     )
     src = Path("test1.py")
     content_ = TextDocument.from_lines(content, encoding=encoding, newline=newline)
 
     result = darker.import_sorting.apply_isort(
-        content_, src, exclude=exclude, edited_linenums_differ=edited_linenums_differ
+        content_,
+        src,
+        repo_root,
+        exclude=exclude,
+        edited_linenums_differ=edited_linenums_differ,
     )
 
     assert result.lines == expect
@@ -137,10 +158,10 @@ def test_apply_isort_exclude(git_repo, encoding, newline, content, exclude, expe
         ),
     ),
 )
-def test_isort_config(monkeypatch, tmpdir, line_length, settings_file, expect):
+def test_isort_config(monkeypatch, tmp_path, line_length, settings_file, expect):
     """``apply_isort()`` parses ``pyproject.toml``correctly"""
-    monkeypatch.chdir(tmpdir)
-    (tmpdir / "pyproject.toml").write(
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
         dedent(
             f"""\
             [tool.isort]
@@ -150,11 +171,14 @@ def test_isort_config(monkeypatch, tmpdir, line_length, settings_file, expect):
     )
 
     content = "from module import ab, cd, ef, gh, ij, kl, mn, op, qr, st, uv, wx, yz"
-    config = str(tmpdir / settings_file) if settings_file else None
+    # isort doesn't read the file but skips formatting if the file doesn't exist:
+    (tmp_path / "test1.py").write_text(content)
+    config = str(tmp_path / settings_file) if settings_file else None
 
     actual = darker.import_sorting.apply_isort(
         TextDocument.from_str(content),
         Path("test1.py"),
+        tmp_path,
         set(),
         EditedLinenumsDiffer(Path("."), RevisionRange("master", "HEAD")),
         config,
@@ -174,7 +198,6 @@ def test_isort_config(monkeypatch, tmpdir, line_length, settings_file, expect):
     line_length=None,
 )
 def test_build_isort_args(
-    git_repo: GitRepoFixture,
     src: Path,
     config: Optional[str],
     line_length: int,
@@ -196,6 +219,7 @@ def test_isort_file_skip_comment():
     actual = darker.import_sorting.apply_isort(
         TextDocument.from_str(content),
         Path("test1.py"),
+        Path(),
         set(),
         EditedLinenumsDiffer(Path("."), RevisionRange("master", "HEAD")),
     )

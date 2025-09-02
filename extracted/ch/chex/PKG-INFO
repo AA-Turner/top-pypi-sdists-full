@@ -1,46 +1,38 @@
 Metadata-Version: 2.4
 Name: chex
-Version: 0.1.90
+Version: 0.1.91
 Summary: Chex: Testing made fun, in JAX!
-Home-page: https://github.com/deepmind/chex
-Author: DeepMind
-Author-email: chex-dev@google.com
-License: Apache 2.0
-Keywords: jax testing debugging python machine learning
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Console
-Classifier: Intended Audience :: Science/Research
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Classifier: Topic :: Software Development :: Testing :: Mocking
-Classifier: Topic :: Software Development :: Testing :: Unit
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Keywords: jax,testing,debugging,python,machine learning
+Author-email: Google DeepMind <chex-dev@google.com>
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Science/Research
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
-Requires-Dist: absl-py>=0.9.0
-Requires-Dist: typing_extensions>=4.2.0
-Requires-Dist: jax>=0.4.27
-Requires-Dist: jaxlib>=0.4.27
+Requires-Dist: absl-py>=2.3.1
+Requires-Dist: typing_extensions>=4.15.0
+Requires-Dist: jax>=0.7.0
+Requires-Dist: jaxlib>=0.7.0
 Requires-Dist: numpy>=1.24.1
-Requires-Dist: setuptools; python_version >= "3.12"
-Requires-Dist: toolz>=0.9.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: toolz>=1.0.0
+Requires-Dist: sphinx>=6.0.0 ; extra == "docs"
+Requires-Dist: sphinx-book-theme>=1.0.1 ; extra == "docs"
+Requires-Dist: sphinxcontrib-katex ; extra == "docs"
+Requires-Dist: cloudpickle==3.1.0 ; extra == "test"
+Requires-Dist: dm-tree>=0.1.9 ; extra == "test"
+Project-URL: documentation, https://chex.readthedocs.io/
+Project-URL: homepage, https://github.com/google-deepmind/chex
+Project-URL: repository, https://github.com/google-deepmind/chex
+Provides-Extra: docs
+Provides-Extra: test
 
 # Chex
 
@@ -495,3 +487,4 @@ the following citation:
   year = {2020},
 }
 ```
+

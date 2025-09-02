@@ -1,8 +1,0 @@
-metadata: '{"array_layout": "Prod6-Hyperarray", "thetaP": 20.0, "data_level": -1, "particle": "gamma", "sct": "False", "outputType": "Data", "site": "Paranal", "configuration_id": 15, "merged": 0, "MCCampaign": "Prod6", "tel_sim_prog_version": "2020-06-29b", "phiP": 0.0, "tel_sim_prog": "sim_telarray"}'
-file_metadata: "{}"
-base_path: /vo.cta.in2p3.fr/tests/prodsys/cwl_test/simulation
-output_pattern: Data/*dark*.simtel.zst
-name_package: corsika_simtelarray
-program_category: tel_sim
-catalogs: '["DIRACFileCatalog", "TSCatalog"]'
-output_type: Data

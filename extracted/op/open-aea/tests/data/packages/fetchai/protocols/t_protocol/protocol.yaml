@@ -1,0 +1,22 @@
+name: t_protocol
+author: fetchai
+version: 0.1.0
+protocol_specification_id: some_author/some_protocol_name:1.0.0
+type: protocol
+description: A protocol for testing purposes.
+license: Apache-2.0
+aea_version: '>=2.0.0, <3.0.0'
+fingerprint:
+  README.md: bafybeigac52kctrdctmazuxnehvurx7zj6xrjwuljsp5cbeuek3kd7chnq
+  __init__.py: bafybeieib4mc5uuee4kvdrbiine7cetpx3gvqqngvfzscbf3vs3rixiagi
+  custom_types.py: bafybeiaqxtoq6b4xnve3p2uiw55povolzg3yon3ptvzxbeg2wtssiumxkq
+  dialogues.py: bafybeiam6ebctbk7liv3tyfzk7lgmhthpxjnmbgpf7ladmhyn3d3z76mca
+  message.py: bafybeihtw7zyb5kcez6hvyxiogdjaynrztat7bjs5fawbij5qshdckmluy
+  serialization.py: bafybeiaw3u5ihk6xfbj5cbta55hcnhvv5pyguokw3qrzaygbxjvuoqmn4a
+  t_protocol.proto: bafybeiapaievom3jzw3vjdzcoo3bok7tecznwgccbbjc6thmseeww5fp2m
+  t_protocol_pb2.py: bafybeicbg2hmmd776v3m7bir5iwm6rtmawei54vwcvaf2ozmp4shza4sra
+  tests/test_t_protocol_dialogues.py: bafybeidxzkiqbbyo5zu37udk6v6jcwrvwsm6eqznurvmljxjia7xk3qgcy
+  tests/test_t_protocol_messages.py: bafybeibzqolqclgo4td6yzxsvn4l7ht5qoe2jq5edo7kj532pd2nvdpdae
+fingerprint_ignore_patterns: []
+dependencies:
+  protobuf: {}

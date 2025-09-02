@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: fyta_cli
+Version: 0.7.2
+Summary: Python library to access the FYTA API
+Project-URL: Repository, https://github.com/dontinelli/fyta_cli.git
+Project-URL: Issues, https://github.com/dontinelli/fyta_cli/issues
+Project-URL: Changelog, https://github.com/dontinelli/fyta_cli/blob/master/CHANGELOG.md
+Project-URL: FYTA homepage, https://fyta.de/
+Project-URL: API Documentation, https://fyta-io.notion.site/FYTA-Public-API-d2f4c30306f74504924c9a40402a3afd
+Author-email: dontinelli <73341522+dontinelli@users.noreply.github.com>
+License-File: LICENSE
+Keywords: IoT,fyta,hass,home assistant,plant,sensor,smart home
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Requires-Dist: aiohttp
+Requires-Dist: mashumaro>=3.13
+Description-Content-Type: text/markdown
+
+# Fyta-Cli
+Python library to access the FYTA API as documented here: https://fyta-io.notion.site/FYTA-Public-API-d2f4c30306f74504924c9a40402a3afd

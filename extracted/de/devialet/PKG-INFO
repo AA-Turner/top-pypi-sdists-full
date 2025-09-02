@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: devialet
+Version: 1.5.7
+Summary: Devialet API
+Home-page: https://github.com/fwestenberg/devialet
+Download-URL: https://github.com/fwestenberg/devialet/releases/latest
+Author: fwestenberg
+Author-email: 
+License: MIT
+Keywords: Devialet,Home-Assistant
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: async_upnp_client
+
+Devialet API

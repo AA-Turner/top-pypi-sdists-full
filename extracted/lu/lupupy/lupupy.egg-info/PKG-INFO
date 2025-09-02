@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: lupupy
+Version: 0.3.2
+Summary: A python cli for Lupusec alarm panels.
+Home-page: http://www.github.com/majuss/lupupy
+Author: Majuss
+License: MIT
+Keywords: smart home automation
+Platform: any
+Requires-Python: >=3.5
+License-File: LICENSE
+Requires-Dist: requests>=2.12.4
+Requires-Dist: pyyaml
+Requires-Dist: colorlog
+
+lupupy is a python3 interface for the Lupus Electronics alarm panel. Its intented to get used in various smart home services to get a full integration of all your devices.

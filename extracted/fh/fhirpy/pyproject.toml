@@ -1,0 +1,74 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "fhirpy"
+description = "FHIR client for python"
+readme = "README.md"
+license = { file = "LICENSE.md" }
+keywords = ["fhir"]
+dynamic = ["version"]
+authors = [{ name = "beda.software", email = "fhirpy@beda.software" }]
+dependencies = ["requests>=2.25.1", "aiohttp>=3.6.3", "pytz", "typing-extensions"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+test = ["pytest>=6.2.4", "pytest-asyncio>=0.15.1", "responses>=0.13.3"]
+
+[project.urls]
+Homepage = "https://github.com/beda-software/fhir-py"
+Documentation = "https://github.com/beda-software/fhir-py#readme"
+Source = "https://github.com/beda-software/fhir-py.git"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --color=yes --cov=fhirpy --cov-report=xml"
+testpaths = ["tests"]
+log_cli = true
+log_cli_level = "INFO"
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "@abstractmethod",
+    "^\\s*\\.\\.\\.\\s*$"
+]
+
+[tool.black]
+target-version = ["py39"]
+line-length = 100
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-exclude = ["emded"]
+
+[tool.ruff.lint]
+select = ["I", "E", "F", "N", "B", "C4", "PT", "UP", "I001", "A", "RET", "TID251", "RUF", "SIM", "PYI", "T20", "PIE", "G", "ISC", "PL"]
+# E501 is disabled because line limit is controlled by black
+# RUF005 is disabled because we use asyncio tasks without cancelling
+# RUF015 is disabled because index access is preferred way for us
+# PIE804 is disabled because we often use FHIR like camelCase variables
+# SIM102 is disabled because nested if's are more readable
+# SIM117 is disabled because nested with's are more readable
+ignore = ["E501", "RUF006", "RUF015", "PIE804", "SIM102", "SIM117", "N818"]
+unfixable = ["F401"]
+
+[tool.autohooks]
+mode = "pipenv"
+pre-commit = ["autohooks.plugins.black", "autohooks.plugins.mypy", "autohooks.plugins.ruff"]

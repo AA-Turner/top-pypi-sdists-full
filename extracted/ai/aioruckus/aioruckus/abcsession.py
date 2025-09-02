@@ -1,0 +1,53 @@
+"""Ruckus Session"""
+
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .ruckusapi import RuckusApi
+
+class ConfigItem(Enum):
+    """Ruckus configuration keys"""
+    WLANSVC_LIST = "wlansvc-list"
+    WLANSVC_STANDARD_TEMPLATE = "wlansvc-standard-template"
+    WLANGROUP_LIST = "wlangroup-list"
+    AP_LIST = "ap-list"
+    APGROUP_LIST = "apgroup-list"
+    APGROUP_TEMPLATE = "apgroup-template"
+    MESH_LIST = "mesh-list"
+    ZTMESHSERIAL_LIST = "ztmeshSerial-list"
+    ACL_LIST = "acl-list"
+    DPSK_LIST = "dpsk-list"
+    ROLE_LIST = "role-list"
+    AVPPOLICY_LIST = "avppolicy-list"
+    AVPAPPLICATION_LIST = "avpapplication-list"
+    AVPPORT_LIST = "avpport-list"
+    PRECEDENCE_LIST = "precedence-list"
+    DEVICEPOLICY_LIST = "devicepolicy-list"
+    URLFILTERINGPOLICY_LIST = "urlfilteringpolicy-list"
+    URLFILTERINGCATEGORY_LIST = "urlfiltering-blockcategories-list"
+    POLICY_LIST = "policy-list"
+    POLICY6_LIST = "policy6-list"
+    SYSTEM = "system"
+
+class AbcSession(ABC):
+    """Abstract Ajax Connection to Ruckus Unleashed or ZoneDirector"""
+    def __init__(
+        self
+    ) -> None:
+        self._api = None
+
+    @property
+    def api(self) -> "RuckusApi":
+        """Return a RuckusApi instance."""
+        if not self._api:
+            # pylint: disable=import-outside-toplevel
+            from .ruckusapi import RuckusApi
+            self._api = RuckusApi(self)
+        return self._api
+
+    @abstractmethod
+    async def get_conf_str(self, item: ConfigItem, timeout: int | None = None) -> str:
+        """Return the relevant config xml, given a configuration key"""
+        raise NotImplementedError(item)

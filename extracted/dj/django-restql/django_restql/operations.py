@@ -1,5 +1,0 @@
-ADD = "add"
-CREATE = "create"
-REMOVE = "remove"
-UPDATE = "update"
-DELETE = "delete"

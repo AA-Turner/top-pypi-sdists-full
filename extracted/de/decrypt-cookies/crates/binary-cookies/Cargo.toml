@@ -1,0 +1,45 @@
+[package]
+name = "binary-cookies"
+version = "0.3.1"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "BinaryCookies decode and encode"
+readme = "README.md"
+homepage = "https://github.com/saying121/tidy-browser/tree/master/crates/binary-cookies"
+repository.workspace = true
+license.workspace = true
+keywords = ["BinaryCookies", "binary-cookies", "binarycookies", "cookies"]
+categories = ["asynchronous", "authentication", "encoding"]
+include = ["Cargo.toml", "README.md", "src"]
+
+[dependencies]
+# TODO: better error display?
+# annotate-snippets = { workspace = true }
+bstr = { workspace = true }
+chrono = { workspace = true }
+oval = { workspace = true }
+positioned-io = { workspace = true }
+serde = { workspace = true, optional = true }
+snafu = { workspace = true, features = ["rust_1_81"] }
+tokio = { workspace = true, features = ["fs", "io-util", "rt-multi-thread"], optional = true }
+winnow = { workspace = true }
+
+[dev-dependencies]
+dirs = { workspace = true }
+plist = { workspace = true }
+pretty_assertions = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "rt-multi-thread"] }
+
+[features]
+csv = []
+default = ["sync"]
+serde = ["bstr/serde", "chrono/serde", "dep:serde"]
+sync = []
+tokio = ["dep:tokio"]
+
+[lints]
+workspace = true

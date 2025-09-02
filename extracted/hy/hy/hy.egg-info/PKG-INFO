@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: hy
+Version: 1.1.0
+Summary: A Lisp dialect embedded in Python
+Home-page: http://hylang.org/
+Author: Paul Tagliamonte
+Author-email: tag@pault.ag
+License: Expat
+Project-URL: Documentation, http://hylang.org/hy/doc
+Project-URL: Source, https://github.com/hylang/hy
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: DFSG approved
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Hy
+Classifier: Programming Language :: Lisp
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Environment :: WebAssembly :: Emscripten
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >= 3.9, < 3.15
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: funcparserlib~=1.0
+
+Hy is a Lisp dialect that's embedded in Python.
+Since Hy transforms its Lisp code into Python abstract syntax tree (AST)
+objects, you have the whole beautiful world of Python at your fingertips,
+in Lisp form.

@@ -69,9 +69,9 @@ OptJidStr = Optional[Union[str, JID]]
 class PresenceArgs(TypedDict, total=False):
     pfrom: JidStr
     pto: JidStr
-    pshow: PresenceShows
     ptype: PresenceTypes
-    pstatus: str
+    pshow: Optional[PresenceShows]
+    pstatus: Optional[str]
 
 
 class MucRoomItem(TypedDict, total=False):

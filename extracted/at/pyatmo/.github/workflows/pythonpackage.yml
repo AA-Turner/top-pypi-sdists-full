@@ -1,0 +1,107 @@
+name: Python package
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - master
+      - development
+
+permissions:
+  contents: read
+
+jobs:
+  formatter:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        python-version: [3.12.11]
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Format with ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.12.9"
+          args: "format --check --diff src/pyatmo/ tests/"
+
+  linter:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.12.11]
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Lint with ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.12.9"
+          args: "check src/pyatmo tests/"
+
+  typechecker:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        python-version: [3.12.11]
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip tox-gh-actions
+      - name: Typecheck with mypy
+        run: |
+          tox -e mypy
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        env:
+          - "3.14"
+          - "3.13"
+          - "3.12"
+        os:
+          - ubuntu-24.04
+        suffix:
+          - ""
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+      - name: Install tox
+        run: uv tool install --python-preference only-managed --python 3.13 tox --with .
+      - name: Install Python
+        if: startsWith(matrix.env, '3.') && matrix.env != '3.13'
+        run: uv python install --python-preference only-managed ${{ matrix.env }}
+
+      - name: Setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false -e ${{ matrix.env }}
+        env:
+          FORCE_COLOR: "1"
+          UV_PYTHON_PREFERENCE: "only-managed"
+
+      - name: Run test suite
+        run: tox run --skip-pkg-install -e ${{ matrix.env }}
+        env:
+          FORCE_COLOR: "1"
+          PYTEST_ADDOPTS: "-vv --durations=20"
+          DIFF_AGAINST: HEAD
+          UV_PYTHON_PREFERENCE: "only-managed"

@@ -1,0 +1,134 @@
+[project]
+name = "fastapi-cdn-host"
+description = "Auto choose the fastest cdn host for fastapi project docs."
+authors = [
+    { name = "Waket Zheng", email = "waketzheng@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = []
+dependencies = [
+    "fastapi (>=0.110.0,<1.0.0)",
+    "httpx (>=0.23.0,<1.0.0)",
+    "eval-type-backport (>=0.2.2,<0.3.0); python_version < '3.10'",
+]
+version = "0.9.2"
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+cli = [
+    "typer>=0.15.2",
+]
+all = [
+    "fastapi-cli>=0.0.7",
+]
+
+[project.scripts]
+fastcdn = "fastapi_cdn_host:cli.main"
+
+[project.urls]
+homepage = "https://github.com/waketzheng/fastapi-cdn-host"
+repository = "https://github.com/waketzheng/fastapi-cdn-host.git"
+
+[dependency-groups]
+dev = [
+    "fast-dev-cli (>=0.14.2,<1.0.0)",
+    "bandit (>=1.8.3,<2.0.0)",
+    "asynctor (>=0.8.0,<1.0.0)",
+    "trio (>=0.29.0,<1.0.0)",
+    "pytest-mock (>=3.14.0,<4.0.0)",
+    "flask>=3.1.1",
+    "a2wsgi>=1.10.10",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.mypy]
+pretty = true
+ignore_missing_imports = true
+explicit_package_bases = true
+check_untyped_defs = true
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "B",
+    "SIM",
+    "C4",
+    "FA",
+    "UP",
+    "RUF100",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = [
+    "E501",
+]
+"examples/main.py" = [
+    "I001",
+]
+"scripts/*test.py" = [
+    "E501",
+    "UP028",
+    "UP031",
+]
+"scripts/*.py" = [
+    "UP009",
+    "UP032",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+    "fastapi_cdn_host",
+]
+omit = [
+    "*/.cache/*",
+    "/usr/*",
+    "scripts/parallel_test.py",
+]
+
+[tool.coverage.report]
+omit = [
+    "*/tests/*",
+    "test_*",
+]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if __name__ == \"__main__\":",
+    "if TYPE_CHECKING:",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "fastapi_cdn_host/cli.py",
+    "scripts",
+    "examples",
+    ".venv",
+]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.version]
+source = "file"
+path = "fastapi_cdn_host/__init__.py"
+
+[tool.pdm.build]
+source-includes = [
+    "scripts/*.py",
+]
+
+[tool.aerich]
+tortoise_orm = "models.TORTOISE_ORM"
+location = "./migrations"
+src_folder = "./."

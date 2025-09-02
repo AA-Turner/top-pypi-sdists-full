@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: pyeverlights
+Version: 0.1.0
+Summary: A library for controlling an EverLights lighting system.
+Home-page: https://github.com/joncar/pyeverlights
+Author: Jon Caruana
+Author-email: jon@joncaruana.com
+License: MIT
+Download-URL: https://github.com/joncar/pyeverlights/tarball/0.1.0
+Description: UNKNOWN
+Keywords: everlights
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.4

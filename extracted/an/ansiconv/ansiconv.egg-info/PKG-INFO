@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: ansiconv
+Version: 1.0.0
+Summary: Converts ANSI coded text and converts it to either plain text or to HTML.
+Home-page: https://bitbucket.org/dhrrgn/ansiconv
+Author: Dan Horrigan
+Author-email: dan@dhorrigan.com
+License: MIT
+Description: See documentation at http://pythonhosted.org/ansiconv/
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Utilities

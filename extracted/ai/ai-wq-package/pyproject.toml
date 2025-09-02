@@ -1,0 +1,34 @@
+[project]
+name = "AI_WQ_package"
+authors = [
+  { name="Joshua Talib", email="joshuatalib@ecmwf.int" },
+]
+version = "3.0.1"
+description = "A python package to support forecast submission, evaluation and access to FTP site for DESTIN-E S2S AI prediction project"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+                "numpy>=1.23",
+                "xarray>=2024.09.0",
+                "dask>=2024.9.0",
+                "pandas>=2.2.3",
+                "scipy>=1.14.1",
+                "netCDF4>=1.7.2",
+                "requests>=2.32.2",
+                "matplotlib>=3.8",
+                "cartopy>=0.22",
+]
+
+[project.urls]
+Homepage = "https://github.com/joshuatalib/AI_weather_quest"
+
+# build system
+[build-system]
+requires = ["setuptools","wheel"]
+build-backend = "setuptools.build_meta"

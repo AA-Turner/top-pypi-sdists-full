@@ -1,8 +1,0 @@
-metadata: '{"array_layout": "Prod6-Hyperarray", "thetaP": 20.0, "data_level": 2, "particle": "gamma", "sct": "False", "outputType": "Data", "site": "Paranal", "configuration_id": 15, "merged": 0, "MCCampaign": "Prod6", "phiP": 0.0}'
-file_metadata: "{}"
-base_path: /vo.cta.in2p3.fr/tests/prodsys/cwl_test/processing
-output_pattern: Data/*.h5
-name_package: ctapipe
-program_category: analysis
-catalogs: '["DIRACFileCatalog", "TSCatalog"]'
-output_type: Data

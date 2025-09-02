@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: pydroid-ipcam
+Version: 3.0.0
+Summary: Library for handling the Android IP Webcam app
+Home-page: https://github.com/home-assistant-libs/pydroid-ipcam
+Author: Pascal Vizeli
+Author-email: pvizeli@syshack.ch
+License: Apache License 2.0
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.6.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# PyDroid-IpCam
+
+A Python asyncio library for interacting with the [IP Webcam](https://play.google.com/store/apps/details?id=com.pas.webcam) app that allows to use the built-in camera of Android phones as IP camera.
+
+Original written for [Home Assistant](http://home-assistant.io).

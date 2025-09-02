@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "versioningit"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GromacsWrapper"
+description = "A Python wrapper around the GROMACS tools."
+readme = "README.rst"
+license = "GPL-3.0-or-later"
+license-files = ["COPYING"]
+authors = [
+    { name = "Oliver Beckstein", email = "orbeckst@gmail.com" }
+]
+dynamic = ["version"]
+
+keywords = ["science", "Gromacs", "analysis", "molecular dynamics"]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",    
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "matplotlib",
+    "numkit",
+    "numpy>=1.0",
+]
+
+[project.urls]
+homepage = "https://github.com/Becksteinlab/GromacsWrapper"
+documentation = "https://GromacsWrapper.readthedocs.org/"
+repository = "https://github.com/Becksteinlab/GromacsWrapper"
+bug-tracker = "https://github.com/Becksteinlab/GromacsWrapper/issues"
+
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov", "setuptools; python_version >= '3.12'", "pandas>=0.17"]
+
+
+[tool.setuptools]
+packages = { find = { exclude = ["scripts", "tests"] } }
+
+# not supported anymore
+#    configuration error: `tool.setuptools` must not contain {'scripts'} properties
+
+# scripts = [
+#     "scripts/gw-join_parts.py",
+#     "scripts/gw-merge_topologies.py",
+#     "scripts/gw-forcefield.py",
+#     "scripts/gw-partial_tempering.py"
+# ]
+
+[tool.setuptools.package-data]
+"gromacs" = [
+    "templates/*.sge",
+    "templates/*.pbs",
+    "templates/*.ll",
+    "templates/*.sh",
+    "templates/*.mdp",
+    "templates/*.cfg"
+]
+
+
+[tool.versioningit]
+default-version = "1+unknown"
+
+[tool.versioningit.vcs]
+method = "git"
+match = ["release-*"]
+
+[tool.versioningit.tag2version]
+rmprefix = "release-"
+
+[tool.versioningit.format]
+distance = "{base_version}+{distance}.{vcs}{rev}"
+dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+
+
+[tool.black]
+extend-exclude = "tests/(test_core|fileformats/test_convert)\\.py"
+
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "doc/sphinx/source/conf.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def _repr_html_",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:"
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+	       "ignore::gromacs.AutoCorrectionWarning",
+	       "ignore::gromacs.LowAccuracyWarning",
+	       "ignore::numkit.LowAccuracyWarning",
+	       ]

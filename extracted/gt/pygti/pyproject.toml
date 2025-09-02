@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pygti"
+version = "0.10.0"
+description = "Access public transport information in Hamburg, Germany."
+authors = [{ name = "Tom Schneider", email = "mail@vigonotion.com" }]
+requires-python = ">=3.6.0"
+dependencies = ["aiohttp", "voluptuous", "pytz"]
+license-files = ["LICENSE.md"]
+
+[project.optional-dependencies]
+# Uncomment and add optional dependencies as needed
+# fancy_feature = ["django"]
+
+[project.urls]
+Homepage = "https://github.com/vigonotion/pygti"
+
+[tool.setuptools]
+packages = ["pygti"]
+
+[tool.setuptools_scm]
+# Enables setuptools_scm for versioning
+
+[tool.pypi-publish]
+repository = "pypi"
+
+[dependency-groups]
+dev = ["ruff>=0.0.17"]
+# If you still need Twine for uploads
+
+[project.scripts]
+# Add CLI entry points here if necessary

@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: emulated_roku
+Version: 0.3.0
+Summary: Library to emulate a roku server to serve as a proxyfor remotes such as Harmony
+Home-page: https://gitlab.com/mindig.marton/emulated_roku
+Download-URL: https://gitlab.com/mindig.marton/emulated_roku/repository/archive.zip?ref=0.3.0
+Author: mindigmarton
+License: MIT
+License-File: LICENSE
+Requires-Dist: aiohttp>3

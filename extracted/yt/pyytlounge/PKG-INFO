@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: pyytlounge
+Version: 3.2.0
+Summary: YouTube Lounge API wrapper
+Project-URL: Homepage, https://github.com/FabioGNR/pyytlounge
+Project-URL: Bug Tracker, https://github.com/FabioGNR/pyytlounge/issues
+Author-email: Fabio <example@example.com>, Berty <example@example.com>
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Requires-Dist: aiohttp>=3.11.12
+Provides-Extra: dev
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: pytest-mock; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == 'docs'
+Description-Content-Type: text/markdown
+
+# YouTube Lounge API wrapper written in Python
+
+[![GitHub Release](https://img.shields.io/github/v/release/FabioGNR/pyytlounge)](https://github.com/FabioGNR/pyytlounge/releases)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/FabioGNR/pyytlounge/test.yml)](https://github.com/FabioGNR/pyytlounge/actions)
+[![Documentation Status](https://readthedocs.org/projects/pyytlounge/badge/?version=latest)](https://pyytlounge.readthedocs.io/en/latest/?badge=latest)
+
+## Install
+
+Run `pip install pyytlounge`.
+
+## Development
+
+Activate virtual environment:
+
+- create `python -m venv .venv`
+- activate `source .venv/bin/activate`
+- install package and its requirements `pip install -e .[dev]`
+
+Mypy is used for type checking and is required to pass in the workflow.
+For formatting ruff is used.
+
+## How to use
+
+`python test.py` will run an interactive demo.
+View documentation on [readthedocs.io](https://pyytlounge.readthedocs.io/en/latest/?badge=latest).
+
+## Release Notes
+
+See [CHANGELOG](CHANGELOG.md).
+
+## Thanks
+
+- https://github.com/henriquekano/youtube-lounge-api

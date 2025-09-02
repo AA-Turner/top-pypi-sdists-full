@@ -1,0 +1,21 @@
+[project]
+name = "smithy-aws-event-stream"
+version = "0.0.1"
+description = "Smithy components for Amazon Event Streams."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "smithy-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+  "tests",
+]
+
+[tool.ruff]
+src = ["src"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtailmedia
-Version: 0.17.0
+Version: 0.17.1
 Summary: A Wagtail module for audio and video files.
 Keywords: Wagtail,Django,media
 Author-email: Mikalai Radchuk  <hello@torchbox.com>

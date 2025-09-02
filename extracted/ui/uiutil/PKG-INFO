@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: uiutil
+Version: 1.38.0
+Summary: Utility module to assist creating Tk GUIs.
+Home-page: https://bitbucket.org/davisowb/owbd-python-module-template.git
+Author: Oli Davis & Hywel Thomas
+Author-email: oli.davis@me.com, hywel.thomas@mac.com
+License: MIT
+Download-URL: https://bitbucket.org/davisowb/owbd-python-module-template.git/get/1.38.0.tar
+Keywords: uiutil
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Utilities
+Provides-Extra: test
+License-File: LICENSE.txt
+
+
+uiutil
+======
+
+Uiutil sits on top of ttk/tkinter for cleaner UI code.
+
+Visit http://uiutil.readthedocs.io/en/latest/ for more information.
+
+

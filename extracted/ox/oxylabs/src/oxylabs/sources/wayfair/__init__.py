@@ -1,1 +1,0 @@
-from .wayfair import Wayfair, WayfairAsync

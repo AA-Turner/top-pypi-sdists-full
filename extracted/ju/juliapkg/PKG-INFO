@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: juliapkg
-Version: 0.1.17
+Version: 0.1.18
 Summary: Julia version manager and package manager
 Project-URL: Homepage, http://github.com/JuliaPy/pyjuliapkg
 Project-URL: Repository, http://github.com/JuliaPy/pyjuliapkg.git
@@ -10,7 +10,7 @@ Author: Christopher Doris
 License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: filelock<4.0,>=3.16
 Requires-Dist: semver<4.0,>=3.0
 Description-Content-Type: text/markdown
@@ -76,8 +76,9 @@ Julia v1.*.* and the Example package v0.5.*:
 
 - `juliapkg.executable()` returns a compatible Julia executable.
 - `juliapkg.project()` returns the project into which the packages have been installed.
-- `juliapkg.resolve(force=False)` ensures all the dependencies are installed. You don't
+- `juliapkg.resolve(force=False, dry_run=False)` ensures all the dependencies are installed. You don't
   normally need to do this because the other functions resolve automatically.
+- `juliapkg.update(dry_run=False)` updates the dependencies.
 
 ## Details
 
@@ -121,7 +122,7 @@ More strategies may be added in a future release.
 
 JuliaPkg looks for `juliapkg.json` files in many locations, namely:
 - `{project}/pyjuliapkg` where project is as above (depending on your environment).
-- Every directory and direct sub-directory in `sys.path`.
+- Every installed package (looks through `sys.path` and `sys.meta_path`).
 
 The last point means that if you put a `juliapkg.json` file in a package, then install that
 package, then JuliaPkg will find those dependencies and install them.

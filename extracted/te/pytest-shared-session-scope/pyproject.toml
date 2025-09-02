@@ -1,0 +1,50 @@
+[project]
+name = "pytest-shared-session-scope"
+version = "0.5.1"
+description = "Pytest session-scoped fixture that works with xdist"
+authors = [{ name = "Stefan Rasmussen", email = "opensource@bruhn.io" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "filelock >= 3.16.0",
+  "typing-extensions >= 3.6.2",
+  "pytest >= 7.0.0",
+]
+
+[project.entry-points.pytest11]
+pytest-shared-session-scope = "pytest_shared_session_scope.plugin"
+
+
+[tool.uv]
+dev-dependencies = [
+  "pytest-cov == 5.0.0",
+  "pytest-xdist == 3.8.0",
+  "pyright == 1.1.381",
+  "polars == 1.6.0",
+  "ruff==0.6.7",
+]
+
+[tool.pytest.ini_options]
+addopts = "-n auto"
+testpaths = ["tests"]
+pytester_example_dir = "pytester_examples"
+
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "D"]
+ignore = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"pytester_examples/**.py" = ["D"]
+"tests/**.py" = ["D"]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

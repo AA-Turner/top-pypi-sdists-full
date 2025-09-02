@@ -1,0 +1,42 @@
+# Note: don't use this config for your own repositories. Instead, see
+# "Version control integration" in README.md.
+default_stages: [pre-commit, pre-push]
+exclude: ^(fixtures/)
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.12.9
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0 # Use the ref you want to point at
+    hooks:
+      - id: check-ast
+      - id: no-commit-to-branch
+        args: [--branch, master, --branch, devel, --branch, development]
+      - id: forbid-new-submodules
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+      - id: debug-statements
+      - id: check-toml
+      - id: pretty-format-json
+        args: [--autofix]
+        exclude: ^(\.devcontainer|\.vscode)/
+
+# on commit-msg, it needs 'pre-commit install -t commit-msg'*
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []

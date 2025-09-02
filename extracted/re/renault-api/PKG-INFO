@@ -1,0 +1,204 @@
+Metadata-Version: 2.3
+Name: renault-api
+Version: 0.4.0
+Summary: Renault API
+License: MIT
+Author: epenet
+Requires-Python: >=3.9.2,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.9
+Provides-Extra: cli
+Requires-Dist: PyJWT (>=2.8.0)
+Requires-Dist: aiohttp (>=3.9.5)
+Requires-Dist: cffi (>=1.17.0)
+Requires-Dist: click (>=8.0.1) ; extra == "cli"
+Requires-Dist: cryptography (>=44.0.0)
+Requires-Dist: dateparser (>=1.0.0) ; extra == "cli"
+Requires-Dist: marshmallow-dataclass (>=8.2.0)
+Requires-Dist: tabulate (>=0.8.7) ; extra == "cli"
+Project-URL: Changelog, https://github.com/hacf-fr/renault-api/releases
+Project-URL: Documentation, https://renault-api.readthedocs.io
+Project-URL: Homepage, https://github.com/hacf-fr/renault-api
+Project-URL: Repository, https://github.com/hacf-fr/renault-api
+Description-Content-Type: text/x-rst
+
+Renault API
+===========
+
+|PyPI| |Python Version| |License|
+
+|Read the Docs| |Tests| |Codecov|
+
+|pre-commit| |Ruff|
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/renault-api.svg
+   :target: https://pypi.org/project/renault-api/
+   :alt: PyPI
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/renault-api
+   :target: https://pypi.org/project/renault-api
+   :alt: Python Version
+.. |License| image:: https://img.shields.io/pypi/l/renault-api
+   :target: https://opensource.org/licenses/MIT
+   :alt: License
+.. |Read the Docs| image:: https://img.shields.io/readthedocs/renault-api/latest.svg?label=Read%20the%20Docs
+   :target: https://renault-api.readthedocs.io/
+   :alt: Read the documentation at https://renault-api.readthedocs.io/
+.. |Tests| image:: https://github.com/hacf-fr/renault-api/workflows/Tests/badge.svg
+   :target: https://github.com/hacf-fr/renault-api/actions?workflow=Tests
+   :alt: Tests
+.. |Codecov| image:: https://codecov.io/gh/hacf-fr/renault-api/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/hacf-fr/renault-api
+   :alt: Codecov
+.. |pre-commit| image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
+   :target: https://github.com/pre-commit/pre-commit
+   :alt: pre-commit
+.. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+    :target: https://github.com/astral-sh/ruff
+    :alt: Ruff
+
+
+Features
+--------
+
+This Python package manages the communication with the private Renault API used by the official MyRenault application.
+
+The client is able to read various vehicle attributes, such as:
+
+* mileage
+* GPS location
+* fuel autonomy (for fuel vehicles)
+* battery autonomy (for electric vehicles)
+* contracts associated to the vehicle (warranty and connected services)
+
+For some vehicles, it is also possible to manage:
+
+* hvac/pre-conditionning of the vehicle
+* charge schedule
+
+This package has been developed to be used with Home-Assistant, but it can be used in other contexts
+
+
+Requirements
+------------
+
+* Python (>= 3.9)
+
+API Usage
+---------
+
+You can install *Renault API* via pip_ from PyPI_:
+
+.. code:: console
+
+   $ pip install renault-api
+
+.. code:: python
+
+   import aiohttp
+   import asyncio
+
+   from renault_api.renault_client import RenaultClient
+
+   async def main():
+      async with aiohttp.ClientSession() as websession:
+         client = RenaultClient(websession=websession, locale="fr_FR")
+         await client.session.login('email', 'password')
+         print(f"Accounts: {await client.get_person()}") # List available accounts, make a note of kamereon account id
+
+         account_id = "Your Kamereon account id"
+         account = await client.get_api_account(account_id)
+         print(f"Vehicles: {await account.get_vehicles()}") # List available vehicles, make a note of vehicle VIN
+
+         vin = "Your vehicle VIN"
+         vehicle = await account.get_api_vehicle(vin)
+         print(f"Cockpit information: {await vehicle.get_cockpit()}")
+         print(f"Battery status information: {await vehicle.get_battery_status()}")
+
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(main())
+
+CLI Usage
+---------
+
+The renault-api is also available through a CLI, which requires additional dependencies.
+For the added dependencies, you can install *Renault API* via pip_ from PyPI_:
+
+.. code:: console
+
+   $ pip install renault-api[cli]
+
+Once installed, the following command prompts for credentials and settings, displays basic vehicle status information, and generates traces:
+
+.. code:: console
+
+   $ renault-api --log status
+
+* Credentials will automatically be stored in the user home directory (~/.credentials/renault-api.json)
+* Logs will automatically be generated in `logs` subfolder
+
+It is also possible to use raw http GET/POST commands, for example to get odometer and others data on a Windows machine:
+
+.. code:: console
+
+  C:> renault-api http get /commerce/v1/accounts/{account_id}/kamereon/kca/car-adapter/v1/cars/{vin}/cockpit
+
+Or to request a battery status refresh on a Windows Machine (internal quotes escaped, whole payload enclosed in un-escaped quotes):
+
+.. code:: console
+
+  C:> renault-api http post /commerce/v1/accounts/{account_id}/kamereon/kca/car-adapter/v1/cars/{vin}/actions/refresh-battery-status "{\\"data\\": {\\"type\\": \\"RefreshBatteryStatus\\"}}"
+
+Please see the `Command-line Reference <Usage_>`_ for full details.
+
+Contributing
+------------
+
+Contributions are very welcome.
+To learn more, see the `Contributor Guide`_.
+
+
+License
+-------
+
+Distributed under the terms of the MIT_ license,
+*Renault API* is free and open source software.
+
+
+Disclaimer
+----------
+
+This project is not affiliated with, endorsed by, or connected to Renault. I accept no responsibility for any consequences, intended or accidental, as a as a result of interacting with Renault's API using this project.
+
+
+Issues
+------
+
+If you encounter any problems,
+please `file an issue`_ along with a detailed description.
+
+
+Credits
+-------
+
+This project was generated from `@cjolowicz`_'s `Hypermodern Python Cookiecutter`_ template.
+This project was heavily based on `@jamesremuscat`_'s `PyZE`_ python client for the Renault ZE API.
+
+
+.. _@cjolowicz: https://github.com/cjolowicz
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _@jamesremuscat: https://github.com/jamesremuscat
+.. _PyZE: https://github.com/jamesremuscat/pyze
+.. _MIT: http://opensource.org/licenses/MIT
+.. _PyPI: https://pypi.org/
+.. _Hypermodern Python Cookiecutter: https://github.com/cjolowicz/cookiecutter-hypermodern-python
+.. _file an issue: https://github.com/hacf-fr/renault-api/issues
+.. _pip: https://pip.pypa.io/
+.. github-only
+.. _Contributor Guide: CONTRIBUTING.rst
+.. _Usage: https://renault-api.readthedocs.io/en/latest/usage.html
+

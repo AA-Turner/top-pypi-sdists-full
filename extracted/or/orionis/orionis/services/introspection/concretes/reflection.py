@@ -851,7 +851,6 @@ class ReflectionConcrete(IReflectionConcrete):
         list
             A list of protected instance method names.
         """
-        class_name = self.getClassName()
         attributes = self._concrete.__dict__
         protected_methods = []
 

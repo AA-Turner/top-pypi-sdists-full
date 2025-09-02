@@ -1,27 +1,25 @@
-"""Darker - apply black reformatting to only areas edited since the last commit"""
+"""Darker - format only code areas modified between Git revisions."""
 
 import concurrent.futures
 import logging
 import sys
 import warnings
 from argparse import Action, ArgumentError
-from datetime import datetime
+from datetime import datetime, timezone
 from difflib import unified_diff
 from pathlib import Path
 from typing import Collection, Generator, List, Optional, Tuple
 
-from darker.black_diff import (
-    BlackConfig,
-    filter_python_files,
-    read_black_config,
-    run_black,
-)
 from darker.chooser import choose_lines
 from darker.command_line import parse_command_line
 from darker.concurrency import get_executor
 from darker.config import Exclusions, OutputMode, validate_config_output_mode
 from darker.diff import diff_chunks
 from darker.exceptions import DependencyError, MissingPackageError
+from darker.files import filter_python_files
+from darker.formatters import create_formatter
+from darker.formatters.base_formatter import BaseFormatter
+from darker.formatters.none_formatter import NoneFormatter
 from darker.fstring import apply_flynt, flynt
 from darker.git import (
     EditedLinenumsDiffer,
@@ -30,10 +28,17 @@ from darker.git import (
     git_get_modified_python_files,
     git_is_repository,
 )
-from darker.help import get_extra_instruction
+from darker.help import LINTING_GUIDE, get_extra_instruction
 from darker.import_sorting import apply_isort, isort
+from darker.terminal import output
 from darker.utils import debug_dump, glob_any
 from darker.verification import ASTVerifier, BinarySearch, NotEquivalentError
+from darkgraylib.command_line import (
+    EXIT_CODE_CMDLINE_ERROR,
+    EXIT_CODE_DEPENDENCY,
+    EXIT_CODE_FILE_NOT_FOUND,
+    EXIT_CODE_UNKNOWN,
+)
 from darkgraylib.config import show_config_if_debug
 from darkgraylib.files import find_project_root
 from darkgraylib.git import (
@@ -46,23 +51,23 @@ from darkgraylib.git import (
 from darkgraylib.highlighting import colorize, should_use_color
 from darkgraylib.log import setup_logging
 from darkgraylib.main import resolve_paths
-from darkgraylib.utils import GIT_DATEFORMAT, DiffChunk, TextDocument
-from graylint.linting import run_linters
+from darkgraylib.utils import GIT_DATEFORMAT, WINDOWS, DiffChunk, TextDocument
 
 logger = logging.getLogger(__name__)
 
 ProcessedDocument = Tuple[Path, TextDocument, TextDocument]
 
 
-def format_edited_parts(  # pylint: disable=too-many-arguments
+def format_edited_parts(  # noqa: PLR0913
     root: Path,
-    changed_files: Collection[Path],  # pylint: disable=unsubscriptable-object
+    changed_files: Collection[Path],
     exclude: Exclusions,
     revrange: RevisionRange,
-    black_config: BlackConfig,
+    formatter: BaseFormatter,
     report_unmodified: bool,
     workers: int = 1,
 ) -> Generator[ProcessedDocument, None, None]:
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Black (and optional isort and flynt) formatting modified chunks in a set of files
 
     Files inside given directories and excluded by Black's configuration are not
@@ -76,7 +81,7 @@ def format_edited_parts(  # pylint: disable=too-many-arguments
                           modified in the repository between the given Git revisions
     :param exclude: Files to exclude when running Black,``isort`` or ``flynt``
     :param revrange: The Git revisions to compare
-    :param black_config: Configuration to use for running Black
+    :param formatter: The code re-formatter to use
     :param report_unmodified: ``True`` to yield also files which weren't modified
     :param workers: number of cpu processes to use (0 - autodetect)
     :return: A generator which yields details about changes for each file which should
@@ -95,7 +100,7 @@ def format_edited_parts(  # pylint: disable=too-many-arguments
                 edited_linenums_differ,
                 exclude,
                 revrange,
-                black_config,
+                formatter,
             )
             futures.append(future)
 
@@ -109,21 +114,22 @@ def format_edited_parts(  # pylint: disable=too-many-arguments
                 yield (absolute_path_in_rev2, rev2_content, content_after_reformatting)
 
 
-def _modify_and_reformat_single_file(  # pylint: disable=too-many-arguments
+def _modify_and_reformat_single_file(  # noqa: PLR0913
     root: Path,
     relative_path_in_rev2: Path,
     edited_linenums_differ: EditedLinenumsDiffer,
     exclude: Exclusions,
     revrange: RevisionRange,
-    black_config: BlackConfig,
+    formatter: BaseFormatter,
 ) -> ProcessedDocument:
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Black, isort and/or flynt formatting for modified chunks in a single file
 
     :param root: Root directory for the relative path
     :param relative_path_in_rev2: Relative path to a Python source code file
     :param exclude: Files to exclude when running Black, ``isort`` or ``flynt``
     :param revrange: The Git revisions to compare
-    :param black_config: Configuration to use for running Black
+    :param formatter: The code re-formatter to use
     :return: Details about changes for the file
 
     """
@@ -140,15 +146,17 @@ def _modify_and_reformat_single_file(  # pylint: disable=too-many-arguments
     rev2_isorted = apply_isort(
         rev2_content,
         relative_path_in_rev2,
+        root,
         exclude.isort,
         edited_linenums_differ,
-        black_config.get("config"),
-        black_config.get("line_length"),
+        formatter.get_config_path(),
+        formatter.get_line_length(),
     )
     has_isort_changes = rev2_isorted != rev2_content
     # 2. run flynt (optional) on the isorted contents of each edited to-file
-    # 3. run black on the isorted and fstringified contents of each edited to-file
-    content_after_reformatting = _blacken_and_flynt_single_file(
+    # 3. run a re-formatter on the isorted and fstringified contents of each edited
+    #    to-file
+    content_after_reformatting = _reformat_and_flynt_single_file(
         root,
         relative_path_in_rev2,
         get_path_in_repo(relative_path_in_rev2),
@@ -157,13 +165,12 @@ def _modify_and_reformat_single_file(  # pylint: disable=too-many-arguments
         rev2_content,
         rev2_isorted,
         has_isort_changes,
-        black_config,
+        formatter,
     )
     return absolute_path_in_rev2, rev2_content, content_after_reformatting
 
 
-def _blacken_and_flynt_single_file(
-    # pylint: disable=too-many-arguments,too-many-locals
+def _reformat_and_flynt_single_file(  # noqa: PLR0913
     root: Path,
     relative_path_in_rev2: Path,
     relative_path_in_repo: Path,
@@ -172,8 +179,9 @@ def _blacken_and_flynt_single_file(
     rev2_content: TextDocument,
     rev2_isorted: TextDocument,
     has_isort_changes: bool,
-    black_config: BlackConfig,
+    formatter: BaseFormatter,
 ) -> TextDocument:
+    # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     """In a Python file, reformat chunks with edits since the last commit using Black
 
     :param root: The common root of all files to reformat
@@ -186,7 +194,7 @@ def _blacken_and_flynt_single_file(
     :param rev2_content: Contents of the file at ``revrange.rev2``
     :param rev2_isorted: Contents of the file after optional import sorting
     :param has_isort_changes: ``True`` if ``isort`` was run and modified the file
-    :param black_config: Configuration to use for running Black
+    :param formatter: The code re-formatter to use
     :return: Contents of the file after reformatting
     :raise: NotEquivalentError
 
@@ -203,23 +211,30 @@ def _blacken_and_flynt_single_file(
         relative_path_in_rev2, exclude.flynt, edited_linenums_differ, rev2_isorted
     )
     has_fstring_changes = fstringified != rev2_isorted
-    logger.debug(
-        "Flynt resulted in %s lines, with %s changes from fstringification",
-        len(fstringified.lines),
-        "some" if has_fstring_changes else "no",
-    )
-    # 3. run black on the isorted and fstringified contents of each edited to-file
-    formatted = _maybe_blacken_single_file(
-        relative_path_in_rev2, exclude.black, fstringified, black_config
+    # 3. run the code re-formatter on the isorted and fstringified contents of each
+    #    edited to-file
+    formatted = _maybe_reformat_single_file(
+        relative_path_in_rev2, exclude.formatter, fstringified, formatter
     )
     logger.debug(
-        "Black reformat resulted in %s lines, with %s changes from reformatting",
-        len(formatted.lines),
+        "Running %r by %s.%s resulted in %s changed lines within a total of %s lines",
+        formatter.name,
+        formatter.__module__,
+        type(formatter).__name__,
         "no" if formatted == fstringified else "some",
+        len(formatted.lines),
     )
+    # 4. apply all re-formatter modifications if the re-formatter doesn't guarantee
+    #    preserving the abstract syntax tree (AST); otherwise do steps 5 to 10
+    if not formatter.preserves_ast:
+        logger.debug(
+            "Preserving the AST not guaranteed by %s, applying all changes",
+            formatter.name,
+        )
+        return formatted
 
-    # 4. get a diff between the edited to-file and the processed content
-    # 5. convert the diff into chunks, keeping original and reformatted content for each
+    # 5. get a diff between the edited to-file and the processed content
+    # 6. convert the diff into chunks, keeping original and reformatted content for each
     #    chunk
     new_chunks = diff_chunks(rev2_isorted, formatted)
 
@@ -261,33 +276,39 @@ def _maybe_flynt_single_file(
     if glob_any(relpath_in_rev2, exclude):
         # `--flynt` option not specified, don't reformat
         return rev2_isorted
-    return apply_flynt(rev2_isorted, relpath_in_rev2, edited_linenums_differ)
+    result = apply_flynt(rev2_isorted, relpath_in_rev2, edited_linenums_differ)
+    logger.debug(
+        "Flynt resulted in %s lines, with %s changes from fstringification",
+        len(result.lines),
+        "some" if result != rev2_isorted else "no",
+    )
+    return result
 
 
-def _maybe_blacken_single_file(
+def _maybe_reformat_single_file(
     relpath_in_rev2: Path,
     exclude: Collection[str],
     fstringified: TextDocument,
-    black_config: BlackConfig,
+    formatter: BaseFormatter,
 ) -> TextDocument:
-    """Format Python source code with Black if the source code file path isn't excluded
+    """Re-format Python source code if the source code file path isn't excluded.
 
     :param relpath_in_rev2: Relative path to a Python source code file. Possibly a
                             VSCode ``.py.<HASH>.tmp`` file in the working tree.
-    :param exclude: Files to exclude when running Black
+    :param exclude: Files to exclude when running the re-formatter
     :param fstringified: Contents of the file after optional import sorting and flynt
-    :param black_config: Configuration to use for running Black
+    :param formatter: The code re-formatter to use
     :return: Python source code after reformatting
 
     """
     if glob_any(relpath_in_rev2, exclude):
         # File was excluded by Black configuration, don't reformat
         return fstringified
-    return run_black(fstringified, black_config)
+    return formatter.run(fstringified, relpath_in_rev2)
 
 
 def _drop_changes_on_unedited_lines(
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     new_chunks: List[DiffChunk],
     abspath_in_rev2: Path,
     relpath_in_repo: Path,
@@ -327,9 +348,9 @@ def _drop_changes_on_unedited_lines(
                 context_lines,
                 abspath_in_rev2,
             )
-        # 6. diff the given revisions (optionally with isort modifications) for each
+        # 7. diff the given revisions (optionally with isort modifications) for each
         #    file
-        # 7. extract line numbers in each edited to-file for changed lines
+        # 8. extract line numbers in each edited to-file for changed lines
         edited_linenums = edited_linenums_differ.revision_vs_lines(
             relpath_in_repo, rev2_isorted, context_lines
         )
@@ -338,18 +359,18 @@ def _drop_changes_on_unedited_lines(
             last_successful_reformat = rev2_isorted
             break
 
-        # 8. choose processed content for each chunk if there were any changed lines
+        # 9. choose processed content for each chunk if there were any changed lines
         #    inside the chunk in the edited to-file, or choose the chunk's original
         #    contents if no edits were done in that chunk
         chosen = TextDocument.from_lines(
             choose_lines(new_chunks, edited_linenums),
             encoding=rev2_content.encoding,
             newline=rev2_content.newline,
-            mtime=datetime.utcnow().strftime(GIT_DATEFORMAT),
+            mtime=datetime.now(timezone.utc).strftime(GIT_DATEFORMAT),
         )
 
-        # 9. verify that the resulting reformatted source code parses to an identical
-        #    AST as the original edited to-file
+        # 10. verify that the resulting reformatted source code parses to an identical
+        #     AST as the original edited to-file
         if not has_fstring_changes and not verifier.is_equivalent_to_baseline(chosen):
             logger.debug(
                 "Verifying that the %s original edited lines and %s reformatted lines "
@@ -410,7 +431,7 @@ def print_diff(
             n=5,  # Black shows 5 lines of context, do the same
         )
     )
-    print(colorize(diff, "diff", use_color))
+    output(colorize(diff, "diff", use_color), end="\n")
 
 
 def print_source(new: TextDocument, use_color: bool) -> None:
@@ -423,11 +444,11 @@ def print_source(new: TextDocument, use_color: bool) -> None:
                 PythonLexer,
             ) = _import_pygments()  # type: ignore
         except ImportError:
-            print(new.string, end="")
+            output(new.string)
         else:
-            print(highlight(new.string, PythonLexer(), TerminalFormatter()), end="")
+            output(highlight(new.string, PythonLexer(), TerminalFormatter()))
     else:
-        print(new.string, end="")
+        output(new.string)
 
 
 def _import_pygments():  # type: ignore
@@ -445,34 +466,30 @@ def _import_pygments():  # type: ignore
     return highlight, TerminalFormatter, PythonLexer
 
 
-def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements
+def main(  # noqa: C901,PLR0912,PLR0915
     argv: List[str] = None,
 ) -> int:
-    """Parse the command line and reformat and optionally lint each source file
+    """Parse the command line and reformat and optionally lint each source file.
 
     1. run isort on each edited file (optional)
     2. run flynt (optional) on the isorted contents of each edited to-file
-    3. run black on the isorted and fstringified contents of each edited to-file
-    4. get a diff between the edited to-file and the processed content
-    5. convert the diff into chunks, keeping original and reformatted content for each
+    3. run a code re-formatter on the isorted and fstringified contents of each edited
+       to-file
+    4. apply all re-formatter modifications if the re-formatter doesn't guarantee
+       preserving the abstract syntax tree (AST); otherwise do steps 5 to 10
+    5. get a diff between the edited to-file and the processed content
+    6. convert the diff into chunks, keeping original and reformatted content for each
        chunk
-    6. diff the given revisions (optionally with isort modifications) for each
+    7. diff the given revisions (optionally with isort modifications) for each
        file
-    7. extract line numbers in each edited to-file for changed lines
-    8. choose processed content for each chunk if there were any changed lines inside
+    8. extract line numbers in each edited to-file for changed lines
+    9. choose processed content for each chunk if there were any changed lines inside
        the chunk in the edited to-file, or choose the chunk's original contents if no
        edits were done in that chunk
-    9. verify that the resulting reformatted source code parses to an identical AST as
-       the original edited to-file
-    9. write the reformatted source back to the original file or print the diff
-    10. run linter subprocesses twice for all modified and unmodified files which are
-        mentioned on the command line: first establish a baseline by running against
-        ``rev1``, then get current linting status by running against the working tree
-        (steps 10.-12. are optional)
-    11. create a mapping from line numbers of unmodified lines in the current versions
-        to corresponding line numbers in ``rev1``
-    12. hide linter messages which appear in the current versions and identically on
-        corresponding lines in ``rev1``, and show all other linter messages
+    10. verify that the resulting reformatted source code parses to an identical AST as
+        the original edited to-file
+    11. write the reformatted source back to the original file or print the diff
 
     :param argv: The command line arguments to the ``darker`` command
     :return: 1 if the ``--check`` argument was provided and at least one file was (or
@@ -484,7 +501,7 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
     # Make sure there aren't invalid option combinations after merging configuration and
     # command line options.
     OutputMode.validate_diff_stdout(args.diff, args.stdout)
-    OutputMode.validate_stdout_src(args.stdout, args.src, args.stdin_filename)
+    OutputMode.validate_stdout_src(args.src, args.stdin_filename, stdout=args.stdout)
     validate_config_output_mode(config)
 
     setup_logging(args.log_level)
@@ -492,7 +509,7 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
     logging.getLogger("blib2to3.pgen2.driver").setLevel(logging.WARNING)
     logging.getLogger("flynt.transform.transform").setLevel(logging.CRITICAL)
 
-    show_config_if_debug(config, config_nondefault, args.log_level)
+    show_config_if_debug(config, config_nondefault, args.log_level, "darker")
 
     if args.isort and not isort:
         raise MissingPackageError(
@@ -504,17 +521,8 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
             f"{get_extra_instruction('flynt')} to use the `--flynt` option."
         )
 
-    black_config = read_black_config(tuple(args.src), args.config)
-    if args.config:
-        black_config["config"] = args.config
-    if args.line_length:
-        black_config["line_length"] = args.line_length
-    if args.target_version:
-        black_config["target_version"] = {args.target_version}
-    if args.skip_string_normalization is not None:
-        black_config["skip_string_normalization"] = args.skip_string_normalization
-    if args.skip_magic_trailing_comma is not None:
-        black_config["skip_magic_trailing_comma"] = args.skip_magic_trailing_comma
+    formatter = create_formatter(args.formatter)
+    formatter.read_config(tuple(args.src), args)
 
     paths, common_root = resolve_paths(args.stdin_filename, args.src)
     # `common_root` is now the common root of given paths,
@@ -549,14 +557,21 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
             rev2_repr = (
                 "the working tree" if revrange.rev2 == WORKTREE else revrange.rev2
             )
-            raise ArgumentError(
-                Action(["PATH"], "path"),
-                f"Error: Path(s) {missing_reprs} do not exist in {rev2_repr}",
-            )
+            msg = f"Path(s) {missing_reprs} do not exist in {rev2_repr}"
+            raise FileNotFoundError(msg)
 
+    common_root_ = (
+        # On Windows, Python <= 3.9 requires the `filter_python_files` `root` argument
+        # to be an absolute path. Remove this after dropping support for Python 3.9.
+        # See https://github.com/python/cpython/issues/82852
+        common_root.resolve()
+        if WINDOWS and sys.version_info < (3, 10)
+        else common_root
+    )
     # These paths are relative to `common_root`:
-    files_to_process = filter_python_files(paths, common_root, {})
-    files_to_blacken = filter_python_files(paths, common_root, black_config)
+    files_to_process = filter_python_files(paths, common_root_, NoneFormatter())
+    files_to_reformat = filter_python_files(paths, common_root_, formatter)
+
     # Now decide which files to reformat (Black & isort). Note that this doesn't apply
     # to linting.
     if output_mode == OutputMode.CONTENT or revrange.rev2 == STDIN:
@@ -564,7 +579,7 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
         # modified or not. Paths have previously been validated to contain exactly one
         # existing file.
         changed_files_to_reformat = files_to_process
-        black_exclude = set()
+        formatter_exclude = set()
     else:
         # In other modes, only reformat files which have been modified.
         if git_is_repository(common_root):
@@ -579,10 +594,10 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
 
         else:
             changed_files_to_reformat = files_to_process
-        black_exclude = {
+        formatter_exclude = {
             str(path)
             for path in changed_files_to_reformat
-            if path not in files_to_blacken
+            if path not in files_to_reformat
         }
     use_color = should_use_color(config["color"])
     formatting_failures_on_modified_lines = False
@@ -591,17 +606,17 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
             common_root,
             changed_files_to_reformat,
             Exclusions(
-                black=black_exclude,
+                formatter=formatter_exclude,
                 isort=set() if args.isort else {"**/*"},
                 flynt=set() if args.flynt else {"**/*"},
             ),
             revrange,
-            black_config,
+            formatter,
             report_unmodified=output_mode == OutputMode.CONTENT,
             workers=config["workers"],
         ),
     ):
-        # 10. A re-formatted Python file which produces an identical AST was
+        # 11. A re-formatted Python file which produces an identical AST was
         #     created successfully - write an updated file or print the diff if
         #     there were any changes to the original
         formatting_failures_on_modified_lines = True
@@ -611,30 +626,27 @@ def main(  # pylint: disable=too-many-locals,too-many-branches,too-many-statemen
             print_source(new, use_color)
         if write_modified_files:
             modify_file(path, new)
-    linter_failures_on_modified_lines = run_linters(
-        args.lint,
-        common_root,
-        # paths to lint are not limited to modified files or just Python files:
-        {p.resolve().relative_to(common_root) for p in paths},
-        revrange,
-        use_color,
-    )
-    return (
-        1
-        if linter_failures_on_modified_lines
-        or (args.check and formatting_failures_on_modified_lines)
-        else 0
-    )
+    if args.lint:
+        print(LINTING_GUIDE, end="")
+    return 1 if args.check and formatting_failures_on_modified_lines else 0
 
 
 def main_with_error_handling() -> int:
     """Entry point for console script"""
     try:
         return main()
-    except (ArgumentError, DependencyError) as exc_info:
-        if logger.root.level < logging.WARNING:
-            raise
-        sys.exit(str(exc_info))
+    except FileNotFoundError as exc_info:
+        logger.exception("%s (%d)", exc_info, EXIT_CODE_FILE_NOT_FOUND)  # noqa: TRY401
+        return EXIT_CODE_FILE_NOT_FOUND
+    except ArgumentError as exc_info:
+        logger.exception("%s (%d)", exc_info, EXIT_CODE_CMDLINE_ERROR)  # noqa: TRY401
+        return EXIT_CODE_CMDLINE_ERROR
+    except DependencyError as exc_info:
+        logger.exception("%s (%d)", exc_info, EXIT_CODE_DEPENDENCY)  # noqa: TRY401
+        return EXIT_CODE_DEPENDENCY
+    except Exception as exc_info:  # pylint: disable=broad-exception-caught
+        logger.exception("%s (%d)", exc_info, EXIT_CODE_UNKNOWN)  # noqa: TRY401
+        return EXIT_CODE_UNKNOWN
 
 
 if __name__ == "__main__":

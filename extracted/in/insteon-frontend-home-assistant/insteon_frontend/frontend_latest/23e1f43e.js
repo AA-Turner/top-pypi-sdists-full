@@ -1,0 +1,2 @@
+(self.webpackChunkinsteon_frontend_home_assistant=self.webpackChunkinsteon_frontend_home_assistant||[]).push([[4827],{64827:()=>{Intl.PluralRules&&"function"==typeof Intl.PluralRules.__addLocaleData&&Intl.PluralRules.__addLocaleData({data:{categories:{cardinal:["one","other"],ordinal:["one","two","few","other"]},fn:function(e,n){var t=String(e).split("."),a=!t[1],o=Number(t[0])==e,l=o&&t[0].slice(-1),s=o&&t[0].slice(-2);return n?1==l&&11!=s?"one":2==l&&12!=s?"two":3==l&&13!=s?"few":"other":1==e&&a?"one":"other"}},locale:"en"})}}]);
+//# sourceMappingURL=23e1f43e.js.map

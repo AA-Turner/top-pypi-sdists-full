@@ -1,0 +1,36 @@
+Metadata-Version: 2.1
+Name: pylaunches
+Version: 2.0.0
+Summary: 
+Home-page: https://github.com/ludeeus/pylaunches
+License: MIT
+Author: Ludeeus
+Author-email: ludeeus@ludeeus.dev
+Maintainer: Ludeeus
+Maintainer-email: ludeeus@ludeeus.dev
+Requires-Python: >=3.11,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: aiohttp (>=3.6,<4.0)
+Project-URL: Repository, https://github.com/ludeeus/pylaunches
+Description-Content-Type: text/markdown
+
+# PyLaunches
+
+_A python packages to get information form upcoming space launches._
+
+## Install
+
+```bash
+python3 -m pip install pylaunches
+```
+
+This package is using information from the following API's:
+This package is using the [Launch Library 2 API][launchlibrary] to get the information.
+
+[launchlibrary]: https://thespacedevs.com/llapi

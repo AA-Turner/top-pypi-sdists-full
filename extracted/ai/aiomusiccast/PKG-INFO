@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: aiomusiccast
+Version: 0.14.8
+Summary: Companion library for musiccast devices intended for the Home Assistant integration.
+Home-page: https://pypi.org/project/aiomusiccast
+License: MIT
+Author: Tom Schneider
+Author-email: mail@vigonotion.com
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 1 - Planning
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Requires-Dist: aiohttp (>=3.7.4,<4.0.0)
+Project-URL: Documentation, https://aiomusiccast.readthedocs.io
+Project-URL: Repository, https://github.com/vigonotion/aiomusiccast
+Description-Content-Type: text/markdown
+
+<div align="center">
+
+<picture>
+  <source srcset="banner-dark.png" media="(prefers-color-scheme: dark)">
+  <img src="banner.png">
+</picture>
+
+## Companion library for musiccast devices intended for the Home Assistant integration.
+
+[![PyPI Version](https://img.shields.io/pypi/v/aiomusiccast.svg)](https://pypi.org/project/aiomusiccast)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/vigonotion/aiomusiccast)
+![Read the Docs](https://img.shields.io/readthedocs/aiomusiccast)
+[![PyPI License](https://img.shields.io/pypi/l/aiomusiccast.svg)](https://pypi.org/project/aiomusiccast)
+
+
+</div>
+
+<br/>
+
+# Setup
+
+## Requirements
+
+* Python 3.8+
+
+## Installation
+
+Install it directly into an activated virtual environment:
+
+```text
+$ pip install aiomusiccast
+```
+
+or add it to your [Poetry](https://poetry.eustace.io/) project:
+
+```text
+$ poetry add aiomusiccast
+```
+
+# Usage
+
+After installation, the package can imported:
+
+```text
+$ python
+>>> import aiomusiccast
+>>> aiomusiccast.__version__
+```
+

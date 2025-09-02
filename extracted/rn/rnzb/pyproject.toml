@@ -1,0 +1,88 @@
+[project]
+name = "rnzb"
+version = "0.6.0"
+description = "Python bindings to the nzb-rs library - a spec compliant parser for NZB files, written in Rust."
+authors = [{ name = "Ravencentric", email = "me@ravencentric.cc" }]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.9"
+keywords = ["nzb", "usenet", "parser"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Ravencentric/rnzb"
+
+[dependency-groups]
+test = ["nzb>=0.6.0 ; python_full_version >= '3.10'", "pytest>=8.3.4"]
+lint = ["mypy>=1.14.1", "ruff>=0.11.13", { include-group = "test" }]
+dev = [
+  "maturin>=1.9.1",
+  "nox>=2025.5.1",
+  { include-group = "test" },
+  { include-group = "lint" },
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.uv]
+cache-keys = [{ file = "Cargo.toml" }, { file = "src/**/*.rs" }]
+
+[tool.ruff.lint]
+extend-select = ["I", "RUF", "UP", "N", "D4", "PYI"]
+ignore = ["PYI021"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*" = ["D"]
+
+[tool.mypy]
+strict = true
+pretty = true
+files = ["rnzb.pyi", "tests/**/*.py"]
+enable_error_code = ["ignore-without-code"]
+
+[[tool.mypy.overrides]]
+module = ["nzb"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-v"]
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+
+[tool.maturin]
+locked = true
+
+[tool.cibuildwheel]
+enable = ["pypy", "cpython-freethreading"]
+archs = "auto64"
+build-frontend = "build[uv]"
+test-groups = ["test"]
+test-command = "pytest {package}/tests"
+
+[tool.cibuildwheel.linux]
+before-all = "curl -sSf https://sh.rustup.rs | sh -s -- -y"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+
+[build-system]
+requires = ["maturin>=1.9.1,<2.0"]
+build-backend = "maturin"

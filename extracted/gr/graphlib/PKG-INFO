@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: graphlib
+Version: 0.9.5
+Summary: Graph API
+Home-page: https://github.com/bruth/graphlib/
+Author: Byron Ruth
+Author-email: b@devel.io
+License: BSD
+Description: UNKNOWN
+Keywords: graph node relationship edge vertices neo4j
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

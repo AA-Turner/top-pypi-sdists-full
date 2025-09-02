@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "v"
+version = "1"
+description = "v makes building projects easier. It's as simple as that."
+authors = ["Dylan Rogers <opendylan@proton.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

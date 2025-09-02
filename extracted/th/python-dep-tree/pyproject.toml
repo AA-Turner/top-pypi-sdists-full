@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "python-dep-tree"
+version = "0.19.9"
+description = "Python wrapper for Dep Tree https://github.com/gabotechs/dep-tree"
+authors = ["gabotechs <gb.mt.me@gmail.com>"]
+readme = "README.md"
+packages = [{include = "dep_tree"}]
+
+[tool.poetry.scripts]
+dep-tree = 'dep_tree.main:main'
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

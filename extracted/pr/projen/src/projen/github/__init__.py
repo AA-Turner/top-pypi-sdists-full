@@ -4574,7 +4574,7 @@ class GithubWorkflow(
         self,
         jobs: typing.Mapping[builtins.str, typing.Union[typing.Union[_JobCallingReusableWorkflow_12ad1018, typing.Dict[builtins.str, typing.Any]], typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
-        '''(experimental) Updates jobs for this worklow Does a complete replace, it does not try to merge the jobs.
+        '''(experimental) Updates jobs for this workflow Does a complete replace, it does not try to merge the jobs.
 
         :param jobs: Jobs to update.
 
@@ -4584,6 +4584,19 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__e001ff456c44e6bf864c623b78e14cf21c2f18b1311c5a89b0ac92606e46d94f)
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
         return typing.cast(None, jsii.invoke(self, "updateJobs", [jobs]))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobs")
+    def jobs(
+        self,
+    ) -> typing.Mapping[builtins.str, typing.Union[_JobCallingReusableWorkflow_12ad1018, _Job_20ffcf45]]:
+        '''(experimental) All current jobs of the workflow.
+
+        This is a read-only copy, use the respective helper methods to add, update or remove jobs.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Union[_JobCallingReusableWorkflow_12ad1018, _Job_20ffcf45]], jsii.get(self, "jobs"))
 
     @builtins.property
     @jsii.member(jsii_name="name")

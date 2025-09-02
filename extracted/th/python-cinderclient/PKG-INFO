@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-cinderclient
-Version: 9.7.0
+Version: 9.8.0
 Summary: OpenStack Block Storage API Client Library
 Home-page: https://docs.openstack.org/python-cinderclient/latest/
 Author: OpenStack
@@ -15,11 +15,10 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr>=5.5.0
 Requires-Dist: PrettyTable>=0.7.2
@@ -29,15 +28,7 @@ Requires-Dist: oslo.utils>=4.8.0
 Requires-Dist: requests>=2.25.1
 Requires-Dist: stevedore>=3.3.0
 
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/python-cinderclient.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
-
+===========================================
 Python bindings to the OpenStack Cinder API
 ===========================================
 

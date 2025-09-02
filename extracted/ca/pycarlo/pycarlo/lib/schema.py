@@ -23805,6 +23805,21 @@ class MonitorDataSource(sgqlc.types.Type):
     transforms = sgqlc.types.Field(sgqlc.types.list_of("Transform"), graphql_name="transforms")
 
 
+class MonitorDataset(sgqlc.types.Type):
+    """Datasets referenced by monitors, grouped by dataset name"""
+
+    __schema__ = schema
+    __field_names__ = ("display_name", "mcons")
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Dataset name"""
+
+    mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="mcons",
+    )
+    """List of MCONs for the datasets with this name"""
+
+
 class MonitorLabel(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("label",)
@@ -23993,6 +24008,14 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -24052,8 +24075,12 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -24102,6 +24129,21 @@ class MonitorLimits(sgqlc.types.Type):
         sgqlc.types.non_null(Int), graphql_name="maxTimeSeriesMonthly"
     )
     """Monthly time series limit"""
+
+
+class MonitorProject(sgqlc.types.Type):
+    """Projects referenced by monitors, grouped by project name"""
+
+    __schema__ = schema
+    __field_names__ = ("display_name", "mcons")
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Project name"""
+
+    mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="mcons",
+    )
+    """List of MCONs for the projects with this name"""
 
 
 class MonitorQueries(sgqlc.types.Type):
@@ -24208,6 +24250,36 @@ class MonitorSummary(sgqlc.types.Type):
     custom_sql = sgqlc.types.Field(Int, graphql_name="customSql")
 
     table_metric = sgqlc.types.Field(Int, graphql_name="tableMetric")
+
+
+class MonitorTable(sgqlc.types.Type):
+    """Tables referenced by monitors, grouped by table identifier"""
+
+    __schema__ = schema
+    __field_names__ = ("display_name", "mcons")
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Table identifier"""
+
+    mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="mcons",
+    )
+    """List of MCONs for the tables with this identifier"""
+
+
+class MonitorWarehouse(sgqlc.types.Type):
+    """Warehouse assets referenced by monitors, grouped by name"""
+
+    __schema__ = schema
+    __field_names__ = ("display_name", "mcons")
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Warehouse name"""
+
+    mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="mcons",
+    )
+    """List of MCONs for the warehouses with this name"""
 
 
 class MonitoredTableRuleJobStatusObject(sgqlc.types.Type):
@@ -43130,6 +43202,10 @@ class Query(sgqlc.types.Type):
         "get_monitors",
         "get_monitors_count",
         "get_monitor_namespaces",
+        "get_monitor_warehouses",
+        "get_monitor_projects",
+        "get_monitor_datasets",
+        "get_monitor_tables",
         "get_monitor_creators",
         "get_monitor_updaters",
         "get_monitor_queries",
@@ -49045,6 +49121,10 @@ class Query(sgqlc.types.Type):
                 ),
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
                 ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                (
+                    "metric_type",
+                    sgqlc.types.Arg(DataMaintenanceMetric, graphql_name="metricType", default=None),
+                ),
             )
         ),
     )
@@ -49055,6 +49135,8 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): MCON
     * `start_time` (`DateTime`): Start time of maintenance period
     * `end_time` (`DateTime`): End time of maintenance period
+    * `metric_type` (`DataMaintenanceMetric`): Type of maintenance
+      metric
     """
 
     get_data_maintenance_holiday_codes = sgqlc.types.Field(
@@ -49443,6 +49525,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -49502,8 +49592,12 @@ class Query(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -49664,6 +49758,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -49723,8 +49825,12 @@ class Query(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -49885,6 +49991,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -49944,8 +50058,944 @@ class Query(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
+    * `data_quality_dimensions` (`[String]`): Filter by data quality
+      dimensions
+    * `order_by` (`String`): Field and direction to order monitors by
+    * `limit` (`Int`): Number of monitors to return
+    * `offset` (`Int`): From which monitor to return the next results
+    """
+
+    get_monitor_warehouses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitorWarehouse)),
+        graphql_name="getMonitorWarehouses",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitors),
+                        graphql_name="monitorTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(MonitorStatusType),
+                        graphql_name="statusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(ConsolidatedMonitorStatusType),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description_field_or_table",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="descriptionFieldOrTable",
+                        default=None,
+                    ),
+                ),
+                (
+                    "created_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="createdBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="updatedBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "priorities",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="priorities", default=None
+                    ),
+                ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="uuids", default=None
+                    ),
+                ),
+                (
+                    "created_by_filters",
+                    sgqlc.types.Arg(
+                        CreatedByFilters, graphql_name="createdByFilters", default=None
+                    ),
+                ),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                (
+                    "search",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="search", default=None
+                    ),
+                ),
+                (
+                    "search_fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitorSearchFields),
+                        graphql_name="searchFields",
+                        default=None,
+                    ),
+                ),
+                (
+                    "namespaces",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="namespaces", default=None
+                    ),
+                ),
+                (
+                    "is_template_managed",
+                    sgqlc.types.Arg(Boolean, graphql_name="isTemplateManaged", default=None),
+                ),
+                (
+                    "is_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="isOotbReplacement", default=False),
+                ),
+                (
+                    "include_ootb_monitors",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbMonitors", default=False),
+                ),
+                (
+                    "include_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbReplacement", default=False),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
+                (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
+                    "alerted_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "data_quality_dimensions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="dataQualityDimensions",
+                        default=None,
+                    ),
+                ),
+                ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+            )
+        ),
+    )
+    """(experimental) List of monitor warehouses
+
+    Arguments:
+
+    * `monitor_types` (`[UserDefinedMonitors]`): Type of monitors to
+      filter by, default all
+    * `status_types` (`[MonitorStatusType]`): Type of monitor status
+      to filter by, default all
+    * `consolidated_status_types` (`[ConsolidatedMonitorStatusType]`):
+      Type of consolidated monitor status to filter by, default all
+    * `description_field_or_table` (`[String]`): DEPRECATED
+    * `created_by` (`[String!]`): Filter by creator using a list of
+      user emails
+    * `updated_by` (`[String!]`): Filter by updater using a list of
+      user emails
+    * `priorities` (`[String]`): Filter by priorities. It can include
+      null to include monitors without a priority set
+    * `domain_id` (`UUID`): Domain uuid to filter by
+    * `domain_ids` (`[UUID!]`): List of domain uuids to filter by
+    * `uuids` (`[String]`): list of uuids of the monitors to filter by
+    * `created_by_filters` (`CreatedByFilters`): Deprecated
+    * `labels` (`[String]`): List of labels to filter by
+    * `search` (`[String]`): Search criteria for filtering the
+      monitors list
+    * `search_fields` (`[UserDefinedMonitorSearchFields]`): Which
+      fields to include during search
+    * `namespaces` (`[String]`): filter by namespaces
+    * `is_template_managed` (`Boolean`): Filter monitors created by
+      code
+    * `is_ootb_replacement` (`Boolean`): Filter monitors which replace
+      a default ootb detector (default: `false`)
+    * `include_ootb_monitors` (`Boolean`): If set to true, OOTB
+      monitors will be returned. They will be the first few monitors
+      in the first page of the results (default: `false`)
+    * `include_ootb_replacement` (`Boolean`): If set to true and
+      is_ootb_replacement is not specified or false, ootb_replacement
+      monitors will be included in result (default: `false`)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
+    * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
+      only the ones that are breached.
+    * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
+      can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors with at least one linked table that has any of
+      the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
+    * `data_quality_dimensions` (`[String]`): Filter by data quality
+      dimensions
+    * `order_by` (`String`): Field and direction to order monitors by
+    * `limit` (`Int`): Number of monitors to return
+    * `offset` (`Int`): From which monitor to return the next results
+    """
+
+    get_monitor_projects = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitorProject)),
+        graphql_name="getMonitorProjects",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitors),
+                        graphql_name="monitorTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(MonitorStatusType),
+                        graphql_name="statusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(ConsolidatedMonitorStatusType),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description_field_or_table",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="descriptionFieldOrTable",
+                        default=None,
+                    ),
+                ),
+                (
+                    "created_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="createdBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="updatedBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "priorities",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="priorities", default=None
+                    ),
+                ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="uuids", default=None
+                    ),
+                ),
+                (
+                    "created_by_filters",
+                    sgqlc.types.Arg(
+                        CreatedByFilters, graphql_name="createdByFilters", default=None
+                    ),
+                ),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                (
+                    "search",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="search", default=None
+                    ),
+                ),
+                (
+                    "search_fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitorSearchFields),
+                        graphql_name="searchFields",
+                        default=None,
+                    ),
+                ),
+                (
+                    "namespaces",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="namespaces", default=None
+                    ),
+                ),
+                (
+                    "is_template_managed",
+                    sgqlc.types.Arg(Boolean, graphql_name="isTemplateManaged", default=None),
+                ),
+                (
+                    "is_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="isOotbReplacement", default=False),
+                ),
+                (
+                    "include_ootb_monitors",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbMonitors", default=False),
+                ),
+                (
+                    "include_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbReplacement", default=False),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
+                (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
+                    "alerted_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "data_quality_dimensions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="dataQualityDimensions",
+                        default=None,
+                    ),
+                ),
+                ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+            )
+        ),
+    )
+    """(experimental) List of monitor projects
+
+    Arguments:
+
+    * `monitor_types` (`[UserDefinedMonitors]`): Type of monitors to
+      filter by, default all
+    * `status_types` (`[MonitorStatusType]`): Type of monitor status
+      to filter by, default all
+    * `consolidated_status_types` (`[ConsolidatedMonitorStatusType]`):
+      Type of consolidated monitor status to filter by, default all
+    * `description_field_or_table` (`[String]`): DEPRECATED
+    * `created_by` (`[String!]`): Filter by creator using a list of
+      user emails
+    * `updated_by` (`[String!]`): Filter by updater using a list of
+      user emails
+    * `priorities` (`[String]`): Filter by priorities. It can include
+      null to include monitors without a priority set
+    * `domain_id` (`UUID`): Domain uuid to filter by
+    * `domain_ids` (`[UUID!]`): List of domain uuids to filter by
+    * `uuids` (`[String]`): list of uuids of the monitors to filter by
+    * `created_by_filters` (`CreatedByFilters`): Deprecated
+    * `labels` (`[String]`): List of labels to filter by
+    * `search` (`[String]`): Search criteria for filtering the
+      monitors list
+    * `search_fields` (`[UserDefinedMonitorSearchFields]`): Which
+      fields to include during search
+    * `namespaces` (`[String]`): filter by namespaces
+    * `is_template_managed` (`Boolean`): Filter monitors created by
+      code
+    * `is_ootb_replacement` (`Boolean`): Filter monitors which replace
+      a default ootb detector (default: `false`)
+    * `include_ootb_monitors` (`Boolean`): If set to true, OOTB
+      monitors will be returned. They will be the first few monitors
+      in the first page of the results (default: `false`)
+    * `include_ootb_replacement` (`Boolean`): If set to true and
+      is_ootb_replacement is not specified or false, ootb_replacement
+      monitors will be included in result (default: `false`)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
+    * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
+      only the ones that are breached.
+    * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
+      can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors with at least one linked table that has any of
+      the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
+    * `data_quality_dimensions` (`[String]`): Filter by data quality
+      dimensions
+    * `order_by` (`String`): Field and direction to order monitors by
+    * `limit` (`Int`): Number of monitors to return
+    * `offset` (`Int`): From which monitor to return the next results
+    """
+
+    get_monitor_datasets = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitorDataset)),
+        graphql_name="getMonitorDatasets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitors),
+                        graphql_name="monitorTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(MonitorStatusType),
+                        graphql_name="statusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(ConsolidatedMonitorStatusType),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description_field_or_table",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="descriptionFieldOrTable",
+                        default=None,
+                    ),
+                ),
+                (
+                    "created_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="createdBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="updatedBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "priorities",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="priorities", default=None
+                    ),
+                ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="uuids", default=None
+                    ),
+                ),
+                (
+                    "created_by_filters",
+                    sgqlc.types.Arg(
+                        CreatedByFilters, graphql_name="createdByFilters", default=None
+                    ),
+                ),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                (
+                    "search",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="search", default=None
+                    ),
+                ),
+                (
+                    "search_fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitorSearchFields),
+                        graphql_name="searchFields",
+                        default=None,
+                    ),
+                ),
+                (
+                    "namespaces",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="namespaces", default=None
+                    ),
+                ),
+                (
+                    "is_template_managed",
+                    sgqlc.types.Arg(Boolean, graphql_name="isTemplateManaged", default=None),
+                ),
+                (
+                    "is_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="isOotbReplacement", default=False),
+                ),
+                (
+                    "include_ootb_monitors",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbMonitors", default=False),
+                ),
+                (
+                    "include_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbReplacement", default=False),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
+                (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
+                    "alerted_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "data_quality_dimensions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="dataQualityDimensions",
+                        default=None,
+                    ),
+                ),
+                ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+            )
+        ),
+    )
+    """(experimental) List of monitor datasets
+
+    Arguments:
+
+    * `monitor_types` (`[UserDefinedMonitors]`): Type of monitors to
+      filter by, default all
+    * `status_types` (`[MonitorStatusType]`): Type of monitor status
+      to filter by, default all
+    * `consolidated_status_types` (`[ConsolidatedMonitorStatusType]`):
+      Type of consolidated monitor status to filter by, default all
+    * `description_field_or_table` (`[String]`): DEPRECATED
+    * `created_by` (`[String!]`): Filter by creator using a list of
+      user emails
+    * `updated_by` (`[String!]`): Filter by updater using a list of
+      user emails
+    * `priorities` (`[String]`): Filter by priorities. It can include
+      null to include monitors without a priority set
+    * `domain_id` (`UUID`): Domain uuid to filter by
+    * `domain_ids` (`[UUID!]`): List of domain uuids to filter by
+    * `uuids` (`[String]`): list of uuids of the monitors to filter by
+    * `created_by_filters` (`CreatedByFilters`): Deprecated
+    * `labels` (`[String]`): List of labels to filter by
+    * `search` (`[String]`): Search criteria for filtering the
+      monitors list
+    * `search_fields` (`[UserDefinedMonitorSearchFields]`): Which
+      fields to include during search
+    * `namespaces` (`[String]`): filter by namespaces
+    * `is_template_managed` (`Boolean`): Filter monitors created by
+      code
+    * `is_ootb_replacement` (`Boolean`): Filter monitors which replace
+      a default ootb detector (default: `false`)
+    * `include_ootb_monitors` (`Boolean`): If set to true, OOTB
+      monitors will be returned. They will be the first few monitors
+      in the first page of the results (default: `false`)
+    * `include_ootb_replacement` (`Boolean`): If set to true and
+      is_ootb_replacement is not specified or false, ootb_replacement
+      monitors will be included in result (default: `false`)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
+    * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
+      only the ones that are breached.
+    * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
+      can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors with at least one linked table that has any of
+      the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
+    * `data_quality_dimensions` (`[String]`): Filter by data quality
+      dimensions
+    * `order_by` (`String`): Field and direction to order monitors by
+    * `limit` (`Int`): Number of monitors to return
+    * `offset` (`Int`): From which monitor to return the next results
+    """
+
+    get_monitor_tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitorTable)),
+        graphql_name="getMonitorTables",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitors),
+                        graphql_name="monitorTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(MonitorStatusType),
+                        graphql_name="statusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "consolidated_status_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(ConsolidatedMonitorStatusType),
+                        graphql_name="consolidatedStatusTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description_field_or_table",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="descriptionFieldOrTable",
+                        default=None,
+                    ),
+                ),
+                (
+                    "created_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="createdBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="updatedBy",
+                        default=None,
+                    ),
+                ),
+                (
+                    "priorities",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="priorities", default=None
+                    ),
+                ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="uuids", default=None
+                    ),
+                ),
+                (
+                    "created_by_filters",
+                    sgqlc.types.Arg(
+                        CreatedByFilters, graphql_name="createdByFilters", default=None
+                    ),
+                ),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                (
+                    "search",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="search", default=None
+                    ),
+                ),
+                (
+                    "search_fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UserDefinedMonitorSearchFields),
+                        graphql_name="searchFields",
+                        default=None,
+                    ),
+                ),
+                (
+                    "namespaces",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="namespaces", default=None
+                    ),
+                ),
+                (
+                    "is_template_managed",
+                    sgqlc.types.Arg(Boolean, graphql_name="isTemplateManaged", default=None),
+                ),
+                (
+                    "is_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="isOotbReplacement", default=False),
+                ),
+                (
+                    "include_ootb_monitors",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbMonitors", default=False),
+                ),
+                (
+                    "include_ootb_replacement",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeOotbReplacement", default=False),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
+                (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
+                    "alerted_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "data_quality_dimensions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="dataQualityDimensions",
+                        default=None,
+                    ),
+                ),
+                ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+            )
+        ),
+    )
+    """(experimental) List of monitor tables
+
+    Arguments:
+
+    * `monitor_types` (`[UserDefinedMonitors]`): Type of monitors to
+      filter by, default all
+    * `status_types` (`[MonitorStatusType]`): Type of monitor status
+      to filter by, default all
+    * `consolidated_status_types` (`[ConsolidatedMonitorStatusType]`):
+      Type of consolidated monitor status to filter by, default all
+    * `description_field_or_table` (`[String]`): DEPRECATED
+    * `created_by` (`[String!]`): Filter by creator using a list of
+      user emails
+    * `updated_by` (`[String!]`): Filter by updater using a list of
+      user emails
+    * `priorities` (`[String]`): Filter by priorities. It can include
+      null to include monitors without a priority set
+    * `domain_id` (`UUID`): Domain uuid to filter by
+    * `domain_ids` (`[UUID!]`): List of domain uuids to filter by
+    * `uuids` (`[String]`): list of uuids of the monitors to filter by
+    * `created_by_filters` (`CreatedByFilters`): Deprecated
+    * `labels` (`[String]`): List of labels to filter by
+    * `search` (`[String]`): Search criteria for filtering the
+      monitors list
+    * `search_fields` (`[UserDefinedMonitorSearchFields]`): Which
+      fields to include during search
+    * `namespaces` (`[String]`): filter by namespaces
+    * `is_template_managed` (`Boolean`): Filter monitors created by
+      code
+    * `is_ootb_replacement` (`Boolean`): Filter monitors which replace
+      a default ootb detector (default: `false`)
+    * `include_ootb_monitors` (`Boolean`): If set to true, OOTB
+      monitors will be returned. They will be the first few monitors
+      in the first page of the results (default: `false`)
+    * `include_ootb_replacement` (`Boolean`): If set to true and
+      is_ootb_replacement is not specified or false, ootb_replacement
+      monitors will be included in result (default: `false`)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
+    * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
+      only the ones that are breached.
+    * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
+      can include null to include monitors without tags
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
+      Returns monitors with at least one linked table that has any of
+      the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50106,6 +51156,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50165,8 +51223,12 @@ class Query(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50327,6 +51389,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="excludeAssetTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50386,8 +51456,12 @@ class Query(sgqlc.types.Type):
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
-      Returns monitors that have at least 1 linked table with all of
+      Returns monitors with at least one linked table that has any of
       the provided tags
+    * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
+      monitors that have any linked table whose tags consist only of
+      the provided tags. Tables with additional tags or no tags are
+      included
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50940,7 +52014,7 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Build field quality rule query from parameters
+    """DEPRECATED: Build field quality rule query from parameters
 
     Arguments:
 
@@ -61547,9 +62621,7 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
     supports_field_quality_rule = sgqlc.types.Field(
         Boolean, graphql_name="supportsFieldQualityRule"
     )
-    """indicates whether the table could possibly be used for defining
-    field quality rules
-    """
+    """DEPRECATED: always returns false"""
 
     supports_volume = sgqlc.types.Field(Boolean, graphql_name="supportsVolume")
     """Indicates whether the table could possibly have any volume metrics"""
@@ -61736,9 +62808,7 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
     supports_field_quality_rule_with_reason = sgqlc.types.Field(
         TableCapabilitesWithReasonField, graphql_name="supportsFieldQualityRuleWithReason"
     )
-    """indicates whether the table could possibly be used for defining
-    field quality rules, and why
-    """
+    """DEPRECATED"""
 
     supports_volume_with_reason = sgqlc.types.Field(
         TableCapabilitesWithReasonField, graphql_name="supportsVolumeWithReason"

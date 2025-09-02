@@ -1,0 +1,229 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=62.3",
+]
+
+[project]
+name = "aiohue"
+authors = [
+    { name = "Paulus Schoutsen", email = "paulus@paulusschoutsen.nl" },
+    { name = "Marcel van der Veldt", email = "m.vanderveldt@outlook.com" },
+]
+classifiers = [
+    "Environment :: Console",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "aiohttp",
+    "asyncio-throttle",
+    "awesomeversion",
+]
+description = "Python module to talk to Philips Hue."
+readme = "README.md"
+requires-python = ">=3.11"
+version = "4.7.5"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.optional-dependencies]
+test = [
+    "codespell==2.4.1",
+    "mypy==1.17.1",
+    "pre-commit==4.3.0",
+    "pre-commit-hooks==6.0.0",
+    "pylint==3.3.8",
+    "pytest==8.4.1",
+    "pytest-asyncio==1.1.0",
+    "pytest-aiohttp==1.1.0",
+    "pytest-cov==6.2.1",
+    "ruff==0.12.10",
+    "safety==3.3.1",
+    "tomli==2.2.1",
+]
+
+[tool.codespell]
+ignore-words-list = "dependees,"
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+    "any",
+]
+zip-safe = false
+
+[tool.setuptools.package-data]
+aiohue = [
+    "py.typed",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "aiohue*",
+]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+exclude = [
+    "aiohue/v1/",
+    "aiohue/util.py",
+]
+follow_imports = "skip"
+ignore_missing_imports = true
+no_implicit_optional = true
+no_implicit_reexport = true
+platform = "linux"
+python_version = "3.11"
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pylint.MAIN]
+ignore-paths = [
+    "aiohue/v1/",
+]
+
+[tool.pylint.BASIC]
+good-names = [
+    "_",
+    "T",
+]
+
+[tool.pylint.DESIGN]
+max-args = 10
+max-attributes = 14
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "duplicate-code",
+    "format",
+    "unsubscriptable-object",
+    "unused-argument",
+    "unspecified-encoding",
+    "isinstance-second-argument-not-valid-type",
+    "fixme",
+    "too-few-public-methods",
+    "too-many-positional-arguments",
+]
+
+[tool.pylint.SIMILARITIES]
+ignore-imports = true
+
+[tool.pylint.FORMAT]
+max-line-length = 88
+
+[tool.pylint.VARIABLES]
+allowed-redefined-builtins = [
+    "id",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov"
+asyncio_mode = "auto"
+
+[tool.ruff]
+exclude = [
+    "aiohue/v1/*.py",
+]
+fix = true
+line-length = 88
+show-fixes = true
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN401",
+    "D203",
+    "D213",
+    "D417",
+    "EM101",
+    "EM102",
+    "FIX002",
+    "PLR2004",
+    "PD011",
+    "TC001",
+    "TC003",
+    "S101",
+    "TD002",
+    "TD003",
+    "TD004",
+    "COM812",
+    "ISC001",
+    "D101",
+    "D102",
+    "D103",
+    "D107",
+    "PGH004",
+    "TRY300",
+    "TRY003",
+    "E501",
+    "BLE001",
+    "N818",
+    "ANN201",
+    "A001",
+    "I001",
+    "BLE001",
+    "TRY201",
+    "FBT001",
+    "FBT002",
+    "ANN202",
+    "ANN001",
+    "C403",
+    "EM103",
+    "PYI036",
+    "A002",
+    "TRY400",
+    "RUF006",
+    "UP041",
+    "TRY401",
+    "TRY301",
+    "S311",
+    "UP041",
+    "PERF401",
+    "ERA001",
+    "ANN206",
+    "RUF003",
+    "ANN204",
+    "PIE794",
+]
+select = [
+    "ALL",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = [
+    "aiohue",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 25
+max-returns = 15
+max-statements = 50

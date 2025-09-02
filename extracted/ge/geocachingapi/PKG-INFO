@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: geocachingapi
+Version: 0.3.0
+Summary: Python client for controlling the Geocaching API
+Home-page: https://github.com/Sholofly/geocachingapi-python
+Author: Rudolf Offereins
+Author-email: r.offereins@gmail.com
+License: MIT license
+Keywords: geocaching,api
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp<4,>=3.7.4
+Requires-Dist: backoff>=1.9.0
+Requires-Dist: yarl
+Requires-Dist: reverse_geocode==1.6.5
+
+# geocachingapi-python
+Python library to control the Geocaching API

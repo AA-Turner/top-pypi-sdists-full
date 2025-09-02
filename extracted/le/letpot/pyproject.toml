@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "letpot"
+version = "0.6.2"
+description = "Asynchronous Python client for LetPot hydroponic gardens."
+authors = ["Joris Pelgröm <joris.pelgrom@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/jpelgrom/python-letpot"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3",
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiohttp = "^3.11"
+aiomqtt = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "0.12.3"
+pytest = "8.4.1"
+pytest-cov = "6.2.1"
+mypy = "1.17.0"
+pytest-asyncio = "1.0.0"
+
+[tool.poetry.urls]
+Changelog = "https://github.com/jpelgrom/python-letpot/releases"
+Issues = "https://github.com/jpelgrom/python-letpot/issues"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

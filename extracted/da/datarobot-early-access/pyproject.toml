@@ -5,14 +5,15 @@ exclude = [
     "__pycache__",
     "build",
     ".venv",
-    "docs/conf.py",
-    "tests",
     "drx",
+    # custom.py is test data for Custom Templates
+    "tests/fixtures/custom-templates/custom.py"
 ]
 # TODO replace with project.requires-python
 target-version = "py37"
 
 [tool.ruff.per-file-target-version]
+"tests/*.py" = "py38"
 "datarobot/auth/*.py" = "py39"
 "sdk_docs/*.py" = "py311"
 

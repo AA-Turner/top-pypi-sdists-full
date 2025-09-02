@@ -1,0 +1,377 @@
+"""State module for AWS neptune DB Subnet Group."""
+import copy
+from dataclasses import field
+from dataclasses import make_dataclass
+from typing import Any
+from typing import Dict
+from typing import List
+
+__contracts__ = ["resource"]
+
+
+async def present(
+    hub,
+    ctx,
+    name: str,
+    db_subnet_group_description: str,
+    subnet_ids: List[str],
+    resource_id: str = None,
+    tags: Dict[str, Any]
+    or List[
+        make_dataclass("Tag", [("Key", str), ("Value", str, field(default=None))])
+    ] = None,
+) -> Dict[str, Any]:
+    """Creates a new DB subnet group.
+
+    DB subnet groups must contain at least one subnet in at least two AZs in the
+    Amazon Region.
+
+    Args:
+        name(str):
+            An Idem name of the resource.
+        db_subnet_group_description(str):
+            The description for the DB subnet group.
+        subnet_ids(list[str]):
+            The EC2 Subnet IDs for the DB subnet group.
+        resource_id(str, Optional):
+            AWS Neptune DB Subnet Group Name. Defaults to None.
+        tags(list or dict, Optional):
+            The tags to assign to the new DB subnet group. Defaults to None.
+
+            * Key(str):
+                The key of the tag. Tag keys are case-sensitive and accept a maximum of 127 Unicode characters. May not begin with aws: .
+
+            * Value(str):
+                The value of the tag. Tag values are case-sensitive and accept a maximum of 255 Unicode characters.
+
+    Request Syntax:
+        .. code-block:: sls
+
+            [idem_test_aws_neptune_db_subnet_group]:
+                aws.neptune.db_subnet_group.present:
+                    - name: 'string'
+                    - db_subnet_group_description: 'string'
+                    - subnet_ids:
+                        - 'string'
+                        - 'string'
+                    - resource_id: 'string'
+                    - tags:
+                        - Key: 'string'
+                        - Value: 'string'
+
+    Returns:
+        Dict[str, Dict[str,Any]]
+
+    Examples:
+        .. code-block:: sls
+
+            resource_is_present:
+              aws.neptune.db_subnet_group.present:
+                - name: value
+                - db_subnet_group_description: value
+                - subnet_ids:
+                  - subnet-123124324
+                  - subnet-123124322
+    """
+    result = dict(comment=[], old_state=None, new_state=None, name=name, result=True)
+    before = None
+    resource_updated = False
+    if isinstance(tags, List):
+        tags = hub.tool.aws.tag_utils.convert_tag_list_to_dict(tags)
+
+    if resource_id:
+        before = await hub.exec.boto3.client.neptune.describe_db_subnet_groups(
+            ctx, DBSubnetGroupName=resource_id
+        )
+        if not before["result"]:
+            result["comment"] = before["comment"]
+            result["result"] = False
+            return result
+
+    if before and before["ret"].get("DBSubnetGroups"):
+        resource_arn = before["ret"].get("DBSubnetGroups")[0].get("DBSubnetGroupArn")
+        old_tags = await hub.tool.aws.neptune.tag.get_tags_for_resource(
+            ctx, resource_arn=resource_arn
+        )
+        if not old_tags["result"]:
+            result["result"] = False
+            result["comment"] += old_tags["comment"]
+            return result
+        old_tags = old_tags["ret"]
+        resource_translated = (
+            hub.tool.aws.neptune.db_subnet_group.convert_raw_db_subnet_group_to_present(
+                before["ret"].get("DBSubnetGroups")[0],
+                idem_resource_name=resource_id,
+                tags=old_tags,
+            )
+        )
+        result["old_state"] = resource_translated
+        plan_state = copy.deepcopy(result["old_state"])
+
+        old_subnets = result["old_state"].get("subnet_ids", [])
+        update_parameters = {"DBSubnetGroupName": name, "SubnetIds": old_subnets}
+        if subnet_ids is not None and set(old_subnets) != set(subnet_ids):
+            resource_updated = True
+            update_parameters["SubnetIds"] = subnet_ids
+
+        old_description = result["old_state"].get("db_subnet_group_description")
+        if (
+            db_subnet_group_description is not None
+            and old_description != db_subnet_group_description
+        ):
+            resource_updated = True
+            update_parameters["DBSubnetGroupDescription"] = db_subnet_group_description
+
+        if resource_updated:
+            if ctx.get("test", False):
+                plan_state["subnet_ids"] = subnet_ids
+                plan_state["db_subnet_group_description"] = db_subnet_group_description
+            else:
+                # SubnetIds and DBSubnetGroupName are required parameters for this function
+                # DBSubnetGroupDescription is not required however
+                ret = await hub.exec.boto3.client.neptune.modify_db_subnet_group(
+                    ctx, **update_parameters
+                )
+                result["result"] = ret["result"]
+                result["comment"] += ret["comment"]
+                if not result["result"]:
+                    return result
+        if tags is not None and tags != old_tags:
+            resource_updated = True
+            update_ret = await hub.tool.aws.neptune.tag.update_tags(
+                ctx=ctx,
+                resource_arn=resource_arn,
+                old_tags=old_tags,
+                new_tags=tags,
+            )
+            if not update_ret["result"]:
+                result["comment"] = update_ret["comment"]
+                result["result"] = False
+                hub.log.debug(
+                    f"Failed updating tags for aws.neptune.db_subnet_group '{name}'"
+                )
+                return result
+            result["comment"] += update_ret["comment"]
+            if ctx.get("test", False) and update_ret["ret"] is not None:
+                plan_state["tags"] = update_ret["ret"]
+
+        if ctx.get("test", False):
+            if resource_updated:
+                result["new_state"] = plan_state
+                result["comment"] += [
+                    f"Would update aws.neptune.db_subnet_group '{name}'"
+                ]
+            else:
+                result["comment"] += [
+                    f"aws.neptune.db_subnet_group '{name}' already exists"
+                ]
+                result["new_state"] = copy.deepcopy(result["old_state"])
+            return result
+        if not resource_updated:
+            result["comment"] += [
+                f"aws.neptune.db_subnet_group '{name}' already exists"
+            ]
+        else:
+            result["comment"] += [f"Updated aws.neptune.db_subnet_group '{name}'"]
+    else:
+        if ctx.get("test", False):
+            result["new_state"] = hub.tool.aws.test_state_utils.generate_test_state(
+                enforced_state={},
+                desired_state={
+                    "name": name,
+                    "db_subnet_group_description": db_subnet_group_description,
+                    "resource_id": resource_id,
+                    "subnet_ids": subnet_ids,
+                    "tags": tags,
+                },
+            )
+            result["comment"] = hub.tool.aws.comment_utils.would_create_comment(
+                resource_type="aws.neptune.db_subnet_group", name=name
+            )
+            return result
+        ret = await hub.exec.boto3.client.neptune.create_db_subnet_group(
+            ctx,
+            DBSubnetGroupName=name,
+            DBSubnetGroupDescription=db_subnet_group_description,
+            SubnetIds=subnet_ids,
+            Tags=hub.tool.aws.tag_utils.convert_tag_dict_to_list(tags)
+            if tags
+            else None,
+        )
+        result["result"] = ret["result"]
+        if not result["result"]:
+            result["comment"] = ret["comment"]
+            return result
+        resource_id = ret["ret"]["DBSubnetGroup"]["DBSubnetGroupName"]
+        result["comment"] = hub.tool.aws.comment_utils.create_comment(
+            resource_type="aws.neptune.db_subnet_group", name=name
+        )
+    try:
+        if (not before) or resource_updated:
+            after = await hub.exec.boto3.client.neptune.describe_db_subnet_groups(
+                ctx, DBSubnetGroupName=resource_id
+            )
+            if not (
+                after["result"] and after["ret"] and after["ret"].get("DBSubnetGroups")
+            ):
+                result["result"] = False
+                result["comment"] += after["comment"]
+                return result
+            resource_arn = after["ret"].get("DBSubnetGroups")[0].get("DBSubnetGroupArn")
+            tags = await hub.tool.aws.neptune.tag.get_tags_for_resource(
+                ctx, resource_arn=resource_arn
+            )
+            if not tags["result"]:
+                result["result"] = False
+                result["comment"] += tags["comment"]
+                return result
+            tags = tags["ret"]
+            resource_translated = hub.tool.aws.neptune.db_subnet_group.convert_raw_db_subnet_group_to_present(
+                after["ret"].get("DBSubnetGroups")[0],
+                idem_resource_name=name,
+                tags=tags,
+            )
+            result["new_state"] = resource_translated
+        else:
+            result["new_state"] = copy.deepcopy(result["old_state"])
+    except Exception as e:
+        result["comment"] += [str(e)]
+        result["result"] = False
+    return result
+
+
+async def absent(hub, ctx, name: str, resource_id: str = None) -> Dict[str, Any]:
+    """Deletes a DB subnet group.
+
+    The specified database subnet group must not be associated with any DB instances.
+
+    Args:
+        name(str): An Idem name of the resource.
+        resource_id(str, Optional): AWS Neptune DB Subnet Group Name. Defaults to None.
+
+    Request Syntax:
+        .. code-block:: sls
+
+            [idem_test_aws_neptune_db_subnet_group]:
+                aws.neptune.db_subnet_group.present:
+                    - name: 'string'
+                    - resource_id: 'string'
+
+    Returns:
+        Dict[str, Dict[str,Any]]
+
+    Examples:
+        .. code-block:: sls
+
+            resource_is_absent:
+              aws.neptune.db_subnet_group.absent:
+                - name: value
+                - resource_id: value
+    """
+    already_absent_msg = hub.tool.aws.comment_utils.already_absent_comment(
+        resource_type="aws.neptune.db_subnet_group", name=name
+    )
+    result = dict(
+        comment=already_absent_msg,
+        old_state=None,
+        new_state=None,
+        name=name,
+        result=True,
+    )
+
+    if not resource_id:
+        return result
+
+    before = await hub.exec.boto3.client.neptune.describe_db_subnet_groups(
+        ctx, DBSubnetGroupName=resource_id
+    )
+    db_subnet_groups = (
+        before["ret"].get("DBSubnetGroups") if before.get("ret") else None
+    )
+
+    if not (before["result"] and db_subnet_groups):
+        # This condition means an error other than the resource not being found has happened
+        if not ("DBSubnetGroupNotFoundFault" in str(before["comment"])):
+            result["comment"] = before["comment"]
+        return result
+
+    resource_arn = db_subnet_groups[0].get("DBSubnetGroupArn")
+    tags = await hub.tool.aws.neptune.tag.get_tags_for_resource(
+        ctx, resource_arn=resource_arn
+    )
+    if not tags["result"]:
+        result["result"] = False
+        result["comment"] = tags["comment"]
+        return result
+    tags = tags["ret"]
+    result[
+        "old_state"
+    ] = hub.tool.aws.neptune.db_subnet_group.convert_raw_db_subnet_group_to_present(
+        db_subnet_groups[0], idem_resource_name=resource_id, tags=tags
+    )
+
+    if ctx.get("test", False):
+        result["comment"] = hub.tool.aws.comment_utils.would_delete_comment(
+            resource_type="aws.neptune.db_subnet_group", name=name
+        )
+    else:
+        ret = await hub.exec.boto3.client.neptune.delete_db_subnet_group(
+            ctx, DBSubnetGroupName=resource_id
+        )
+        result["result"] = ret["result"]
+        if not result["result"]:
+            result["comment"] = ret["comment"]
+            result["result"] = False
+            return result
+        result["comment"] = hub.tool.aws.comment_utils.delete_comment(
+            resource_type="aws.neptune.db_subnet_group", name=name
+        )
+    return result
+
+
+async def describe(hub, ctx) -> Dict[str, Dict[str, Any]]:
+    """Describe the resource in a way that can be recreated/managed with the corresponding "present" function.
+
+    Returns a list of DBSubnetGroup descriptions.
+
+    Returns:
+        Dict[str, Dict[str, Any]]
+
+    Examples:
+        .. code-block:: bash
+
+            $ idem describe aws.neptune.db_subnet_group
+    """
+    result = {}
+    ret = await hub.exec.boto3.client.neptune.describe_db_subnet_groups(ctx)
+
+    if not ret["result"]:
+        hub.log.warning(
+            f"Could not describe aws.neptune.db_subnet_group {ret['comment']}"
+        )
+    else:
+        for db_subnet_group in ret["ret"]["DBSubnetGroups"]:
+            resource_id = db_subnet_group.get("DBSubnetGroupName")
+            resource_arn = db_subnet_group.get("DBSubnetGroupArn")
+            tags = await hub.tool.aws.neptune.tag.get_tags_for_resource(
+                ctx, resource_arn=resource_arn
+            )
+            if not tags["result"]:
+                # if something goes wrong fetching the tags (not if the tags are None that is a normal path)
+                hub.log.warning(
+                    f"Failed listing tags for aws.neptune.db_subnet_group '{resource_id}'"
+                    f"Describe will skip this aws.neptune.db_subnet_group and continue. "
+                )
+                continue
+            tags = tags["ret"]
+            resource_translated = hub.tool.aws.neptune.db_subnet_group.convert_raw_db_subnet_group_to_present(
+                db_subnet_group, idem_resource_name=resource_id, tags=tags
+            )
+            result[resource_id] = {
+                "aws.neptune.db_subnet_group.present": [
+                    {parameter_key: parameter_value}
+                    for parameter_key, parameter_value in resource_translated.items()
+                ]
+            }
+
+    return result

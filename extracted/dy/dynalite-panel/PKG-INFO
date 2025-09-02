@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: dynalite-panel
+Version: 0.0.4
+Summary: Dynalite panel for Home Assistant
+Author-email: Ziv <16467659+ziv1234@users.noreply.github.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/ziv1234/dynalitepanel
+Platform: any
+Requires-Python: >=3.4.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# dynalitepanel

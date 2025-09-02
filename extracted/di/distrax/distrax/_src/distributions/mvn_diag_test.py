@@ -22,6 +22,7 @@ from distrax._src.distributions import mvn_diag
 from distrax._src.distributions import normal
 from distrax._src.utils import equivalence
 import jax
+import jax.experimental
 import jax.numpy as jnp
 import numpy as np
 
@@ -214,13 +215,14 @@ class MultivariateNormalDiagTest(equivalence.EquivalenceTest):
       ('float32', jnp.float32),
       ('float64', jnp.float64))
   def test_sample_dtype(self, dtype):
-    dist_params = {
-        'loc': np.array([0., 0.], dtype),
-        'scale_diag': np.array([1., 1.], dtype)}
-    dist = self.distrax_cls(**dist_params)
-    samples = self.variant(dist.sample)(seed=self.key)
-    self.assertEqual(samples.dtype, dist.dtype)
-    chex.assert_type(samples, dtype)
+    with jax.experimental.enable_x64(dtype.dtype.itemsize == 8):
+      dist_params = {
+          'loc': np.array([0., 0.], dtype),
+          'scale_diag': np.array([1., 1.], dtype)}
+      dist = self.distrax_cls(**dist_params)
+      samples = self.variant(dist.sample)(seed=self.key)
+      self.assertEqual(samples.dtype, dist.dtype)
+      chex.assert_type(samples, dtype)
 
   @chex.all_variants
   @parameterized.named_parameters(
@@ -324,6 +326,8 @@ class MultivariateNormalDiagTest(equivalence.EquivalenceTest):
       reduce_fn = lambda x: jnp.prod(x, axis=-1)
     elif function_string == 'log_cdf':
       reduce_fn = lambda x: jnp.sum(x, axis=-1)
+    else:
+      raise ValueError(f'Unsupported function: {function_string}')
     expected_result = reduce_fn(expected_result)
     self.assertion_fn(rtol=1e-3)(result, expected_result)
 

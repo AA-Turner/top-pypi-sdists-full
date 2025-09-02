@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: bd-metric
+Version: 0.9.0
+Summary: Bjontegaard metric calculation
+Home-page: https://github.com/shengbinmeng/Bjontegaard_metric
+Author: Shengbin Meng
+Author-email: shengbinmeng@gmail.com
+License: UNKNOWN
+Description: # Bjontegaard_metric
+        
+        Bjontegaard metric calculation. Include BD-PSNR and BD-rate.
+        
+        See `demo.py` for usage.
+        
+        References:
+        * [1] G. Bjontegaard, Calculation of average PSNR differences between
+            RD-curves (VCEG-M33)
+        * [2] S. Pateux, J. Jung, An excel add-in for computing Bjontegaard metric and
+            its evolution
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

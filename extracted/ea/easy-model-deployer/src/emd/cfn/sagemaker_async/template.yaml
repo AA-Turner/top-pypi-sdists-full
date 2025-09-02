@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Easy Model Deployer model deployment stack for Amazon SageMaker. The invoke endpoint can be found in the stack Outputs. Please go to https://github.com/aws-samples/easy-model-deployer for more information.
+
+Parameters:
+  ECRImageURI:
+    Type: String
+    Description: The URI of the ECR image to be used for the SageMaker Endpoint
+  InstanceType:
+    Type: String
+    Description: The instance type to be used for the SageMaker Endpoint
+  ModelId:
+    Type: String
+    Description: The Hugging Face model ID to be used for the SageMaker Endpoint
+  S3OutputPath:
+    Type: String
+    Description: The S3 path to store the output of the SageMaker Endpoint
+  ModelTag:
+    Type: String
+    Description: The model tag to be used for the SageMaker Endpoint
+  FrameWorkType:
+    Type: String
+    Description: The framework type to be used for the SageMaker Endpoint
+  ServiceType:
+    Type: String
+    Description: The service type to be used for the SageMaker Endpoint
+  EngineType:
+    Type: String
+    Description: The engine type to be used for the SageMaker Endpoint
+  Region:
+    Type: String
+    Description: The region to be used for the SageMaker Endpoint
+  LambdaDeploymentHelperArn:
+    Type: String
+    Description: The ARN of the Lambda function for capacity provider association
+  APIKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: API key to be used for invoking the model
+
+Conditions:
+  HasAPIKey: !Not [!Equals [!Ref APIKey, ""]]
+  IsChinaRegion: !Or
+    - !Equals [!Ref "AWS::Region", "cn-north-1"]
+    - !Equals [!Ref "AWS::Region", "cn-northwest-1"]
+
+Resources:
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+            Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+          - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonSageMakerFullAccess
+          - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonS3FullAccess
+          - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+  SageMakerModel:
+    Type: AWS::SageMaker::Model
+    Properties:
+      ModelName: !Sub '${AWS::StackName}-model'
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Ref ECRImageURI
+        Environment:
+          API_HOST: '0.0.0.0'
+          API_PORT: '8080'
+          MODEL_ID: !Ref ModelId
+          INSTANCE_TYPE: !Ref InstanceType
+
+  SageMakerEndpointConfig:
+    Type: AWS::SageMaker::EndpointConfig
+    Properties:
+      EndpointConfigName: !Sub '${AWS::StackName}-config'
+      ProductionVariants:
+        - InitialInstanceCount: 1
+          InitialVariantWeight: 1
+          InstanceType: !Ref InstanceType
+          ModelName: !GetAtt SageMakerModel.ModelName
+          VariantName: AllTraffic
+          ContainerStartupHealthCheckTimeoutInSeconds: 600
+      AsyncInferenceConfig:
+        ClientConfig:
+          MaxConcurrentInvocationsPerInstance: 1
+        OutputConfig:
+          S3OutputPath: !Ref S3OutputPath
+
+  SageMakerEndpoint:
+    Type: AWS::SageMaker::Endpoint
+    Properties:
+      EndpointName: !Sub '${AWS::StackName}-endpoint'
+      EndpointConfigName: !GetAtt SageMakerEndpointConfig.EndpointConfigName
+
+  SetApiKey:
+    Type: Custom::SetApiKey
+    Condition: HasAPIKey
+    Properties:
+      ServiceToken: !Ref LambdaDeploymentHelperArn
+      ModelName: !Join ['', [!Ref ModelId, '/', !Ref ModelTag]]
+      APIKey: !Ref APIKey
+
+Outputs:
+  Model:
+    Description: The unique model ID that determines which model will process your request in the OpenAI-compatible API.
+    Value: !Join ['', [!Ref ModelId, '/', !Ref ModelTag]]
+  SageMakerEndpointName:
+    Description: The name of the SageMaker Endpoint
+    Value: !GetAtt SageMakerEndpoint.EndpointName
+  ModelAPIKey:
+    Condition: HasAPIKey
+    Description: "API key for accessing model is securely stored in AWS Secrets Manager and can be managed through the provided link."
+    Value: !If
+      - IsChinaRegion
+      - !Sub "https://console.amazonaws.cn/secretsmanager/secret?name=EMD-APIKey-Secrets&region=${AWS::Region}"
+      - !Sub "https://console.aws.amazon.com/secretsmanager/secret?name=EMD-APIKey-Secrets&region=${AWS::Region}"

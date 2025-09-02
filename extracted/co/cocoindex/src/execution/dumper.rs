@@ -12,7 +12,7 @@ use super::memoization::EvaluationMemoryOptions;
 use super::row_indexer;
 use crate::base::{schema, value};
 use crate::builder::plan::{AnalyzedImportOp, ExecutionPlan};
-use crate::ops::interface::SourceExecutorListOptions;
+use crate::ops::interface::SourceExecutorReadOptions;
 use crate::utils::yaml_ser::YamlSerializer;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -69,7 +69,7 @@ impl<'a> Dumper<'a> {
         &'a self,
         import_op_idx: usize,
         import_op: &'a AnalyzedImportOp,
-        key: &value::FullKeyValue,
+        key: &value::KeyValue,
         key_aux_info: &serde_json::Value,
         collected_values_buffer: &'b mut Vec<Vec<value::FieldValues>>,
     ) -> Result<Option<IndexMap<&'b str, TargetExportData<'b>>>>
@@ -135,7 +135,7 @@ impl<'a> Dumper<'a> {
         &self,
         import_op_idx: usize,
         import_op: &AnalyzedImportOp,
-        key: value::FullKeyValue,
+        key: value::KeyValue,
         key_aux_info: serde_json::Value,
         file_path: PathBuf,
     ) -> Result<()> {
@@ -188,14 +188,15 @@ impl<'a> Dumper<'a> {
     ) -> Result<()> {
         let mut keys_by_filename_prefix: IndexMap<
             String,
-            Vec<(value::FullKeyValue, serde_json::Value)>,
+            Vec<(value::KeyValue, serde_json::Value)>,
         > = IndexMap::new();
 
         let mut rows_stream = import_op
             .executor
-            .list(&SourceExecutorListOptions {
+            .list(&SourceExecutorReadOptions {
                 include_ordinal: false,
                 include_content_version_fp: false,
+                include_value: false,
             })
             .await?;
         while let Some(rows) = rows_stream.next().await {

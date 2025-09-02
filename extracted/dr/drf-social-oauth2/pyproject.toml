@@ -1,0 +1,20 @@
+[tool.black]
+include = '\.pyi?$'
+skip-string-normalization = true
+requires = [
+    'PyJWT>=2.8.0',
+    'python-secrets>=3.9.2',
+]
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''

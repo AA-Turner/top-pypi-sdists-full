@@ -1,0 +1,84 @@
+# PEP 518: https://www.python.org/dev/peps/pep-0518/
+
+[project]
+name = "cryptojwt"
+dynamic = ["version"]
+description = "Python implementation of JWT, JWE, JWS and JWK"
+authors = [
+    {name="Roland Hedberg", email = "roland@catalogix.se"}
+]
+license = "Apache-2.0"
+repository = "https://github.com/IdentityPython/JWTConnect-Python-CryptoJWT"
+readme = "README.md"
+packages = [
+    { include = "cryptojwt", from = "src" }
+]
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "cryptography>=3.4.6",
+    "requests>=2.25.1"
+]
+
+[project.scripts]
+jwkgen = "cryptojwt.tools.keygen:main"
+jwkconv = "cryptojwt.tools.keyconv:main"
+jwtpeek = "cryptojwt.tools.jwtpeek:main"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "alabaster>=0.7.12",
+    "pytest>=8.2.1",
+    "pytest-cov>=4.0.0",
+    "responses>=0.13.0",
+    "sphinx>=3.5.2",
+    "sphinx-autobuild>=2021.3.14",
+    "coverage>=7",
+    "ruff>=0.9.9",
+    "pytest-ruff>=0.3.2"
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = ["E501", "I001", "SIM102", "UP006", "UP035"]
+exclude = ["examples/*"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = false
+combine-as-imports = true
+split-on-trailing-comma = false
+known-first-party = ["cryptojwt"]

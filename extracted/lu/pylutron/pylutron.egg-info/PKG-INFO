@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: pylutron
+Version: 0.2.18
+Summary: Python library for Lutron RadioRA 2
+Home-page: http://github.com/thecynic/pylutron
+Author: Dima Zavin
+Author-email: thecynic@gmail.com
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary

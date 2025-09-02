@@ -49,6 +49,7 @@ from sherpa_onnx.lib._sherpa_onnx import (
     OfflineTtsMatchaModelConfig,
     OfflineTtsModelConfig,
     OfflineTtsVitsModelConfig,
+    OfflineTtsZipvoiceModelConfig,
     OfflineWenetCtcModelConfig,
     OfflineWhisperModelConfig,
     OfflineZipformerAudioTaggingModelConfig,
@@ -80,4 +81,4 @@ from .keyword_spotter import KeywordSpotter
 from .offline_recognizer import OfflineRecognizer
 from .online_recognizer import OnlineRecognizer
 from .utils import text2token
-__version__ = '1.12.10'
+__version__ = '1.12.11'

@@ -611,10 +611,13 @@ class Manager:
         self.db_filename = str(self.config_base / f'db-{self.config_name}.sqlite')
 
     def hash_config(self) -> str | None:
-        if not self.user_config:
+        if not self.config_path.exists():
             return None
-        sha1_hash = hashlib.sha1(yaml.dump(self.user_config).encode('utf-8'))
-        return sha1_hash.hexdigest()
+        hasher = hashlib.blake2b()
+        with self.config_path.open('rb') as f:
+            while chunk := f.read(65536):
+                hasher.update(chunk)
+        return hasher.hexdigest()
 
     def load_config(
         self, output_to_console: bool = True, config_file_hash: str | None = None

@@ -1,0 +1,91 @@
+# Pre-commit hooks for rumdl
+# Install with:
+#   pre-commit install                    # Install commit hooks
+#   pre-commit install --hook-type pre-push  # Install push hooks
+# Run manually:
+#   pre-commit run --all-files           # Run commit hooks
+#   pre-commit run --hook-stage push --all-files  # Run push hooks
+
+repos:
+  # Rust formatting and linting
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: make lint
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-test-quick
+        name: cargo test (quick)
+        entry: make test-pre-commit
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # General file quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$|tests/inline_config_test\.rs$|tests/output_format_integration_tests\.rs$|tests/lsp_editor_integration_tests\.rs$|tests/utils_markdown_edge_cases\.rs$
+      - id: end-of-file-fixer
+        exclude: \.md$
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Markdown linting using rumdl itself (local binary)
+  - repo: local
+    hooks:
+      - id: rumdl
+        name: rumdl check
+        entry: ./target/release/rumdl check
+        language: system
+        files: \.md$
+        exclude: ^(test_tmp|benchmark/test-data|docs/temp|CHANGELOG\.md)
+        pass_filenames: true
+        require_serial: true
+
+  # Pre-push hooks for comprehensive validation
+  - repo: local
+    hooks:
+      - id: cargo-test-full
+        name: cargo test (full suite)
+        entry: make test-push
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+        verbose: true
+
+      - id: cargo-lint-full
+        name: cargo clippy (all targets)
+        entry: make lint
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+        verbose: true
+
+      - id: cargo-doc-check
+        name: cargo doc (check)
+        entry: cargo doc --no-deps --all-features
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+        verbose: true

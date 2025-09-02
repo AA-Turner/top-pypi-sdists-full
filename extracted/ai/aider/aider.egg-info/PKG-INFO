@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: aider
+Version: 0.2.6
+Summary: general utility functions
+Author: Rajat
+License: MIT
+Keywords: utility,generic,log,config,calendar
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+License-File: LICENSE.txt
+Requires-Dist: configparser
+
+# Aider
+
+	Generic utility functions for developer to use in regular programming.
+
+# Installation
+
+	pip install aider

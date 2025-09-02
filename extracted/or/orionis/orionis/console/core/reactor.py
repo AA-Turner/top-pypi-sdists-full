@@ -84,7 +84,8 @@ class Reactor(IReactor):
         self.__load__custom_commands: bool = True
 
         # Flag to track if fluent commands have been loaded
-        self.__load_fluent_commands: bool = False
+        self.__loadFluentCommands()
+        self.__load_fluent_commands: bool = True
 
     def __loadCommands(self) -> None:
         """
@@ -136,21 +137,6 @@ class Reactor(IReactor):
             self.__loadFluentCommands()
             self.__load_fluent_commands = True
 
-        # Check if commands have already been loaded to prevent duplicate loading
-        if not self.__load__core_commands:
-            self.__loadCoreCommands()
-            self.__load__core_commands = True
-
-        # Load custom user-defined commands if not already loaded
-        if not self.__load__custom_commands:
-            self.__loadCustomCommands()
-            self.__load__custom_commands = True
-
-        # Load fluent interface defined commands if not already loaded
-        if not self.__load_fluent_commands:
-            self.__loadFluentCommands()
-            self.__load_fluent_commands = True
-
     def __loadFluentCommands(self) -> None:
         """
         Loads and registers commands defined using the fluent interface.
@@ -179,7 +165,7 @@ class Reactor(IReactor):
             return
 
         # Get the project root directory for module path resolution
-        root_path = str(self.__app.getBasePath())
+        root_path = str(self.__app.path('root'))
 
         # List all .py files in the routes directory and subdirectories
         for current_directory, _, files in os.walk(routes_path):
@@ -377,7 +363,7 @@ class Reactor(IReactor):
 
         # Ensure the provided commands_path is a valid directory
         commands_path = (Path(self.__app.path('console')) / 'commands').resolve()
-        root_path = str(self.__app.getBasePath())
+        root_path = str(self.__app.path('root'))
 
         # Iterate through the command path and load command modules
         for current_directory, _, files in os.walk(commands_path):

@@ -1,0 +1,37 @@
+agent_name: http_echo
+author: open_aea
+version: 0.1.0
+license: Apache-2.0
+description: Http echo agent configured with default variables.
+aea_version: '>=2.0.0, <3.0.0'
+fingerprint:
+  README.md: bafybeibkr6ecv5efx3hwxvxposvpmr76ugrj6kydeasb7bppo3ibynnjcu
+fingerprint_ignore_patterns: []
+connections:
+- valory/http_server:0.22.0:bafybeiegcpryvvquu24xlm3kqsaxvwgxij44lky6tp6mv6tpadhgg6guqa
+contracts: []
+protocols:
+- fetchai/default:1.0.0:bafybeifs26twgfmrcxxxrexsa42aol3rbktdqa3u5vvjlywzm5rh2nfmee
+- open_aea/signing:1.0.0:bafybeib7p5as3obcdzseiwg5umj2piiqaodkxkto7qh7b552l5emwsmdzm
+- valory/http:1.0.0:bafybeibxab2yfpchusrzw4rgrasjomtpphazanpivhhtznmuao5ny2lsmi
+skills:
+- fetchai/http_echo:0.20.0:bafybeideuqz3xe4zccvpw4klsky4yqfscj7vtii7dyg4m4ryne67bist4i
+default_ledger: ethereum
+required_ledgers:
+- ethereum
+default_routing: {}
+connection_private_key_paths: {}
+private_key_paths: {}
+logging_config:
+  disable_existing_loggers: false
+  version: 1
+dependencies:
+  open-aea-ledger-ethereum: {}
+default_connection: null
+---
+public_id: valory/http_server:0.22.0
+type: connection
+config:
+  host: ${HOST:str:localhost}
+  port: ${PORT:int:5000}
+  target_skill_id: ${TARGET_SKILL:str:fetchai/http_echo:0.20.0}

@@ -16,6 +16,7 @@ from posthoganalytics.ai.utils import (
     get_model_params,
     with_privacy_mode,
 )
+from posthoganalytics.ai.sanitization import sanitize_gemini
 from posthoganalytics.client import Client as PostHogClient
 
 
@@ -347,7 +348,7 @@ class Models:
             "$ai_input": with_privacy_mode(
                 self._ph_client,
                 privacy_mode,
-                self._format_input(contents),
+                sanitize_gemini(self._format_input(contents)),
             ),
             "$ai_output_choices": with_privacy_mode(
                 self._ph_client,

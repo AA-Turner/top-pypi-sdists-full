@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: joulescope
+Version: 1.3.1
+Summary: Joulescope™ host driver and utilities
+Home-page: https://joulescope.readthedocs.io
+Author: Jetperch LLC
+Author-email: joulescope-dev@jetperch.com
+License: Apache 2.0
+Project-URL: Bug Reports, https://github.com/jetperch/pyjoulescope/issues
+Project-URL: Funding, https://www.joulescope.com
+Project-URL: Twitter, https://twitter.com/joulescope
+Project-URL: Source, https://github.com/jetperch/pyjoulescope/
+Keywords: joulescope driver
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: Microsoft :: Windows :: Windows 10
+Classifier: Operating System :: Microsoft :: Windows :: Windows 11
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: System :: Hardware :: Hardware Drivers
+Classifier: Topic :: Utilities
+Classifier: Topic :: System :: Hardware :: Universal Serial Bus (USB)
+Requires-Python: ~=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: numpy<3,>=2.2.0
+Requires-Dist: psutil<8,>=5
+Requires-Dist: pyjls<1,>=0.11.0
+Requires-Dist: pyjoulescope_driver<2,>=1.9.4
+Requires-Dist: python-dateutil<3,>=2.7.3
+Requires-Dist: pymonocypher<4,>=3.1.3.2
+Requires-Dist: pywin32; platform_system == "Windows"
+Provides-Extra: dev
+Requires-Dist: check-manifest; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: Cython; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: myst-parser; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+# ![Joulescope](https://download.joulescope.com/press/joulescope_logo-PNG-Transparent-Exact-Small.png "Joulescope Logo")
+
+[![Packaging](https://github.com/jetperch/pyjoulescope/actions/workflows/packaging.yml/badge.svg)](https://github.com/jetperch/pyjoulescope/actions/workflows/packaging.yml)
+[![Docs Status](https://readthedocs.org/projects/joulescope/badge/?version=latest)](https://joulescope.readthedocs.io/)
+
+Welcome to the Joulescope™ python driver!  
+[Joulescope](https://www.joulescope.com) is an affordable, precision DC energy 
+analyzer that enables you to build better products. 
+
+This pyjoulescope python package enables you to
+automate Joulescope operation and easily measure current, voltage, power and
+energy within your own Python programs.
+With the Joulescope driver, controlling your Joulescope is easy.  The following
+example captures 0.1 seconds of data and then prints the average current
+and voltage:
+
+    import joulescope
+    import numpy as np
+    with joulescope.scan_require_one(config='auto') as js:
+        data = js.read(contiguous_duration=0.1)
+    current, voltage = np.mean(data, axis=0, dtype=np.float64)
+    print(f'{current} A, {voltage} V')
+
+This package also installs the "joulescope" command line tool:
+
+    joulescope --help
+
+Most Joulescope users will run the graphical user interface which is in the 
+[pyjoulescope_ui](https://github.com/jetperch/pyjoulescope_ui) package and
+available for [download](https://www.joulescope.com/download).
+
+
+## Documentation
+
+Visit the [documentation](https://joulescope.readthedocs.io) for details on
+installing and using this joulescope package.
+
+
+## License
+
+All pyjoulescope code is released under the permissive Apache 2.0 license.
+See the [License File](LICENSE.txt) for details.

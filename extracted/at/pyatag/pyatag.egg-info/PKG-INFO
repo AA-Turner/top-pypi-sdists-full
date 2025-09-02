@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: pyatag
+Version: 0.3.7.1
+Summary: Python module to talk to Atag One.
+Home-page: https://github.com/MatsNl/pyatag
+Author: @MatsNL
+License: MIT
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE.txt

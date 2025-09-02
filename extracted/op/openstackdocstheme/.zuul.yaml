@@ -1,0 +1,108 @@
+- job:
+    name: openstackdocstheme-tox-docs-tips
+    parent: openstack-tox-docs
+    description: |
+      Build documentation for openstackdocstheme with main branch of important
+      libs. Takes advantage of the base tox job's install-siblings feature.
+    # The job only tests the latest and shouldn't be run on the stable branches
+    branches:
+      regex: ^stable/.*$
+      negate: true
+    required-projects:
+      - name: github.com/sphinx-doc/sphinx
+    vars:
+      # Set work dir to openstackdocstheme so that if it's triggered by one of
+      # the other repos the tests will run in the same place
+      zuul_work_dir: src/opendev.org/openstack/openstackdocstheme
+
+- job:
+    name: openstackdocstheme-openstack-tox-docs-starlingxdocs
+    parent: openstack-tox-docs
+    vars:
+      tox_envlist: docs-starlingxdocs
+      tox_pdf_envlist: pdf-docs-starlingxdocs
+
+- job:
+    name: openstackdocstheme-cross-nova-tox-docs
+    parent: openstack-tox-docs
+    description: |
+      Run cross-project tests on nova with
+      openstack-tox-docs.
+    vars:
+      zuul_work_dir: src/opendev.org/openstack/nova
+      sphinx_pdf_files: doc-nova.pdf
+    required-projects:
+      - openstack/nova
+      - openstack/openstackdocstheme
+
+- job:
+    name: openstackdocstheme-cross-octaviaclient-tox-docs
+    parent: openstack-tox-docs
+    description: |
+      Run cross-project tests on nova with
+      openstack-tox-docs.
+    vars:
+      zuul_work_dir: src/opendev.org/openstack/python-octaviaclient
+      sphinx_pdf_files: doc-python-octaviaclient.pdf
+    required-projects:
+      - openstack/python-octaviaclient
+      - openstack/openstackdocstheme
+
+- job:
+    name: openstackdocstheme-api-ref-tips
+    parent: build-openstack-api-ref
+    description: |
+      Build api-ref documentation for openstackdocstheme with main branch of
+      os-api-ref. Takes advantage of the base tox job's install-siblings feature.
+    # The job only tests the latest and shouldn't be run on the stable branches
+    branches:
+      regex: ^stable/.*$
+      negate: true
+    required-projects:
+      - name: openstack/os-api-ref
+    vars:
+      # Set work dir to openstackdocstheme so that if it's triggered by one of
+      # the other repos the tests will run in the same place
+      zuul_work_dir: src/opendev.org/openstack/openstackdocstheme
+
+
+- project:
+    templates:
+      - check-requirements
+      - publish-openstack-docs-pti
+      - release-notes-jobs-python3
+    check:
+      jobs:
+        - openstack-tox-pep8
+        - build-openstack-api-ref:
+            # Override files section of the job so that this builds
+            # if we change the template.
+            files:
+              - ^tox.ini$
+              - ^api-ref/.*
+              - ^doc/.*$
+              - ^openstackdocstheme/.*$
+              - ^.*\.txt$
+              - ^.*\.rst$
+        - openstackdocstheme-tox-docs-tips
+        - openstackdocstheme-openstack-tox-docs-starlingxdocs
+        - openstackdocstheme-cross-nova-tox-docs
+        - openstackdocstheme-cross-octaviaclient-tox-docs
+        - openstackdocstheme-api-ref-tips
+    gate:
+      jobs:
+        - openstack-tox-pep8
+        - build-openstack-api-ref:
+            files:
+              - ^tox.ini$
+              - ^api-ref/.*
+              - ^doc/.*$
+              - ^openstackdocstheme/.*$
+              - ^.*\.txt$
+              - ^.*\.rst$
+        - openstackdocstheme-openstack-tox-docs-starlingxdocs
+        - openstackdocstheme-cross-nova-tox-docs
+        - openstackdocstheme-cross-octaviaclient-tox-docs
+    post:
+      jobs:
+        - publish-openstack-python-branch-tarball

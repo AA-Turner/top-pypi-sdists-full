@@ -3,6 +3,7 @@ import ssl
 import subprocess
 import sys
 import threading
+from multiprocessing import Queue
 
 import certifi
 from dotenv import load_dotenv
@@ -13,7 +14,6 @@ from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import HOST
-from abstra_internals.interface.cli.endpoint_selector import select_cloud_api_endpoint
 from abstra_internals.interface.cli.messages import serve_message
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.logs_watcher import LogsWatcher, on_logs_update
@@ -36,7 +36,7 @@ def start_consumer(controller: MainController):
 
     th = threading.Thread(
         daemon=True,
-        name="ExecutionConsumer",
+        name="start_consumer::ExecutionConsumer",
         target=ConsumerController(controller, consumer).start_loop,
     )
 
@@ -85,13 +85,11 @@ def editor(headless: bool):
 
     load_dotenv(Settings.root_path / ".env")
 
-    os.environ["CLOUD_API_ENDPOINT"] = select_cloud_api_endpoint()
-
     serve_message()
     check_latest_version()
     AbstraLogger.init("local")
 
-    repositories = build_editor_repositories()
+    repositories = build_editor_repositories(Queue())
     main_controller = MainController(repositories)
     main_controller.reset_repositories()
     StdioPatcher.apply(main_controller)

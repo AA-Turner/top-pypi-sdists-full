@@ -1,6 +1,21 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 0.2.2
+Version: 0.2.3
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Typing :: Typed
 Requires-Dist: click>=8.1.8
 Requires-Dist: rich>=14.0.0
 Requires-Dist: python-dotenv>=1.1.0
@@ -21,6 +36,7 @@ Provides-Extra: colpali
 Provides-Extra: all
 License-File: LICENSE
 Summary: With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes.
+Keywords: indexing,real-time,incremental,pipeline,search,ai,etl,rag,dataflow,context-engineering
 Author-email: CocoIndex <cocoindex.io@gmail.com>
 License-Expression: Apache-2.0
 Requires-Python: >=3.11

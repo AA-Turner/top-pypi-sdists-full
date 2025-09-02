@@ -1,0 +1,66 @@
+"""
+Decoder for RuuviTag Data Format 3 data.
+
+Ruuvi Sensor Protocols: https://github.com/ruuvi/ruuvi-sensor-protocols/blob/master/dataformat_03.md
+"""
+
+from __future__ import annotations
+
+import math
+import struct
+
+
+class DataFormat3Decoder:
+    def __init__(self, raw_data: bytes) -> None:
+        if len(raw_data) < 14:
+            raise ValueError("Data must be at least 14 bytes long for data format 3")
+        self.data: tuple[int, ...] = struct.unpack(">BBbBHhhhH", raw_data)
+
+    @property
+    def humidity_percentage(self) -> float | None:
+        if self.data[1] > 200:
+            return None
+        return round(self.data[1] / 2, 2)
+
+    @property
+    def temperature_celsius(self) -> float | None:
+        frac_byte = self.data[3]
+        if frac_byte >= 100:  # pragma: no cover
+            # Faulty reading; fractional part can't be >= 100
+            return None
+        int_byte = self.data[2]
+        # Handle MSB sign bit
+        value = ((int_byte & 0x7F) + frac_byte / 100.0) * (-1 if int_byte & 0x80 else 1)
+        return round(value, 2)
+
+    @property
+    def pressure_hpa(self) -> float | None:
+        if self.data[3] == 0xFFFF:
+            return None
+
+        return round((self.data[4] + 50000) / 100, 2)
+
+    @property
+    def acceleration_vector_mg(self) -> tuple[int, int, int] | tuple[None, None, None]:
+        ax = self.data[5]
+        ay = self.data[6]
+        az = self.data[7]
+        if ax == -32768 or ay == -32768 or az == -32768:
+            return (None, None, None)
+
+        return (ax, ay, az)
+
+    @property
+    def acceleration_total_mg(self) -> float | None:
+        ax, ay, az = self.acceleration_vector_mg
+        if ax is None or ay is None or az is None:
+            return None
+        return math.hypot(ax, ay, az)
+
+    @property
+    def battery_voltage_mv(self) -> int | None:
+        return self.data[8]
+
+    @property
+    def mac(self) -> str | None:
+        return None  # Not supported by this decoder

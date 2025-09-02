@@ -1,2 +1,0 @@
-[build-system]
-requires = ["farama_notifications", "setuptools", "wheel"]

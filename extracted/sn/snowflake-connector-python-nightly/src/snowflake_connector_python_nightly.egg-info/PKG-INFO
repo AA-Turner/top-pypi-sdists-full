@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-connector-python-nightly
-Version: 2025.8.30
+Version: 2025.9.2
 Summary: Nigthly build of Snowflake Connector for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -66,7 +66,7 @@ Requires-Dist: pendulum!=2.1.1; extra == "development"
 Requires-Dist: pexpect; extra == "development"
 Requires-Dist: pytest<7.5.0; extra == "development"
 Requires-Dist: pytest-cov; extra == "development"
-Requires-Dist: pytest-rerunfailures; extra == "development"
+Requires-Dist: pytest-rerunfailures<16.0; extra == "development"
 Requires-Dist: pytest-timeout; extra == "development"
 Requires-Dist: pytest-xdist; extra == "development"
 Requires-Dist: pytzdata; extra == "development"

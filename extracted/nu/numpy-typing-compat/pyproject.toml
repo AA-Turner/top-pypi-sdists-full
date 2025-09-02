@@ -1,0 +1,34 @@
+[build-system]
+requires = ["uv_build>=0.8.11,<0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "numpy-typing-compat"
+version = "20250818.2.3"
+description = "Static typing compatibility layer for older versions of NumPy"
+authors = [{name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com"}]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+keywords = ["numpy", "optype", "typing", "compatibility"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
+requires-python = ">=3.11"
+dependencies = [
+  "numpy >=2.3, <2.4",
+]
+
+[project.urls]
+Repository = "https://github.com/jorenham/numpy-typing-compat"
+Issues = "https://github.com/jorenham/numpy-typing-compat/issues"
+Changelog = "https://github.com/jorenham/numpy-typing-compat/releases"

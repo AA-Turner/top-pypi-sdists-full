@@ -1,0 +1,70 @@
+[project]
+name = "xcomponent"
+version = "0.6.4"
+description = "A component base template engige - inspired by JSX"
+readme = "README.md"
+authors = [{ name = "Guillaume Gauvrit", email = "guillaume@gauvr.it" }]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Typing :: Typed",
+]
+
+
+[project.urls]
+Homepage = "https://mardiros.github.io/xcomponent"
+Documentation = "https://mardiros.github.io/xcomponent"
+Repository = "https://github.com/mardiros/xcomponent.git"
+Issues = "https://github.com/mardiros/xcomponent/issues"
+Changelog = "https://mardiros.github.io/xcomponent/user/changelog.html"
+
+
+[project.optional-dependencies]
+docs = [
+    "furo >=2024.5.6",
+    "linkify-it-py >=2.0.3,<3",
+    "myst-parser >=4.0.0,<5",
+    "sphinx >=8.0.0,<9",
+    "sphinx-autodoc2 >=0.5.0,<1",
+]
+
+[dependency-groups]
+dev = [
+    "bs4>=0.0.2",
+    "mypy >=1.16.0,<2",
+    "pytest >=8.3.5,<9",
+]
+docs = [
+    "furo >=2024.5.6",
+    "linkify-it-py >=2.0.3,<3",
+    "myst-parser >=4.0.0,<5",
+    "sphinx >=8.0.0,<9",
+    "sphinx-autodoc2 >=0.5.0,<1",
+]
+
+[tool.pyright]
+autoSearchPaths = false
+extraPaths = ["src/python"]
+include = ["src/python", "tests"]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+venvPath = ".venv"
+
+[tool.maturin]
+bindings = "pyo3"
+python-source = "src/python"
+module-name = "xcomponent.xcore"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"

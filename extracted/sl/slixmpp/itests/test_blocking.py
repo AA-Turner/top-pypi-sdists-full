@@ -19,8 +19,8 @@ class TestBlocking(SlixIntegration):
             [JID('toto@example.com'), JID('titi@example.com')]
         )
         blocked = {JID('toto@example.com'), JID('titi@example.com')}
-        iq = await self.clients[0]['xep_0191'].get_blocked()
-        self.assertEqual(iq['blocklist']['items'], blocked)
+        result = await self.clients[0]['xep_0191'].get_blocked_jids()
+        self.assertEqual(result, blocked)
 
         info = await self.clients[0]['xep_0191'].unblock(
             blocked,

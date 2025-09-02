@@ -1,0 +1,154 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cmasher"
+version = "1.9.2"
+authors = [{name = "Ellert van der Velden", email = "ellert_vandervelden@outlook.com"}]
+description = "Scientific colormaps for making accessible, informative and 'cmashing' plots"
+readme = "README.rst"
+license = {text = "BSD-3"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Utilities",
+    "Framework :: Matplotlib",
+]
+keywords = ["cmasher perceptually uniform sequential colormaps plotting python visualization"]
+
+requires-python = ">=3.10, <4"
+
+dependencies = [
+    "colorspacious>=1.1.0",
+    "matplotlib>=3.5",
+    "numpy>=1.21.2",
+]
+
+[project.urls]
+Homepage = "https://cmasher.readthedocs.io"
+Documentation = "https://cmasher.readthedocs.io"
+"Source Code" = "https://github.com/1313e/CMasher"
+
+[project.scripts]
+cmr = "cmasher.cli_tools:main"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/cmasher/*.py",
+  "src/cmasher/*.pyi",
+  "src/cmasher/colormaps/cm_*.npy",
+  "src/cmasher/data/*.npy",
+  "LICENSE",
+  "CITATION",
+  "README.rst",
+  "requirements/*.txt",
+  "conftest.py",
+  "tests",
+]
+exclude = [
+  "docs",
+  "joss_paper",
+  "scripts",
+  "static",
+  ".github",
+  "*.yml",
+  "*.yaml",
+]
+
+[tool.pytest.ini_options]
+addopts = "-v"
+filterwarnings = [
+  "error",
+  "ignore:FigureCanvasAgg is non-interactive:UserWarning",
+  "ignore:Matplotlib is currently using agg, which is a non-GUI backend:UserWarning",
+  # this future warning is internal to viscm
+  "ignore: Deprecated. CatmulClark builds nicer splines.:FutureWarning",
+  # internal to colorspacious
+  "ignore:invalid value encountered in divide:RuntimeWarning",
+# https://github.com/dateutil/dateutil/pull/1285
+  'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning',
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    # a more strict default pragma
+    "\\# pragma: no cover\\b",
+
+    # allow defensive code
+    "^\\s*raise NotImplementedError\\b",
+
+    # typing-related code
+    "^if TYPE_CHECKING:",
+    ": \\.\\.\\.(\\s*#.*)?$",
+    "^ +\\.\\.\\.$",
+    "-> ['\"]?NoReturn['\"]?:",
+]
+
+[tool.coverage.run]
+omit = [
+  "scripts/*",
+  "src/cmasher/__version__*",
+  "src/cmasher/app_usage.py",
+  "*_test_copy.py",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "E501",
+    "D101",
+    "E226",
+    "F401",
+    "F403",
+    "PTH123", # builtin-open
+]
+select = [
+    "E",
+    "F",
+    "W",
+    #"D",   # pydocstyle
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "YTT", # flake8-2020
+    "PTH", # flake8-use-pathlib
+    "TCH", # flake8-type-checking
+    "I",   # isort
+    "UP",  # pyupgrade
+    "NPY", # numpy specific rules
+]
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["cmasher"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"_backports.py" = ["D"]
+
+[tool.mypy]
+python_version = '3.10'
+show_error_codes = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_unreachable = true
+show_error_context = true
+exclude = [
+    'prep_cmap_data\.py',
+]
+ignore_missing_imports = true

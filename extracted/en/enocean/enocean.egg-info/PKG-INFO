@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: enocean
+Version: 0.60.1
+Summary: EnOcean serial protocol implementation
+Home-page: https://github.com/kipe/enocean
+Author: Kimmo Huoman
+Author-email: kipenroskaposti@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

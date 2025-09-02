@@ -1,0 +1,39 @@
+[project]
+name = "pyEGPS"
+dynamic = ["version"]
+authors = [
+    {name = "Mischa Siekmann", email = "mischa@gnumpi.com"},
+]
+description = "Controlling Energenie Power Strips with python."
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = []
+license     = {text = "Apache-2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pyusb",
+]
+
+[project.urls]  # Optional
+"Homepage" = "https://github.com/gnumpi/pyegps"
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+# For smarter version schemes and other configuration options,
+# check out https://github.com/pypa/setuptools_scm
+version_scheme = "no-guess-dev"
+version_file =  "src/pyegps/_version.py"
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = 'usb.*'
+ignore_missing_imports = true

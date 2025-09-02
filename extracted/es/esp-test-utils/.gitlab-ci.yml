@@ -1,0 +1,145 @@
+stages:
+  - pre-check
+  - test
+  - deploy
+
+workflow:
+  rules:
+    # Disable those non-protected push triggered pipelines
+    - if: '$CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG !~ /^v\d+\.\d+(\.\d+)?($|-)/ && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - when: always
+
+default:
+  image: ${CI_DOCKER_REGISTRY}/qa-python-env:2
+
+variables:
+  PUBLISH_DEV_VERSION:
+    value: ""
+    description: "publish package internal, please set to 'auto' or 'vX.X.X.devN'"
+  GIT_CLEAN_FLAGS: '-ffdx -e .cache/' # Ensure cache isn't deleted when the repository is cleaned.
+
+pre-commit-check:
+  stage: pre-check
+  needs: []
+  script:
+    - pre-commit run --all-files
+  tags:
+    - pre-commit
+
+# ------------------------------------------------------------------------------------------------------
+# Pytest
+# ------------------------------------------------------------------------------------------------------
+pytest-check:
+  stage: test
+  needs: []
+  before_script:
+    - pip install -e '.[test]'
+  script:
+    - pytest --junitxml=reports/junit.xml --cov=esptest --cov-report=term --cov-report xml:reports/coverage.xml
+  coverage: '/TOTAL.*\s+(\d+)\%/'
+  artifacts:
+    paths:
+      - reports/
+      - '.coverage*'
+    reports:
+      junit: reports/junit.xml
+  tags:
+    - host_test
+
+# ------------------------------------------------------------------------------------------------------
+# Code quality
+# ------------------------------------------------------------------------------------------------------
+codebase-quality:
+  stage: test
+  needs: [] # Do not wait for previous stages
+  before_script:
+    - pip install -e '.[ci-quality]'
+  script:
+    - pylint esptest/**/*.py --exit-zero --load-plugins=pylint_gitlab --output-format=gitlab-codeclimate > gl-codequality.json
+  artifacts:
+    paths:
+      - gl-codequality.json
+    reports:
+      codequality: gl-codequality.json
+    expire_in: 1 week
+  tags:
+    - host_test
+  allow_failure: true
+
+
+# ------------------------------------------------------------------------------------------------------
+# Pages
+# ------------------------------------------------------------------------------------------------------
+pages:
+  stage: deploy
+  dependencies: []
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_REF_NAME == "feat/add_docs"'
+  artifacts:
+    paths:
+      - "public"
+    expire_in: 2 days
+  script:
+    - pip install -e '.[doc]'
+    - cd docs
+    - make html
+    - cp -r _build/html ../public
+  tags:
+    - build
+
+
+# ------------------------------------------------------------------------------------------------------
+# Publish - For github repositories, should use github actions for publishing packages
+# ------------------------------------------------------------------------------------------------------
+publish_packages_gitlab:
+  stage: deploy
+  dependencies: []
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?($|-)/'
+    # From web, format  auto: v0.0.0-dev0+commit
+    - if: '$CI_PIPELINE_SOURCE == "web" && $PUBLISH_DEV_VERSION == "auto"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $PUBLISH_DEV_VERSION =~ /^v\d+\.\d+(\.\d+)?/'
+  before_script:
+    - pip install -e '.[dev]'
+    - pip install twine
+    # https://github.com/pypa/twine/issues/1216
+    - pip install -U packaging pkginfo
+  variables:
+    TWINE_PASSWORD: ${CI_JOB_TOKEN}
+    TWINE_USERNAME: gitlab-ci-token
+  script:
+    - python tools/ci/check_dev_version.py
+    - |
+      if [[ -n "$PUBLISH_DEV_VERSION" ]] && [[ "$PUBLISH_DEV_VERSION" != "auto" ]]; then
+        # git tag ${PUBLISH_DEV_VERSION} -m "internal dev tag: ${PUBLISH_DEV_VERSION}"
+        export SETUPTOOLS_SCM_PRETEND_VERSION=$PUBLISH_DEV_VERSION
+      fi
+    - python -m build
+    - git log -1
+    # upload to gitlab Package Registry
+    - python -m twine upload --repository-url ${GITLAB_HTTPS_SERVER}/api/v4/projects/${CI_PROJECT_ID}/packages/pypi --verbose dist/*
+  tags:
+    - host_test
+
+
+publish_pypi:
+  extends:
+    - publish_packages_gitlab
+  rules:
+    # should be published by github actions
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?($|-)/'
+      when: manual
+  needs:
+    - publish_packages_gitlab
+  variables:
+    TWINE_PASSWORD: ${PYPI_API_TOKEN}
+    TWINE_USERNAME: __token__
+  script:
+    - python -m build
+    # upload to gitlab Package Registry
+    - python -m twine upload --verbose dist/*
+  tags:
+    - host_test
+    - internet

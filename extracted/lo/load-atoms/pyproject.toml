@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "load-atoms"
+version = "0.3.9"
+description = "Large Open Access Datasets for Atomistic Materials Science (LOAD-AtoMS)"
+readme = "README.md"
+authors = [{ name = "John Gardner", email = "gardner.john97@gmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["chemistry", "machine learning", "datasets"]
+dependencies = [
+    "ase",
+    "pyyaml",
+    "requests",
+    "numpy",
+    "pydantic>2.0.0",
+    "rich",
+    "ipywidgets",
+    "lmdb",
+    "h5py",
+]
+requires-python = ">=3.8"
+
+
+[project.optional-dependencies]
+dev = [
+    "notebook",
+    "pytest",
+    "sphinx",
+    "furo",
+    "nbsphinx",
+    "sphinx-autobuild",
+    "pytest-cov",
+    "build",
+    "bumpver",
+    "twine",
+    "ruff",
+    "sphinx_autodoc_typehints",
+    "sphinx-design",
+    "sphinx_copybutton",
+    "sphinx-codeautolink",
+    "sphinxext-opengraph",
+]
+
+[project.urls]
+Homepage = "https://github.com/jla-gardner/load-atoms"
+
+[project.scripts]
+load-atoms = "load_atoms.scripts.cli:main"
+
+[tool.bumpver]
+current_version = "0.3.9"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "Bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"']
+"src/load_atoms/__init__.py" = ["{version}"]
+"docs/source/conf.py" = ['release = "{version}"']
+
+[tool.pytest]
+norecursedirs = "tests/setup"
+
+[tool.ruff]
+include = ["dev/**/*.py", "src/**/*.py", "tests/**/*.py"]
+line-length = 80
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "SIM", "I"]
+fixable = ["ALL"]
+unfixable = []
+ignore = ["SIM300", "E402", "E703", "B017", "I001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "\\.\\.\\.",
+]

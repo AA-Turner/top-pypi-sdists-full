@@ -1,0 +1,66 @@
+Metadata-Version: 2.3
+Name: letpot
+Version: 0.6.2
+Summary: Asynchronous Python client for LetPot hydroponic gardens.
+License: MIT
+Author: Joris Pelgröm
+Author-email: joris.pelgrom@gmail.com
+Requires-Python: >=3.12,<4.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiohttp (>=3.11,<4.0)
+Requires-Dist: aiomqtt (>=2.0,<3.0)
+Project-URL: Changelog, https://github.com/jpelgrom/python-letpot/releases
+Project-URL: Homepage, https://github.com/jpelgrom/python-letpot
+Project-URL: Issues, https://github.com/jpelgrom/python-letpot/issues
+Description-Content-Type: text/markdown
+
+# python-letpot
+
+Asynchronous Python client for interacting with LetPot hydroponic gardens via the manufacturer's cloud. You can listen for status updates (push) and change device settings.
+
+The following models should be supported, although only LPH-AIR is tested:
+
+ - LPH-AIR
+ - LPH-MAX
+ - LPH-MINI
+ - LPH-PRO
+ - LPH-SE
+
+## Example usage
+
+```python
+import aiohttp
+import asyncio
+
+from letpot.client import LetPotClient
+from letpot.deviceclient import LetPotDeviceClient
+
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        client = LetPotClient(session)
+
+        auth = await client.login("email@example.com", "password")
+        # store auth for future use, and use in constructor
+
+        devices = await client.get_devices()
+        print(devices)
+
+        device_client = LetPotDeviceClient(auth)
+        device_serial = devices[0].serial_number
+        await device_client.subscribe(device_serial, lambda status: print(status))
+        await device_client.request_status_update(device_serial)
+        
+        # do work, and finally
+        device_client.disconnect(device_serial)
+
+
+asyncio.run(main())
+```

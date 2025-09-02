@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: goalzero
+Version: 0.2.2
+Summary: Goal Zero REST Api Library
+Home-page: https://github.com/tkdrob/goalzero
+Author: Robert Hillis
+Author-email: tkdrob4390@yahoo.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Goal Zero Yeti REST Api Library
+
+Credit to Nicholas Andre for procuring the REST api info from Goal Zero: https://blog.nicholasandre.com/goal-zero-yeti-local-wifi-rest-api/
+
+Thanks to Goal Zero for thinking of us techies by providing this.

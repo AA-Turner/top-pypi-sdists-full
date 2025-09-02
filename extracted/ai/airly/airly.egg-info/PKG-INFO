@@ -1,0 +1,28 @@
+Metadata-Version: 1.2
+Name: airly
+Version: 1.1.0
+Summary: Python wrapper for getting air quality data from Airly sensors.
+Home-page: https://github.com/ak-ambi/python-airly
+Author: Paweł Stankowski
+Author-email: ak_ambi@op.pl
+License: MIT
+Description: ===============================
+        airly
+        ===============================
+        
+        Python wrapper for getting air quality data from Airly sensors.
+        
+        Samples
+        -------
+        
+        Examples of how to use the library are under `samples` directory.
+        To run them, you need to create `samples\\.api_key` file, and fill it with
+        your Airly API Key.
+        
+        Unit tests are also valuable source of information, so check them in case of any doubts.
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6.0

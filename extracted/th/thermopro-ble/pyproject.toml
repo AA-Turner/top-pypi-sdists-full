@@ -1,0 +1,100 @@
+[tool.poetry]
+name = "thermopro-ble"
+version = "0.13.1"
+description = "Thermopro BLE Sensors"
+authors = ["J. Nick Koston <nick@koston.org>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/bluetooth-devices/thermopro-ble"
+documentation = "https://thermopro-ble.readthedocs.io"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+packages = [
+    { include = "thermopro_ble", from = "src" },
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/bluetooth-devices/thermopro-ble/issues"
+"Changelog" = "https://github.com/bluetooth-devices/thermopro-ble/blob/main/CHANGELOG.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4"
+bleak = {version = ">=0.21.1", python = ">=3.10,<3.14"}
+# Documentation Dependencies
+Sphinx = {version = ">=5,<9", optional = true}
+sphinx-rtd-theme = {version = ">=1,<4", optional = true}
+myst-parser = {version = ">=0.18,<4.1", optional = true}
+bluetooth-sensor-state-data = ">=1.8.0"
+sensor-state-data = {version = ">=2.0.2", python = ">=3.11,<4"}
+bluetooth-data-tools = ">=1.28.0"
+habluetooth = {version = ">=3.42.0", python = ">=3.11,<3.14"}
+
+[tool.poetry.extras]
+docs = [
+    "myst-parser",
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-cov = "^6.0"
+pytest-asyncio = ">0.17"
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variables = ["src/thermopro_ble/__init__.py:__version__"]
+build_command = "pip install poetry && poetry build"
+
+[tool.pytest.ini_options]
+addopts = "-v -Wdefault --cov=thermopro_ble --cov-report=term-missing:skip-covered"
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["thermopro_ble", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+exclude = [
+    'docs/.*',
+    'setup.py',
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "docs.*"
+ignore_errors = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,14 @@
+[workspace]
+members = ["crates/*", "bindings/*"]
+default-members = ["crates/*", "bindings/*"]
+resolver = "2"
+
+[workspace.package]
+repository = "https://github.com/nRF24/rf24-rs"
+homepage = "https://nRF24.github.io/rf24-rs"
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+lto = true
+strip = "symbols"

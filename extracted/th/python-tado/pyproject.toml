@@ -1,0 +1,74 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "python-tado"
+version = "0.19.2"
+description = "PyTado from chrism0dwk, modified by w.malgadey, diplix, michaelarnauts, LenhartStephan, splifter, syssi, andersonshatch, Yippy, p0thi, Coffee2CodeNL, chiefdragon, FilBr, nikilase, albertomontesg, Moritz-Schmidt, palazzem"
+authors = [
+  "Chris Jewell <chrism0dwk@gmail.com>",
+  "w.malgadey <w.malgadey@gmail.com>",
+  "FilBr <filippo.barba@protonmail.com>",
+  "Erwin Douna <e.douna@gmail.com>"
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Topic :: Home Automation",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12"
+]
+keywords = ["tado"]
+readme = "README.md"
+license = "GPL-3.0-or-later"
+documentation = "https://wmalgadey.github.io/PyTado/"
+homepage = "https://github.com/wmalgadey/PyTado"
+repository = "https://github.com/wmalgadey/PyTado"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+requests = "*"
+black = ">=24.10"
+pylint = "*"
+pre-commit = "*"
+pytype = "*"
+types-requests = "*"
+responses = "*"
+pytest = "*"
+pytest-mock = "*"
+pytest-cov = "*"
+pytest-socket = "*"
+
+[tool.poetry.extras]
+dev = ["pre-commit", "pytype", "types-requests"]
+lint = ["black", "pylint"]
+test = ["responses", "pytest", "pytest-mock", "pytest-socket", "pytest-cov"]
+all = ["pre-commit", "pytype", "types-requests", "black", "pylint", "responses", "pytest", "pytest-mock", "pytest-socket", "pytest-cov"]
+
+[tool.poetry.scripts]
+pytado = "PyTado.__main__:main"
+
+[[tool.poetry.packages]]
+include = "PyTado"
+from = "."
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.run]
+plugins = ["covdefaults"]
+source = ["PyTado"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+required-version = "24.10.0"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+tests = []
+skips = []

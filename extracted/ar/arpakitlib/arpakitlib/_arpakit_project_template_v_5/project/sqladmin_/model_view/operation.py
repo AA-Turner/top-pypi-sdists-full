@@ -23,7 +23,9 @@ class OperationMV(SimpleMV, model=OperationDBM):
         OperationDBM.input_data,
         OperationDBM.output_data,
         OperationDBM.error_data,
-        OperationDBM.extra_data
+        OperationDBM.extra_data,
+
+        "duration"
     ]
     column_details_list = [
         OperationDBM.id,
@@ -38,7 +40,9 @@ class OperationMV(SimpleMV, model=OperationDBM):
         OperationDBM.input_data,
         OperationDBM.output_data,
         OperationDBM.error_data,
-        OperationDBM.extra_data
+        OperationDBM.extra_data,
+
+        "duration"
     ]
     form_columns = [
         OperationDBM.slug,
@@ -53,12 +57,17 @@ class OperationMV(SimpleMV, model=OperationDBM):
         OperationDBM.extra_data
     ]
     form_overrides = {
-        OperationDBM.status.key: SelectField
+        OperationDBM.status.key: SelectField,
+        OperationDBM.type.key: SelectField
     }
     form_args = {
         OperationDBM.status.key: {
-            "choices": [(status, status) for status in OperationDBM.Statuses.values_list()],
-            "description": "Choose status"
+            "choices": [(v, v) for v in OperationDBM.Statuses.values_list()],
+            "description": f"Choose {OperationDBM.status.key}"
+        },
+        OperationDBM.type.key: {
+            "choices": [(v, v) for v in OperationDBM.Types.values_list()],
+            "description": f"Choose {OperationDBM.type.key}"
         }
     }
     column_sortable_list = sqlalchemy.inspect(OperationDBM).columns
@@ -77,6 +86,7 @@ class OperationMV(SimpleMV, model=OperationDBM):
         OperationDBM.output_data: lambda m, a: format_json_for_preview_(m.output_data),
         OperationDBM.error_data: lambda m, a: format_json_for_preview_(m.error_data),
         OperationDBM.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
+        "duration": lambda m, a: m.duration,
     }
     column_formatters_detail = {
         OperationDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
@@ -84,4 +94,5 @@ class OperationMV(SimpleMV, model=OperationDBM):
         OperationDBM.output_data: lambda m, a: format_json_(m.output_data),
         OperationDBM.error_data: lambda m, a: format_json_(m.error_data),
         OperationDBM.extra_data: lambda m, a: format_json_(m.extra_data),
+        "duration": lambda m, a: m.duration,
     }

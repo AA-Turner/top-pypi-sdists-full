@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: aiopyarr
+Version: 23.4.0
+Summary: An Asynchronous Lidarr, Radarr, Readarr, Sonarr APIs for Python.
+Home-page: https://github.com/tkdrob/aiopyarr
+Author: Robert Hillis
+Author-email: tkdrob4390@yahoo.com
+License: MIT license
+Keywords: aiopyarr,radarr,sonarr,plex
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# aiopyarr
+
+[![codecov](https://codecov.io/gh/tkdrob/aiopyarr/branch/master/graph/badge.svg)](https://codecov.io/gh/tkdrob/aiopyarr)
+![python version](https://img.shields.io/badge/Python-3.9=><=3.10-blue.svg)
+[![PyPI](https://img.shields.io/pypi/v/aiopyarr)](https://pypi.org/project/aiopyarr)
+![Actions](https://github.com/tkdrob/aiopyarr/workflows/Actions/badge.svg?branch=master)
+
+_Python API client for Lidarr/Radarr/Readarr/Sonarr._
+
+## Installation
+
+```bash
+python3 -m pip install aiopyarr
+```
+
+## Example usage
+
+More examples can be found in the `tests` directory.
+
+```python
+"""Example usage of aiopyarr."""
+import asyncio
+from aiopyarr.models.host_configuration import PyArrHostConfiguration
+from aiopyarr.radarr_client import RadarrClient
+
+IP = "192.168.100.3"
+TOKEN = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+
+async def async_example():
+    """Example usage of aiopyarr."""
+    host_configuration = PyArrHostConfiguration(ipaddress=IP, api_token=TOKEN)
+    async with RadarrClient(host_configuration=host_configuration) as client:
+        print(await client.async_get_system_status())
+
+asyncio.get_event_loop().run_until_complete(async_example())
+```
+
+## Contribute
+
+**All** contributions are welcome!
+
+1. Fork the repository
+2. Clone the repository locally and open the devcontainer or use GitHub codespaces
+3. Do your changes
+4. Lint the files with `make lint`
+5. Ensure all tests passes with `make test`
+6. Ensure 100% coverage with `make coverage`
+7. Commit your work, and push it to GitHub
+8. Create a PR against the `master` branch

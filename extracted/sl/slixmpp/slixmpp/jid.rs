@@ -222,16 +222,20 @@ impl PyJid {
                 Err(_) => return Ok(false),
             }
         };
-        match (&self.jid, &other.jid) {
-            (None, None) => Ok(true),
-            (Some(jid), Some(other)) => match op {
-                pyo3::basic::CompareOp::Eq => Ok(jid == other),
-                pyo3::basic::CompareOp::Ne => Ok(jid != other),
-                _ => Err(PyNotImplementedError::new_err(
-                    "Only == and != are implemented",
-                )),
-            },
-            _ => Ok(false),
+        match op {
+            pyo3::basic::CompareOp::Eq => Ok(match (&self.jid, &other.jid) {
+                (None, None) => true,
+                (Some(jid), Some(other)) => jid == other,
+                _ => false,
+            }),
+            pyo3::basic::CompareOp::Ne => Ok(match (&self.jid, &other.jid) {
+                (None, None) => false,
+                (Some(jid), Some(other)) => jid != other,
+                _ => true,
+            }),
+            _ => Err(PyNotImplementedError::new_err(
+                "Only == and != are implemented",
+            )),
         }
     }
 

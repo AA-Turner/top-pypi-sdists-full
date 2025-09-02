@@ -1,0 +1,139 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scanspec"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+description = "Specify step and flyscan paths in a serializable, efficient and Pythonic way"
+dependencies = ["numpy", "click>=8.1", "pydantic>=2.0"]
+dynamic = ["version"]
+license.file = "LICENSE"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+# Plotting
+plotting = ["scipy", "matplotlib"]
+# REST service support
+service = ["fastapi>=0.100.0", "uvicorn"]
+# For development tests/docs
+dev = [
+    # This syntax is supported since pip 21.2
+    # https://github.com/pypa/pip/issues/10393
+    "scanspec[plotting]",
+    "scanspec[service]",
+    "autodoc_pydantic",
+    "copier",
+    "httpx",
+    "myst-parser",
+    "pipdeptree",
+    "pre-commit",
+    "pydata-sphinx-theme>=0.12",
+    "pyright",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-design",
+    "sphinxcontrib-openapi",
+    "tox-direct",
+    "types-mock",
+]
+
+[project.scripts]
+scanspec = "scanspec.cli:cli"
+
+[project.urls]
+GitHub = "https://github.com/bluesky/scanspec"
+
+[[project.authors]] # Further authors may be added by duplicating this section
+email = "tom.cobb@diamond.ac.uk"
+name = "Tom Cobb"
+
+
+[tool.setuptools_scm]
+version_file = "src/scanspec/_version.py"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingImports = false # Ignore missing stubs in imported modules
+
+[tool.pytest.ini_options]
+# Run pytest with all our checkers, and don't spam us with massive tracebacks on error
+addopts = """
+    --tb=native -vv --doctest-modules --doctest-glob="*.rst"
+    """
+# https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
+filterwarnings = "error"
+# Doctest python code in docs, python code in src docstrings, test functions in tests
+testpaths = "docs src tests"
+
+[tool.coverage.run]
+data_file = "/tmp/scanspec.coverage"
+
+[tool.coverage.paths]
+# Tests are run from installed location, map back to the src directory
+source = ["src", "**/site-packages/"]
+
+# tox must currently be configured via an embedded ini string
+# See: https://github.com/tox-dev/tox/issues/999
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+skipsdist=True
+
+[testenv:{pre-commit,type-checking,tests,docs}]
+# Don't create a virtualenv for the command, requires tox-direct plugin
+direct = True
+passenv = *
+allowlist_externals =
+    pytest
+    pre-commit
+    pyright
+    sphinx-build
+    sphinx-autobuild
+commands =
+    pre-commit: pre-commit run --all-files --show-diff-on-failure {posargs}
+    type-checking: pyright src tests {posargs}
+    tests: pytest --cov=scanspec --cov-report term --cov-report xml:cov.xml {posargs}
+    docs: sphinx-{posargs:build -E --keep-going} -T docs build/html
+"""
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 88
+
+[tool.ruff.lint]
+extend-select = [
+    "B",   # flake8-bugbear - https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "C4",  # flake8-comprehensions - https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    "D",   # pydocstyle - https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    "E",   # pycodestyle errors - https://docs.astral.sh/ruff/rules/#error-e
+    "F",   # pyflakes rules - https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "W",   # pycodestyle warnings - https://docs.astral.sh/ruff/rules/#warning-w
+    "I",   # isort - https://docs.astral.sh/ruff/rules/#isort-i
+    "UP",  # pyupgrade - https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "SLF", # self - https://docs.astral.sh/ruff/settings/#lintflake8-self
+]
+ignore = [
+    "B008", # We use function calls in service arguments
+    "D105", # Don't document magic methods as they don't appear in sphinx autodoc pages
+    "D107", # We document the class, not the __init__ method
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+
+"tests/**/*" = [
+    "D", # Don't check docstrings in tests
+]

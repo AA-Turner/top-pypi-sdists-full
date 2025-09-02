@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyxcp
-Version: 0.23.7
+Version: 0.23.8
 Summary: Universal Calibration Protocol for Python
 License: LGPLv3
 Keywords: automotive,ecu,xcp,asam,autosar
@@ -39,7 +39,7 @@ Description-Content-Type: text/x-rst
 Readme
 ======
 
-.. image:: pyxcp_social.jpg
+.. image:: pyxcp_social.svg
     :align: center
 
 Reliable Python tooling for the ASAM MCD-1 XCP protocol (measurement,

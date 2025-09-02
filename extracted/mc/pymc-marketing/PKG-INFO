@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-marketing
-Version: 0.15.1
+Version: 0.16.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -213,20 +213,21 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: arviz>=0.13.0
 Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: numpy>=1.17
 Requires-Dist: pandas
-Requires-Dist: preliz>=0.8.0
+Requires-Dist: preliz>=0.20.0
 Requires-Dist: pydantic>=2.1.0
-Requires-Dist: pymc>=5.23.0
+Requires-Dist: pymc-extras>=0.4.0
+Requires-Dist: pymc>=5.24.1
 Requires-Dist: pyprojroot
 Requires-Dist: pytensor>=2.31.3
 Requires-Dist: scikit-learn>=1.1.1
@@ -256,6 +257,7 @@ Requires-Dist: numpydoc; extra == 'docs'
 Requires-Dist: numpyro; extra == 'docs'
 Requires-Dist: nutpie; extra == 'docs'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'docs'
+Requires-Dist: preliz>=0.20.0; extra == 'docs'
 Requires-Dist: pylint; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
@@ -274,6 +276,7 @@ Provides-Extra: test
 Requires-Dist: blackjax; extra == 'test'
 Requires-Dist: dowhy; extra == 'test'
 Requires-Dist: graphviz>=0.20.1; extra == 'test'
+Requires-Dist: jax<0.7.0; extra == 'test'
 Requires-Dist: lifetimes==0.11.3; extra == 'test'
 Requires-Dist: mlflow>=2.0.0; extra == 'test'
 Requires-Dist: networkx; extra == 'test'
@@ -281,6 +284,7 @@ Requires-Dist: numpyro; extra == 'test'
 Requires-Dist: nutpie; extra == 'test'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'test'
 Requires-Dist: papermill; extra == 'test'
+Requires-Dist: preliz>=0.20.0; extra == 'test'
 Requires-Dist: pygraphviz; extra == 'test'
 Requires-Dist: pyprojroot; extra == 'test'
 Requires-Dist: pytest-cov>=3.0.0; extra == 'test'
@@ -301,9 +305,13 @@ Description-Content-Type: text/markdown
 [![codecov](https://codecov.io/gh/pymc-labs/pymc-marketing/branch/main/graph/badge.svg?token=OBV3BS5TYE)](https://codecov.io/gh/pymc-labs/pymc-marketing)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![docs](https://readthedocs.org/projects/pymc-marketing/badge/?version=latest)](https://docs.readthedocs.io/en/latest/)
+
 [![PyPI Version](https://img.shields.io/pypi/v/pymc-marketing.svg)](https://pypi.python.org/pypi/pymc-marketing)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/pymc-marketing.svg)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+[![Downloads](https://static.pepy.tech/badge/pymc-marketing)](https://pepy.tech/project/pymc-marketing)
+[![Downloads](https://static.pepy.tech/badge/pymc-marketing/month)](https://pepy.tech/project/pymc-marketing)
+[![Downloads](https://static.pepy.tech/badge/pymc-marketing/week)](https://pepy.tech/project/pymc-marketing)
 
 # <span style="color:limegreen">PyMC-Marketing</span>: Bayesian Marketing Mix Modeling (MMM) & Customer Lifetime Value (CLV)
 

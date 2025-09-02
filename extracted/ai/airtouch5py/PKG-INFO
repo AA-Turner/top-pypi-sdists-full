@@ -1,0 +1,15 @@
+Metadata-Version: 2.3
+Name: airtouch5py
+Version: 0.3.0
+Summary: 
+Author: Dave Leaver
+Author-email: danzel@localhost.geek.nz
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Dist: bitarray (>=3.4.2,<4.0.0)
+Requires-Dist: crc (>=7.1.0,<8.0.0)
+Description-Content-Type: text/markdown
+
+# airtouch5py
+Python client for the airtouch 5
+

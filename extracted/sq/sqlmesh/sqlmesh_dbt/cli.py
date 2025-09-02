@@ -2,7 +2,7 @@ import typing as t
 import sys
 import click
 from sqlmesh_dbt.operations import DbtOperations, create
-from sqlmesh_dbt.error import cli_global_error_handler
+from sqlmesh_dbt.error import cli_global_error_handler, ErrorHandlingGroup
 from pathlib import Path
 from sqlmesh_dbt.options import YamlParamType
 import functools
@@ -43,7 +43,7 @@ select_option = click.option(
 exclude_option = click.option("--exclude", multiple=True, help="Specify the nodes to exclude.")
 
 
-@click.group(invoke_without_command=True)
+@click.group(cls=ErrorHandlingGroup, invoke_without_command=True)
 @click.option("--profile", help="Which existing profile to load. Overrides output.profile")
 @click.option("-t", "--target", help="Which target to load for the given profile")
 @click.option(
@@ -92,11 +92,24 @@ def dbt(
     "--full-refresh",
     help="If specified, dbt will drop incremental models and fully-recalculate the incremental table from the model definition.",
 )
+@click.option(
+    "--env",
+    "--environment",
+    help="Run against a specific Virtual Data Environment (VDE) instead of the main environment",
+)
+@click.option(
+    "--empty/--no-empty", default=False, help="If specified, limit input refs and sources"
+)
 @vars_option
 @click.pass_context
-def run(ctx: click.Context, vars: t.Optional[t.Dict[str, t.Any]], **kwargs: t.Any) -> None:
+def run(
+    ctx: click.Context,
+    vars: t.Optional[t.Dict[str, t.Any]],
+    env: t.Optional[str] = None,
+    **kwargs: t.Any,
+) -> None:
     """Compile SQL and execute against the current target database."""
-    _get_dbt_operations(ctx, vars).run(**kwargs)
+    _get_dbt_operations(ctx, vars).run(environment=env, **kwargs)
 
 
 @dbt.command(name="list")

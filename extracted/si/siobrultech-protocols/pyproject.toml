@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pyright]
+include = [
+    "siobrultech_protocols",
+    "scripts",
+    "tests"
+]
+exclude = [
+    "**/__pycache__"
+]
+pythonVersion = "3.8"
+reportFunctionMemberAccess = "error"
+reportInvalidTypeVarUse = "error"
+reportMissingImports = "error"
+reportMissingParameterType = "error"
+reportMissingTypeArgument = "error"
+reportPrivateUsage = "error"
+reportUnknownMemberType = "error"
+reportUnknownParameterType = "error"
+reportUntypedBaseClass = "error"
+reportUntypedClassDecorator = "error"
+reportUntypedFunctionDecorator = "error"
+reportUntypedNamedTuple = "error"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+typeCheckingMode = "basic"
+
+[tool.ruff]
+select = [
+    # Pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # isort
+    "I001",
+]
+ignore = [
+    # Rely on Black to handle line length
+    "E501",
+]

@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: vacancycalculator
+Version: 0.5.3.5
+Summary: Defect analysis and vacancy calculation for materials science
+Home-page: https://github.com/TiagoBe0/VFScript-SiMaF
+Author: E.Bringa-S.Bergamin-SiMaF
+Author-email: santiagobergamin@gmail.com
+License: MIT
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: xgboost
+Requires-Dist: ase
+Requires-Dist: ovito
+Requires-Dist: pyvista
+Requires-Dist: pyvistaqt
+Requires-Dist: vtk
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary

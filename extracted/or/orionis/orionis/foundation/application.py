@@ -123,9 +123,6 @@ class Application(Container, IApplication):
             # Property to store the exception handler class
             self.__exception_handler: Type[BaseExceptionHandler] = None
 
-            # Base path for the application, used for relative paths
-            self.__bootstrap_base_path: str | Path = None
-
             # Flag to prevent re-initialization
             self.__initialized = True
 
@@ -164,7 +161,11 @@ class Application(Container, IApplication):
 
         # Register each kernel instance
         for abstract, concrete in core_kernels.items():
-            self.instance(abstract, concrete(self))
+            self.instance(
+                abstract,
+                concrete(self),
+                alias=f"x-{abstract.__module__}.{abstract.__name__}"
+            )
 
     def __loadFrameworkProviders(
         self
@@ -695,7 +696,7 @@ class Application(Container, IApplication):
             path = extractor(path)
         if not isinstance(path, (Paths, dict)):
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(path).__name__}")
-        self.loadPaths(path)
+        self.loadConfigPaths(path)
 
         # Load queue configurator
         if (isinstance(queue, type) and issubclass(queue, Queue)):
@@ -1425,261 +1426,6 @@ class Application(Container, IApplication):
         # Return the application instance for method chaining
         return self
 
-    def setPaths(
-        self,
-        *,
-        console: str | Path = (Path.cwd() / 'app' / 'console').resolve(),
-        controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
-        middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
-        requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
-        models: str | Path = (Path.cwd() / 'app' / 'models').resolve(),
-        providers: str | Path = (Path.cwd() / 'app' / 'providers').resolve(),
-        events: str | Path = (Path.cwd() / 'app' / 'events').resolve(),
-        listeners: str | Path = (Path.cwd() / 'app' / 'listeners').resolve(),
-        notifications: str | Path = (Path.cwd() / 'app' / 'notifications').resolve(),
-        jobs: str | Path = (Path.cwd() / 'app' / 'jobs').resolve(),
-        policies: str | Path = (Path.cwd() / 'app' / 'policies').resolve(),
-        exceptions: str | Path = (Path.cwd() / 'app' / 'exceptions').resolve(),
-        services: str | Path = (Path.cwd() / 'app' / 'services').resolve(),
-        views: str | Path = (Path.cwd() / 'resources' / 'views').resolve(),
-        lang: str | Path = (Path.cwd() / 'resources' / 'lang').resolve(),
-        assets: str | Path = (Path.cwd() / 'resources' / 'assets').resolve(),
-        routes: str | Path = (Path.cwd() / 'routes').resolve(),
-        config: str | Path = (Path.cwd() / 'config').resolve(),
-        migrations: str | Path = (Path.cwd() / 'database' / 'migrations').resolve(),
-        seeders: str | Path = (Path.cwd() / 'database' / 'seeders').resolve(),
-        factories: str | Path = (Path.cwd() / 'database' / 'factories').resolve(),
-        logs: str | Path = (Path.cwd() / 'storage' / 'logs').resolve(),
-        sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
-        cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
-        testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
-        storage: str | Path = (Path.cwd() / 'storage').resolve(),
-        tests: str | Path = (Path.cwd() / 'tests').resolve()
-    ) -> 'Application':
-        """
-        Set and resolve application directory paths using keyword arguments.
-
-        This method allows customization of all major application directory paths, such as
-        console components, HTTP components, application layers, resources, routes,
-        database files, and storage locations. All provided paths are resolved to absolute
-        paths and stored as strings in the configuration dictionary.
-
-        Parameters
-        ----------
-        console : str or Path, optional
-            Directory for console command classes. Defaults to 'app/console'.
-        controllers : str or Path, optional
-            Directory for HTTP controller classes. Defaults to 'app/http/controllers'.
-        middleware : str or Path, optional
-            Directory for HTTP middleware classes. Defaults to 'app/http/middleware'.
-        requests : str or Path, optional
-            Directory for HTTP request classes. Defaults to 'app/http/requests'.
-        models : str or Path, optional
-            Directory for data model classes. Defaults to 'app/models'.
-        providers : str or Path, optional
-            Directory for service provider classes. Defaults to 'app/providers'.
-        events : str or Path, optional
-            Directory for event classes. Defaults to 'app/events'.
-        listeners : str or Path, optional
-            Directory for event listener classes. Defaults to 'app/listeners'.
-        notifications : str or Path, optional
-            Directory for notification classes. Defaults to 'app/notifications'.
-        jobs : str or Path, optional
-            Directory for queue job classes. Defaults to 'app/jobs'.
-        policies : str or Path, optional
-            Directory for authorization policy classes. Defaults to 'app/policies'.
-        exceptions : str or Path, optional
-            Directory for custom exception classes. Defaults to 'app/exceptions'.
-        services : str or Path, optional
-            Directory for application service classes. Defaults to 'app/services'.
-        views : str or Path, optional
-            Directory for view templates. Defaults to 'resources/views'.
-        lang : str or Path, optional
-            Directory for language files. Defaults to 'resources/lang'.
-        assets : str or Path, optional
-            Directory for asset files. Defaults to 'resources/assets'.
-        routes : str or Path, optional
-            Directory for route definitions. Defaults to 'routes'.
-        config : str or Path, optional
-            Directory for configuration files. Defaults to 'config'.
-        migrations : str or Path, optional
-            Directory for database migration files. Defaults to 'database/migrations'.
-        seeders : str or Path, optional
-            Directory for database seeder files. Defaults to 'database/seeders'.
-        factories : str or Path, optional
-            Directory for model factory files. Defaults to 'database/factories'.
-        logs : str or Path, optional
-            Directory for log file storage. Defaults to 'storage/logs'.
-        sessions : str or Path, optional
-            Directory for session file storage. Defaults to 'storage/framework/sessions'.
-        cache : str or Path, optional
-            Directory for cache file storage. Defaults to 'storage/framework/cache'.
-        testing : str or Path, optional
-            Directory for testing file storage. Defaults to 'storage/framework/testing'.
-
-        Returns
-        -------
-        Application
-            Returns the current Application instance to enable method chaining.
-
-        Notes
-        -----
-        All path parameters accept either string or Path objects and are automatically
-        resolved to absolute paths relative to the current working directory. The
-        resolved paths are stored as strings in the internal configuration dictionary.
-        """
-
-        # Prepare and store all resolved paths as strings in the configurators dictionary
-        # Ensure 'paths' exists in configurators
-        self.__configurators['path'] = {
-            'root' : self.__bootstrap_base_path or str(Path.cwd().resolve()),
-            'console' : str(console),
-            'controllers' : str(controllers),
-            'middleware' : str(middleware),
-            'requests' : str(requests),
-            'models' : str(models),
-            'providers' : str(providers),
-            'events' : str(events),
-            'listeners' : str(listeners),
-            'notifications' : str(notifications),
-            'jobs' : str(jobs),
-            'policies' : str(policies),
-            'exceptions' : str(exceptions),
-            'services' : str(services),
-            'views' : str(views),
-            'lang' : str(lang),
-            'assets' : str(assets),
-            'routes' : str(routes),
-            'config' : str(config),
-            'migrations' : str(migrations),
-            'seeders' : str(seeders),
-            'factories' : str(factories),
-            'logs' : str(logs),
-            'sessions' : str(sessions),
-            'cache' : str(cache),
-            'testing' : str(testing),
-            'storage' : str(storage),
-            'tests' : str(tests)
-        }
-
-        # Return self instance for method chaining
-        return self
-
-    def loadPaths(
-        self,
-        paths: Paths | dict
-    ) -> 'Application':
-        """
-        Load and store path configuration from a Paths instance or dictionary.
-
-        This method validates and stores the application path configuration in the
-        internal configurators storage. If a dictionary is provided, it will be
-        converted to a Paths instance before storage.
-
-        Parameters
-        ----------
-        paths : Paths or dict
-            The path configuration as either a Paths instance or a dictionary
-            containing path parameters that can be used to construct a Paths instance.
-
-        Returns
-        -------
-        Application
-            The current application instance to enable method chaining.
-
-        Raises
-        ------
-        OrionisTypeError
-            If the paths parameter is not an instance of Paths or a dictionary.
-
-        Notes
-        -----
-        Dictionary inputs are automatically converted to Paths instances using
-        the dictionary unpacking operator (**paths). This method is used internally
-        by withConfigurators() and can be called directly for path configuration.
-        """
-
-        # Validate paths type
-        if not isinstance(paths, (Paths, dict)):
-            raise OrionisTypeError(f"Expected Paths instance or dict, got {type(paths).__name__}")
-
-        # Always ensure 'root' path is set
-        base_path = {'root': self.__bootstrap_base_path or str(Path.cwd().resolve())}
-
-        # If paths is a dict, convert it to Paths instance
-        if isinstance(paths, dict):
-            paths.update(base_path)
-            paths = Paths(**paths).toDict()
-        elif isinstance(paths, Paths):
-            paths = paths.toDict()
-            paths.update(base_path)
-
-        # Store the configuration
-        self.__configurators['path'] = paths
-
-        # Return the application instance for method chaining
-        return self
-
-    def setBasePath(
-        self,
-        basePath: Path
-    ) -> 'Application':
-        """
-        Set the base path for the application.
-
-        This method allows setting the base path of the application, which is
-        used as the root directory for all relative paths in the application.
-        The provided basePath must be a Path object.
-
-        Parameters
-        ----------
-        basePath : Path
-            The base path to set for the application. It must be a Path object.
-
-        Returns
-        -------
-        Application
-            The current application instance to enable method chaining.
-
-        Raises
-        ------
-        OrionisTypeError
-            If basePath is not a Path instance.
-        """
-
-        # If basePath is a string, convert to Path
-        if isinstance(basePath, str):
-            basePath = Path(basePath)
-
-        if not isinstance(basePath, Path):
-            raise OrionisTypeError("basePath must be a Path object or a string convertible to Path.")
-
-        # Resolve and store the base path as a string
-        self.__bootstrap_base_path = str(basePath.resolve())
-
-        # Return self instance for method chaining
-        return self
-
-    def getBasePath(
-        self
-    ) -> Path:
-        """
-        Get the base path of the application.
-
-        This method returns the base path that was previously set using setBasePath().
-        If no base path has been set, it returns the current working directory as a Path object.
-
-        Returns
-        -------
-        Path
-            The base path of the application as a Path object.
-        """
-
-        # Always return a Path object
-        if self.__bootstrap_base_path:
-            return Path(self.__bootstrap_base_path)
-        return Path.cwd().resolve()
-
     def setConfigQueue(
         self,
         **queue_config
@@ -1944,6 +1690,129 @@ class Application(Container, IApplication):
         # Return the application instance for method chaining
         return self
 
+    def setConfigPaths(
+        self,
+        *,
+        root: str | Path = str(Path.cwd().resolve()),
+        app: str | Path = str((Path.cwd() / 'app').resolve()),
+        console: str | Path = str((Path.cwd() / 'app' / 'console').resolve()),
+        exceptions: str | Path = str((Path.cwd() / 'app' / 'exceptions').resolve()),
+        http: str | Path = str((Path.cwd() / 'app' / 'http').resolve()),
+        models: str | Path = str((Path.cwd() / 'app' / 'models').resolve()),
+        providers: str | Path = str((Path.cwd() / 'app' / 'providers').resolve()),
+        notifications: str | Path = str((Path.cwd() / 'app' / 'notifications').resolve()),
+        services: str | Path = str((Path.cwd() / 'app' / 'services').resolve()),
+        jobs: str | Path = str((Path.cwd() / 'app' / 'jobs').resolve()),
+        bootstrap: str | Path = str((Path.cwd() / 'app' / 'bootstrap').resolve()),
+        config: str | Path = str((Path.cwd() / 'config').resolve()),
+        database: str | Path = str((Path.cwd() / 'database' / 'database').resolve()),
+        resources: str | Path = str((Path.cwd() / 'resources').resolve()),
+        routes: str | Path = str((Path.cwd() / 'routes').resolve()),
+        storage: str | Path = str((Path.cwd() / 'storage').resolve()),
+        tests: str | Path = str((Path.cwd() / 'tests').resolve())
+    ) -> 'Application':
+        """
+        Set and resolve application directory paths using keyword arguments.
+
+        Only the following options are available:
+        - root
+        - app
+        - console
+        - exceptions
+        - http
+        - models
+        - providers
+        - notifications
+        - services
+        - jobs
+        - bootstrap
+        - config
+        - database
+        - resources
+        - routes
+        - storage
+        - tests
+
+        All provided paths are resolved to absolute paths and stored as strings in the configuration dictionary.
+
+        Returns
+        -------
+        Application
+            Returns the current Application instance to enable method chaining.
+        """
+
+        self.__configurators['path'] = {
+            'root': str(root),
+            'app': str(app),
+            'console': str(console),
+            'exceptions': str(exceptions),
+            'http': str(http),
+            'models': str(models),
+            'providers': str(providers),
+            'notifications': str(notifications),
+            'services': str(services),
+            'jobs': str(jobs),
+            'bootstrap': str(bootstrap),
+            'config': str(config),
+            'database': str(database),
+            'resources': str(resources),
+            'routes': str(routes),
+            'storage': str(storage),
+            'tests': str(tests)
+        }
+
+        return self
+
+    def loadConfigPaths(
+        self,
+        paths: Paths | dict
+    ) -> 'Application':
+        """
+        Load and store path configuration from a Paths instance or dictionary.
+
+        This method validates and stores the application path configuration in the
+        internal configurators storage. If a dictionary is provided, it will be
+        converted to a Paths instance before storage.
+
+        Parameters
+        ----------
+        paths : Paths or dict
+            The path configuration as either a Paths instance or a dictionary
+            containing path parameters that can be used to construct a Paths instance.
+
+        Returns
+        -------
+        Application
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the paths parameter is not an instance of Paths or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Paths instances using
+        the dictionary unpacking operator (**paths). This method is used internally
+        by withConfigurators() and can be called directly for path configuration.
+        """
+
+        # Validate paths type
+        if not isinstance(paths, (Paths, dict)):
+            raise OrionisTypeError(f"Expected Paths instance or dict, got {type(paths).__name__}")
+
+        # If paths is a dict, convert it to Paths instance
+        if isinstance(paths, dict):
+            paths = Paths(**paths).toDict()
+        elif isinstance(paths, Paths):
+            paths = paths.toDict()
+
+        # Store the configuration
+        self.__configurators['path'] = paths
+
+        # Return the application instance for method chaining
+        return self
+
     def __loadConfig(
         self,
     ) -> None:
@@ -2000,86 +1869,85 @@ class Application(Container, IApplication):
 
     def config(
         self,
-        key: str = None,
-        default: Any = None
+        key: str = None
     ) -> Any:
         """
         Retrieve application configuration values using dot notation.
 
-        This method provides access to the application's configuration settings
-        with support for nested value retrieval using dot notation. It can return
-        either a specific configuration value or the entire configuration dictionary.
+        This method provides access to the application's configuration settings,
+        supporting retrieval of nested values using dot notation (e.g., "database.default").
+        If a key is provided, the method returns the corresponding configuration value.
+        If no key is provided, it returns the entire configuration dictionary, excluding
+        path-related configuration (which should be accessed via the `path()` method).
 
         Parameters
         ----------
         key : str, optional
             The configuration key to retrieve, supporting dot notation for nested
-            values (e.g., "database.default", "app.name"). If None, returns the
-            entire configuration dictionary excluding path configuration. Default is None.
-        default : Any, optional
-            The value to return if the specified key is not found in the configuration.
+            values (e.g., "database.default", "app.name"). If None, the method returns
+            the entire configuration dictionary except for the 'path' configuration.
             Default is None.
 
         Returns
         -------
         Any
-            The configuration value associated with the given key, the entire
-            configuration dictionary (excluding paths) if key is None, or the
-            default value if the key is not found.
+            If `key` is provided and found, returns the corresponding configuration value.
+            If `key` is None, returns the entire configuration dictionary (excluding 'path').
+            If the key is not found, returns None.
 
         Raises
         ------
         OrionisRuntimeError
-            If the application configuration has not been initialized. This occurs
-            when config() is called before create().
+            If the application configuration has not been initialized (i.e., if `create()`
+            has not been called before accessing configuration).
         OrionisValueError
-            If the provided key parameter is not a string type.
+            If the provided `key` parameter is not a string type.
 
         Notes
         -----
         The method traverses nested configuration structures by splitting the key
         on dots and navigating through dictionary levels. Path configurations are
         excluded from full configuration returns and should be accessed via the
-        path() method instead.
+        `path()` method instead.
         """
 
-        # Create a local copy of the configuration to avoid mutation
+        # Create a local copy of the configuration to avoid mutating the original
         local_config = self.__config.copy()
 
-        # Remove 'path' from local copy to prevent mutation
+        # Remove 'path' from the local copy to ensure path config is not returned here
         if 'path' in local_config:
             del local_config['path']
 
         # Ensure the application is booted before accessing configuration
         if not local_config:
-            raise OrionisRuntimeError("Application configuration is not initialized. Please call create() before accessing configuration.")
+            raise OrionisRuntimeError(
+                "Application configuration is not initialized. Please call create() before accessing configuration."
+            )
 
-        # Return the entire configuration if key is None, except for paths
+        # If no key is provided, return the entire configuration (excluding 'path')
         if key is None:
             return local_config
 
-        # If key is None, raise an error to prevent ambiguity
+        # Ensure the key is a string
         if not isinstance(key, str):
-            raise OrionisValueError("Key must be a string. Use config() without arguments to retrieve the entire configuration.")
+            raise OrionisValueError(
+                "Key must be a string. Use config() without arguments to retrieve the entire configuration."
+            )
 
-        # Split the key by dot notation
+        # Split the key by dot notation to support nested access
         parts = key.split('.')
 
-        # Start with the full config
+        # Start with the full config and traverse according to the key parts
         config_value = local_config
-
-        # Traverse the config dictionary based on the key parts
         for part in parts:
-
-            # If part is not in config_value, return default
+            # If the part exists in the current config_value, go deeper
             if isinstance(config_value, dict) and part in config_value:
                 config_value = config_value[part]
-
-            # If part is not found, return default value
             else:
-                return default
+                # If any part is missing, return None
+                return None
 
-        # Return the final configuration value
+        # Return the final configuration value found
         return config_value
 
     # === Path Configuration Access Method ===
@@ -2089,49 +1957,38 @@ class Application(Container, IApplication):
 
     def path(
         self,
-        key: str = None,
-        default: Any = None
+        key: str = None
     ) -> Path | dict:
         """
         Retrieve application path configuration values using dot notation.
 
-        This method provides access to the application's path configuration settings,
-        supporting retrieval of either a specific path value or the entire paths
-        configuration dictionary. If a key is provided, it returns the corresponding
-        path as a `Path` object. If no key is provided, it returns a dictionary
-        mapping all path configuration keys to their resolved `Path` objects.
+        Provides access to the application's path configuration, allowing retrieval of either a specific path value or the entire paths configuration dictionary. If a key is provided, the corresponding path is returned as a `Path` object. If no key is provided, a dictionary mapping all path configuration keys to their resolved `Path` objects is returned.
 
         Parameters
         ----------
         key : str, optional
-            Dot-notated key specifying the path configuration to retrieve (e.g.,
-            "console", "storage.logs"). If None, returns the entire paths
-            configuration dictionary. Default is None.
-        default : Any, optional
-            Value to return if the specified key is not found in the path
-            configuration. Default is None.
+            Dot-notated key specifying the path configuration to retrieve (e.g., "console", "storage.logs").
+            If None, returns the entire paths configuration dictionary. Default is None.
 
         Returns
         -------
         Path or dict
             If `key` is provided and found, returns the resolved `Path` object for that key.
             If `key` is None, returns a dictionary mapping all path keys to their `Path` objects.
-            If `key` is not found, returns `default` if specified, otherwise `None`.
+            If `key` is not found, returns None.
 
         Raises
         ------
         OrionisRuntimeError
-            If the application configuration has not been initialized. This occurs
-            when `path()` is called before `create()`.
+            If the application configuration has not been initialized (i.e., if `create()` has not been called).
         OrionisValueError
-            If the provided `key` parameter is not a string type.
+            If the provided `key` parameter is not a string.
 
         Notes
         -----
-        The method traverses the paths configuration structure by splitting the key
-        on dots and navigating through dictionary levels. This method is specifically
-        designed for path-related configuration access, separate from general
-        application configuration.
+        - The method traverses the paths configuration structure by splitting the key on dots and navigating through dictionary levels.
+        - This method is specifically designed for path-related configuration access, separate from general application configuration.
+        - All returned paths are resolved as `Path` objects for consistency and ease of use.
         """
 
         # Create a local copy of the path configuration to avoid mutation
@@ -2161,8 +2018,8 @@ class Application(Container, IApplication):
         if key in local_path_config:
             return Path(local_path_config[key])
 
-        # If the key is not found, return the default value (if provided), else None
-        return default if default is not None else None
+        # If the key is not found, return None
+        return None
 
     # === Application Creation Method ===
     # The create() method is responsible for bootstrapping the application.
@@ -2203,7 +2060,12 @@ class Application(Container, IApplication):
         if not self.__booted:
 
             # Register the application instance in the container
-            self.instance(IApplication, self, alias=f"x-{IApplication.__module__}.{IApplication.__name__}", enforce_decoupling='x-orionis')
+            self.instance(
+                IApplication,
+                self,
+                alias=f"x-{IApplication.__module__}.{IApplication.__name__}",
+                enforce_decoupling=None
+            )
 
             # Load configuration if not already set
             self.__loadConfig()
@@ -2212,6 +2074,9 @@ class Application(Container, IApplication):
             self.__loadFrameworkProviders()
             self.__registerProviders()
             self.__bootProviders()
+
+            # Mark as booted
+            self.__booted = True
 
             # Load core framework kernels
             self.__loadFrameworksKernel()
@@ -2227,9 +2092,6 @@ class Application(Container, IApplication):
 
             # Log message to the logger
             logger.info(boot_message)
-
-            # Mark as booted
-            self.__booted = True
 
         # Return the application instance for method chaining
         return self

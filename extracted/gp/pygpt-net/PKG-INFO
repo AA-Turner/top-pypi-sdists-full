@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.31
+Version: 2.6.32
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -30,6 +30,7 @@ Requires-Dist: beautifulsoup4 (>=4.13.5,<5.0.0)
 Requires-Dist: boto3 (>=1.40.17,<2.0.0)
 Requires-Dist: chromadb (>=0.5.20,<0.6.0)
 Requires-Dist: croniter (>=2.0.7,<3.0.0)
+Requires-Dist: ddgs (>=9.5.5,<10.0.0)
 Requires-Dist: docker (>=7.1.0,<8.0.0)
 Requires-Dist: docx2txt (>=0.8,<0.9)
 Requires-Dist: gkeepapi (>=0.15.1,<0.16.0)
@@ -117,7 +118,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.31** | build: **2025-09-01** | Python: **>=3.10, <3.14**
+Release: **2.6.32** | build: **2025-09-02** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -129,9 +130,9 @@ Release: **2.6.31** | build: **2025-09-01** | Python: **>=3.10, <3.14**
 
 ## Overview
 
-**PyGPT** is **all-in-one** Desktop AI Assistant that provides direct interaction with OpenAI language models, including `GPT-5`, `GPT-4`, `o1`, `o3` and more, through the `OpenAI API`. By utilizing `LlamaIndex`, the application also supports alternative LLMs, like those available on `HuggingFace`, locally available models via `Ollama` (like `gpt-oss`, `Llama 3`,`Mistral`, `DeepSeek V3/R1` or `Bielik`), and other models like `Google Gemini`, `Anthropic Claude`, `Perplexity / Sonar`, and `xAI Grok`.
+**PyGPT** is **all-in-one** Desktop AI Assistant that provides direct interaction with OpenAI language models, including `GPT-5`, `GPT-4`, `o1`, `o3` and more, through the `OpenAI API`. By utilizing other SDKs and `LlamaIndex`, the application also supports alternative LLMs, like those available on `HuggingFace`, locally available models via `Ollama` (like `gpt-oss`, `Llama 3`,`Mistral`, `DeepSeek V3/R1` or `Bielik`), and other models like `Google Gemini`, `Anthropic Claude`, `Perplexity / Sonar`, and `xAI Grok`.
 
-This assistant offers multiple modes of operation such as chat, assistants, agents, completions, and image-related tasks like image generation and image analysis. **PyGPT** has filesystem capabilities for file I/O, can generate and run Python code, execute system commands, execute custom commands and manage file transfers. It also allows models to perform web searches with the `Google` and `Microsoft Bing`.
+This assistant offers multiple modes of operation such as chat, assistants, agents, completions, and image-related tasks like image generation and image analysis. **PyGPT** has filesystem capabilities for file I/O, can generate and run Python code, execute system commands, execute custom commands and manage file transfers. It also allows models to perform web searches with the `DuckDuckGo`, `Google` and `Microsoft Bing`.
 
 For audio interactions, **PyGPT** includes speech synthesis using the `Microsoft Azure`, `Google`, `Eleven Labs` and `OpenAI` Text-To-Speech services. Additionally, it features speech recognition capabilities provided by `OpenAI Whisper`, `Google` and `Bing` enabling the application to understand spoken commands and transcribe audio inputs into text. It features context memory with save and load functionality, enabling users to resume interactions from predefined points in the conversation. Prompt creation and management are streamlined through an intuitive preset system.
 
@@ -157,13 +158,13 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 
 - Desktop AI Assistant for `Linux`, `Windows` and `Mac`, written in Python.
 - Works similarly to `ChatGPT`, but locally (on a desktop computer).
-- 11 modes of operation: Chat, Chat with Files, Realtime + audio, Research (Perplexity), Completion, Image generation, Assistants, Experts, Computer use, Agents and Autonomous Mode.
+- 11 modes of operation: Chat, Chat with Files, Realtime + audio, Research (Perplexity), Completion, Image and video generation, Assistants, Experts, Computer use, Agents and Autonomous Mode.
 - Supports multiple models like `OpenAI GPT-5`, `GPT-4`, `o1`, `o3`, `o4`, `Google Gemini`, `Anthropic Claude`, `xAI Grok`, `DeepSeek V3/R1`, `Perplexity / Sonar`, and any model accessible through `LlamaIndex` and `Ollama` such as `DeepSeek`, `gpt-oss`, `Llama 3`, `Mistral`, `Bielik`, etc.
 - Chat with your own Files: integrated `LlamaIndex` support: chat with data such as: `txt`, `pdf`, `csv`, `html`, `md`, `docx`, `json`, `epub`, `xlsx`, `xml`, webpages, `Google`, `GitHub`, video/audio, images and other data types, or use conversation history as additional context provided to the model.
 - Built-in vector databases support and automated files and data embedding.
 - Included support features for individuals with disabilities: customizable keyboard shortcuts, voice control, and translation of on-screen actions into audio via speech synthesis.
 - Handles and stores the full context of conversations (short and long-term memory).
-- Internet access via `Google` and `Microsoft Bing`.
+- Internet access via `DuckDuckGo`, `Google` and `Microsoft Bing`.
 - Speech synthesis via `Microsoft Azure`, `Google`, `Eleven Labs` and `OpenAI` Text-To-Speech services.
 - Speech recognition via `OpenAI Whisper`, `Google` and `Microsoft Speech Recognition`.
 - Real-time video camera capture in Vision mode.
@@ -544,7 +545,7 @@ With this plugin, you can capture an image with your camera or attach an image a
 
 ![v3_vision_chat](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_vision_chat.png)
 
-**Image generation:** If you want to generate images (using DALL-E) directly in chat you must enable plugin `Image generation (inline)` in the Plugins menu.
+**Image generation:** If you want to generate images directly in chat you must enable plugin `Image generation (inline)` in the Plugins menu.
 Plugin allows you to generate images in Chat mode:
 
 ![v3_img_chat](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_img_chat.png)
@@ -688,7 +689,7 @@ Additionally, this mode offers options for labeling the AI and the user, making 
 
 From version `2.0.107` the `davinci` models are deprecated and has been replaced with `gpt-3.5-turbo-instruct` model in Completion mode.
 
-## Image generation
+## Image and video generation
 
 ### OpenAI DALL-E 3 / Google Imagen 3 and 4
 
@@ -703,6 +704,8 @@ If you want to generate images directly in chat you must enable plugin **Image g
 Plugin allows you to generate images in Chat mode:
 
 ![v3_img_chat](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v3_img_chat.png)
+
+**Video generation**: From version `2.6.32`, video generation (using `Google Veo 3`) is also available.
 
 ### Multiple variants
 
@@ -1225,6 +1228,8 @@ PyGPT has a preconfigured list of models (as of 2025-08-31):
 - `sonar-pro` (Perplexity)
 - `sonar-reasoning` (Perplexity)
 - `sonar-reasoning-pro` (Perplexity)
+- `veo-3.0-generate-preview` (Google)
+- `veo-3.0-fast-generate-preview` (Google)
 
 All models are specified in the configuration file `models.json`, which you can customize. 
 This file is located in your working directory. You can add new models provided directly by `OpenAI API` (or compatible) and those supported by `LlamaIndex` or `Ollama` to this file. Configuration for LlamaIndex is placed in `llama_index` key.
@@ -1242,20 +1247,20 @@ There is built-in support for those LLM providers:
 - `Anthropic`
 - `Azure OpenAI`
 - `Deepseek API`
-- `Google`
+- `Google` (native SDK)
 - `HuggingFace API`
 - `HuggingFace Router` (wrapper for OpenAI compatible ChatCompletions)
 - `Local models` (OpenAI API compatible)
 - `Mistral AI`
 - `Ollama`
-- `OpenAI`
+- `OpenAI` (native SDK)
 - `OpenRouter`
 - `Perplexity`
 - `xAI`
 
 ## How to use local or non-GPT models
 
-### Llama 3, Mistral, DeepSeek, and other local models
+### Llama 3, Mistral, DeepSeek, Qwen, gpt-oss, and other local models
 
 How to use locally installed Llama 3, DeepSeek, Mistral, etc. models:
 
@@ -3559,6 +3564,13 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.32 (2025-09-02)**
+
+- Added video generation and support for Google Veo 3 models.
+- Introduced new predefined models: veo-3.0-generate-preview and veo-3.0-fast-generate-preview.
+- Integrated DuckDuckGo as a search provider in the WebSearch plugin.
+- Added "Loop" mode to Realtime + audio mode for automatic turn handling and continuous conversation without manually enabling the microphone.
 
 **2.6.31 (2025-09-01)**
 

@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: django-feature-policy
+Version: 4.0.0
+Summary: django-feature-policy is now django-permissions-policy.
+Home-page: https://github.com/adamchainz/django-feature-policy-shim
+Author: Adam Johnson
+Author-email: me@adamj.eu
+License: UNKNOWN
+Description: =====================
+        django-feature-policy
+        =====================
+        
+        django-feature-policy is now `django-permissions-policy <https://pypi.org/project/django-permissions-policy/>`__.
+        
+        This package is now solely a shim to pull in the new name, and can be safely swapped for just ``django-permissions-policy`` in your dependencies.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 7 - Inactive
+Description-Content-Type: text/x-rst

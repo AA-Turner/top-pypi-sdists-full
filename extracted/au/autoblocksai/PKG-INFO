@@ -1,0 +1,85 @@
+Metadata-Version: 2.1
+Name: autoblocksai
+Version: 0.0.133
+Summary: Python client for Autoblocks
+Home-page: https://github.com/autoblocksai/python-sdk
+License: MIT
+Author: Autoblocks Engineering
+Author-email: engineering@autoblocks.ai
+Requires-Python: >=3.9.0,<4.0.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: click (>=8.0.0)
+Requires-Dist: cuid2 (>=2.0.0)
+Requires-Dist: httpx (>=0.24.0)
+Requires-Dist: opentelemetry-api (>=1.0.0)
+Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.0.0)
+Requires-Dist: opentelemetry-sdk (>=1.0.0)
+Requires-Dist: orjson (>=3.0.0)
+Requires-Dist: pydantic (>=2.11.7)
+Requires-Dist: pyyaml (>=6.0.0)
+Requires-Dist: tenacity (>=8.0.0)
+Project-URL: Documentation, https://docs.autoblocks.ai
+Project-URL: Repository, https://github.com/autoblocksai/python-sdk
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://app.autoblocks.ai/images/logo-white.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://app.autoblocks.ai/images/logo-black.png">
+    <img alt="Autoblocks Logo" width="300px" src="https://app.autoblocks.ai/images/logo-black.png">
+  </picture>
+</p>
+<p align="center">
+  📚
+  <a href="https://docs.autoblocks.ai/">Documentation</a>
+  &nbsp;
+  •
+  &nbsp;
+  🖥️
+  <a href="https://app.autoblocks.ai/">Application</a>
+  &nbsp;
+  •
+  &nbsp;
+  🏠
+  <a href="https://www.autoblocks.ai/">Home</a>
+</p>
+<p align="center">
+  <img src="assets/python-logo-only.png" width="64px">
+</p>
+<p align="center">
+  <a href="https://github.com/autoblocksai/python-sdk/actions/workflows/ci.yml">
+    <img src="https://github.com/autoblocksai/python-sdk/actions/workflows/ci.yml/badge.svg?branch=main">
+  </a>
+</p>
+
+## Installation
+
+```bash
+poetry add autoblocksai
+```
+
+```bash
+pip install autoblocksai
+```
+
+## Examples
+
+See our [Python](https://github.com/autoblocksai/autoblocks-examples#python) examples.
+
+## Documentation
+
+See [the full documentation](https://docs.autoblocks.ai).
+
+## Issues / Questions
+
+Please [open an issue](https://github.com/autoblocksai/python-sdk/issues/new) if you encounter any bugs, have any questions, or have any feature requests.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+

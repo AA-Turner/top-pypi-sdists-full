@@ -1,0 +1,22 @@
+extend = "ruff_defaults.toml"
+
+target-version = "py312"
+
+# https://github.com/astral-sh/ruff/issues/8627
+exclude = [".git", ".mypy_cache", ".ruff_cache", ".venv", "dist"]
+
+[format]
+preview = true
+
+[lint]
+preview = true
+ignore = [
+  # Allow lazy imports for responsive CLI
+  "PLC0415",
+]
+
+[lint.extend-per-file-ignores]
+"docs/.hooks/**/*" = ["INP001"]
+"release/**/*" = ["INP001"]
+# Saving the start time comes before imports
+"src/dda/cli/__init__.py" = ["E402"]

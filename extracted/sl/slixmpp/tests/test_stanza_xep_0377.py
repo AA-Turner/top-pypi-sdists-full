@@ -12,6 +12,11 @@ class TestSpamReporting(SlixTest):
         register_stanza_plugin(Iq, xep_0191.Block)
         register_stanza_plugin(
                 xep_0191.Block,
+                xep_0191.BlockItem,
+                iterable=True,
+        )
+        register_stanza_plugin(
+                xep_0191.BlockItem,
                 xep_0377.Report,
         )
         register_stanza_plugin(
@@ -23,14 +28,18 @@ class TestSpamReporting(SlixTest):
         report = """
           <iq type="set">
             <block xmlns="urn:xmpp:blocking">
-                <report xmlns="urn:xmpp:reporting:1" reason="urn:xmpp:reporting:spam"/>
+                <item jid="report@example.com">
+                    <report xmlns="urn:xmpp:reporting:1" reason="urn:xmpp:reporting:spam"/>
+                </item>
             </block>
           </iq>
         """
 
         iq = self.Iq()
         iq['type'] = 'set'
-        iq['block']['report']['reason'] = xep_0377.XEP_0377.SPAM
+        item = xep_0191.BlockItem(parent=iq['block'])
+        item['jid'] = 'report@example.com'
+        item['report']['reason'] = xep_0377.XEP_0377.SPAM
 
         self.check(iq, report, use_values=False)
 
@@ -38,15 +47,19 @@ class TestSpamReporting(SlixTest):
         report = """
           <iq type="set">
             <block xmlns="urn:xmpp:blocking">
-                <report xmlns="urn:xmpp:reporting:1" reason="urn:xmpp:reporting:abuse"/>
+                <item jid='report@example.com'>
+                    <report xmlns="urn:xmpp:reporting:1" reason="urn:xmpp:reporting:abuse"/>
+                </item>
             </block>
           </iq>
         """
 
         iq = self.Iq()
         iq['type'] = 'set'
-        iq['block']['report']['reason'] = xep_0377.XEP_0377.SPAM
-        iq['block']['report']['reason'] = xep_0377.XEP_0377.ABUSE
+        item = xep_0191.BlockItem(parent=iq['block'])
+        item['jid'] = 'report@example.com'
+        item['report']['reason'] = xep_0377.XEP_0377.SPAM
+        item['report']['reason'] = xep_0377.XEP_0377.ABUSE
         self.check(iq, report, use_values=False)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestSpamReporting)

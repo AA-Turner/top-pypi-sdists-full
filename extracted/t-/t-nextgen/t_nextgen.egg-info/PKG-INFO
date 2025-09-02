@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: t_nextgen
+Version: 0.4.14
+Summary: A Python library providing seamless methods to interact with NextGen application, enabling automation and integration for enhanced workflow efficiency
+Home-page: https://www.thoughtful.ai/
+Author: Thoughtful
+Author-email: support@thoughtful.ai
+Keywords: t_nextgen
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.9
+Requires-Dist: t_ocr==1.5.4
+Requires-Dist: t_desktop==0.1.1
+Requires-Dist: pillow==10.4.0
+Requires-Dist: pyautogui==0.9.54
+Requires-Dist: pydantic==2.8.2
+Requires-Dist: tenacity==8.2.2
+Requires-Dist: t-object<=0.1.13,>=0.1.8
+Requires-Dist: opencv-python<=4.12.0.88,>=4.10.0.84
+Requires-Dist: numpy==2.0.1
+Requires-Dist: pyautogui==0.9.54
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+======================
+t-nextgen
+======================
+
+A Python library providing seamless methods to interact with NextGen application, enabling automation and integration for enhanced workflow efficiency
+
+
+For detailed documentation, please visit our Notion page:
+`t-nextgen Documentation <https://www.notion.so/thoughtfulautomation/T-NextGen-Library-Documentation-15ef43a78fa48014bae8c0a5185d5b7c>`_
+

@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: pypjlink2
+Version: 1.2.2
+Summary: PJLink is a standard for controlling data projectors.
+Home-page: https://github.com/benoitlouy/pypjlink
+Author: Peter Ward <peteraward@gmail.com>, Gaetano Guerriero <gaetano.guerriero@spacespa.it>, Benoit Louy <pypjlink@mm.st>
+Author-email: pypjlink@mm.st
+License: UNKNOWN
+Description: # pypjlink2
+        
+        Implementation of the PJLink Class 1 protocol to control projectors.
+        
+        Fork of pypjlink which is no longer maintained, with support for Optoma projectors
+        
+        ## Usage
+        ```python
+        from pypjlink import Projector
+        
+        with Projector.from_address('projector_host') as projector:
+            projector.authenticate()
+            projector.set_power('on')
+        ```
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Topic :: Multimedia :: Video :: Display
+Classifier: Topic :: Utilities
+Description-Content-Type: text/markdown

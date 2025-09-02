@@ -7,11 +7,16 @@ import pytest
 from dbt.adapters.base import BaseRelation, Column
 from pytest_mock import MockerFixture
 
+from sqlglot import exp
+
+from sqlmesh import Context
 from sqlmesh.core.audit import StandaloneAudit
 from sqlmesh.core.config import Config, ModelDefaultsConfig
 from sqlmesh.core.dialect import jinja_query
 from sqlmesh.core.model import SqlModel
 from sqlmesh.core.model.kind import OnDestructiveChange, OnAdditiveChange
+from sqlmesh.dbt.builtin import Api
+from sqlmesh.dbt.column import ColumnConfig
 from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.context import DbtContext
 from sqlmesh.dbt.loader import sqlmesh_config
@@ -358,7 +363,7 @@ def test_variables(assert_exp_eq, sushi_test_project):
     # Finally, check that variable scoping & overwriting (some_var) works as expected
     expected_sushi_variables = {
         "yet_another_var": 1,
-        "top_waiters:limit": 10,
+        "top_waiters:limit": "{{ get_top_waiters_limit() }}",
         "top_waiters:revenue": "revenue",
         "customers:boo": ["a", "b"],
         "nested_vars": {
@@ -385,6 +390,11 @@ def test_variables(assert_exp_eq, sushi_test_project):
 
     assert sushi_test_project.packages["sushi"].variables == expected_sushi_variables
     assert sushi_test_project.packages["customers"].variables == expected_customer_variables
+
+
+@pytest.mark.slow
+def test_jinja_in_dbt_variables(sushi_test_dbt_context: Context):
+    assert sushi_test_dbt_context.render("sushi.top_waiters").sql().endswith("LIMIT 10")
 
 
 @pytest.mark.slow
@@ -1076,3 +1086,89 @@ def test_on_schema_change_properties(
 
     assert model.on_additive_change == expected_additive
     assert model.on_destructive_change == expected_destructive
+
+
+def test_sqlmesh_model_kwargs_columns_override():
+    context = DbtContext()
+    context.project_name = "Foo"
+    context.target = DuckDbConfig(name="target", schema="foo")
+
+    kwargs = ModelConfig(dialect="duckdb").sqlmesh_model_kwargs(
+        context,
+        {"c": ColumnConfig(name="c", data_type="uinteger")},
+    )
+    assert kwargs.get("columns") == {"c": exp.DataType.build(exp.DataType.Type.UINT)}
+
+
+@pytest.mark.parametrize(
+    "dialect",
+    [
+        "databricks",
+        "duckdb",
+        "postgres",
+        "redshift",
+        "snowflake",
+        "bigquery",
+        "trino",
+        "clickhouse",
+    ],
+)
+def test_api_class_loading(dialect: str):
+    Api(dialect)
+
+
+def test_empty_vars_config(tmp_path):
+    """Test that a dbt project can be loaded with an empty vars config."""
+    dbt_project_dir = tmp_path / "test_project"
+    dbt_project_dir.mkdir()
+
+    # Create a minimal dbt_project.yml with empty vars
+    dbt_project_yml = dbt_project_dir / "dbt_project.yml"
+    dbt_project_yml.write_text("""
+name: test_empty_vars
+
+version: "1.0.0"
+config-version: 2
+
+profile: test_empty_vars
+
+models:
+  +start: Jan 1 2022
+
+# Empty vars section - various ways to specify empty
+vars:
+    """)
+
+    # Create a minimal profiles.yml
+    profiles_yml = dbt_project_dir / "profiles.yml"
+    profiles_yml.write_text("""
+test_empty_vars:
+  outputs:
+    dev:
+      type: duckdb
+      schema: test
+  target: dev
+    """)
+
+    # Create a simple model
+    model = dbt_project_dir / "models" / "some_model.sql"
+    model.parent.mkdir(parents=True, exist_ok=True)
+    model.write_text("SELECT 1 as id")
+
+    # Load the project
+    from sqlmesh.dbt.context import DbtContext
+    from sqlmesh.dbt.project import Project
+    from sqlmesh.core.config import Config
+
+    context = DbtContext(project_root=dbt_project_dir, sqlmesh_config=Config())
+
+    # This should not raise an error even with empty vars
+    project = Project.load(context)
+
+    # Verify the project loaded successfully
+    assert project.packages["test_empty_vars"] is not None
+    assert project.packages["test_empty_vars"].name == "test_empty_vars"
+
+    # Verify the variables are empty (not causing any issues)
+    assert project.packages["test_empty_vars"].variables == {}
+    assert project.context.variables == {}

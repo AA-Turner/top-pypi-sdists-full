@@ -1,0 +1,46 @@
+Metadata-Version: 2.4
+Name: emmett-core
+Version: 1.3.9
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Dist: granian~=2.1 ; extra == 'granian'
+Requires-Dist: orjson~=3.10 ; extra == 'orjson'
+Requires-Dist: python-rapidjson~=1.20 ; extra == 'rapidjson'
+Requires-Dist: granian[reload]~=2.1 ; extra == 'reload'
+Requires-Dist: emmett-core[rapidjson,reload] ; extra == 'all'
+Provides-Extra: granian
+Provides-Extra: orjson
+Provides-Extra: rapidjson
+Provides-Extra: reload
+Provides-Extra: all
+License-File: LICENSE
+Summary: Emmett framework core libraries
+Keywords: web
+Home-Page: https://github.com/emmett-framework/core
+Author-email: Giovanni Barillari <g@baro.dev>
+License: BSD-3-Clause
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://emmett.sh
+Project-URL: Funding, https://github.com/sponsors/gi0baro
+Project-URL: Source, https://github.com/emmett-framework/core
+
+# Emmett-Core
+
+[Emmett framework](https://emmett.sh) core libraries.
+

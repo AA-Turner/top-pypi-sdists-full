@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "luftdaten"
+version = "0.7.4"
+description = "Python API for interacting with luftdaten.info"
+authors = ["Fabian Affolter <mail@fabian-affolter.ch>"]
+license = "MIT"
+homepage = "https://github.com/home-assistant-ecosystem/python-luftdaten"
+repository = "https://github.com/home-assistant-ecosystem/python-luftdaten"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Home Automation"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+httpx = ">=0.23,<1"
+
+[tool.poetry.dev-dependencies]
+black = "^22.8"
+pytest = "^6.2.5"
+isort = "^5.10.0"
+pytest-httpx = ">0.15,<1"
+pytest-asyncio = "^0.16.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

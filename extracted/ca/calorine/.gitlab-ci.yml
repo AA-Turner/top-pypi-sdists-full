@@ -1,0 +1,251 @@
+stages:
+  - build
+  - test
+  - deploy
+  - scheduled
+
+
+# Avoid duplicate pipelines: skip push pipelines when an MR exists; otherwise allow all
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - when: always
+
+variables:
+  INSTDIR_LINUX: "local_installation_linux"
+  STABLE_IMAGE: "registry.gitlab.com/materials-modeling/calorine/cicd"
+  SCHEDULED_IMAGE: "registry.gitlab.com/materials-modeling/calorine/scheduled"
+
+before_script:
+  - export PYTHONPATH=$PWD/$INSTDIR_LINUX:${PYTHONPATH}
+
+#------------------- build stage -------------------
+
+.build:
+  script:
+    - pip3 install --target=$INSTDIR_LINUX .
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - local_installation_linux/
+  tags:
+    - linux
+
+build:linux:
+  stage: build
+  extends: .build
+  image: $STABLE_IMAGE
+
+#------------------- test stage -------------------
+
+style_check:
+  stage: test
+  image: $STABLE_IMAGE
+  tags:
+    - linux
+  script:
+    - flake8 calorine/ tests/ doc/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "schedule"'
+      when: always
+    - when: never
+
+
+.basic_tests:
+  stage: test
+  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+  script:
+    #- xdoctest calorine   # commented out until we have fixed the doctests
+    - coverage run -m pytest --verbose --junitxml=report.xml tests/
+    - coverage report -m
+    - coverage html
+
+basic_tests:linux:
+  image: $STABLE_IMAGE
+  extends: .basic_tests
+  needs:
+    - build:linux
+  tags:
+    - linux
+    - GPU
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - htmlcov/
+    reports:
+      junit: report.xml
+
+.test_tutorials:
+  image: $STABLE_IMAGE
+  stage: test
+  tags:
+    - linux
+    - GPU
+  needs:
+    - build:linux
+  script:
+    - cd tutorials
+    - pytest --nbmake --nbmake-timeout=3600 $(find . -name '*.ipynb' | grep -v thermal_conductivity_from_bte)
+
+test_tutorials:manual:
+  image: $STABLE_IMAGE
+  extends: .test_tutorials
+  when: manual
+
+test_tutorials:schedules:
+  extends: .test_tutorials
+  allow_failure: true
+  only:
+   - schedules
+
+test_documentation:
+  image: $STABLE_IMAGE
+  stage: test
+  tags:
+    - linux
+    - GPU
+  needs:
+    - build:linux
+  except:
+    - master
+  artifacts:
+    expire_in: 1 days
+    paths:
+      - public
+  script:
+    - sphinx-build -W doc/ public/
+    - ls -l public/
+
+
+#------------------- deploy stage -------------------
+
+pages:
+  image: $STABLE_IMAGE
+  stage: deploy
+  tags:
+    - linux
+  script:
+    # prepare homepage
+    - mkdir -p public/dev
+    # --------------------------
+    # DEVELOPMENT VERSION
+    - tag=$(git describe | tail -1)
+    - echo "tag= $tag"
+    # code coverage report
+    - cp -dr htmlcov/ public/dev/coverage/
+    # build user guide
+    - sphinx-build -W doc/ public/dev/
+    # --------------------------
+    # STABLE VERSION
+    - git checkout -- doc/conf.py
+    - tag=$(git tag | tail -1)
+    - echo "tag= $tag"
+    - git checkout $tag
+    # reinstall to make sure we are referring to the correct version
+    - rm -fr $INSTDIR_LINUX
+    - pip3 install --target=$INSTDIR_LINUX .
+    # code coverage report
+    - cp -dr htmlcov/ public/coverage/
+    # build user guide
+    - sphinx-build -W doc/ public/
+    # --------------------------
+    # clean up
+    - ls -l public/
+    - chmod go-rwX -R public/
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - public
+  only:
+    - master
+    - tags
+
+pypi:
+  image: $STABLE_IMAGE
+  stage: deploy
+  tags:
+    - linux
+  only:
+    - tags
+  except:
+    - schedules
+  when: manual
+  environment:
+      name: pypi-upload
+  script:
+    # check out the latest tag (redundant if job is limited to tags; still a sensible precaution)
+    - tag=$(git tag | tail -1)
+    - echo "tag= $tag"
+    - git checkout $tag
+    # create source distribution and push to PyPI
+    - python3 setup.py sdist
+    - ls -l dist/
+    - twine check dist/*
+    - twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
+
+
+
+#------------------- scheduled jobs -------------------
+
+.scheduled-job:
+  image: $SCHEDULED_IMAGE
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+    - when: manual
+      allow_failure: true
+
+scheduled:build-gpumd:
+  stage: scheduled
+  image: docker:24.0.2
+  variables:
+    DOCKER_DRIVER: overlay2
+    # Create the certificates inside this directory for both the server
+    # and client. The certificates used by the client will be created in
+    # /certs/client so we only need to share this directory with the
+    # volume mount in `config.toml`.
+    # Note that this job needs to be run on the shared gitlab runners,
+    # as our local gitlab runners are not privileged.
+    DOCKER_TLS_CERTDIR: "/certs"
+  services:
+    - docker:24.0.2-dind
+  tags:
+    # 2 vCPUs, 8GB RAM, 30GB storage
+    - saas-linux-small-amd64
+  extends: 
+    - .scheduled-job
+  script:
+    - echo "Logging in to GitLab Container Registry..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    
+    - echo "Building Docker image with latest packages..."
+    - docker build --pull -t "$SCHEDULED_IMAGE:latest" -f Dockerfile.scheduled .
+    
+    - echo "Pushing image to registry..."
+    - docker push "$SCHEDULED_IMAGE:latest"
+
+scheduled:build: 
+  stage: scheduled
+  needs:
+    - scheduled:build-gpumd
+  extends: 
+    - .scheduled-job
+    - .build
+
+scheduled:basic_tests:linux:
+  stage: scheduled
+  extends: 
+    - .scheduled-job
+    - .basic_tests
+  needs:
+    - scheduled:build
+  tags:
+    - linux
+    - GPU
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - htmlcov/
+    reports:
+      junit: report.xml

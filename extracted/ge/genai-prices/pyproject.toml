@@ -1,0 +1,50 @@
+[build-system]
+requires = ["uv_build>=0.8.10"]
+build-backend = "uv_build"
+
+[project]
+name = "genai-prices"
+version = "0.0.25"
+description = "Calculate prices for calling LLM inference APIs."
+readme = "README.md"
+authors = [{ name = "Samuel Colvin", email = "samuel@pydantic.dev" }]
+requires-python = ">=3.9"
+license = "MIT"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+]
+dependencies = [
+    "eval-type-backport>=0.2; python_version < '3.11'",
+    "httpx>=0.28.1",
+    "pydantic>=2.11.7",
+]
+
+[project.scripts]
+genai-prices = "genai_prices._cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/pydantic/genai-prices"
+Source = "https://github.com/pydantic/genai-prices"
+Changelog = "https://github.com/pydantic/genai-prices/releases"
+
+[tool.uv.build-backend]
+module-name = "genai_prices"
+module-root = ""

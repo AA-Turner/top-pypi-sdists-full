@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: brottsplatskartan
+Version: 1.0.5
+Summary: Simple API wrapper to brottsplatskartan.se.
+Home-page: https://github.com/chrillux/brottsplatskartan
+Author: chrillux
+Author-email: christianbiamont@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3

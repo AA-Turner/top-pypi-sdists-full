@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: airthings_cloud
+Version: 0.2.0
+Summary: A python3 library to communicate with Airthings devices
+Home-page: https://github.com/Danielhiversen/pyAirthings
+Author: Daniel Hjelseth Høyer
+Author-email: github@dahoiv.net
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7.0
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.0.6
+Requires-Dist: async_timeout>=3.0.0

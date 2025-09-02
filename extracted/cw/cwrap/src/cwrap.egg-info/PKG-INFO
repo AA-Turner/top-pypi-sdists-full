@@ -1,0 +1,45 @@
+Metadata-Version: 2.2
+Name: cwrap
+Version: 1.6.9
+Summary: cwrap - ctypes blanket
+Author-email: Equinor ASA <fg_sib-scout@equinor.com>
+License: GPL-3.0
+Project-URL: Repository, https://github.com/equinor/cwrap
+Platform: all
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# cwrap
+
+cwrap is a Python wrapper around C code, building upon ctypes.
+
+# Examples
+
+See `examples/`
+
+# Installing
+```
+pip install cwrap
+```
+
+# Running tests
+Clone this repo and cd into it, then:
+
+```
+pip install -r requirements.txt
+python -m pytest -sv tests
+```

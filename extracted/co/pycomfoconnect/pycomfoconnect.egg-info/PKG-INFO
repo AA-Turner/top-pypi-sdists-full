@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: pycomfoconnect
+Version: 0.5.1
+Summary: Python interface for the Zehnder ComfoConnect LAN C bridge.
+Home-page: https://github.com/michaelarnauts/comfoconnect
+Author: Michaël Arnauts
+Author-email: michael.arnauts@gmail.com
+License: MIT
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+
+pycomfoconnect
+==============
+
+A Python library to interface with the Zehnder ComfoConnect LAN C bridge that is connected to the Zehnder ComfoAir Q350/450/600 ventilation units.
+
+Installation
+------------
+
+::
+
+    pip3 install pycomfoconnect
+
+

@@ -167,6 +167,8 @@ class Iq(RootStanza):
                             response before raising an IqTimeout
         :rtype: asyncio.Future
         """
+        if timeout is not None and not isinstance(timeout, (float, int)):
+            raise TypeError(f'Wrong type for "timeout" parameter: {type(timeout)}')
         if self.stream.session_bind_event.is_set():
             matcher = MatchIDSender({
                 'id': self['id'],

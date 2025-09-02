@@ -33,6 +33,7 @@ from docling_core.types.doc.document import (  # BoundingBox,
     PictureItem,
     ProvenanceItem,
     RefItem,
+    RichTableCell,
     Script,
     SectionHeaderItem,
     Size,
@@ -2092,3 +2093,215 @@ def test_group_without_children():
     bad_doc.add_group()
     with pytest.raises(ValueError):
         bad_doc._validate_rules()
+
+
+def _construct_rich_table_doc():
+
+    doc = DoclingDocument(name="")
+    doc.add_text(label=DocItemLabel.TITLE, text="Rich tables")
+
+    table_item = doc.add_table(
+        data=TableData(
+            num_rows=4,
+            num_cols=2,
+        ),
+    )
+
+    rich_item_1 = doc.add_text(
+        parent=table_item,
+        text="text in italic",
+        label=DocItemLabel.TEXT,
+        formatting=Formatting(italic=True),
+    )
+
+    rich_item_2 = doc.add_list_group(parent=table_item)
+    doc.add_list_item(parent=rich_item_2, text="list item 1")
+    doc.add_list_item(parent=rich_item_2, text="list item 2")
+
+    rich_item_3 = doc.add_table(
+        data=TableData(num_rows=2, num_cols=3), parent=table_item
+    )
+    for i in range(rich_item_3.data.num_rows):
+        for j in range(rich_item_3.data.num_cols):
+            cell = TableCell(
+                text=f"inner cell {i},{j}",
+                start_row_offset_idx=i,
+                end_row_offset_idx=i + 1,
+                start_col_offset_idx=j,
+                end_col_offset_idx=j + 1,
+            )
+            doc.add_table_cell(table_item=rich_item_3, cell=cell)
+
+    for i in range(table_item.data.num_rows):
+        for j in range(table_item.data.num_cols):
+            if i == 1 and j == 1:
+                cell = RichTableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    ref=rich_item_1.get_ref(),
+                )
+            elif i == 2 and j == 0:
+                cell = RichTableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    ref=rich_item_2.get_ref(),
+                )
+            elif i == 3 and j == 1:
+                cell = RichTableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    ref=rich_item_3.get_ref(),
+                )
+            else:
+                cell = TableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    text=f"cell {i},{j}",
+                )
+            doc.add_table_cell(table_item=table_item, cell=cell)
+
+    return doc
+
+
+def test_rich_tables():
+    doc = _construct_rich_table_doc()
+
+    exp_file = Path("test/data/doc/rich_table.out.yaml")
+    if GEN_TEST_DATA:
+        doc.save_as_yaml(exp_file)
+
+    exp_doc = DoclingDocument.load_from_yaml(exp_file)
+    assert doc == exp_doc
+
+
+def test_doc_manipulation_with_rich_tables():
+    doc = _construct_rich_table_doc()
+
+    doc.delete_items(node_items=[doc.texts[0]])
+
+    exp_file = Path("test/data/doc/rich_table_post_text_del.out.yaml")
+    if GEN_TEST_DATA:
+        doc.save_as_yaml(exp_file)
+
+    exp_doc = DoclingDocument.load_from_yaml(exp_file)
+    assert doc == exp_doc
+
+
+def test_invalid_rich_table_doc():
+    doc = DoclingDocument(name="")
+    table_item = doc.add_table(data=TableData(num_rows=2, num_cols=2))
+    rich_item = doc.add_text(
+        text="rich item",
+        label=DocItemLabel.TEXT,
+        parent=doc.body,  # not the table item
+    )
+    for i in range(table_item.data.num_rows):
+        for j in range(table_item.data.num_cols):
+            if i == 1 and j == 1:
+                table_cell = RichTableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    ref=rich_item.get_ref(),
+                )
+
+                # ensure add_table_cell() raises:
+                with pytest.raises(ValueError):
+                    doc.add_table_cell(table_item=table_item, cell=table_cell)
+            else:
+                table_cell = TableCell(
+                    text=f"cell {i},{j}",
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                )
+
+            # discouraged but technically possible:
+            table_item.data.table_cells.append(table_cell)
+
+    # ensure validate_document() raises:
+    with pytest.raises(ValueError):
+        DoclingDocument.validate_document(doc)
+
+
+def test_rich_table_item_insertion_normalization():
+
+    doc = DoclingDocument(name="")
+    doc.add_text(label=DocItemLabel.TITLE, text="Rich tables")
+
+    table_item = doc.add_table(
+        data=TableData(
+            num_rows=4,
+            num_cols=2,
+        ),
+    )
+
+    rich_item = doc.add_text(
+        parent=table_item,
+        text="text in italic",
+        label=DocItemLabel.TEXT,
+        formatting=Formatting(italic=True),
+    )
+
+    for i in range(table_item.data.num_rows):
+        for j in range(table_item.data.num_cols):
+            if i == 1 and j == 1:
+                cell = RichTableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    ref=rich_item.get_ref(),
+                )
+            else:
+                cell = TableCell(
+                    start_row_offset_idx=i,
+                    end_row_offset_idx=i + 1,
+                    start_col_offset_idx=j,
+                    end_col_offset_idx=j + 1,
+                    text=f"cell {i},{j}",
+                )
+            doc.add_table_cell(table_item=table_item, cell=cell)
+
+    # state before insert:
+    exp_file = Path("test/data/doc/rich_table_item_ins_norm_1.out.yaml")
+    if GEN_TEST_DATA:
+        doc.save_as_yaml(exp_file)
+    exp_doc = DoclingDocument.load_from_yaml(exp_file)
+    assert doc == exp_doc
+
+    doc.insert_item_before_sibling(
+        new_item=TextItem(
+            self_ref="#",
+            text="text before",
+            orig="text before",
+            label=DocItemLabel.TEXT,
+        ),
+        sibling=table_item,
+    )
+
+    # state after insert (prior to normalization):
+    exp_file = Path("test/data/doc/rich_table_item_ins_norm_2.out.yaml")
+    if GEN_TEST_DATA:
+        doc.save_as_yaml(exp_file)
+    exp_doc = DoclingDocument.load_from_yaml(exp_file)
+    assert doc == exp_doc
+
+    doc._normalize_references()
+
+    # state after insert (after normalization):
+    exp_file = Path("test/data/doc/rich_table_item_ins_norm_3.out.yaml")
+    if GEN_TEST_DATA:
+        doc.save_as_yaml(exp_file)
+    exp_doc = DoclingDocument.load_from_yaml(exp_file)
+    assert doc == exp_doc

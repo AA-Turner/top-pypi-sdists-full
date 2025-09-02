@@ -1,2 +1,0 @@
-from allennlp_models.vision.predictors.vilbert_vqa import VilbertVqaPredictor
-from allennlp_models.vision.predictors.visual_entailment import VisualEntailmentPredictor

@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: agent-py
+Version: 0.0.24
+Summary: A python wrapper around the Agent REST API.
+Home-page: https://github.com/ispysoftware/agent-py
+Author: Sean Tearney
+Author-email: sean@ispyconnect.com
+License: Apache Software License
+Description: A python wrapper around the [Agent](https://www.ispyconnect.com/download.aspx) API. 
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown

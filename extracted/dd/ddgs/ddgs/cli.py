@@ -148,10 +148,11 @@ def cli() -> None:
 
 def safe_entry_point() -> None:
     """Run the CLI tool in try-except block to catch all exceptions."""
+    logging.basicConfig(level=logging.WARNING)
     try:
         cli()
     except Exception as ex:
-        click.echo(f"{type(ex).__name__}: {ex}")
+        click.echo(f"{type(ex).__name__}: {ex!r}")
 
 
 @cli.command()
@@ -498,4 +499,4 @@ def books(
 
 
 if __name__ == "__main__":
-    cli(prog_name="ddgs")
+    safe_entry_point()

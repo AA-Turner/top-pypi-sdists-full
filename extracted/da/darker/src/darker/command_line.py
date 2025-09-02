@@ -5,13 +5,19 @@ from argparse import ArgumentParser, Namespace
 from functools import partial
 from typing import List, Optional, Tuple
 
-from black import TargetVersion
-
 import darkgraylib.command_line
 from darker import help as hlp
-from darker.config import DEPRECATED_CONFIG_OPTIONS, DarkerConfig, OutputMode
+from darker.config import (
+    DEPRECATED_CONFIG_OPTIONS,
+    REMOVED_CONFIG_OPTIONS,
+    DarkerConfig,
+    OutputMode,
+)
+from darker.configuration.target_version import TargetVersion
+from darker.formatters import get_formatter_names
+from darker.version import __version__
 from darkgraylib.command_line import add_parser_argument
-from graylint.command_line import add_lint_arg
+from darkgraylib.config import ConfigurationError
 
 
 def make_argument_parser(require_src: bool) -> ArgumentParser:
@@ -26,8 +32,8 @@ def make_argument_parser(require_src: bool) -> ArgumentParser:
         "Darker",
         hlp.DESCRIPTION,
         "Make `darker`, `black` and `isort` read configuration from `PATH`. Note that"
-        " other tools like `flynt`, `mypy`, `pylint` or `flake8` won't use this"
-        " configuration file.",
+        " other tools like `flynt` won't use this configuration file.",
+        __version__,
     )
 
     add_arg = partial(add_parser_argument, parser)
@@ -37,7 +43,8 @@ def make_argument_parser(require_src: bool) -> ArgumentParser:
     add_arg(hlp.CHECK, "--check", action="store_true")
     add_arg(hlp.FLYNT, "-f", "--flynt", action="store_true")
     add_arg(hlp.ISORT, "-i", "--isort", action="store_true")
-    add_lint_arg(parser)
+    add_arg(hlp.PREVIEW, "--preview", action="store_true")
+    add_arg(hlp.LINT, "-L", "--lint", action="append", metavar="CMD", default=[])
     add_arg(
         hlp.SKIP_STRING_NORMALIZATION,
         "-S",
@@ -76,15 +83,36 @@ def make_argument_parser(require_src: bool) -> ArgumentParser:
         metavar="VERSION",
         choices=[v.name.lower() for v in TargetVersion],
     )
+    add_arg(
+        hlp.FORMATTER,
+        "--formatter",
+        default="black",
+        choices=get_formatter_names(),
+        metavar="FORMATTER",
+    )
     return parser
 
 
 def show_config_deprecations(config: DarkerConfig) -> None:
     """Show deprecation warnings for configuration keys from the config file."""
+    removal_messages = {
+        REMOVED_CONFIG_OPTIONS[option]
+        for option in config
+        if option in REMOVED_CONFIG_OPTIONS
+    }
+    if removal_messages:
+        raise ConfigurationError(" ".join(sorted(removal_messages)))
     for option in DEPRECATED_CONFIG_OPTIONS & set(config):
         warnings.warn(
             f"The configuration option `{option}` in [tool.darker] is deprecated"
-            " and will be removed in Darker 3.0.",
+            " and will be removed in Darker 4.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    if "lint" in config:
+        warnings.warn(
+            "Baseline linting has been moved to the Graylint package. Please"
+            " remove the `lint =` option from your configuration file.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -115,5 +143,5 @@ def parse_command_line(
         show_config_deprecations,
     )
     OutputMode.validate_diff_stdout(args.diff, args.stdout)
-    OutputMode.validate_stdout_src(args.stdout, args.src, args.stdin_filename)
+    OutputMode.validate_stdout_src(args.src, args.stdin_filename, stdout=args.stdout)
     return args, effective_cfg, modified_cfg

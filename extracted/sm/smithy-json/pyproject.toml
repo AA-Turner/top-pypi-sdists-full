@@ -1,0 +1,22 @@
+[project]
+name = "smithy-json"
+version = "0.0.1"
+description = "JSON serialization and deserialization support for Smithy tooling."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ijson>=3.3.0",
+    "smithy-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+  "tests",
+]
+
+[tool.ruff]
+src = ["src"]

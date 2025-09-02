@@ -1,0 +1,114 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[project]
+name = "pytraccar"
+version = "3.0.0"
+description = ""
+dynamic = ["readme", "classifiers", "dependencies"]
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Ludeeus", email = "joasoe@proton.me" },
+]
+maintainers = [
+    { name = "Ludeeus", email = "joasoe@proton.me" },
+]
+requires-python = ">=3.13"
+
+[project.urls]
+repository = "https://github.com/ludeeus/pytraccar"
+"Bug tracker" = "https://github.com/ludeeus/pytraccar/issues"
+
+[tool.poetry]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+aiohttp = "^3.6"
+
+[tool.poetry.group.dev.dependencies]
+codespell = "2.4.1"
+coverage = {version = "7.9.2", extras = ["toml"]}
+mypy = "1.16.1"
+pre-commit = "4.2.0"
+pre-commit-hooks = "5.0.0"
+pytest = "8.4.1"
+pytest-asyncio = "1.0.0"
+pytest-cov = "6.2.1"
+ruff = "0.12.2"
+safety = "3.5.2"
+
+[tool.coverage.run]
+source = ["pytraccar"]
+
+[tool.coverage.report]
+skip_covered = false
+fail_under = 100
+exclude_lines = [
+  "^\\s*if (False|TYPE_CHECKING):"
+]
+
+[tool.mypy]
+platform = "linux"
+python_version = "3.13"
+
+# show error messages from unrelated files
+follow_imports = "normal"
+
+# suppress errors about unsatisfied imports
+ignore_missing_imports = true
+
+# be strict
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+
+[tool.pytest]
+asyncio_mode = "strict"
+
+[tool.ruff.lint]
+ignore = [
+  "ANN401",
+  "BLE00",
+  "COM812",
+  "D203",
+  "D213",
+  "EM101",
+  "EM102",
+  "ISC001",
+  "N818",
+  "PLR0913",
+  "PLR2004",
+  "TRY301",
+  "TRY003",
+  "TRY401",
+]
+
+select = ["ALL"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["pytraccar"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15

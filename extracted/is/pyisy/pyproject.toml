@@ -1,0 +1,147 @@
+[build-system]
+requires = ["setuptools>=62.3,<81.0", "wheel","setuptools_scm[toml]>=6.2",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyisy"
+description = "Python module to talk to ISY devices from UDI."
+license     = {text = "Apache-2.0"}
+keywords = ["home", "automation", "isy", "isy994", "isy-994", "UDI", "polisy", "eisy"]
+authors = [
+    {name = "Ryan Kraus", email = "automicus@gmail.com"},
+    {name = "shbatm", email = "support@shbatm.com"}
+]
+readme = "README.md"
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Home Automation",
+]
+dynamic = ["version"]
+requires-python = ">=3.9"
+
+dependencies = [
+    "aiohttp>=3.8.1",
+    "python-dateutil>=2.8.1",
+    "requests>=2.28.1",
+    "colorlog>=6.6.0",
+]
+
+[project.urls]
+"Source Code" = "https://github.com/automicus/PyISY"
+"Homepage" = "https://github.com/automicus/PyISY"
+
+[tool.setuptools_scm]
+
+
+
+[tool.ruff]
+target-version = "py39"
+line-length = 110
+
+[tool.ruff.lint]
+ignore = [
+    "S101", # use of assert
+    "TID252", # skip
+    "SLF001", # design choice
+    "SIM110", # this is slower
+    "S318", # intentional
+    "TRY003", # nice to have
+    "PLR2004", # to many to fix right now
+    "PLR0913",  # ship has sail on this one
+    "PLR0911",  # ship has sail on this one
+    "PLR0912", # hard to fix without a major refactor
+    "PLR0915", # hard to fix without a major refactor
+    "PYI034", # enable when we drop Py3.10
+    "RUF003", # probably not worth fixing
+    "SIM105", # this is slower
+]
+select = [
+    "ASYNC", # async rules
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "S",   # flake8-bandit
+    "F",   # pyflake
+    "E",   # pycodestyle
+    "W",   # pycodestyle
+    "UP",  # pyupgrade
+    "I",   # isort
+    "RUF", # ruff specific
+    "FLY", # flynt
+    "G", # flake8-logging-format   ,
+    "PERF", # Perflint
+    "PGH", # pygrep-hooks
+    "PIE", # flake8-pie
+    "PL", # pylint
+    "PT", # flake8-pytest-style
+    "PTH", # flake8-pathlib
+    "PYI", # flake8-pyi
+    "RET", # flake8-return
+    "RSE", # flake8-raise    ,
+    "SIM", # flake8-simplify
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "T100", # Trace found: {name} used
+    "T20", # flake8-print
+    "TID", # Tidy imports
+    "TRY", # tryceratops
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "S101",
+    "SLF001",
+    "PLR2004", # too many to fix right now
+    "PT011", # too many to fix right now
+    "PT006", # too many to fix right now
+    "PGH003", # too many to fix right now
+    "PT007", # too many to fix right now
+    "PT027",  # too many to fix right now
+    "PLW0603" , # too many to fix right now
+    "PLR0915", # too many to fix right now
+    "FLY002", # too many to fix right now
+    "PT018", # too many to fix right now
+    "PLR0124", # too many to fix right now
+    "SIM202" , # too many to fix right now
+    "PT012" , # too many to fix right now
+    "TID252", # too many to fix right now
+    "PLR0913", # skip this one
+    "SIM102" , # too many to fix right now
+    "SIM108", # too many to fix right now
+    "T201", # too many to fix right now
+    "PT004", # nice to have
+]
+"bench/**/*" = [
+    "T201", # intended
+]
+"examples/**/*" = [
+    "T201", # intended
+]
+"setup.py" = ["D100"]
+"conftest.py" = ["D100"]
+"docs/conf.py" = [
+    "D100",
+    "PTH100"
+]
+
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+norecursedirs = [
+    ".git",
+]
+log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(name)s:%(filename)s:%(lineno)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_mode = "auto"

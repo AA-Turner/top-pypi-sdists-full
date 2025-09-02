@@ -1,0 +1,56 @@
+[project]
+name = "govee-local-api"
+version = "2.2.0"
+license = "Apache-2.0"
+authors = [{ name = "Galorhallen", email = "andrea.ponte1987@gmail.com" }]
+description = "Library to communicate with Govee local API"
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["classifiers", "dependencies", "optional-dependencies"]
+
+[project.urls]
+"Repository" = "https://github.com/Galorhallen/govee-local-api"
+"Bug Tracker" = "https://github.com/Galorhallen/govee-local-api/issues"
+
+[tool.poetry]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+packages = [
+    { include = "govee_local_api", from = "src" },
+]
+
+[tool.poetry_bumpversion.file."src/govee_local_api/__init__.py"]
+# Duplicate the line above to add more files
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+prompt_toolkit = "^3.0.0"
+pre-commit = "^4.3.0"
+
+
+[tool.ruff.isort]
+force-sort-within-sections = true
+known-first-party = [
+    "govee_local_api",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+addopts = [
+    "--import-mode=importlib",
+    "-v",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

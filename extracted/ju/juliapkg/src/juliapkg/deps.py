@@ -2,14 +2,16 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from subprocess import run
+from typing import Union
 
 from filelock import FileLock
 
 from .compat import Compat, Version
 from .find_julia import find_julia, julia_version
-from .install_julia import log
+from .install_julia import log, log_script
 from .state import STATE
 
 logger = logging.getLogger("juliapkg")
@@ -46,26 +48,107 @@ def save_meta(meta):
 
 ### RESOLVE
 
+_NOT_ASCII_RE = re.compile(r"[^\x00-\x80]")
+
+_JULIA_ASCII_ID_CHAR_RE = re.compile(r"[a-zA-Z0-9_!]")
+
+_JULIA_ASCII_ID_START_CHAR_RE = re.compile(r"[a-zA-Z_]")
+
+_UUID_RE = re.compile(
+    r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+)
+
 
 class PkgSpec:
     def __init__(
         self,
-        name,
-        uuid,
-        dev=False,
-        version=None,
-        path=None,
-        subdir=None,
-        url=None,
-        rev=None,
+        name: str,
+        uuid: str,
+        dev: bool = False,
+        version: Union[str, Version, None] = None,
+        path: Union[str, None] = None,
+        subdir: Union[str, None] = None,
+        url: Union[str, None] = None,
+        rev: Union[str, None] = None,
     ):
+        # Validate name: type then value
+        if not isinstance(name, str):
+            raise TypeError(
+                f"package name must be a 'str', got '{type(name).__name__}'"
+            )
+        if not name:
+            raise ValueError(f"package name cannot be empty, got {name!r}")
+        if name.endswith(".jl"):
+            raise ValueError(
+                f"package name cannot end with '.jl', got {name!r}, perhaps you meant"
+                f" {name.removesuffix('.jl')!r}"
+            )
+        # ascii-fied name (assume any non-ascii is fine)
+        asciiname = _NOT_ASCII_RE.sub("_", name)
+        invalid = _JULIA_ASCII_ID_CHAR_RE.sub("", asciiname)
+        if invalid:
+            raise ValueError(
+                f"package name contains invalid characters {invalid!r}, got {name!r}"
+            )
+        invalid = _JULIA_ASCII_ID_START_CHAR_RE.sub("", asciiname[0])
+        if invalid:
+            raise ValueError(
+                f"package name has invalid first character {invalid!r}, got {name!r}"
+            )
         self.name = name
+
+        # Validate UUID: type then value (could add stricter UUID validation)
+        if not isinstance(uuid, str):
+            raise TypeError(
+                f"package uuid must be a 'str', got '{type(uuid).__name__}'"
+            )
+        if not _UUID_RE.match(uuid):
+            raise ValueError(
+                f"package uuid must be of form XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX, "
+                f"got {uuid!r}"
+            )
         self.uuid = uuid
+
+        # Validate dev (boolean)
+        if not isinstance(dev, bool):
+            raise TypeError(f"package dev must be a 'bool', got '{type(dev).__name__}'")
         self.dev = dev
+
+        # Validate version (string, Version, or None)
+        if version is not None and not isinstance(version, (str, Version)):
+            raise TypeError(
+                "package version must be a 'str', 'Version', or 'None', got "
+                f"'{type(version).__name__}'"
+            )
         self.version = version
+
+        # Validate path (string or None)
+        if path is not None and not isinstance(path, str):
+            raise TypeError(
+                f"package path must be a 'str' or 'None', got '{type(path).__name__}'"
+            )
         self.path = path
+
+        # Validate subdir (string or None)
+        if subdir is not None and not isinstance(subdir, str):
+            raise TypeError(
+                f"package subdir must be a 'str' or 'None', got "
+                f"'{type(subdir).__name__}'"
+            )
         self.subdir = subdir
+
+        # Validate url (string or None)
+        if url is not None and not isinstance(url, str):
+            raise TypeError(
+                f"package url must be a 'str' or 'None', got '{type(url).__name__}'"
+            )
         self.url = url
+
+        # Validate rev (string or None)
+        if rev is not None and not isinstance(rev, str):
+            raise TypeError(
+                f"package rev must be a 'str' or 'None', got '{type(rev).__name__}'"
+            )
         self.rev = rev
 
     def jlstr(self):
@@ -84,8 +167,8 @@ class PkgSpec:
         ans = {
             "name": self.name,
             "uuid": self.uuid,
-            "dev": self.dev,
-            "version": str(self.version),
+            "dev": self.dev or None,
+            "version": None if self.version is None else str(self.version),
             "path": self.path,
             "subdir": self.subdir,
             "url": self.url,
@@ -169,6 +252,26 @@ def can_skip_resolve():
     return deps
 
 
+def editable_deps_files():
+    """Finds setuptools-style editable dependencies."""
+    ans = []
+    for finder in sys.meta_path:
+        module_name = finder.__module__
+        if module_name.startswith("__editable___") and module_name.endswith("_finder"):
+            m = sys.modules[module_name]
+            paths = m.MAPPING.values()
+            for path in paths:
+                if not os.path.isdir(path):
+                    continue
+                fn = os.path.join(path, "juliapkg.json")
+                ans.append(fn)
+                for subdir in os.listdir(path):
+                    fn = os.path.join(path, subdir, "juliapkg.json")
+                    ans.append(fn)
+
+    return ans
+
+
 def deps_files():
     ans = []
     # the default deps file
@@ -184,6 +287,9 @@ def deps_files():
         for subdir in os.listdir(path):
             fn = os.path.join(path, subdir, "juliapkg.json")
             ans.append(fn)
+
+    ans += editable_deps_files()
+
     return list(
         set(
             os.path.normcase(os.path.normpath(os.path.abspath(fn)))
@@ -308,10 +414,25 @@ def find_requirements():
     return compat, deps
 
 
-def resolve(force=False, dry_run=False):
+def resolve(force=False, dry_run=False, update=False):
+    """
+    Resolve the dependencies.
+
+    Args:
+        force (bool): Force resolution.
+        dry_run (bool): Dry run.
+        update (bool): Update the dependencies.
+
+    Returns:
+        bool: Whether the dependencies are resolved (always True unless dry_run is
+            True).
+    """
+    # update implies force
+    if update:
+        force = True
     # fast check to see if we have already resolved
     if (not force) and STATE["resolved"]:
-        return False
+        return True
     STATE["resolved"] = False
     # use a lock to prevent concurrent resolution
     project = STATE["project"]
@@ -358,9 +479,7 @@ def resolve(force=False, dry_run=False):
             projtoml.extend(
                 f'{pkg.name} = "{pkg.version}"' for pkg in pkgs if pkg.version
             )
-            log("Writing Project.toml:")
-            for line in projtoml:
-                log(" ", line, cont=True)
+            log_script(projtoml, "Writing Project.toml:")
             with open(os.path.join(project, "Project.toml"), "wt") as fp:
                 for line in projtoml:
                     print(line, file=fp)
@@ -382,28 +501,13 @@ def resolve(force=False, dry_run=False):
                 for pkg in add_pkgs:
                     script.append(f"  {pkg.jlstr()},")
                 script.append("])")
-            script.append("Pkg.resolve()")
+            if update:
+                script.append("Pkg.update()")
+            else:
+                script.append("Pkg.resolve()")
             script.append("Pkg.precompile()")
-            log("Installing packages:")
-            for line in script:
-                log(" ", line, cont=True)
-            env = os.environ.copy()
-            if sys.executable:
-                # prefer PythonCall to use the current Python executable
-                # TODO: this is a hack, it would be better for PythonCall to detect that
-                #   Julia is being called from Python
-                env.setdefault("JULIA_PYTHONCALL_EXE", sys.executable)
-            run(
-                [
-                    exe,
-                    "--project=" + project,
-                    "--startup-file=no",
-                    "-e",
-                    "\n".join(script),
-                ],
-                check=True,
-                env=env,
-            )
+            log_script(script, "Installing packages:")
+            run_julia(script, executable=exe, project=project)
         # record that we resolved
         save_meta(
             {
@@ -431,6 +535,39 @@ def resolve(force=False, dry_run=False):
         lock.release()
 
 
+def run_julia(script, executable=None, project=None):
+    """
+    Run a Julia script with the specified executable and project.
+
+    Args:
+        executable (str): Path to the Julia executable.
+        project (str): Path to the Julia project.
+        script (list): List of strings representing the Julia script to run.
+    """
+    if executable is None:
+        executable = STATE["executable"]
+    if project is None:
+        project = STATE["project"]
+
+    env = os.environ.copy()
+    if sys.executable:
+        # prefer PythonCall to use the current Python executable
+        # TODO: this is a hack, it would be better for PythonCall to detect that
+        #   Julia is being called from Python
+        env.setdefault("JULIA_PYTHONCALL_EXE", sys.executable)
+    run(
+        [
+            executable,
+            "--project=" + project,
+            "--startup-file=no",
+            "-e",
+            "\n".join(script),
+        ],
+        check=True,
+        env=env,
+    )
+
+
 def executable():
     resolve()
     return STATE["executable"]
@@ -439,6 +576,20 @@ def executable():
 def project():
     resolve()
     return STATE["project"]
+
+
+def update(dry_run=False):
+    """
+    Resolve and update the dependencies.
+
+    Args:
+        dry_run (bool): Dry run.
+
+    Returns:
+        bool: Whether the dependencies were updated (always True unless dry_run is
+            True).
+    """
+    return resolve(dry_run=dry_run, update=True)
 
 
 def cur_deps_file(target=None):

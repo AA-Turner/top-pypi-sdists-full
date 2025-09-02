@@ -1,6 +1,7 @@
 """Tests for `darker.config`"""
 
-# pylint: disable=unused-argument,too-many-arguments,use-dict-literal
+# pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
+# pylint: disable=use-dict-literal
 
 from argparse import Namespace
 from pathlib import Path
@@ -107,8 +108,7 @@ def test_output_mode_validate_stdout_src(
     Path("first.py").touch()
     Path("second.py").touch()
     with raises_if_exception(expect):
-
-        OutputMode.validate_stdout_src(stdout, src, stdin_filename)
+        OutputMode.validate_stdout_src(src, stdin_filename, stdout=stdout)
 
 
 @pytest.mark.kwparametrize(

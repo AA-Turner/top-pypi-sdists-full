@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: lambdatest-sdk-utils
+Version: 1.0.3
+Summary: SDK utils
+Home-page: https://github.com/LambdaTest/lambdatest-python-sdk
+Author: LambdaTest <keys@lambdatest.com>
+License: MIT
+Keywords: lambdatest python selenium sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: requests==2.*
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+SDK utils for lambdatest

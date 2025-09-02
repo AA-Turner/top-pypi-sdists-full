@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: PyXiaomiGateway
+Version: 0.14.3
+Summary: A library to communicate with the Xiaomi Gateway
+Home-page: https://github.com/Danielhiversen/PyXiaomiGateway/
+Author: Daniel Hjelseth Høyer
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

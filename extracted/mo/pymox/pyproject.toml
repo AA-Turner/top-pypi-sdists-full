@@ -1,0 +1,132 @@
+[build-system]
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "pymox"
+dynamic = ["version"]
+description = "Python mocking on steroids"
+readme = "README.md"
+long-description-content-type = "text/markdown"
+
+
+[tool.poetry]
+name = "pymox"
+description = "Mock object framework"
+packages = [
+    {include = "mox"},
+    {include = "mox/testing"}
+]
+version = "0.0.0"  # DO NOT CHANGE VERSION HERE
+authors = ["Ivan Neto <ivan.cr.neto@gmail.com>"]
+license = "Apache License, Version 2.0"
+homepage = "http://pymox.rtfd.io"
+repository = "https://github.com/ivancrneto/pymox"
+classifiers = [
+    "Environment :: Console",
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Utilities"
+]
+keywords = [
+    "mox", "mock", "test", "mocking", "unittest", "pymox",
+]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+hatch = { version = "^1.9.1", python = ">=3.9,<4" }
+hatchling = { version = "^1.21.0", python = ">=3.8,<4" }
+hatch-semver = { version = "^1.0.1",  python = ">=3.9,<4" }
+versioningit = { version = "^3.0.0", python = ">=3.8,<4" }
+python = ">=3.8, <4"
+build = "^1.0.3"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "^7.2"
+pytest = "^7.4"
+pytest-beeprint = "^0.1.2"
+pytest-cov = "^4.1.0"
+pytest-xdist = "^3.3.1"
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.versioningit]
+default-version = "0.0.0+unknown"
+
+[tool.versioningit.vcs]
+default-tag = "0.0.0+unknown"
+
+[tool.versioningit.next-version]
+method = "smallest"
+
+[tool.versioningit.format]
+distance = "{next_version}-dev{distance}+{vcs}{rev}"
+dirty = "{base_version}+d{build_date:%Y%m%d}"
+distance-dirty = "{next_version}-dev{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
+
+[tool.versioningit.write]
+file = "mox/__version__.py"
+
+[tool.hatch.build.targets.sdist]
+packages = ["mox"]
+include = ["mox/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mox"]
+include = ["mox/**"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "-s",
+    "-vv",
+    "--ignore-glob=*_helper.py"
+]
+python_files = "*test*.py"
+
+
+[tool.black]
+line-length = 120
+target-version = [ "py38" ]
+
+
+[tool.isort]
+atomic = true
+case_sensitive = true
+filter_files = true
+import_heading_firstparty = "Internal imports"
+import_heading_stdlib = "Python imports"
+import_heading_thirdparty = "Pip imports"
+known_startup = [
+  "startup",
+]
+line_length = 120
+lines_after_imports = 2
+profile = "black"
+py_version = "auto"
+remove_redundant_aliases = true
+sections = [
+  "FUTURE",
+  "STARTUP",
+  "STDLIB",
+  "THIRDPARTY",
+  "FIRSTPARTY",
+  "LOCALFOLDER",
+]
+
+[tool.bandit.assert_used]
+excludes = ['*_test.py', '*/test_*.py']

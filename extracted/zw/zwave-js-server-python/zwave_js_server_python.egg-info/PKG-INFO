@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: zwave-js-server-python
+Version: 0.67.1
+Summary: Python wrapper for zwave-js-server
+Author-email: Home Assistant Team <hello@home-assistant.io>
+License-Expression: Apache-2.0
+Project-URL: Source Code, https://github.com/home-assistant-libs/zwave-js-server-python
+Project-URL: Bug Reports, https://github.com/home-assistant-libs/zwave-js-server-python/issues
+Keywords: home,automation,zwave,zwave-js
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>3
+Requires-Dist: pydantic>=2.0.0
+Dynamic: license-file
+
+# zwave-js-server-python
+
+Python library for communicating with [zwave-js-server](https://github.com/zwave-js/zwave-js-server/). Goal for this library is to replicate the structure and the events of Z-Wave JS 1:1. So it has a `Driver`, `Controller` and `Node` classes.
+
+## Setup development environment
+
+To setup your development environment, run `scripts/setup`, which will install all requirements and set up pre-commit checks.
+
+## Trying it out
+
+```shell
+python3 -m zwave_js_server ws://localhost:3000
+```
+
+Or get the version of the server
+
+```shell
+python3 -m zwave_js_server ws://localhost:3000 --server-version
+```
+
+Or dump the state. Optionally add `--event-timeout 5` if you want to listen 5 seconds extra for events.
+
+```shell
+python3 -m zwave_js_server ws://localhost:3000 --dump-state
+```
+
+## Sending commands
+
+```python
+try:
+    result = await client.async_send_command({ "command": "start_listening" })
+except zwave_js_server.client.FailedCommand as err:
+    print("Command failed with", err.error_code)
+```

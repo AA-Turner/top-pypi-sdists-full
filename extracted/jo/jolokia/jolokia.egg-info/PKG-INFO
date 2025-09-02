@@ -1,0 +1,26 @@
+Metadata-Version: 1.1
+Name: jolokia
+Version: 0.4.0
+Summary: A Python Jolokia client
+Home-page: https://github.com/wbrefvem/python-jolokia
+Author: Will Refvem
+Author-email: wbrefvem@gmail.com
+License: Apache 2.0
+Description: UNKNOWN
+Keywords: jolokia http jmx
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9

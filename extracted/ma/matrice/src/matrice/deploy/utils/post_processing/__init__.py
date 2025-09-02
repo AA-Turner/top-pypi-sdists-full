@@ -125,6 +125,9 @@ from .usecases.age_gender_detection import AgeGenderConfig, AgeGenderUseCase
 from .usecases.people_tracking import PeopleTrackingConfig,PeopleTrackingUseCase
 from .usecases.wildlife_monitoring import WildLifeMonitoringConfig, WildLifeMonitoringUseCase
 from .usecases.pcb_defect_detection import PCBDefectConfig, PCBDefectUseCase
+from .usecases.underground_pipeline_defect_detection import UndergroundPipelineDefectConfig,UndergroundPipelineDefectUseCase
+from .usecases.suspicious_activity_detection import SusActivityConfig, SusActivityUseCase
+from .usecases.natural_disaster import NaturalDisasterConfig, NaturalDisasterUseCase
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -196,6 +199,10 @@ from .usecases import (
     WildLifeMonitoringUseCase,
     PCBDefectUseCase,
     HumanActivityUseCase,
+    UndergroundPipelineDefectUseCase,
+
+    SusActivityUseCase,
+    NaturalDisasterUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -273,6 +280,9 @@ _age_gender_detection = AgeGenderUseCase()
 _people_tracking = PeopleTrackingUseCase()
 _wildlife_monitoring = WildLifeMonitoringUseCase()
 _pcb_defect_detection = PCBDefectUseCase()
+_underground_pipeline_defect = UndergroundPipelineDefectUseCase()
+_suspicious_activity_detection = SusActivityUseCase()
+_natural_disaster = NaturalDisasterUseCase()
 
 # Face recognition with embeddings
 _face_recognition = FaceRecognitionEmbeddingUseCase()
@@ -353,6 +363,9 @@ registry.register_use_case(_age_gender_detection.category, _age_gender_detection
 registry.register_use_case(_people_tracking.category, _people_tracking.name, PeopleTrackingUseCase)
 registry.register_use_case(_wildlife_monitoring.category, _wildlife_monitoring.name, WildLifeMonitoringUseCase)
 registry.register_use_case(_pcb_defect_detection.category, _pcb_defect_detection.name, PCBDefectUseCase)
+registry.register_use_case(_underground_pipeline_defect.category, _underground_pipeline_defect.name, UndergroundPipelineDefectUseCase)
+registry.register_use_case(_suspicious_activity_detection.category, _suspicious_activity_detection.name, SusActivityUseCase)
+registry.register_use_case(_natural_disaster.category, _natural_disaster.name, NaturalDisasterUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
@@ -554,6 +567,9 @@ __all__ = [
     'AgeGenderConfig',
     'WildLifeMonitoringConfig',
     'PCBDefectConfig',
+    'UndergroundPipelineDefectConfig',
+    'SusActivityConfig',
+    'NaturalDisasterConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -624,6 +640,9 @@ __all__ = [
     'AgeGenderUseCase',
     'WildLifeMonitoringUseCase',
     'PCBDefectUseCase',
+    'UndergroundPipelineDefectUseCase',
+    'SusActivityUseCase',
+    'NaturalDisasterUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

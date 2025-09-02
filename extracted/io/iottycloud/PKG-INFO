@@ -1,0 +1,44 @@
+Metadata-Version: 2.3
+Name: iottycloud
+Version: 0.3.0
+Summary: A Python library to interact with iotty CloudApi
+Project-URL: Homepage, https://github.com/pburgio/iottycloud
+Project-URL: Bug Tracker, https://github.com/pburgio/iottycloud/issues
+Author-email: Paolo Burgio <paolo.burgio@gmail.com>, Luca Marzaduri <luca.marzaduri@iotty.com>, Shapour Nemati <shapour.nemati@iotty.com>
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+
+# iottycloud: a Python library to interact with iotty CloudApi
+
+![iotty Logo](https://iotty.it/cdn/shop/files/logo-iotty_100x@2x.png)
+
+A Python library to interact with iotty CloudApi. To use this library in one of your projects, you must first become our Partner. Please [send us an email](mailto:support@iotty.com).
+
+We're working on a public version of the CloudApi documentation. Stay tuned!
+
+# Getting Started
+
+To install the library, simply use pip
+
+```
+$ pip install iottycloud
+```
+
+# Test and pylint
+
+You can run the test suite with pytest:
+
+```
+$ cd tests
+$ python3 -m pytest
+```
+
+You can check the correctness of your python code using pylint, as usual:
+
+```
+$ cd src
+$ pylint iottycloud
+```

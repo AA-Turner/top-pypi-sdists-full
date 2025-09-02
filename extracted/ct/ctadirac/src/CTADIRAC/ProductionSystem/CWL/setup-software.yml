@@ -1,4 +1,0 @@
-name_package: corsika_simtelarray
-version_number: "2022-08-03"
-job_type: simulations
-compiler: gcc83_matchcpu

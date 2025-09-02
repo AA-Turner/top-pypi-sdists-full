@@ -1,0 +1,38 @@
+[project]
+name = "pyinfra"
+# delegate handling of these to setup.py/setup.cfg
+dynamic = [
+    "authors",
+    "classifiers",
+    "dependencies",
+    "description",
+    "entry-points",
+    "license",
+    "optional-dependencies",
+    "readme",
+    "requires-python",
+    "scripts",
+    "urls",
+    "version",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+combine_as_imports = true
+include_trailing_comma = true
+
+[tool.mypy]
+check_untyped_defs = true
+ignore_missing_imports = true
+enable_incomplete_feature = "Unpack"
+enable_error_code = "explicit-override"
+files = "pyinfra,pyinfra_cli"

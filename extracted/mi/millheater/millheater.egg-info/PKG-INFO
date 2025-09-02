@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: millheater
+Version: 0.12.5
+Summary: A python3 library to communicate with Mill
+Home-page: https://github.com/Danielhiversen/pymill
+Author: Daniel Hjelseth Hoyer
+Author-email: mail@dahoiv.net
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: aiohttp<4,>=3.7.4
+Requires-Dist: async_timeout>=3.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+A python3 library to communicate with Mill

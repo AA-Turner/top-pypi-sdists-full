@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: xarray-beam
+Version: 0.8.0
+Home-page: https://github.com/google/xarray-beam
+Author: Google LLC
+Author-email: noreply@google.com
+License: Apache 2.0
+Requires-Python: >=3
+License-File: LICENSE
+Requires-Dist: apache_beam>=2.31.0
+Requires-Dist: dask
+Requires-Dist: immutabledict
+Requires-Dist: rechunker>=0.5.1
+Requires-Dist: zarr
+Requires-Dist: xarray
+Provides-Extra: tests
+Requires-Dist: absl-py; extra == "tests"
+Requires-Dist: pandas; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: scipy; extra == "tests"
+Requires-Dist: h5netcdf; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: scipy; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python

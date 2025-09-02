@@ -1,0 +1,90 @@
+Metadata-Version: 2.1
+Name: pymanopt
+Version: 2.2.1
+Summary: Toolbox for optimization on Riemannian manifolds with support for automatic differentiation
+Author: Jamie Townsend, Niklas Koep, Sebastian Weichwald
+License: BSD 3-Clause License
+Project-URL: homepage, https://pymanopt.org
+Keywords: manifolds,optimization,automatic differentiation
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Science/Research
+Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.16.0
+Requires-Dist: scipy!=1.10.*,!=1.11.*,!=1.12.*,>=1.0
+Provides-Extra: autograd
+Requires-Dist: autograd>=1.2; extra == "autograd"
+Provides-Extra: jax
+Requires-Dist: jax>=0.2.0; extra == "jax"
+Requires-Dist: jaxlib; extra == "jax"
+Provides-Extra: tensorflow
+Requires-Dist: tensorflow>=2.0.0; extra == "tensorflow"
+Provides-Extra: torch
+Requires-Dist: torch>=1.0.0; extra == "torch"
+Provides-Extra: backends
+Requires-Dist: pymanopt[autograd,jax,tensorflow,torch]; extra == "backends"
+Provides-Extra: dev
+Requires-Dist: black[jupyter]==22.3.0; extra == "dev"
+Requires-Dist: flake8==5.0.4; extra == "dev"
+Requires-Dist: flake8-bugbear==22.12.6; extra == "dev"
+Requires-Dist: flake8-docstrings==1.6.0; extra == "dev"
+Requires-Dist: flake8-import-order==0.18.2; extra == "dev"
+Requires-Dist: flake8-pyproject==1.2.2; extra == "dev"
+Requires-Dist: isort==5.11.5; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest==7.2.0; extra == "dev"
+Requires-Dist: pytest-cov==4.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: docutils==0.16; extra == "docs"
+Requires-Dist: ipykernel==6.4.2; extra == "docs"
+Requires-Dist: myst-parser==0.16.1; extra == "docs"
+Requires-Dist: nbsphinx==0.8.7; extra == "docs"
+Requires-Dist: sphinx==4.2.0; extra == "docs"
+Requires-Dist: sphinx_rtd_theme==1.0.0; extra == "docs"
+Requires-Dist: sphinxcontrib-katex==0.8.6; extra == "docs"
+Provides-Extra: ci
+Requires-Dist: build==0.8.0; extra == "ci"
+Requires-Dist: pip==22.3.1; extra == "ci"
+Requires-Dist: setuptools==66.1.0; extra == "ci"
+Requires-Dist: wheel==0.38.4; extra == "ci"
+Provides-Extra: all
+Requires-Dist: pymanopt[backends,dev]; extra == "all"
+
+<a href="https://pymanopt.org"><img src="docs/logo.png?raw=true" width="150" align="right"/></a>
+
+# Pymanopt
+
+> A Python toolbox for optimization on Riemannian manifolds with support for
+> automatic differentiation.
+
+| Overview       |                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Latest version | [![Latest version](https://badge.fury.io/py/pymanopt.svg)](https://badge.fury.io/py/pymanopt) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7500014.svg)](https://doi.org/10.5281/zenodo.7500014)                                                                                                                                                                                                            |
+| Downloads      | [![Downloads](https://static.pepy.tech/personalized-badge/pymanopt?period=total&units=international_system&left_color=grey&right_color=green&left_text=Downloads)](https://pepy.tech/project/pymanopt)                                                                                                                                                                                                             |
+| Build status   | [![Build status](https://github.com/pymanopt/pymanopt/actions/workflows/run_tests.yml/badge.svg)](https://github.com/pymanopt/pymanopt/actions/workflows/run_tests.yml)                                                                                                                                                                                                                                            |
+| Coverage       | [![Coverage](https://coveralls.io/repos/github/pymanopt/pymanopt/badge.svg?branch=master)](https://coveralls.io/github/pymanopt/pymanopt?branch=master)                                                                                                                                                                                                                                                            |
+| Code quality   | [![Codacy Badge](https://app.codacy.com/project/badge/Grade/6de2ef56791d4c3b8eb991f66e250a28)](https://www.codacy.com/gh/pymanopt/pymanopt/dashboard?utm_source=github.com&utm_medium=referral&utm_content=pymanopt/pymanopt&utm_campaign=Badge_Grade) [![CodeQL](https://github.com/pymanopt/pymanopt/actions/workflows/codeql.yml/badge.svg)](https://github.com/pymanopt/pymanopt/actions/workflows/codeql.yml) |
+| Community      | [![Gitter](https://badges.gitter.im/pymanopt/pymanopt.svg)](https://gitter.im/pymanopt/pymanopt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)                                                                                                                                                                                                                                         |
+
+Please refer to the **[documentation](https://pymanopt.org/docs/)** and this
+[JMLR paper](http://www.jmlr.org/papers/v17/16-177.html) to get started with
+optimization on manifolds using Pymanopt.
+If you wish to extend Pymanopt's functionality and/or contribute to the project
+please refer to the [contributing guide](CONTRIBUTING.md).
+
+We encourage users and developers to report problems, request features,
+ask for help, or leave general comments either here on github or on
+[gitter](https://gitter.im/pymanopt/pymanopt).
+
+Pymanopt is distributed under the [3-clause BSD license](LICENSE).

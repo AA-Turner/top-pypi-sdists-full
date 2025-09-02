@@ -1,0 +1,36 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "linkedin-api-client"
+version = "0.3.0"
+packages = [
+    { include = "linkedin_api" }
+]
+authors = ["Steven Shimizu <sshimizu@linkedin.com>"]
+description = "Official Python client library for LinkedIn APIs"
+homepage = "https://github.com/linkedin-developers/linkedin-api-python-client"
+repository = "https://github.com/linkedin-developers/linkedin-api-python-client"
+documentation = "https://github.com/linkedin-developers/linkedin-api-python-client"
+readme = "README.md"
+license = "Proprietary"
+keywords = ["linkedin", "api", "rest.li"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = "*"
+
+[tool.poetry.group.dev.dependencies]
+curlify = "*"
+flask = "*"
+pytest = "*"
+python-dotenv = "*"
+responses = "*"
+twine = "*"
+pre-commit = "*"

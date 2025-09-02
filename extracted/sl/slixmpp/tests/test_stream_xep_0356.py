@@ -3,6 +3,7 @@ import unittest
 from slixmpp import Message, JID, Iq
 from slixmpp.plugins.xep_0356 import permissions
 from slixmpp.plugins.xep_0356.permissions import RosterAccess
+from slixmpp.plugins.xep_0356.privilege import PrivilegedIqError
 from slixmpp.test import SlixTest
 
 
@@ -228,5 +229,63 @@ class TestPermissions(SlixTest):
             }
         }
 
+    def testIqError(self):
+        self.xmpp["xep_0356"].granted_privileges["conf"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
+        iq = Iq()
+        iq.set_from("juliet@xxx")
+        iq.set_to("somemuc@conf")
+        iq.set_type("get")
+        task = self.xmpp.loop.create_task(self.xmpp["xep_0356"].send_privileged_iq(iq, iq_id="666"))
+        self.send(
+            """
+            <iq xmlns="jabber:component:accept" id="666" to="juliet@xxx" from="pubsub.capulet.lit" type="get">
+             <privileged_iq xmlns="urn:xmpp:privilege:2">
+              <iq xmlns="jabber:client" id="666" from="juliet@xxx" to="somemuc@conf" type="get" />
+            </privileged_iq></iq>
+            """,
+            use_values=False,
+        )
+        self.recv(
+            """
+            <iq type="error" id="666" from="pubsub.capulet.lit">
+             <privilege xmlns="urn:xmpp:privilege:2">
+               <forwarded xmlns="urn:xmpp:forward:0">
+                <iq xmlns="jabber:client" id="666">
+                 <error type="cancel">
+                  <conflict xmlns="urn:ietf:params:xml:ns:xmpp-stanzas" />
+            </error></iq></forwarded></privilege></iq>
+            """,
+        )
+        exc = task.exception()
+        assert isinstance(exc, PrivilegedIqError), exc
+        error = exc.nested_error()
+        assert error.condition == "conflict"
+
+    def testIqErrorNoNested(self):
+        self.xmpp["xep_0356"].granted_privileges["conf"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
+        iq = Iq()
+        iq.set_from("juliet@xxx")
+        iq.set_to("somemuc@conf")
+        iq.set_type("get")
+        task = self.xmpp.loop.create_task(self.xmpp["xep_0356"].send_privileged_iq(iq, iq_id="666"))
+        self.send(
+            """
+            <iq xmlns="jabber:component:accept" id="666" to="juliet@xxx" from="pubsub.capulet.lit" type="get">
+             <privileged_iq xmlns="urn:xmpp:privilege:2">
+              <iq xmlns="jabber:client" id="666" from="juliet@xxx" to="somemuc@conf" type="get" />
+            </privileged_iq></iq>
+            """,
+            use_values=False,
+        )
+        self.recv(
+            """
+            <iq type="error" id="666" from="pubsub.capulet.lit">
+            </iq>
+            """,
+        )
+        exc = task.exception()
+        assert isinstance(exc, PrivilegedIqError), exc
+        error = exc.nested_error()
+        assert error is None, error
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestPermissions)

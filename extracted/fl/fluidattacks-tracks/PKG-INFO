@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: fluidattacks-tracks
+Version: 0.8.0
+Summary: Python library for usage analytics
+Author-email: Fluid Attacks Engineering <development@fluidattacks.com>
+License-Expression: MPL-2.0
+Requires-Python: <3.14,>=3.11
+Requires-Dist: aiohttp>=3.12.15
+Requires-Dist: aiolimiter>=1.2.1
+Requires-Dist: pydantic>=2.11.7
+Requires-Dist: tenacity>=9.1.2
+Description-Content-Type: text/markdown
+
+# fluidattacks-tracks
+
+[![PyPI version](https://img.shields.io/pypi/v/fluidattacks-tracks.svg)](https://pypi.org/project/fluidattacks-tracks/)
+
+<p align="center">
+  <a href="https://fluidattacks.com/" rel="noopener" target="_blank">
+  <img width="460px" src="https://res.cloudinary.com/fluid-attacks/image/upload/v1728418266/airs/logo/logo_full.png" alt="Fluid Attacks logo">
+  </a>
+</p>
+
+This library provides a convenient way to report usage analytics from any Python 3.11+
+application.
+
+All operations run in a background thread, and errors are logged but don't propagate to the caller, ensuring your application's flow isn't interrupted.
+
+## Usage
+
+```python
+from datetime import datetime, UTC
+from fluidattacks_tracks import Tracks
+from fluidattacks_tracks.resources.event import Event
+
+client = Tracks()
+client.event.create(
+    Event(
+        action="CREATE",
+        author="author",
+        date=datetime.now(UTC),
+        mechanism="API",
+        metadata={"foo": "bar"},
+        object="object",
+        object_id="object_id",
+    )
+)
+```

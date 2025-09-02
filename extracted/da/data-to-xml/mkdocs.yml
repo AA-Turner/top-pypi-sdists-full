@@ -1,0 +1,10 @@
+site_name: item-dict
+site_description: Simple python dict to xml converter
+site_author: Adam Nogowski
+
+theme: readthedocs
+
+repo_url: https://github.com/anogowski/item-dict
+
+pages:
+- Home: index.md

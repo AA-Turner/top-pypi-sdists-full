@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smolagents
-Version: 1.21.2
+Version: 1.21.3
 Summary: 🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents.
 Author-email: Aymeric Roucher <aymeric@hf.co>
 Requires-Python: >=3.10
@@ -25,7 +25,7 @@ Provides-Extra: docker
 Requires-Dist: docker>=7.1.0; extra == "docker"
 Requires-Dist: websocket-client; extra == "docker"
 Provides-Extra: e2b
-Requires-Dist: e2b-code-interpreter>=1.0.3; extra == "e2b"
+Requires-Dist: e2b-code-interpreter<2,>=1.0.3; extra == "e2b"
 Requires-Dist: python-dotenv>=1.0.1; extra == "e2b"
 Provides-Extra: gradio
 Requires-Dist: gradio>=5.14.0; extra == "gradio"

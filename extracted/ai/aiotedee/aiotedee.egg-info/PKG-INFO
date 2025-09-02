@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: aiotedee
+Version: 0.2.25
+Summary: A package to interact with Tedee locks using asyncio
+Author-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
+Maintainer-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/zweckj/aiotedee
+Project-URL: Repository, https://github.com/zweckj/aiotedee
+Project-URL: Documentation, https://github.com/zweckj/aiotedee
+Keywords: Tedee,api,async,client
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.1
+Provides-Extra: dev
+Requires-Dist: covdefaults==2.3.0; extra == "dev"
+Requires-Dist: coverage==7.6.7; extra == "dev"
+Requires-Dist: syrupy==4.7.2; extra == "dev"
+Requires-Dist: pytest==8.3.3; extra == "dev"
+Requires-Dist: pytest-asyncio==0.24.0; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Dynamic: license-file
+
+# Python asyncio Tedee Client Package
+
+This is a Tedee Lock Client package. It is an async implementation of [joerg65's original package](https://github.com/joerg65/pytedee.git).
+
+## Install:
+
+### From pip
+
+```
+pip install aiotedee
+```
+
+### Locally
+
+```python
+pipenv install -e .
+# or
+python3 setup.py install
+```
+
+## Try it out
+
+- Generate personal key. Instructions: https://tedee-tedee-api-doc.readthedocs-hosted.com/en/latest/howtos/authenticate.html#personal-access-key
+  Minimal scopes required for enable integration are:
+  - Devices.Read
+  - Lock.Operate
+- with `example.py`: Create a file `config.json` next to `example.py`:
+
+```json
+{
+  "personalToken": "<your token>"
+}
+```
+
+cd into the directory of those to files and run
+
+```
+python example.py
+```
+
+- Initiate an instance of `TedeeClient`
+
+```python
+from aiotedee import TedeeClient
+
+pk = "<your PersonalKey>"
+# through init
+client = TedeeClient(pk) # is initialized with no locks
+client.get_locks() # get the locks
+
+# through classmethod
+# will initialize directly with all locks you have
+client = await TedeeClient.create(pk)
+```
+
+- the locks are avialable in a dictionary `client.locks_dict` with the key of the dict being the serial number of each lock, or in a list `client.locks`

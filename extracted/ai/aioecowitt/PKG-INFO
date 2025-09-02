@@ -1,0 +1,38 @@
+Metadata-Version: 2.2
+Name: aioecowitt
+Version: 2025.3.1
+Summary: Python wrapper for EcoWitt Protocol
+Home-page: https://github.com/home-assistant-libs/aioecowitt
+Download-URL: https://github.com/home-assistant-libs/aioecowitt
+Author: Home Assistant Team
+Author-email: hello@home-assistant.io
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Home Automation
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>3
+Requires-Dist: meteocalc>=1.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# aioEcoWitt
+
+Simple python library for the EcoWitt Protocol
+
+Inspired by pyecowit & ecowitt2mqtt

@@ -1,0 +1,31 @@
+[project]
+authors = [
+  { email = "development@fluidattacks.com", name = "Fluid Attacks Engineering" },
+]
+description = "Python library for usage analytics"
+license = "MPL-2.0"
+name = "fluidattacks-tracks"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+version = "0.8.0"
+
+dependencies = [
+  "aiohttp>=3.12.15",
+  "aiolimiter>=1.2.1",
+  "pydantic>=2.11.7",
+  "tenacity>=9.1.2",
+]
+
+[dependency-groups]
+auth = [
+  "aiobotocore>=2.16.0",
+]
+dev = [
+  "mypy==1.15.0",
+  "ruff==0.12.1",
+  "types-aiobotocore>=2.16.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,3 +1,0 @@
-# Describes the format for available AIS cloud services
-check_version:
-  description: Sprawdzenie dostępności nowej wersji systemu, ten serwis wywoływany jest automatycznie, codziennie, godzinę po starcie systemu

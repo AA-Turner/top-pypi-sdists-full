@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: eufylife-ble-client
+Version: 0.1.10
+Summary: A library to communicate with EufyLife Bluetooth devices.
+Home-page: https://github.com/bdr99/eufylife-ble-client
+License: MIT
+Author: Brandon Rothweiler
+Author-email: brandonrothweiler@gmail.com
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: bleak (>=0.19.0)
+Requires-Dist: bleak-retry-connector (>=2.3.0)
+Requires-Dist: cryptography (>=39.0)
+Description-Content-Type: text/markdown
+
+# EufyLife BLE Client
+
+This is a library for parsing data from Eufy smart scales that use the EufyLife mobile app.
+
+# Supported Models
+
+| Model | Name               |
+| ----- | ------------------ |
+| T9120 | Smart Scale A1     |
+| T9130 | Smart Scale C20    |
+| T9140 | Smart Scale        |
+| T9146 | Smart Scale C1     |
+| T9147 | Smart Scale P1     |
+| T9148 | Smart Scale P2     |
+| T9149 | Smart Scale P2 Pro |
+| T9150 | Smart Scale P3     |
+
+## Installation
+
+Install this via pip:
+
+`pip install eufylife-ble-client`
+

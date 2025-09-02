@@ -1,0 +1,169 @@
+[tool.poetry]
+authors = ["Martin Hjelmare <marhje52@gmail.com>"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries",
+]
+description = "Fetch rates from openexchangerates with aiohttp."
+documentation = "https://aioopenexchangerates.readthedocs.io"
+license = "Apache-2.0"
+name = "aioopenexchangerates"
+packages = [
+  {include = "aioopenexchangerates", from = "src"},
+]
+readme = "README.md"
+repository = "https://github.com/MartinHjelmare/aioopenexchangerates"
+version = "0.6.21"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/MartinHjelmare/aioopenexchangerates/issues"
+"Changelog" = "https://github.com/MartinHjelmare/aioopenexchangerates/blob/main/CHANGELOG.md"
+
+[tool.poetry.dependencies]
+aiohttp = "^3.8.4"
+mashumaro = "^3.13.1"
+python = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+aioresponses = "^0.7.3"
+codespell = "^2.3.0"
+copier = "^9.3.1"
+mypy = "^1.0"
+pre-commit = "^4.0.0"
+pytest = "^8.0.0"
+pytest-aiohttp = "^1.0.4"
+pytest-cov = "^6.0.0"
+python-semantic-release = "^9.0.0"
+ruff = "^0.9.0"
+yarl = "^1.7.2"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+furo = {version = ">=2023.5.20", python = ">=3.11"}
+myst-parser = {version = ">=0.16", python = ">=3.11"}
+sphinx = {version = ">=4.0", python = ">=3.11"}
+sphinx-autobuild = {version = ">=2024.0.0", python = ">=3.11"}
+
+[tool.semantic_release]
+build_command = "pip install poetry && poetry build"
+major_on_zero = false
+version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variables = [
+  "src/aioopenexchangerates/__init__.py:__version__",
+  "docs/conf.py:release",
+]
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = [
+  "^Bump.*",
+]
+
+[tool.semantic_release.changelog.environment]
+keep_trailing_newline = true
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.branches.noop]
+match = "(?!main$)"
+prerelease = true
+
+[tool.pytest.ini_options]
+addopts = """\
+    -Wdefault
+    --cov=aioopenexchangerates
+    --cov-report=term-missing
+    --cov-report=xml
+    """
+asyncio_mode = "auto"
+pythonpath = ["src"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "@overload",
+  "if TYPE_CHECKING",
+  "raise NotImplementedError",
+  'if __name__ == "__main__":',
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = [
+  "ANN101", # missing-type-self
+  "ANN401", # any-type
+  "D203", # 1 blank line required before class docstring
+  "D213", # Multi-line docstring summary should start at the second line
+  "D417", # False positives in some occasions
+  "EM101", # raw-string-in-exception
+  "EM102", # f-string-in-exception
+  "PLR2004", # magic-value-comparison
+  "TCH001", # typing-only-first-party-import
+  "TCH002", # typing-only-third-party-import
+  "TCH003", # typing-only-stdlib-import  #"TID252", # relative-imports
+  "TRY003", # raise-vanilla-args
+]
+select = [
+  "ALL", # all rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["D100"]
+"docs/conf.py" = ["D100"]
+"setup.py" = ["D100"]
+"tests/**/*" = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "PLR0913",
+  "S101",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["aioopenexchangerates", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+exclude = [
+  'docs/.*',
+  'setup.py',
+]
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+allow_untyped_defs = true
+module = "tests.*"
+
+[[tool.mypy.overrides]]
+ignore_errors = true
+module = "docs.*"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: aoe2rec-py
+Version: 0.1.13
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: pip>=24.3.1
+Requires-Python: >=3.9
+Project-URL: Homepage, https://github.com/aoe2ct/aoe2rec
+Project-URL: Repository, https://github.com/aoe2ct/aoe2rec/tree/main/crates/aoe2rec-py

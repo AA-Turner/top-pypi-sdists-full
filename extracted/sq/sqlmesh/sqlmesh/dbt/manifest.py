@@ -80,6 +80,13 @@ HookConfigs = t.Dict[str, HookConfig]
 IGNORED_PACKAGES = {"elementary"}
 BUILTIN_CALLS = {*BUILTIN_GLOBALS, *BUILTIN_FILTERS}
 
+# Patch Semantic Manifest to skip validation and avoid Pydantic v1 errors on DBT 1.6
+# We patch for 1.7+ since we don't care about semantic models
+if DBT_VERSION >= (1, 6, 0):
+    from dbt.contracts.graph.semantic_manifest import SemanticManifest  # type: ignore
+
+    SemanticManifest.validate = lambda _: True  # type: ignore
+
 
 class ManifestHelper:
     def __init__(
@@ -353,16 +360,20 @@ class ManifestHelper:
                 )
 
                 self._models_per_package[node.package_name][node_name] = ModelConfig(
-                    sql=sql,
-                    dependencies=dependencies,
-                    tests=tests,
-                    **node_config,
+                    **dict(
+                        node_config,
+                        sql=sql,
+                        dependencies=dependencies,
+                        tests=tests,
+                    )
                 )
             else:
                 self._seeds_per_package[node.package_name][node_name] = SeedConfig(
-                    dependencies=Dependencies(macros=macro_references),
-                    tests=tests,
-                    **node_config,
+                    **dict(
+                        node_config,
+                        dependencies=Dependencies(macros=macro_references),
+                        tests=tests,
+                    )
                 )
 
     def _load_on_run_start_end(self) -> None:
@@ -456,6 +467,8 @@ class ManifestHelper:
             register_adapter(runtime_config)  # type: ignore
 
         manifest = ManifestLoader.get_full_manifest(runtime_config)
+        # This adapter doesn't care about semantic models so we clear them out to avoid issues
+        manifest.semantic_models = {}
         reset_adapters()
         return manifest
 

@@ -1,0 +1,65 @@
+Metadata-Version: 2.1
+Name: smart_meter_texas
+Version: 0.5.5
+Summary: Package to connect to and retrieve data from the unofficial Smart Meter Texas API
+Home-page: https://github.com/grahamwetzler/smart-meter-texas
+Author: Graham Wetzler
+Author-email: graham@wetzler.dev
+License: MIT license
+Keywords: smart_meter_texas
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+License-File: LICENSE
+License-File: AUTHORS.rst
+Requires-Dist: aiohttp<4,>=3.7.4
+Requires-Dist: asn1>=2.4.1
+Requires-Dist: python-dateutil>=2.8.1
+Requires-Dist: tenacity>=8.0.1
+
+=================
+Smart Meter Texas
+=================
+
+
+.. image:: https://img.shields.io/pypi/v/smart_meter_texas.svg
+        :target: https://pypi.python.org/pypi/smart_meter_texas
+
+.. image:: https://img.shields.io/travis/grahamwetzler/smart-meter-texas.svg
+        :target: https://travis-ci.com/grahamwetzler/smart-meter-texas
+
+
+Package to asynchronously connect to and retrieve data from the unofficial Smart Meter Texas API using aiohttp.
+
+Currently only obtaining the dashboard and current meter reading are implemented. There are serval other API endpoints that are not implemented in this package.
+
+
+* Free software: MIT license
+
+
+Install
+--------
+To install:
+
+.. code-block:: bash
+
+  $ pip install smart-meter-texas
+
+Example
+-------
+
+Please see the examples for an idea of how to get started using the package.
+
+Credits
+-------
+
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage

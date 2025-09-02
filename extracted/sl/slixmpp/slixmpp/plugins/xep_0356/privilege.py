@@ -9,10 +9,27 @@ from slixmpp.xmlstream import StanzaBase
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 
+from slixmpp.exceptions import IqError
 from . import stanza
 from .permissions import IqPermission, MessagePermission, Permissions, RosterAccess
 
 log = logging.getLogger(__name__)
+
+
+class PrivilegedIqError(IqError):
+    """
+    Exception raised when sending a privileged IQ stanza fails.
+    """
+
+    def nested_error(self) -> IqError | None:
+        """
+        Return the IQError generated from the inner IQ stanza, if present.
+        """
+        if "privilege" in self.iq:
+            if "forwarded" in self.iq["privilege"]:
+                if "iq" in self.iq["privilege"]["forwarded"]:
+                    return IqError(self.iq["privilege"]["forwarded"]["iq"])
+        return None
 
 
 class XEP_0356(BasePlugin):
@@ -179,6 +196,8 @@ class XEP_0356(BasePlugin):
         Send an IQ on behalf of a user
 
         Caution: the IQ *must* have the jabber:client namespace
+
+        Raises :class:`PrivilegedIqError` on failure.
         """
         iq_id = iq_id or str(uuid.uuid4())
         encapsulated_iq["id"] = iq_id
@@ -207,7 +226,11 @@ class XEP_0356(BasePlugin):
         )
         iq["privileged_iq"].append(encapsulated_iq)
 
-        resp = await iq.send()
+        try:
+            resp = await iq.send()
+        except IqError as exc:
+            raise PrivilegedIqError(exc.iq)
+
         return resp["privilege"]["forwarded"]["iq"]
 
 

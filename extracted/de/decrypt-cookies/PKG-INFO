@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: decrypt_cookies
+Version: 0.1.5
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Browsers
+Classifier: Topic :: Internet :: WWW/HTTP :: Session
+Requires-Dist: requests>=2.23.0,<3.0.0 ; extra == 'requests'
+Provides-Extra: requests
+Summary: Decrypt cookies from browser
+Keywords: Chromium,Firefox,Safari,cookies,decrypt
+Home-Page: https://github.com/saying121/tidy-browser/tree/master/bindgen/python
+Author-email: saying121 <sayin121@outlook.com>
+License-Expression: LGPL-3.0-or-later
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: homepage, https://github.com/saying121/tidy-browser/tree/master/bindgen/python
+Project-URL: repository, https://github.com/saying121/tidy-browser
+
+# Decrypt Cookies
+
+Rust crate python bindgen.
+
+Easily make a request using the authorization data from your browser.
+
+[example](https://github.com/saying121/tidy-browser/tree/master/bindgen/python/python/example.py)
+
+```python
+#!/usr/bin/env python3
+
+import asyncio
+
+from decrypt_cookies import ChromeGetter
+
+async def get_cookies():
+    chrome_getter = await ChromeGetter()
+    c = await chrome_getter.cookies_all()
+    print(c[0])
+
+
+asyncio.run(get_cookies())
+```
+
+## Status
+
+[status](https://github.com/saying121/tidy-browser/tree/master/crates/decrypt-cookies/README.md#test-status)
+

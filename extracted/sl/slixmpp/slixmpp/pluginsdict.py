@@ -87,13 +87,17 @@ from slixmpp.plugins.xep_0353 import XEP_0353
 from slixmpp.plugins.xep_0359 import XEP_0359
 from slixmpp.plugins.xep_0363 import XEP_0363
 from slixmpp.plugins.xep_0369 import XEP_0369
+from slixmpp.plugins.xep_0372 import XEP_0372
 from slixmpp.plugins.xep_0377 import XEP_0377
 from slixmpp.plugins.xep_0380 import XEP_0380
 from slixmpp.plugins.xep_0382 import XEP_0382
+from slixmpp.plugins.xep_0385 import XEP_0385
 from slixmpp.plugins.xep_0394 import XEP_0394
+from slixmpp.plugins.xep_0402 import XEP_0402
 from slixmpp.plugins.xep_0403 import XEP_0403
 from slixmpp.plugins.xep_0404 import XEP_0404
 from slixmpp.plugins.xep_0405 import XEP_0405
+from slixmpp.plugins.xep_0410 import XEP_0410
 from slixmpp.plugins.xep_0421 import XEP_0421
 from slixmpp.plugins.xep_0422 import XEP_0422
 from slixmpp.plugins.xep_0424 import XEP_0424
@@ -101,9 +105,19 @@ from slixmpp.plugins.xep_0425 import XEP_0425
 from slixmpp.plugins.xep_0428 import XEP_0428
 from slixmpp.plugins.xep_0437 import XEP_0437
 from slixmpp.plugins.xep_0439 import XEP_0439
+from slixmpp.plugins.xep_0441 import XEP_0441
 from slixmpp.plugins.xep_0444 import XEP_0444
+from slixmpp.plugins.xep_0446 import XEP_0446
+from slixmpp.plugins.xep_0447 import XEP_0447
+from slixmpp.plugins.xep_0454 import XEP_0454
+from slixmpp.plugins.xep_0455 import XEP_0455
 from slixmpp.plugins.xep_0461 import XEP_0461
+from slixmpp.plugins.xep_0469 import XEP_0469
+from slixmpp.plugins.xep_0482 import XEP_0482
 from slixmpp.plugins.xep_0490 import XEP_0490
+from slixmpp.plugins.xep_0492 import XEP_0492
+from slixmpp.plugins.xep_0494 import XEP_0494
+from slixmpp.plugins.xep_0502 import XEP_0502
 
 
 class PluginsDict(TypedDict):
@@ -187,10 +201,13 @@ class PluginsDict(TypedDict):
     xep_0377: XEP_0377
     xep_0380: XEP_0380
     xep_0382: XEP_0382
+    xep_0385: XEP_0385
     xep_0394: XEP_0394
+    xep_0402: XEP_0402
     xep_0403: XEP_0403
     xep_0404: XEP_0404
     xep_0405: XEP_0405
+    xep_0410: XEP_0410
     xep_0421: XEP_0421
     xep_0422: XEP_0422
     xep_0424: XEP_0424
@@ -198,6 +215,16 @@ class PluginsDict(TypedDict):
     xep_0428: XEP_0428
     xep_0437: XEP_0437
     xep_0439: XEP_0439
+    xep_0441: XEP_0441
     xep_0444: XEP_0444
+    xep_0446: XEP_0446
+    xep_0447: XEP_0447
+    xep_0454: XEP_0454
+    xep_0455: XEP_0455
     xep_0461: XEP_0461
+    xep_0469: XEP_0469
+    xep_0482: XEP_0482
     xep_0490: XEP_0490
+    xep_0492: XEP_0492
+    xep_0494: XEP_0494
+    xep_0502: XEP_0502

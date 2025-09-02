@@ -1,0 +1,159 @@
+[build-system]
+requires = ["hatchling", "hatch-regex-commit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PyLoadAPI"
+license = "MIT"
+dynamic = ["version"]
+description = "Simple wrapper for pyLoad's API."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Manfred Dennerlein Rodelo", email = "manfred@dennerlein.name" }
+]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3"
+]
+dependencies = [
+    "aiohttp~=3.9"
+]
+
+[project.optional-dependencies]
+cli = [
+  "click",
+]
+
+[project.urls]
+Documentation = "https://tr4nt0r.github.io/pyloadapi"
+Source = "https://github.com/tr4nt0r/pyloadapi"
+
+[project.scripts]
+pyloadapi = "pyloadapi.cli:cli"
+
+[tool.hatch.version]
+source = "regex_commit"
+commit_extra_args = ["-e"]
+path = "src/pyloadapi/__init__.py"
+
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+]
+[tool.hatch.envs.default]
+python = "3.12"
+dependencies = [
+    "aioresponses==0.7.8",
+    "mkdocs-material==9.6.5",
+    "mkdocstrings[python]==0.28.1",
+    "mypy==1.15.0",
+    "pre-commit==4.1.0",
+    "pytest-asyncio==0.25.3",
+    "pytest-cov==6.0.0",
+    "pytest==8.3.4",
+    "ruff==0.9.7"
+]
+
+[tool.hatch.envs.hatch-test]
+parallel = false
+extra-dependencies = [
+  "aioresponses==0.7.8",
+  "pytest-asyncio==0.25.3",
+  "syrupy==4.8.1",
+  "pytest-cov==6.0.0",
+  "click==8.1.8",
+]
+extra-args = ["--cov-report=xml", "-vv"]
+type = "virtual"
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.13", "3.12", "3.11", "3.10"]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+test-cov-xml = "pytest --cov-report=xml"
+lint = [
+  "ruff format .",
+  "ruff --fix .",
+  "mypy src/pyloadapi/",
+]
+lint-check = [
+  "ruff format --check src/pyloadapi",
+  "ruff check src/pyloadapi",
+  "mypy src/pyloadapi/",
+]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/pyloadapi/ --cov-report=term-missing"
+asyncio_mode = "auto"
+testpaths = [
+
+    "tests",
+]
+pythonpath = [
+  "src"
+]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint]
+extend-select = ["I", "TRY", "UP", "D", "W"]
+extend-ignore = ["D213", "D202", "D203", "D213", "UP038", "TRY003"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"async_timeout".msg = "use asyncio.timeout instead"
+"pytz".msg = "use zoneinfo instead"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+    "pyloadapi",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.pylint.MAIN]
+py-version = "3.12"
+ignore = [
+    "tests",
+]
+
+[tool.pylint.BASIC]
+class-const-naming-style = "any"
+
+[tool.pylint."MESSAGES CONTROL"]
+enable = [
+    "useless-suppression",
+    "use-symbolic-message-instead",
+]
+disable = [
+    "format",
+    "abstract-method",
+    "cyclic-import",
+    "duplicate-code",
+    "inconsistent-return-statements",
+    "locally-disabled",
+    "not-context-manager",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-public-methods",
+    "too-many-boolean-expressions",
+    "wrong-import-order",
+    "consider-using-f-string",
+]

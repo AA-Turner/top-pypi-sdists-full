@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: netmap
+Version: 0.7.0.2
+Summary: This is a python class to use nmap and access scan results from python3
+Home-page: https://github.com/home-assistant-libs/python-nmap
+Author: Alexandre Norman
+Author-email: norman@xael.org
+License: gpl-3.0.txt
+Keywords: nmap,portscanner,network,sysadmin
+Platform: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Networking :: Firewalls
+Classifier: Topic :: System :: Networking :: Monitoring
+
+This is a python class to use nmap and access scan results from python3
+

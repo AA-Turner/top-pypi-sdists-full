@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.15 23:00:00                  #
+# Updated Date: 2025.09.01 23:00:00                  #
 # ================================================== #
 
 from pygpt_net.core.types import (
@@ -60,8 +60,10 @@ class Mode:
 
         if not is_audio:
             self.window.ui.nodes['audio.auto_turn'].setVisible(False)
+            self.window.ui.nodes["audio.loop"].setVisible(False)
         else:
             self.window.ui.nodes['audio.auto_turn'].setVisible(True)
+            self.window.ui.nodes["audio.loop"].setVisible(True)
 
         if not is_assistant:
             ui_nodes['presets.widget'].setVisible(True)
@@ -138,9 +140,21 @@ class Mode:
             ui_tabs['preset.editor.extra'].setTabText(0, trans("preset.prompt"))
 
         if is_image:
-            ui_nodes['dalle.options'].setVisible(True)
+            ui_nodes['media.raw'].setVisible(True)
+            if ctrl.media.is_video_model():
+                ui_nodes['video.options'].setVisible(True)
+                ui_nodes['dalle.options'].setVisible(False)
+            elif ctrl.media.is_image_model():
+                ui_nodes['dalle.options'].setVisible(True)
+                ui_nodes['video.options'].setVisible(False)
+            else:
+                ui_nodes['media.raw'].setVisible(False)
+                ui_nodes['dalle.options'].setVisible(False)
+                ui_nodes['video.options'].setVisible(False)
         else:
+            ui_nodes['media.raw'].setVisible(False)
             ui_nodes['dalle.options'].setVisible(False)
+            ui_nodes['video.options'].setVisible(False)
 
         if is_agent:
             ui_nodes['agent.options'].setVisible(True)

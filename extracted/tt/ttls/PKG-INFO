@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: ttls
+Version: 1.9.0
+Summary: Twinkly Twinkly Little Star
+Home-page: https://github.com/jschlyter/ttls
+License: BSD-2-Clause
+Author: Jakob Schlyter
+Author-email: jakob@schlyter.se
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiohttp (>=3.8.5,<4.0.0)
+Project-URL: Repository, https://github.com/jschlyter/ttls
+Description-Content-Type: text/markdown
+
+# Twinkly Twinkly Little Star
+
+`ttls` is a small package to help you make async requests to Twinkly LEDs. A command line tool (also called `ttls`) is also included, as well as some examples how to create both loadable movies and realtime sequences.
+
+Written based on the [excellent XLED documentation](https://xled-docs.readthedocs.io/en/latest/) by [@scrool](https://github.com/scrool).
+

@@ -852,6 +852,9 @@ class ConfigManager:
             'wildlife_monitoring': None,
             'people_tracking' : PeopleTrackingConfig,
             'pcb_defect_detection': None,
+            'underground_pipeline_defect' : None,
+            'suspicious_activity_detection': None,
+            'natural_disaster_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1333,6 +1336,22 @@ class ConfigManager:
         except ImportError:
             return None
     
+    def suspicious_activity_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.suspicious_activity_detection import SusActivityConfig
+            return SusActivityConfig
+        except ImportError:
+            return None
+    
+    def natural_disaster_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.natural_disaster import NaturalDisasterConfig
+            return NaturalDisasterConfig
+        except ImportError:
+            return None
+    
     #put all image based usecases here::
     def blood_cancer_detection_config_class(self):
         """Register a configuration class for a use case."""
@@ -1379,6 +1398,14 @@ class ConfigManager:
         try:
             from ..usecases.cell_microscopy_segmentation import CellMicroscopyConfig
             return CellMicroscopyConfig
+        except ImportError:
+            return None
+    
+    def underground_pipeline_defect_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.underground_pipeline_defect_detection import UndergroundPipelineDefectConfig
+            return UndergroundPipelineDefectConfig
         except ImportError:
             return None
 
@@ -2492,6 +2519,38 @@ class ConfigManager:
                 **kwargs
             )
         
+        elif usecase == "suspicious_activity_detection":
+            # Import here to avoid circular import
+            from ..usecases.suspicious_activity_detection import SusActivityConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = SusActivityConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "natural_disaster_detection":
+            # Import here to avoid circular import
+            from ..usecases.natural_disaster import NaturalDisasterConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = NaturalDisasterConfig(
+                category=category or "environmental",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
@@ -2579,6 +2638,23 @@ class ConfigManager:
 
             config = CellMicroscopyConfig(
                 category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+
+        elif usecase == "underground_pipeline_defect":
+            # Import here to avoid circular import
+            from ..usecases.underground_pipeline_defect_detection import UndergroundPipelineDefectConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = UndergroundPipelineDefectConfig(
+                category=category or "underground_pipeline_defect",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -3006,6 +3082,24 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.pcb_defect_detection import PCBDefectConfig
             default_config = PCBDefectConfig()
+            return default_config.to_dict()
+
+        elif usecase == "suspicious_activity_detection":
+            # Import here to avoid circular import
+            from ..usecases.suspicious_activity_detection import SusActivityConfig
+            default_config = SusActivityConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "natural_disaster_detection":
+            # Import here to avoid circular import
+            from ..usecases.natural_disaster import NaturalDisasterConfig
+            default_config = NaturalDisasterConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "underground_pipeline_defect":
+            # Import here to avoid circular import
+            from ..usecases.underground_pipeline_defect_detection import UndergroundPipelineDefectConfig
+            default_config = UndergroundPipelineDefectConfig()
             return default_config.to_dict()
         
         #Add all image based usecases here

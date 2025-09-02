@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: eternalegypt
+Version: 0.0.17
+Summary: Netgear LTE modem API
+Home-page: https://github.com/amelchio/eternalegypt
+Author: Anders Melchiorsen
+Author-email: amelchio@nogoto.net
+License: MIT
+Keywords: netgear,lte,lb1120,lb2120
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3 :: Only
+License-File: LICENSE.txt
+Requires-Dist: aiohttp>=3.5.0
+Requires-Dist: attrs
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: nhc
+Version: 0.4.13
+Summary: SDK for Niko Home Control
+Home-page: https://github.com/vandeurenglenn/nhc
+Author: Vandeuren Glenn
+Author-email: vandeurenglenn@gmail.com
+Maintainer: Vandeuren Glenn
+Maintainer-email: vandeurenglenn@gmail.com
+License: MIT
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: summary
+
+Niko Home Control Client Library

@@ -1,0 +1,51 @@
+[project]
+name = "easy-model-deployer"
+description = "Easy Model Deployer"
+version = "0.9.38"
+authors = [
+    {name = "Yi Yan",email = "<yiyanz@amazon.com>"},
+    {name = "Jie Tang", email="<tangjiee@amazon.com>"},
+    {name="Xuan Zhou",email="<zhouxss@amazon.com>"}
+]
+readme = "README.md"
+
+[tool.poetry]
+packages = [
+    { include = "**/*", from = "src/emd", to = "emd" },
+    { include = "pipeline", from = "src", to = "emd" }
+]
+exclude = [".venv"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typer = "0.15.3"
+click = "8.0.4"
+rich = "14.0.0"
+boto3 = "^1.35.0"
+questionary = "^2.1.0"
+requests = "^2.32"
+pydantic = "2.11.4"
+sagemaker = "^2.237.0"
+langchain = "^0.3.9"
+langchain-aws = "^0.2.13"
+huggingface-hub = "^0.31.2"
+openai = "^1.54.4"
+jinja2 = "^3.1.4"
+modelscope = "^1.21.1"
+
+[tool.poetry.extras]
+# optional dependencies
+#cli = ["typer","rich","questionary","requests"]
+#langchain = ["langchain", "langchain-aws"]  # langchain required
+#all = ["typer","rich","questionary","langchain", "langchain-aws","sagemaker","openai","jinja2","huggingface_hub","hf_transfer","modelscope"] # all
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+[tool.poetry.scripts]
+emd = "emd.cli:app"
+[project.scripts]
+emd = "emd.cli:app"

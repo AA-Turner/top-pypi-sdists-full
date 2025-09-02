@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: apimatic-requests-client-adapter
-Version: 0.1.7
+Version: 0.1.8
 Summary: An adapter for requests client library consumed by the SDKs generated with APIMatic
 Home-page: https://github.com/apimatic/requests-client-adapter
 Author: APIMatic
@@ -11,11 +11,22 @@ License-File: LICENSE
 Requires-Dist: apimatic-core-interfaces~=0.1.0
 Requires-Dist: requests~=2.31
 Requires-Dist: cachecontrol~=0.12.6
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # apimatic-requests-client-adapter
 [![PyPI][pypi-version]][pypi-apimatic-requests-client-adapter-url]
 [![Tests][test-badge]][test-url]
-[![Test Coverage][test-coverage-url]][code-climate-url]
+[![Test Coverage][coverage-badge]][coverage-url]
+[![Maintainability Rating][maintainability-badge]][maintainability-url]
+[![Vulnerabilities][vulnerabilities-badge]][vulnerabilities-url]
 [![Licence][license-badge]][license-url]
 
 ## Introduction
@@ -49,8 +60,11 @@ The requests client implementation also contains unit tests to ensure reliabilit
 [pypi-apimatic-requests-client-adapter-url]: https://pypi.org/project/apimatic-requests-client-adapter/
 [test-badge]: https://github.com/apimatic/requests-client-adapter/actions/workflows/test-runner.yml/badge.svg
 [test-url]: https://github.com/apimatic/requests-client-adapter/actions/workflows/test-runner.yml
-[code-climate-url]: https://codeclimate.com/github/apimatic/requests-client-adapter
-[maintainability-url]: https://api.codeclimate.com/v1/badges/1daeb05c58b9a252043c/maintainability
-[test-coverage-url]: https://api.codeclimate.com/v1/badges/1daeb05c58b9a252043c/test_coverage
+[coverage-badge]: https://sonarcloud.io/api/project_badges/measure?project=apimatic_requests-client-adapter&metric=coverage
+[coverage-url]: https://sonarcloud.io/summary/new_code?id=apimatic_requests-client-adapter
+[maintainability-badge]: https://sonarcloud.io/api/project_badges/measure?project=apimatic_requests-client-adapter&metric=sqale_rating
+[maintainability-url]: https://sonarcloud.io/summary/new_code?id=apimatic_requests-client-adapter
+[vulnerabilities-badge]: https://sonarcloud.io/api/project_badges/measure?project=apimatic_requests-client-adapter&metric=vulnerabilities
+[vulnerabilities-url]: https://sonarcloud.io/summary/new_code?id=apimatic_requests-client-adapter
 [license-badge]: https://img.shields.io/badge/licence-MIT-blue
 [license-url]: LICENSE

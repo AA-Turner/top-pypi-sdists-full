@@ -1,0 +1,116 @@
+Metadata-Version: 2.4
+Name: intellifire4py
+Version: 4.2.1
+Summary: Intellifire4Py
+Project-URL: Homepage, https://github.com/jeeftor/intellifire4py
+Project-URL: Repository, https://github.com/jeeftor/intellifire4py
+Project-URL: Documentation, https://intellifire4py.readthedocs.io
+Project-URL: Bug Tracker, https://github.com/jeeftor/intellifire4py/issues
+Project-URL: Changelog, https://github.com/jeeftor/intellifire4py/releases
+Author-email: Jeff Stein <jeffstein@gmail.com>
+License: MIT
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.13
+Requires-Dist: aenum>=3.1.11
+Requires-Dist: aiohttp>=3.9.1
+Requires-Dist: pydantic>=1.10.8
+Requires-Dist: rich>=10.0.0
+Provides-Extra: dev
+Requires-Dist: aioresponses>=0.7.6; extra == 'dev'
+Requires-Dist: build>=1.0.0; extra == 'dev'
+Requires-Dist: codespell>=2.4.1; extra == 'dev'
+Requires-Dist: furo>=2024.8.6; extra == 'dev'
+Requires-Dist: mypy>=1.5.1; extra == 'dev'
+Requires-Dist: myst-parser>=2.0.0; extra == 'dev'
+Requires-Dist: nox>=2023.4.22; extra == 'dev'
+Requires-Dist: pre-commit-hooks==4.5.0; extra == 'dev'
+Requires-Dist: pre-commit>=3.4.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.21.1; extra == 'dev'
+Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
+Requires-Dist: pytest-mock>=3.14.0; extra == 'dev'
+Requires-Dist: pytest-timeout>=2.3.1; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.5.0; extra == 'dev'
+Requires-Dist: pytest>=7.4.2; extra == 'dev'
+Requires-Dist: pyupgrade>=3.13.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.4; extra == 'dev'
+Requires-Dist: safety>=3.3.1; extra == 'dev'
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == 'dev'
+Requires-Dist: sphinx-click>=5.0.1; extra == 'dev'
+Requires-Dist: sphinx-copybutton>=0.5.2; extra == 'dev'
+Requires-Dist: sphinx>=7.2.6; extra == 'dev'
+Requires-Dist: twine>=4.0.0; extra == 'dev'
+Requires-Dist: typeguard>=4.1.5; extra == 'dev'
+Requires-Dist: uv>=0.8.10; extra == 'dev'
+Requires-Dist: xdoctest>=1.1.1; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Intellifire4Py
+
+[![PyPI](https://img.shields.io/pypi/v/intellifire4py.svg)][pypi_]
+[![Status](https://img.shields.io/pypi/status/intellifire4py.svg)][status]
+[![Python Version](https://img.shields.io/pypi/pyversions/intellifire4py)][python version]
+[![License](https://img.shields.io/pypi/l/intellifire4py)][license]
+
+[![Read the documentation at https://intellifire4py.readthedocs.io/](https://img.shields.io/readthedocs/intellifire4py/latest.svg?label=Read%20the%20Docs)][read the docs]
+[![Tests](https://github.com/jeeftor/intellifire4py/workflows/Tests/badge.svg)][tests]
+[![Codecov](https://codecov.io/gh/jeeftor/intellifire4py/branch/master/graph/badge.svg)][codecov]
+[![Coverage](https://codecov.io/gh/jeeftor/intellifire4py/graph/badge.svg)](https://codecov.io/gh/jeeftor/intellifire4py)
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)][pre-commit]
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)][black]
+
+[pypi_]: https://pypi.org/project/intellifire4py/
+[status]: https://pypi.org/project/intellifire4py/
+[python version]: https://pypi.org/project/intellifire4py
+[read the docs]: https://intellifire4py.readthedocs.io/
+[tests]: https://github.com/jeeftor/intellifire4py/actions?workflow=Tests
+[codecov]: https://app.codecov.io/gh/jeeftor/intellifire4py
+[pre-commit]: https://github.com/pre-commit/pre-commit
+[black]: https://github.com/psf/black
+
+## Features
+
+- TODO
+
+## Requirements
+
+- TODO
+
+## Installation
+
+You can install _Intellifire4Py_ via [pip] from [PyPI]:
+
+```console
+$ pip install intellifire4py
+```
+
+## Usage
+
+Please see the [API Reference] for details.
+
+## Contributing
+
+Contributions are very welcome.
+To learn more, see the [Contributor Guide].
+
+## License
+
+Distributed under the terms of the [MIT license][license],
+_Intellifire4Py_ is free and open source software.
+
+## Issues
+
+If you encounter any problems,
+please [file an issue] along with a detailed description.
+
+
+<!-- github-only -->
+
+[license]: https://github.com/jeeftor/intellifire4py/blob/main/LICENSE
+[contributor guide]: https://github.com/jeeftor/intellifire4py/blob/main/CONTRIBUTING.md
+[command-line reference]: https://intellifire4py.readthedocs.io/en/latest/usage.html

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: monitored_ioloop
-Version: 0.0.17
+Version: 0.0.18
 Author-email: gnir <gnir.work@gmail.com>
 License-File: LICENSE
 Requires-Python: >=3.9

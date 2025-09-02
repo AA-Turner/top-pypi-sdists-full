@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "letschatty"
+version = "0.4.141"  # Or whichever is your latest version
+description = "Models and custom classes to work across the Chattyverse"
+authors = ["Axel <axel@letschatty.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "letschatty", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2.9.2"
+pycountry = "^24.6.1"
+python-dotenv = "^1.0.1"
+phonenumbers = "^9.0.2"
+pymongo = { version = "^4.10.1", optional = true }
+toml = "^0.10.2"
+
+[tool.poetry.extras]
+db = ["pymongo"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,79 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rf24-py"
+description = "A python package binding the nRF24/rf24-rs rust project."
+readme = "bindings/python/README.md"
+requires-python = ">=3.9"
+keywords = [
+    "nrf24l01",
+    "nRF24L01+",
+    "raspberry",
+    "pi",
+    "linux",
+    "driver",
+    "radio",
+    "transceiver",
+    "RF24",
+    # "RF24Network",
+    # "RF24Mesh",
+]
+license = "MIT"
+authors = [
+    { name = "Brendan Doherty", email = "2bndy5@gmail.com" },
+]
+classifiers = [
+    # https://pypi.org/pypi?%3Aaction=list_classifiers
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Hardware",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: System :: Networking",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://rf24-rs.readthedocs.io/en/latest"
+Source =  "https://github.com/nRF24/rf24-rs"
+Tracker = "https://github.com/nRF24/rf24-rs/issues"
+
+[tool.mypy]
+show_error_codes = true
+pretty = true
+files = [
+    "examples/python/*.py",
+    "rf24_py.pyi"
+]
+
+[tool.maturin]
+manifest-path = "bindings/python/Cargo.toml"
+include = [
+    { path = "rf24_py.pyi", format = "sdist" },
+    { path = "LICENSE", format = "sdist" },
+]
+
+[dependency-groups]
+dev = [
+    "maturin==1.9.4",
+    "mypy==1.17.1",
+    "pre-commit==4.3.0",
+    "ruff==0.12.11",
+]
+docs = [
+    "markdown-gfm-admonition==0.1.1",
+    "mkdocs==1.6.1",
+    "mkdocs-include-markdown-plugin==7.1.7",
+    "mkdocs-material==9.6.18",
+    "mkdocstrings-python==1.18.2",
+    "pymdown-extensions==10.16.1",
+]

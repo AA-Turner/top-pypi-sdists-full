@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g., v0.1.0). If provided, this workflow will create and push the tag first."
+        required: false
+
+permissions:
+  contents: write  # required to create releases and push tags with GITHUB_TOKEN
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # If manually dispatched with an input version, create and push the tag here
+      - name: Create and push tag from workflow_dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+        run: |
+          set -eux
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # If tag already exists locally or remotely, skip creation
+          if git rev-parse "${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "Tag ${{ inputs.version }} already exists locally"
+          else
+            git tag "${{ inputs.version }}"
+            git push origin "${{ inputs.version }}"
+          fi
+
+      - name: Build wheel & sdist
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+          python -m build
+
+      - name: Build VS Code Extension
+        run: |
+          cd vscode-extension
+          # Extract version from git tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Building VS Code extension version: $VERSION"
+          
+          # Update package.json version
+          npm version $VERSION --no-git-tag-version
+          
+          npm install
+          npm run compile
+          npm install -g @vscode/vsce
+          vsce package --no-yarn
+          echo "VS Code extension built successfully"
+          ls -la *.vsix
+          echo "Extension file details:"
+          file *.vsix
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.version }}
+          name: ${{ github.ref_name || inputs.version }}
+          body: |
+            Automated release for ${{ github.ref_name || inputs.version }}.
+            - Commit: ${{ github.sha }}
+            
+            ## Downloads
+            - **Python Package**: Available on PyPI
+            - **VS Code Extension**: Download the `.vsix` file below for VS Code/Cursor installation
+          files: |
+            dist/*
+            vscode-extension/*.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

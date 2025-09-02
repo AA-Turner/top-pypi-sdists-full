@@ -16,7 +16,6 @@ from functools import wraps
 from typing import Optional
 
 import pyexasol.exceptions
-
 from exasol.driver.websocket._errors import (
     Error,
     NotSupportedError,
@@ -26,7 +25,7 @@ from exasol.driver.websocket._types import TypeCode
 
 @dataclass
 class MetaData:
-    """Meta data describing a result column"""
+    """Metadata describing a result column"""
 
     name: str
     type_code: TypeCode
