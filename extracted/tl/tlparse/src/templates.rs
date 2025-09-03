@@ -185,6 +185,9 @@ PT2 generates <a href='chromium_events.json'>Chromium Trace Events</a> in JSON o
 You can download and view them in a tool like <a href='https://ui.perfetto.dev/'>Perfetto</a>.
 {{ endif  }}
 <p>
+<a href="collectives_parity.json">Collectives Parity report</a> comparing scheduler and Inductor output code collective operations.
+</p>
+<p>
 Build products below:
 </p>
 <ul>
@@ -617,6 +620,27 @@ desync issues on specific ranks.
 <p><strong>Graph {graph.graph_id}:</strong> {graph.delta_ms} ms delta (Fastest: Rank {graph.rank_details.0.rank} - {graph.rank_details.0.runtime_ms} ms, Slowest: Rank {graph.rank_details.1.rank} - {graph.rank_details.1.runtime_ms} ms)</p>
 {{ endfor }}
 {{ endif }}
+{{ endif }}
+<h3>Graph Execution-Order Diagnostics</h3>
+<p>Note: To enable this feature, wrap your code with torch._inductor.debug.record_and_log_graph_execution_order()</p>
+{{ if diagnostics.exec_order }}
+  {{ if diagnostics.exec_order.order_differs }}
+  <p>Graph execution order differs across ranks.</p>
+  {{ else }}
+  <p>Graph execution order: consistent across ranks.</p>
+  {{ endif }}
+  {{ if diagnostics.exec_order.has_schedule_mismatch }}
+  <p><strong>Warning:</strong> Schedule mismatch across ranks: {diagnostics.exec_order.ranks_schedule_str}</p>
+  {{ else }}
+  <p>Collectives Schedule: Consistent across ranks.</p>
+  {{ endif }}
+  {{ if diagnostics.exec_order.has_cache_mismatch }}
+  <p><strong>Warning:</strong> Cache hit/miss mismatch across ranks: {diagnostics.exec_order.ranks_cache_str}</p>
+  {{ else }}
+  <p>Cache hit/miss sequence: Consistent across ranks.</p>
+  {{ endif }}
+{{ else }}
+<p>Execution-order analysis unavailable.</p>
 {{ endif }}
 <h3>Tensor Metadata Analysis</h3>
 <p>

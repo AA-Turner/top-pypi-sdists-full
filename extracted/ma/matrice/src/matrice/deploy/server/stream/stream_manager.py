@@ -383,7 +383,7 @@ class StreamManager:
             inference_interface=self.inference_interface,
             input_queue=self.post_processing_queue,  # Input from post-processing queue
             output_queue=self.output_queue,  # Output to final output queue
-            max_concurrent_tasks=20  # Allow up to 5 concurrent post-processing tasks
+            max_concurrent_tasks=20  # Allow up to 20 concurrent post-processing tasks
         )
         
         try:

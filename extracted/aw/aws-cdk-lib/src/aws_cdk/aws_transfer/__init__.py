@@ -772,9 +772,20 @@ class CfnCertificate(
     '''Imports the signing and encryption certificates that you need to create local (AS2) profiles and partner profiles.
 
     You can import both the certificate and its chain in the ``Certificate`` parameter.
+
+    After importing a certificate, AWS Transfer Family automatically creates a Amazon CloudWatch metric called ``DaysUntilExpiry`` that tracks the number of days until the certificate expires. The metric is based on the ``InactiveDate`` parameter and is published daily in the ``AWS/Transfer`` namespace.
     .. epigraph::
 
-       If you use the ``Certificate`` parameter to upload both the certificate and its chain, don't use the ``CertificateChain`` parameter.
+       It can take up to a full day after importing a certificate for Transfer Family to emit the ``DaysUntilExpiry`` metric to your account. > If you use the ``Certificate`` parameter to upload both the certificate and its chain, don't use the ``CertificateChain`` parameter.
+
+    *CloudWatch monitoring*
+
+    The ``DaysUntilExpiry`` metric includes the following specifications:
+
+    - *Units:* Count (days)
+    - *Dimensions:* ``CertificateId`` (always present), ``Description`` (if provided during certificate import)
+    - *Statistics:* Minimum, Maximum, Average
+    - *Frequency:* Published daily
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html
     :cloudformationResource: AWS::Transfer::Certificate
@@ -2846,7 +2857,7 @@ class CfnServer(
             When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
 
             :param address_allocation_ids: A list of address allocation IDs that are required to attach an Elastic IP address to your server's endpoint. An address allocation ID corresponds to the allocation ID of an Elastic IP address. This value can be retrieved from the ``allocationId`` field from the Amazon EC2 `Address <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Address.html>`_ data type. One way to retrieve this value is by calling the EC2 `DescribeAddresses <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html>`_ API. This parameter is optional. Set this parameter if you want to make your VPC endpoint public-facing. For details, see `Create an internet-facing endpoint for your server <https://docs.aws.amazon.com/transfer/latest/userguide/create-server-in-vpc.html#create-internet-facing-endpoint>`_ . .. epigraph:: This property can only be set as follows: - ``EndpointType`` must be set to ``VPC`` - The Transfer Family server must be offline. - You cannot set this parameter for Transfer Family servers that use the FTP protocol. - The server must already have ``SubnetIds`` populated ( ``SubnetIds`` and ``AddressAllocationIds`` cannot be updated simultaneously). - ``AddressAllocationIds`` can't contain duplicates, and must be equal in length to ``SubnetIds`` . For example, if you have three subnet IDs, you must also specify three address allocation IDs. - Call the ``UpdateServer`` API to set or change this parameter. - You can't set address allocation IDs for servers that have an ``IpAddressType`` set to ``DUALSTACK`` You can only set this property if ``IpAddressType`` is set to ``IPV4`` .
-            :param security_group_ids: A list of security groups IDs that are available to attach to your server's endpoint. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC`` . You can edit the ``SecurityGroupIds`` property in the `UpdateServer <https://docs.aws.amazon.com/transfer/latest/userguide/API_UpdateServer.html>`_ API only if you are changing the ``EndpointType`` from ``PUBLIC`` or ``VPC_ENDPOINT`` to ``VPC`` . To change security groups associated with your server's VPC endpoint after creation, use the Amazon EC2 `ModifyVpcEndpoint <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVpcEndpoint.html>`_ API.
+            :param security_group_ids: A list of security groups IDs that are available to attach to your server's endpoint. .. epigraph:: While ``SecurityGroupIds`` appears in the response syntax for consistency with ``CreateServer`` and ``UpdateServer`` operations, this field is not populated in ``DescribeServer`` responses. Security groups are managed at the VPC endpoint level and can be modified outside of the Transfer Family service. To retrieve current security group information, use the EC2 ``DescribeVpcEndpoints`` API with the ``VpcEndpointId`` returned in the response. This property can only be set when ``EndpointType`` is set to ``VPC`` . You can edit the ``SecurityGroupIds`` property in the `UpdateServer <https://docs.aws.amazon.com/transfer/latest/userguide/API_UpdateServer.html>`_ API only if you are changing the ``EndpointType`` from ``PUBLIC`` or ``VPC_ENDPOINT`` to ``VPC`` . To change security groups associated with your server's VPC endpoint after creation, use the Amazon EC2 `ModifyVpcEndpoint <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVpcEndpoint.html>`_ API.
             :param subnet_ids: A list of subnet IDs that are required to host your server endpoint in your VPC. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC`` .
             :param vpc_endpoint_id: The ID of the VPC endpoint. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC_ENDPOINT`` .
             :param vpc_id: The VPC ID of the virtual private cloud in which the server's endpoint will be hosted. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC`` .
@@ -2916,6 +2927,8 @@ class CfnServer(
             '''A list of security groups IDs that are available to attach to your server's endpoint.
 
             .. epigraph::
+
+               While ``SecurityGroupIds`` appears in the response syntax for consistency with ``CreateServer`` and ``UpdateServer`` operations, this field is not populated in ``DescribeServer`` responses. Security groups are managed at the VPC endpoint level and can be modified outside of the Transfer Family service. To retrieve current security group information, use the EC2 ``DescribeVpcEndpoints`` API with the ``VpcEndpointId`` returned in the response.
 
                This property can only be set when ``EndpointType`` is set to ``VPC`` .
 

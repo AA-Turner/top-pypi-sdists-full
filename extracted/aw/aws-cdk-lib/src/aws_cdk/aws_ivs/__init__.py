@@ -3133,7 +3133,7 @@ class CfnStage(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param auto_participant_recording_configuration: Configuration object for individual participant recording, to attach to the new stage.
+        :param auto_participant_recording_configuration: Configuration object for individual participant recording.
         :param name: Stage name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-tag.html>`_ .
         '''
@@ -3217,7 +3217,7 @@ class CfnStage(
     def auto_participant_recording_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.AutoParticipantRecordingConfigurationProperty"]]:
-        '''Configuration object for individual participant recording, to attach to the new stage.'''
+        '''Configuration object for individual participant recording.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.AutoParticipantRecordingConfigurationProperty"]], jsii.get(self, "autoParticipantRecordingConfiguration"))
 
     @auto_participant_recording_configuration.setter
@@ -3415,9 +3415,9 @@ class CfnStage(
             *,
             participant_recording_hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.ParticipantRecordingHlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''HLS configuration object for individual participant recording.
+            '''Object specifying an HLS configuration for individual participant recording.
 
-            :param participant_recording_hls_configuration: An object representing a configuration of participant HLS recordings for individual participant recording.
+            :param participant_recording_hls_configuration: Object specifying a configuration of participant HLS recordings for individual participant recording.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-hlsconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3445,7 +3445,7 @@ class CfnStage(
         def participant_recording_hls_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantRecordingHlsConfigurationProperty"]]:
-            '''An object representing a configuration of participant HLS recordings for individual participant recording.
+            '''Object specifying a configuration of participant HLS recordings for individual participant recording.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-hlsconfiguration.html#cfn-ivs-stage-hlsconfiguration-participantrecordinghlsconfiguration
             '''
@@ -3476,7 +3476,7 @@ class CfnStage(
             *,
             target_segment_duration_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''An object representing a configuration of participant HLS recordings for individual participant recording.
+            '''Object specifying a configuration of participant HLS recordings for individual participant recording.
 
             :param target_segment_duration_seconds: Defines the target duration for recorded segments generated when recording a stage participant. Segments may have durations longer than the specified value when needed to ensure each segment begins with a keyframe. Default: 6. Default: - 6
 
@@ -3541,11 +3541,11 @@ class CfnStage(
             storage: typing.Optional[typing.Sequence[builtins.str]] = None,
             target_interval_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''An object representing a configuration of thumbnails for recorded video from an individual participant.
+            '''Object specifying a configuration of thumbnails for recorded video from an individual participant.
 
-            :param recording_mode: Thumbnail recording mode. Default: DISABLED. Default: - "INTERVAL"
-            :param storage: Indicates the format in which thumbnails are recorded. SEQUENTIAL records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. LATEST saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by targetIntervalSeconds. You can enable both SEQUENTIAL and LATEST. Default: SEQUENTIAL.
-            :param target_interval_seconds: The targeted thumbnail-generation interval in seconds. This is configurable only if recordingMode is INTERVAL. Default: 60. Default: - 60
+            :param recording_mode: Thumbnail recording mode. Default: ``DISABLED`` . Default: - "INTERVAL"
+            :param storage: Indicates the format in which thumbnails are recorded. ``SEQUENTIAL`` records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. ``LATEST`` saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by ``targetIntervalSeconds`` . You can enable both ``SEQUENTIAL`` and ``LATEST`` . Default: ``SEQUENTIAL`` .
+            :param target_interval_seconds: The targeted thumbnail-generation interval in seconds. This is configurable only if ``recordingMode`` is ``INTERVAL`` . Default: 60. Default: - 60
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3579,7 +3579,7 @@ class CfnStage(
         def recording_mode(self) -> typing.Optional[builtins.str]:
             '''Thumbnail recording mode.
 
-            Default: DISABLED.
+            Default: ``DISABLED`` .
 
             :default: - "INTERVAL"
 
@@ -3592,7 +3592,7 @@ class CfnStage(
         def storage(self) -> typing.Optional[typing.List[builtins.str]]:
             '''Indicates the format in which thumbnails are recorded.
 
-            SEQUENTIAL records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. LATEST saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by targetIntervalSeconds. You can enable both SEQUENTIAL and LATEST. Default: SEQUENTIAL.
+            ``SEQUENTIAL`` records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. ``LATEST`` saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by ``targetIntervalSeconds`` . You can enable both ``SEQUENTIAL`` and ``LATEST`` . Default: ``SEQUENTIAL`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html#cfn-ivs-stage-participantthumbnailconfiguration-storage
             '''
@@ -3603,7 +3603,7 @@ class CfnStage(
         def target_interval_seconds(self) -> typing.Optional[jsii.Number]:
             '''The targeted thumbnail-generation interval in seconds.
 
-            This is configurable only if recordingMode is INTERVAL. Default: 60.
+            This is configurable only if ``recordingMode`` is ``INTERVAL`` . Default: 60.
 
             :default: - 60
 
@@ -3638,7 +3638,7 @@ class CfnStage(
         ) -> None:
             '''An object representing a configuration of thumbnails for recorded video.
 
-            :param participant_thumbnail_configuration: An object representing a configuration of thumbnails for recorded video from an individual participant.
+            :param participant_thumbnail_configuration: Object specifying a configuration of thumbnails for recorded video from an individual participant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-thumbnailconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3668,7 +3668,7 @@ class CfnStage(
         def participant_thumbnail_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantThumbnailConfigurationProperty"]]:
-            '''An object representing a configuration of thumbnails for recorded video from an individual participant.
+            '''Object specifying a configuration of thumbnails for recorded video from an individual participant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-thumbnailconfiguration.html#cfn-ivs-stage-thumbnailconfiguration-participantthumbnailconfiguration
             '''
@@ -3706,7 +3706,7 @@ class CfnStageProps:
     ) -> None:
         '''Properties for defining a ``CfnStage``.
 
-        :param auto_participant_recording_configuration: Configuration object for individual participant recording, to attach to the new stage.
+        :param auto_participant_recording_configuration: Configuration object for individual participant recording.
         :param name: Stage name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-tag.html>`_ .
 
@@ -3763,7 +3763,7 @@ class CfnStageProps:
     def auto_participant_recording_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStage.AutoParticipantRecordingConfigurationProperty]]:
-        '''Configuration object for individual participant recording, to attach to the new stage.
+        '''Configuration object for individual participant recording.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-stage.html#cfn-ivs-stage-autoparticipantrecordingconfiguration
         '''

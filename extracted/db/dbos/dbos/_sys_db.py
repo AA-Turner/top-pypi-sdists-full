@@ -1,12 +1,10 @@
 import datetime
 import functools
 import json
-import logging
-import os
 import random
-import re
 import threading
 import time
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -22,15 +20,15 @@ from typing import (
     cast,
 )
 
-import psycopg
 import sqlalchemy as sa
-import sqlalchemy.dialects.postgresql as pg
-from alembic import command
-from alembic.config import Config
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.sql import func
 
-from dbos._utils import INTERNAL_QUEUE_NAME, retriable_postgres_exception
+from dbos._utils import (
+    INTERNAL_QUEUE_NAME,
+    retriable_postgres_exception,
+    retriable_sqlite_exception,
+)
 
 from . import _serialization
 from ._context import get_local_dbos_context
@@ -316,10 +314,12 @@ def db_retry(
             while True:
                 try:
                     return func(*args, **kwargs)
-                except DBAPIError as e:
+                except Exception as e:
 
                     # Determine if this is a retriable exception
-                    if not retriable_postgres_exception(e):
+                    if not retriable_postgres_exception(
+                        e
+                    ) and not retriable_sqlite_exception(e):
                         raise
 
                     retries += 1
@@ -339,7 +339,7 @@ def db_retry(
     return decorator
 
 
-class SystemDatabase:
+class SystemDatabase(ABC):
 
     def __init__(
         self,
@@ -348,16 +348,13 @@ class SystemDatabase:
         engine_kwargs: Dict[str, Any],
         debug_mode: bool = False,
     ):
-        # Set driver
-        url = sa.make_url(system_database_url).set(drivername="postgresql+psycopg")
+        import sqlalchemy.dialects.postgresql as pg
+        import sqlalchemy.dialects.sqlite as sq
 
-        self.engine = sa.create_engine(
-            url,
-            **engine_kwargs,
-        )
+        self.dialect = sq if system_database_url.startswith("sqlite") else pg
+        self.engine = self._create_engine(system_database_url, engine_kwargs)
         self._engine_kwargs = engine_kwargs
 
-        self.notification_conn: Optional[psycopg.connection.Connection] = None
         self.notifications_map = ThreadSafeConditionDict()
         self.workflow_events_map = ThreadSafeConditionDict()
 
@@ -365,69 +362,28 @@ class SystemDatabase:
         self._run_background_processes = True
         self._debug_mode = debug_mode
 
-    # Run migrations
-    def run_migrations(self) -> None:
-        if self._debug_mode:
-            dbos_logger.warning("System database migrations are skipped in debug mode.")
-            return
-        system_db_url = self.engine.url
-        sysdb_name = system_db_url.database
-        # If the system database does not already exist, create it
-        engine = sa.create_engine(
-            system_db_url.set(database="postgres"), **self._engine_kwargs
-        )
-        with engine.connect() as conn:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-            if not conn.execute(
-                sa.text("SELECT 1 FROM pg_database WHERE datname=:db_name"),
-                parameters={"db_name": sysdb_name},
-            ).scalar():
-                dbos_logger.info(f"Creating system database {sysdb_name}")
-                conn.execute(sa.text(f"CREATE DATABASE {sysdb_name}"))
-        engine.dispose()
+    @abstractmethod
+    def _create_engine(
+        self, system_database_url: str, engine_kwargs: Dict[str, Any]
+    ) -> sa.Engine:
+        """Create a database engine specific to the database type."""
+        pass
 
-        # Run a schema migration for the system database
-        migration_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "_migrations"
-        )
-        alembic_cfg = Config()
-        alembic_cfg.set_main_option("script_location", migration_dir)
-        logging.getLogger("alembic").setLevel(logging.WARNING)
-        # Alembic requires the % in URL-escaped parameters to itself be escaped to %%.
-        escaped_conn_string = re.sub(
-            r"%(?=[0-9A-Fa-f]{2})",
-            "%%",
-            self.engine.url.render_as_string(hide_password=False),
-        )
-        alembic_cfg.set_main_option("sqlalchemy.url", escaped_conn_string)
-        try:
-            command.upgrade(alembic_cfg, "head")
-        except Exception as e:
-            dbos_logger.warning(
-                f"Exception during system database construction. This is most likely because the system database was configured using a later version of DBOS: {e}"
-            )
-            alembic_cfg = Config()
-            alembic_cfg.set_main_option("script_location", migration_dir)
-            # Alembic requires the % in URL-escaped parameters to itself be escaped to %%.
-            escaped_conn_string = re.sub(
-                r"%(?=[0-9A-Fa-f]{2})",
-                "%%",
-                self.engine.url.render_as_string(hide_password=False),
-            )
-            alembic_cfg.set_main_option("sqlalchemy.url", escaped_conn_string)
-            try:
-                command.upgrade(alembic_cfg, "head")
-            except Exception as e:
-                dbos_logger.warning(
-                    f"Exception during system database construction. This is most likely because the system database was configured using a later version of DBOS: {e}"
-                )
+    @abstractmethod
+    def run_migrations(self) -> None:
+        """Run database migrations specific to the database type."""
+        pass
 
     # Destroy the pool when finished
     def destroy(self) -> None:
         self._run_background_processes = False
-        if self.notification_conn is not None:
-            self.notification_conn.close()
+        self._cleanup_connections()
         self.engine.dispose()
+
+    @abstractmethod
+    def _cleanup_connections(self) -> None:
+        """Clean up database-specific connections."""
+        pass
 
     def _insert_workflow_status(
         self,
@@ -436,6 +392,7 @@ class SystemDatabase:
         *,
         max_recovery_attempts: Optional[int],
     ) -> tuple[WorkflowStatuses, Optional[int]]:
+        """Insert or update workflow status using PostgreSQL upsert operations."""
         if self._debug_mode:
             raise Exception("called insert_workflow_status in debug mode")
         wf_status: WorkflowStatuses = status["status"]
@@ -451,14 +408,14 @@ class SystemDatabase:
                 ),
                 else_=SystemSchema.workflow_status.c.recovery_attempts,
             ),
-            "updated_at": func.extract("epoch", func.now()) * 1000,
+            "updated_at": sa.func.extract("epoch", sa.func.now()) * 1000,
         }
         # Don't update an existing executor ID when enqueueing a workflow.
         if wf_status != WorkflowStatusString.ENQUEUED.value:
             update_values["executor_id"] = status["executor_id"]
 
         cmd = (
-            pg.insert(SystemSchema.workflow_status)
+            self.dialect.insert(SystemSchema.workflow_status)
             .values(
                 workflow_uuid=status["workflow_uuid"],
                 status=status["status"],
@@ -489,13 +446,21 @@ class SystemDatabase:
             )
         )
 
-        cmd = cmd.returning(SystemSchema.workflow_status.c.recovery_attempts, SystemSchema.workflow_status.c.status, SystemSchema.workflow_status.c.workflow_deadline_epoch_ms, SystemSchema.workflow_status.c.name, SystemSchema.workflow_status.c.class_name, SystemSchema.workflow_status.c.config_name, SystemSchema.workflow_status.c.queue_name)  # type: ignore
+        cmd = cmd.returning(
+            SystemSchema.workflow_status.c.recovery_attempts,
+            SystemSchema.workflow_status.c.status,
+            SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
+            SystemSchema.workflow_status.c.name,
+            SystemSchema.workflow_status.c.class_name,
+            SystemSchema.workflow_status.c.config_name,
+            SystemSchema.workflow_status.c.queue_name,
+        )
 
         try:
             results = conn.execute(cmd)
         except DBAPIError as dbapi_error:
             # Unique constraint violation for the deduplication ID
-            if dbapi_error.orig.sqlstate == "23505":  # type: ignore
+            if self._is_unique_constraint_violation(dbapi_error):
                 assert status["deduplication_id"] is not None
                 assert status["queue_name"] is not None
                 raise DBOSQueueDeduplicatedError(
@@ -621,7 +586,8 @@ class SystemDatabase:
             raise Exception("called resume_workflow in debug mode")
         with self.engine.begin() as c:
             # Execute with snapshot isolation in case of concurrent calls on the same workflow
-            c.execute(sa.text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
+            if self.engine.dialect.name == "postgresql":
+                c.execute(sa.text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
             # Check the status of the workflow. If it is complete, do nothing.
             status_row = c.execute(
                 sa.select(
@@ -667,7 +633,7 @@ class SystemDatabase:
             # Create an entry for the forked workflow with the same
             # initial values as the original.
             c.execute(
-                pg.insert(SystemSchema.workflow_status).values(
+                sa.insert(SystemSchema.workflow_status).values(
                     workflow_uuid=forked_workflow_id,
                     status=WorkflowStatusString.ENQUEUED.value,
                     name=status["name"],
@@ -881,7 +847,7 @@ class SystemDatabase:
             query = query.offset(input.offset)
 
         with self.engine.begin() as c:
-            rows = c.execute(query)
+            rows = c.execute(query).fetchall()
 
         infos: List[WorkflowStatus] = []
         for row in rows:
@@ -992,7 +958,7 @@ class SystemDatabase:
             query = query.offset(input["offset"])
 
         with self.engine.begin() as c:
-            rows = c.execute(query)
+            rows = c.execute(query).fetchall()
 
         infos: List[WorkflowStatus] = []
         for row in rows:
@@ -1096,7 +1062,7 @@ class SystemDatabase:
         error = result["error"]
         output = result["output"]
         assert error is None or output is None, "Only one of error or output can be set"
-        sql = pg.insert(SystemSchema.operation_outputs).values(
+        sql = sa.insert(SystemSchema.operation_outputs).values(
             workflow_uuid=result["workflow_uuid"],
             function_id=result["function_id"],
             function_name=result["function_name"],
@@ -1106,7 +1072,7 @@ class SystemDatabase:
         try:
             conn.execute(sql)
         except DBAPIError as dbapi_error:
-            if dbapi_error.orig.sqlstate == "23505":  # type: ignore
+            if self._is_unique_constraint_violation(dbapi_error):
                 raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
             raise
 
@@ -1127,7 +1093,7 @@ class SystemDatabase:
         # Because there's no corresponding check, we do nothing on conflict
         # and do not raise a DBOSWorkflowConflictIDError
         sql = (
-            pg.insert(SystemSchema.operation_outputs)
+            self.dialect.insert(SystemSchema.operation_outputs)
             .values(
                 workflow_uuid=ctx.workflow_id,
                 function_id=ctx.function_id,
@@ -1152,7 +1118,7 @@ class SystemDatabase:
         if self._debug_mode:
             raise Exception("called record_child_workflow in debug mode")
 
-        sql = pg.insert(SystemSchema.operation_outputs).values(
+        sql = sa.insert(SystemSchema.operation_outputs).values(
             workflow_uuid=parentUUID,
             function_id=functionID,
             function_name=functionName,
@@ -1162,9 +1128,19 @@ class SystemDatabase:
             with self.engine.begin() as c:
                 c.execute(sql)
         except DBAPIError as dbapi_error:
-            if dbapi_error.orig.sqlstate == "23505":  # type: ignore
+            if self._is_unique_constraint_violation(dbapi_error):
                 raise DBOSWorkflowConflictIDError(parentUUID)
             raise
+
+    @abstractmethod
+    def _is_unique_constraint_violation(self, dbapi_error: DBAPIError) -> bool:
+        """Check if the error is a unique constraint violation."""
+        pass
+
+    @abstractmethod
+    def _is_foreign_key_violation(self, dbapi_error: DBAPIError) -> bool:
+        """Check if the error is a foreign key violation."""
+        pass
 
     def _check_operation_execution_txn(
         self,
@@ -1291,15 +1267,14 @@ class SystemDatabase:
 
             try:
                 c.execute(
-                    pg.insert(SystemSchema.notifications).values(
+                    sa.insert(SystemSchema.notifications).values(
                         destination_uuid=destination_uuid,
                         topic=topic,
                         message=_serialization.serialize(message),
                     )
                 )
             except DBAPIError as dbapi_error:
-                # Foreign key violation
-                if dbapi_error.orig.sqlstate == "23503":  # type: ignore
+                if self._is_foreign_key_violation(dbapi_error):
                     raise DBOSNonExistentWorkflowError(destination_uuid)
                 raise
             output: OperationResultInternal = {
@@ -1374,29 +1349,25 @@ class SystemDatabase:
 
         # Transactionally consume and return the message if it's in the database, otherwise return null.
         with self.engine.begin() as c:
-            oldest_entry_cte = (
-                sa.select(
-                    SystemSchema.notifications.c.destination_uuid,
-                    SystemSchema.notifications.c.topic,
-                    SystemSchema.notifications.c.message,
-                    SystemSchema.notifications.c.created_at_epoch_ms,
-                )
-                .where(
-                    SystemSchema.notifications.c.destination_uuid == workflow_uuid,
-                    SystemSchema.notifications.c.topic == topic,
-                )
-                .order_by(SystemSchema.notifications.c.created_at_epoch_ms.asc())
-                .limit(1)
-                .cte("oldest_entry")
-            )
             delete_stmt = (
                 sa.delete(SystemSchema.notifications)
                 .where(
-                    SystemSchema.notifications.c.destination_uuid
-                    == oldest_entry_cte.c.destination_uuid,
-                    SystemSchema.notifications.c.topic == oldest_entry_cte.c.topic,
-                    SystemSchema.notifications.c.created_at_epoch_ms
-                    == oldest_entry_cte.c.created_at_epoch_ms,
+                    SystemSchema.notifications.c.destination_uuid == workflow_uuid,
+                    SystemSchema.notifications.c.topic == topic,
+                    SystemSchema.notifications.c.message_uuid
+                    == (
+                        sa.select(SystemSchema.notifications.c.message_uuid)
+                        .where(
+                            SystemSchema.notifications.c.destination_uuid
+                            == workflow_uuid,
+                            SystemSchema.notifications.c.topic == topic,
+                        )
+                        .order_by(
+                            SystemSchema.notifications.c.created_at_epoch_ms.asc()
+                        )
+                        .limit(1)
+                        .scalar_subquery()
+                    ),
                 )
                 .returning(SystemSchema.notifications.c.message)
             )
@@ -1418,62 +1389,46 @@ class SystemDatabase:
             )
         return message
 
+    @abstractmethod
     def _notification_listener(self) -> None:
-        while self._run_background_processes:
-            try:
-                # since we're using the psycopg connection directly, we need a url without the "+pycopg" suffix
-                url = sa.URL.create(
-                    "postgresql", **self.engine.url.translate_connect_args()
-                )
-                # Listen to notifications
-                self.notification_conn = psycopg.connect(
-                    url.render_as_string(hide_password=False), autocommit=True
-                )
+        """Listen for database notifications using database-specific mechanisms."""
+        pass
 
-                self.notification_conn.execute("LISTEN dbos_notifications_channel")
-                self.notification_conn.execute("LISTEN dbos_workflow_events_channel")
+    @staticmethod
+    def reset_system_database(database_url: str) -> None:
+        """Reset the system database by calling the appropriate implementation."""
+        if database_url.startswith("sqlite"):
+            from ._sys_db_sqlite import SQLiteSystemDatabase
 
-                while self._run_background_processes:
-                    gen = self.notification_conn.notifies()
-                    for notify in gen:
-                        channel = notify.channel
-                        dbos_logger.debug(
-                            f"Received notification on channel: {channel}, payload: {notify.payload}"
-                        )
-                        if channel == "dbos_notifications_channel":
-                            if notify.payload:
-                                condition = self.notifications_map.get(notify.payload)
-                                if condition is None:
-                                    # No condition found for this payload
-                                    continue
-                                condition.acquire()
-                                condition.notify_all()
-                                condition.release()
-                                dbos_logger.debug(
-                                    f"Signaled notifications condition for {notify.payload}"
-                                )
-                        elif channel == "dbos_workflow_events_channel":
-                            if notify.payload:
-                                condition = self.workflow_events_map.get(notify.payload)
-                                if condition is None:
-                                    # No condition found for this payload
-                                    continue
-                                condition.acquire()
-                                condition.notify_all()
-                                condition.release()
-                                dbos_logger.debug(
-                                    f"Signaled workflow_events condition for {notify.payload}"
-                                )
-                        else:
-                            dbos_logger.error(f"Unknown channel: {channel}")
-            except Exception as e:
-                if self._run_background_processes:
-                    dbos_logger.warning(f"Notification listener error: {e}")
-                    time.sleep(1)
-                    # Then the loop will try to reconnect and restart the listener
-            finally:
-                if self.notification_conn is not None:
-                    self.notification_conn.close()
+            SQLiteSystemDatabase._reset_system_database(database_url)
+        else:
+            from ._sys_db_postgres import PostgresSystemDatabase
+
+            PostgresSystemDatabase._reset_system_database(database_url)
+
+    @staticmethod
+    def create(
+        system_database_url: str,
+        engine_kwargs: Dict[str, Any],
+        debug_mode: bool = False,
+    ) -> "SystemDatabase":
+        """Factory method to create the appropriate SystemDatabase implementation based on URL."""
+        if system_database_url.startswith("sqlite"):
+            from ._sys_db_sqlite import SQLiteSystemDatabase
+
+            return SQLiteSystemDatabase(
+                system_database_url=system_database_url,
+                engine_kwargs=engine_kwargs,
+                debug_mode=debug_mode,
+            )
+        else:
+            from ._sys_db_postgres import PostgresSystemDatabase
+
+            return PostgresSystemDatabase(
+                system_database_url=system_database_url,
+                engine_kwargs=engine_kwargs,
+                debug_mode=debug_mode,
+            )
 
     @db_retry()
     def sleep(
@@ -1537,9 +1492,8 @@ class SystemDatabase:
                 return  # Already sent before
             else:
                 dbos_logger.debug(f"Running set_event, id: {function_id}, key: {key}")
-
             c.execute(
-                pg.insert(SystemSchema.workflow_events)
+                self.dialect.insert(SystemSchema.workflow_events)
                 .values(
                     workflow_uuid=workflow_uuid,
                     key=key,
@@ -1661,7 +1615,8 @@ class SystemDatabase:
             limiter_period_ms = int(queue.limiter["period"] * 1000)
         with self.engine.begin() as c:
             # Execute with snapshot isolation to ensure multiple workers respect limits
-            c.execute(sa.text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
+            if self.engine.dialect.name == "postgresql":
+                c.execute(sa.text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
 
             # If there is a limiter, compute how many functions have started in its period.
             if queue.limiter is not None:
@@ -2066,36 +2021,3 @@ class SystemDatabase:
             return cutoff_epoch_timestamp_ms, [
                 row[0] for row in pending_enqueued_result
             ]
-
-
-def reset_system_database(postgres_db_url: sa.URL, sysdb_name: str) -> None:
-    try:
-        # Connect to postgres default database
-        engine = sa.create_engine(
-            postgres_db_url.set(drivername="postgresql+psycopg"),
-            connect_args={"connect_timeout": 10},
-        )
-
-        with engine.connect() as conn:
-            # Set autocommit required for database dropping
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-
-            # Terminate existing connections
-            conn.execute(
-                sa.text(
-                    """
-                SELECT pg_terminate_backend(pg_stat_activity.pid)
-                FROM pg_stat_activity
-                WHERE pg_stat_activity.datname = :db_name
-                AND pid <> pg_backend_pid()
-            """
-                ),
-                {"db_name": sysdb_name},
-            )
-
-            # Drop the database
-            conn.execute(sa.text(f"DROP DATABASE IF EXISTS {sysdb_name}"))
-
-    except sa.exc.SQLAlchemyError as e:
-        dbos_logger.error(f"Error resetting system database: {str(e)}")
-        raise e

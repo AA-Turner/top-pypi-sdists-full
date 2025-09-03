@@ -16,7 +16,7 @@ from bigeye_sdk.model.protobuf_message_facade import (
     SimpleNamedSchedule,
 )
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class DeltaController:

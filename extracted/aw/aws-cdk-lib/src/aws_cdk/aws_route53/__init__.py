@@ -652,6 +652,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
     RemovalPolicy as _RemovalPolicy_9f93c814,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
@@ -1352,7 +1353,7 @@ class CfnDNSSECProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnHealthCheck(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1427,7 +1428,7 @@ class CfnHealthCheck(
         id: builtins.str,
         *,
         health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnHealthCheck.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        health_check_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHealthCheck.HealthCheckTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        health_check_tags: typing.Optional[typing.Sequence[typing.Union["CfnHealthCheck.HealthCheckTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -1488,6 +1489,12 @@ class CfnHealthCheck(
         return typing.cast(builtins.str, jsii.get(self, "attrHealthCheckId"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1514,14 +1521,14 @@ class CfnHealthCheck(
     @jsii.member(jsii_name="healthCheckTags")
     def health_check_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHealthCheck.HealthCheckTagProperty"]]]]:
+    ) -> typing.Optional[typing.List["CfnHealthCheck.HealthCheckTagProperty"]]:
         '''The ``HealthCheckTags`` property describes key-value pairs that are associated with an ``AWS::Route53::HealthCheck`` resource.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHealthCheck.HealthCheckTagProperty"]]]], jsii.get(self, "healthCheckTags"))
+        return typing.cast(typing.Optional[typing.List["CfnHealthCheck.HealthCheckTagProperty"]], jsii.get(self, "healthCheckTags"))
 
     @health_check_tags.setter
     def health_check_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHealthCheck.HealthCheckTagProperty"]]]],
+        value: typing.Optional[typing.List["CfnHealthCheck.HealthCheckTagProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d1493e762a114933a5a3775c215007c8d522e932362ff7c530eb00b515208ff)
@@ -2140,7 +2147,7 @@ class CfnHealthCheckProps:
         self,
         *,
         health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        health_check_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHealthCheck``.
 
@@ -2216,13 +2223,13 @@ class CfnHealthCheckProps:
     @builtins.property
     def health_check_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHealthCheck.HealthCheckTagProperty]]]]:
+    ) -> typing.Optional[typing.List[CfnHealthCheck.HealthCheckTagProperty]]:
         '''The ``HealthCheckTags`` property describes key-value pairs that are associated with an ``AWS::Route53::HealthCheck`` resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-healthcheck.html#cfn-route53-healthcheck-healthchecktags
         '''
         result = self._values.get("health_check_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHealthCheck.HealthCheckTagProperty]]]], result)
+        return typing.cast(typing.Optional[typing.List[CfnHealthCheck.HealthCheckTagProperty]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15510,7 +15517,7 @@ def _typecheckingstub__469f7fe3ad975c091ea64f8ce59060016c4769f6532660a91964f0930
     id: builtins.str,
     *,
     health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    health_check_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15534,7 +15541,7 @@ def _typecheckingstub__8b0df7baae49dfed1fb95576ba5c0e5d51660f268bef2a4d82fca3232
     pass
 
 def _typecheckingstub__1d1493e762a114933a5a3775c215007c8d522e932362ff7c530eb00b515208ff(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHealthCheck.HealthCheckTagProperty]]]],
+    value: typing.Optional[typing.List[CfnHealthCheck.HealthCheckTagProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15581,7 +15588,7 @@ def _typecheckingstub__b181f58da0d2eb6f8c9ba8be7f7b44f29a68b4d09e2f4c600ab9522e6
 def _typecheckingstub__dcc59bb963f4ce3a4eb461ecda6f194c9faa6eea0ca5960c91dfd950e626f687(
     *,
     health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    health_check_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

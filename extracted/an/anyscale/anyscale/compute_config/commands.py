@@ -34,10 +34,10 @@ single_deployment_compute_config = ComputeConfig(
 )
 full_name: str = anyscale.compute_config.create(single_deployment_compute_config, name="my-single-deployment-compute-config")
 
-multi_deployment_compute_config = MultiDeploymentComputeConfig(
+multi_deployment_compute_config = MultiResourceComputeConfig(
     configs=[
         ComputeConfig(
-            cloud_deployment="vm-aws-us-west-1",
+            cloud_resource="vm-aws-us-west-1",
             head_node=HeadNodeConfig(
                 instance_type="m5.2xlarge",
             ),
@@ -50,7 +50,7 @@ multi_deployment_compute_config = MultiDeploymentComputeConfig(
             ],
         ),
         ComputeConfig(
-            cloud_deployment="vm-aws-us-west-2",
+            cloud_resource="vm-aws-us-west-2",
             head_node=HeadNodeConfig(
                 instance_type="m5.2xlarge",
             ),

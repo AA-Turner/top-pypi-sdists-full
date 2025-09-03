@@ -18,11 +18,11 @@ check-base-imports:
 
 TEST ?= tests/
 AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
-LANGGRAPH_HTTP ?= {"disable_mcp": false}
+LANGGRAPH_HTTP ?= {"disable_mcp": false, "disable_a2a": false}
 LANGGRAPH_AES_KEY ?= '1234567890123456'
 
 ifeq ($(LANGGRAPH_HTTP),fastapi)
-	HTTP_CONFIG := {"app": "./tests/graphs/my_router.py:app", "disable_mcp": false, "mount_prefix": "/my-cool/api"}
+	HTTP_CONFIG := {"app": "./tests/graphs/my_router.py:app", "disable_mcp": false, "disable_a2a": false, "mount_prefix": "/my-cool/api"}
 else
 	HTTP_CONFIG := $(LANGGRAPH_HTTP)
 endif
@@ -60,7 +60,7 @@ start:
 	LANGGRAPH_RUNTIME_EDITION=inmem \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
 	N_JOBS_PER_WORKER=2 \
-	LANGSERVE_GRAPHS='{"agent": "./tests/graphs/agent.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph"}' \
+	LANGSERVE_GRAPHS='{"agent": "./tests/graphs/agent.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph"}' \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
 	LANGSMITH_LANGGRAPH_API_VARIANT=test \

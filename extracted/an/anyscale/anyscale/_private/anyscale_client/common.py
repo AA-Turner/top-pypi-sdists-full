@@ -57,7 +57,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.49.0"  # RAY_RELEASE_UPDATE: update to latest version.
+DEFAULT_RAY_VERSION = "2.49.1"  # RAY_RELEASE_UPDATE: update to latest version.
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -520,7 +520,7 @@ class AnyscaleClientInterface(ABC):
         cloud_id: str,
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = False,
-        cloud_deployment: Optional[str] = None,
+        cloud_resource_name: Optional[str] = None,
     ) -> str:
         """Upload the provided directory to cloud storage and return a URI for it.
 
@@ -535,17 +535,17 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def upload_local_dir_to_cloud_storage_multi_deployment(
+    def upload_local_dir_to_cloud_storage_multi_cloud_resource(
         self,
         local_dir: str,
         *,
         cloud_id: str,
-        cloud_deployments: List[Optional[str]],
+        cloud_resource_names: List[Optional[str]],
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = False,
     ) -> str:
         """Upload the provided directory to the object storage for each of the provided
-        cloud deployments and return the bucket path of the uploaded file.
+        cloud resources and return the bucket path of the uploaded file.
 
         The directory will be zipped and the resulting bucket path will later be converted
         to a URI that can be used in a Ray runtime_env.

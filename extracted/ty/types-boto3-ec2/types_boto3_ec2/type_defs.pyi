@@ -44,6 +44,7 @@ from .literals import (
     AsnAssociationStateType,
     AsnStateType,
     AssociationStatusCodeType,
+    AttachmentLimitTypeType,
     AttachmentStatusType,
     AutoAcceptSharedAssociationsValueType,
     AutoAcceptSharedAttachmentsValueType,
@@ -12726,6 +12727,8 @@ class EbsInfoTypeDef(TypedDict):
     EncryptionSupport: NotRequired[EbsEncryptionSupportType]
     EbsOptimizedInfo: NotRequired[EbsOptimizedInfoTypeDef]
     NvmeSupport: NotRequired[EbsNvmeSupportType]
+    MaximumEbsAttachments: NotRequired[int]
+    AttachmentLimitType: NotRequired[AttachmentLimitTypeType]
 
 class InstanceBlockDeviceMappingSpecificationTypeDef(TypedDict):
     DeviceName: NotRequired[str]

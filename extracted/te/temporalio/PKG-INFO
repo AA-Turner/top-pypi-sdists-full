@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.16.0
+Version: 1.17.0
 Requires-Dist: nexus-rpc==1.1.0
 Requires-Dist: protobuf>=3.20,<6
 Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
@@ -10,7 +10,7 @@ Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
-Requires-Dist: openai-agents>=0.2.3,<0.3 ; extra == 'openai-agents'
+Requires-Dist: openai-agents>=0.2.3,<=0.2.9 ; extra == 'openai-agents'
 Requires-Dist: eval-type-backport>=0.2.2 ; python_full_version < '3.10' and extra == 'openai-agents'
 Provides-Extra: grpc
 Provides-Extra: opentelemetry
@@ -1669,9 +1669,9 @@ class UnifiedPlugin(ClientPlugin, WorkerPlugin):
         
     def configure_replayer(self, config: ReplayerConfig) -> ReplayerConfig:
         config["data_converter"] = pydantic_data_converter
-        return config
+        return self.next_worker_plugin.configure_replayer(config)
     
-    async def run_replayer(
+    def run_replayer(
         self,
         replayer: Replayer,
         histories: AsyncIterator[temporalio.client.WorkflowHistory],

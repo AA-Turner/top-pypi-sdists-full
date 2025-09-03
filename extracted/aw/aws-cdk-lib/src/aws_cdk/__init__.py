@@ -6657,7 +6657,7 @@ class CfnLambdaHookProps:
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html
         :exampleMetadata: fixture=_generated
@@ -6828,7 +6828,7 @@ class CfnLambdaHookProps:
 
         Example target filter in JSON:
 
-        ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}``
+        ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}``
 
         Example target filter in YAML:
 
@@ -12428,6 +12428,7 @@ class DefaultStackSynthesizerProps:
         "cache_from": "cacheFrom",
         "cache_to": "cacheTo",
         "file": "file",
+        "network": "network",
         "platform": "platform",
         "target_stage": "targetStage",
     },
@@ -12441,6 +12442,7 @@ class DockerBuildOptions:
         cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
+        network: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         target_stage: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12451,6 +12453,7 @@ class DockerBuildOptions:
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
         :param file: Name of the Dockerfile, must relative to the docker build path. Default: ``Dockerfile``
+        :param network: Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_. Default: - no networking options
         :param platform: Set platform if server is multi-platform capable. *Requires Docker Engine API v1.38+*. Example value: ``linux/amd64`` Default: - no platform specified
         :param target_stage: Set build target for multi-stage container builds. Any stage defined afterwards will be ignored. Example value: ``build-env`` Default: - Build all stages defined in the Dockerfile
 
@@ -12482,6 +12485,7 @@ class DockerBuildOptions:
             check_type(argname="argument cache_from", value=cache_from, expected_type=type_hints["cache_from"])
             check_type(argname="argument cache_to", value=cache_to, expected_type=type_hints["cache_to"])
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
+            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
             check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
             check_type(argname="argument target_stage", value=target_stage, expected_type=type_hints["target_stage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12495,6 +12499,8 @@ class DockerBuildOptions:
             self._values["cache_to"] = cache_to
         if file is not None:
             self._values["file"] = file
+        if network is not None:
+            self._values["network"] = network
         if platform is not None:
             self._values["platform"] = platform
         if target_stage is not None:
@@ -12543,6 +12549,15 @@ class DockerBuildOptions:
         :default: ``Dockerfile``
         '''
         result = self._values.get("file")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network(self) -> typing.Optional[builtins.str]:
+        '''Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_.
+
+        :default: - no networking options
+        '''
+        result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -12755,6 +12770,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
         cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
+        network: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         target_stage: typing.Optional[builtins.str] = None,
     ) -> "DockerImage":
@@ -12766,6 +12782,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
         :param file: Name of the Dockerfile, must relative to the docker build path. Default: ``Dockerfile``
+        :param network: Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_. Default: - no networking options
         :param platform: Set platform if server is multi-platform capable. *Requires Docker Engine API v1.38+*. Example value: ``linux/amd64`` Default: - no platform specified
         :param target_stage: Set build target for multi-stage container builds. Any stage defined afterwards will be ignored. Example value: ``build-env`` Default: - Build all stages defined in the Dockerfile
         '''
@@ -12778,6 +12795,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
             cache_from=cache_from,
             cache_to=cache_to,
             file=file,
+            network=network,
             platform=platform,
             target_stage=target_stage,
         )
@@ -31533,7 +31551,7 @@ class CfnLambdaHook(
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__407b4a631e3a832f02376728222302ded8f1ba90d2538b0469e5b99641f17447)
@@ -39989,6 +40007,7 @@ def _typecheckingstub__e285633ad5a50949fcc0277b0b38d3679a006cdac41feaef60665b393
     cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
     file: typing.Optional[builtins.str] = None,
+    network: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     target_stage: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -40024,6 +40043,7 @@ def _typecheckingstub__ee160dc0667b6e8f45df2c2f176a77d9d6a3ece4b83cdf7804625adf8
     cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
     file: typing.Optional[builtins.str] = None,
+    network: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     target_stage: typing.Optional[builtins.str] = None,
 ) -> None:

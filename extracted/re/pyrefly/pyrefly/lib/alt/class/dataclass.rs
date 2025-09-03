@@ -30,6 +30,7 @@ use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::binding::pydantic::GT;
 use crate::binding::pydantic::LT;
+use crate::binding::pydantic::STRICT;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -83,7 +84,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if dataclass.kws.init {
             fields.insert(
                 dunder::INIT,
-                self.get_dataclass_init(cls, dataclass, errors),
+                self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_base_model(), errors),
             );
         }
         let dataclass_fields_type = self.stdlib.dict(
@@ -183,7 +184,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = Vec::new();
         for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true) {
             if field.is_init_var() {
-                params.push(field.as_param(&name, false, false, None));
+                params.push(field.as_param(&name, false, false, true, None));
             }
         }
         let want = Type::Callable(Box::new(Callable::list(
@@ -231,6 +232,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let gt = map.0.get(&GT).cloned();
         let lt = map.0.get(&LT).cloned();
 
+        let strict: Option<bool> = map.0.get(&STRICT).and_then(|v| v.as_bool());
+
         let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
@@ -257,6 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             alias,
             lt,
             gt,
+            strict,
             converter_param,
         }
     }
@@ -430,11 +434,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         dataclass: &DataclassMetadata,
+        strict_default: bool,
         errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
+            let strict = field_flags.strict.unwrap_or(strict_default);
+
             if field_flags.init {
                 let has_default = field_flags.default
                     || (dataclass.class_validation_flags.validate_by_name
@@ -466,6 +473,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &name,
                         has_default,
                         is_kw_only,
+                        strict,
                         field_flags.converter_param.clone(),
                     ));
                 }
@@ -476,10 +484,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         alias,
                         has_default,
                         is_kw_only,
+                        strict,
                         field_flags.converter_param.clone(),
                     ));
                 }
             }
+        }
+
+        if dataclass.kws.extra {
+            params.push(Param::Kwargs(None, Type::Any(AnyStyle::Implicit)));
         }
 
         let ty = Type::Function(Box::new(Function {

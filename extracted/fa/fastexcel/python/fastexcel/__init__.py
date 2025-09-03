@@ -12,11 +12,18 @@ else:
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    import pyarrow as pa
 
 from os.path import expanduser
 from pathlib import Path
 
-import pyarrow as pa
+try:
+    import importlib.util
+
+    importlib.util.find_spec("pyarrow")
+    _PYARROW_AVAILABLE = True
+except ImportError:
+    _PYARROW_AVAILABLE = False
 
 from ._fastexcel import (
     ArrowError,
@@ -42,16 +49,10 @@ from ._fastexcel import read_excel as _read_excel
 DType = Literal["null", "int", "float", "string", "boolean", "datetime", "date", "duration"]
 DTypeMap: TypeAlias = "dict[str | int, DType]"
 ColumnNameFrom: TypeAlias = Literal["provided", "looked_up", "generated"]
-DTypeFrom: TypeAlias = Literal["provided_by_index", "provided_by_name", "guessed"]
+DTypeFrom: TypeAlias = Literal[
+    "provided_for_all", "provided_by_index", "provided_by_name", "guessed"
+]
 SheetVisible: TypeAlias = Literal["visible", "hidden", "veryhidden"]
-
-
-def _recordbatch_to_polars(rb: pa.RecordBatch) -> pl.DataFrame:
-    import polars as pl
-
-    df = pl.from_arrow(data=rb)
-    assert isinstance(df, pl.DataFrame)
-    return df
 
 
 class ExcelSheet:
@@ -99,16 +100,24 @@ class ExcelSheet:
         """The visibility of the sheet"""
         return self._sheet.visible
 
-    def to_arrow(self) -> pa.RecordBatch:
+    def to_arrow(self) -> "pa.RecordBatch":
         """Converts the sheet to a pyarrow `RecordBatch`"""
+        if not _PYARROW_AVAILABLE:
+            raise ImportError(
+                "pyarrow is required for to_arrow(). Install with: pip install 'fastexcel[pyarrow]'"
+            )
         return self._sheet.to_arrow()
 
-    def to_arrow_with_errors(self) -> tuple[pa.RecordBatch, CellErrors | None]:
+    def to_arrow_with_errors(self) -> "tuple[pa.RecordBatch, CellErrors | None]":
         """Converts the sheet to a pyarrow `RecordBatch` with error information.
 
         Stores the positions of any values that cannot be parsed as the specified type and were
         therefore converted to None.
         """
+        if not _PYARROW_AVAILABLE:
+            raise ImportError(
+                "pyarrow is required for to_arrow_with_errors(). Install with: pip install 'fastexcel[pyarrow]'"  # noqa: E501
+            )
         rb, cell_errors = self._sheet.to_arrow_with_errors()
         if not cell_errors.errors:
             return (rb, None)
@@ -119,15 +128,42 @@ class ExcelSheet:
 
         Requires the `pandas` extra to be installed.
         """
-        # We know for sure that the sheet will yield exactly one RecordBatch
+        # Note: pandas PyCapsule interface requires __dataframe__ or __arrow_c_stream__
+        # which we don't implement. Using pyarrow conversion for now.
+        # (see https://pandas.pydata.org/docs/reference/api/pandas.api.interchange.from_dataframe.html)
         return self.to_arrow().to_pandas()
 
     def to_polars(self) -> "pl.DataFrame":
         """Converts the sheet to a Polars `DataFrame`.
 
+        Uses the Arrow PyCapsule Interface for zero-copy data exchange.
         Requires the `polars` extra to be installed.
         """
-        return _recordbatch_to_polars(self.to_arrow())
+        import polars as pl
+
+        return pl.DataFrame(self)
+
+    def __arrow_c_schema__(self) -> object:
+        """Export the schema as an `ArrowSchema` `PyCapsule`.
+
+        https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html#arrowschema-export
+
+        The Arrow PyCapsule Interface enables zero-copy data exchange with
+        Arrow-compatible libraries without requiring PyArrow as a dependency.
+        """
+        return self._sheet.__arrow_c_schema__()
+
+    def __arrow_c_array__(self, requested_schema: object | None = None) -> tuple[object, object]:
+        """Export the schema and data as a pair of `ArrowSchema` and `ArrowArray` `PyCapsules`.
+
+        The optional `requested_schema` parameter allows for potential schema conversion.
+
+        https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html#arrowarray-export
+
+        The Arrow PyCapsule Interface enables zero-copy data exchange with
+        Arrow-compatible libraries without requiring PyArrow as a dependency.
+        """
+        return self._sheet.__arrow_c_array__(requested_schema)
 
     def __repr__(self) -> str:
         return self._sheet.__repr__()
@@ -183,8 +219,12 @@ class ExcelTable:
         """The dtypes specified for the table"""
         return self._table.specified_dtypes
 
-    def to_arrow(self) -> pa.RecordBatch:
+    def to_arrow(self) -> "pa.RecordBatch":
         """Converts the table to a pyarrow `RecordBatch`"""
+        if not _PYARROW_AVAILABLE:
+            raise ImportError(
+                "pyarrow is required for to_arrow(). Install with: pip install 'fastexcel[pyarrow]'"
+            )
         return self._table.to_arrow()
 
     def to_pandas(self) -> "pd.DataFrame":
@@ -192,15 +232,42 @@ class ExcelTable:
 
         Requires the `pandas` extra to be installed.
         """
-        # We know for sure that the table will yield exactly one RecordBatch
+        # Note: pandas PyCapsule interface requires __dataframe__ or __arrow_c_stream__
+        # which we don't implement. Using pyarrow conversion for now.
+        # (see https://pandas.pydata.org/docs/reference/api/pandas.api.interchange.from_dataframe.html)
         return self.to_arrow().to_pandas()
 
     def to_polars(self) -> "pl.DataFrame":
         """Converts the table to a Polars `DataFrame`.
 
+        Uses the Arrow PyCapsule Interface for zero-copy data exchange.
         Requires the `polars` extra to be installed.
         """
-        return _recordbatch_to_polars(self.to_arrow())
+        import polars as pl
+
+        return pl.DataFrame(self)
+
+    def __arrow_c_schema__(self) -> object:
+        """Export the schema as an `ArrowSchema` `PyCapsule`.
+
+        https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html#arrowschema-export
+
+        The Arrow PyCapsule Interface enables zero-copy data exchange with
+        Arrow-compatible libraries without requiring PyArrow as a dependency.
+        """
+        return self._table.__arrow_c_schema__()
+
+    def __arrow_c_array__(self, requested_schema: object | None = None) -> tuple[object, object]:
+        """Export the schema and data as a pair of `ArrowSchema` and `ArrowArray` `PyCapsules`.
+
+        The optional `requested_schema` parameter allows for potential schema conversion.
+
+        https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html#arrowarray-export
+
+        The Arrow PyCapsule Interface enables zero-copy data exchange with
+        Arrow-compatible libraries without requiring PyArrow as a dependency.
+        """
+        return self._table.__arrow_c_array__(requested_schema)
 
 
 class ExcelReader:
@@ -220,7 +287,7 @@ class ExcelReader:
         *,
         header_row: int | None = 0,
         column_names: list[str] | None = None,
-        skip_rows: int | None = None,
+        skip_rows: int | list[int] | Callable[[int], bool] | None = None,
         n_rows: int | None = None,
         schema_sample_rows: int | None = 1_000,
         dtype_coercion: Literal["coerce", "strict"] = "coerce",
@@ -241,13 +308,15 @@ class ExcelReader:
                              If `column_names` is used, `header_row` will be ignored.
         :param n_rows: Specifies how many rows should be loaded.
                        If `None`, all rows are loaded
-        :param skip_rows: Specifies how many rows should be skipped after the `header_row`.
+        :param skip_rows: Specifies which rows should be skipped after the `header_row`.
                           Any rows before the `header_row` are automatically skipped.
-                          If `header_row` is `None`:
-                            - if `skip_rows` is `None` (default): it skips all empty rows
-                            at the beginning of the sheet.
-                            - if `skip_rows` is a number, it skips the specified number
-                            of rows from the start of the sheet.
+                          It means row indices are relative to data rows, not the sheet!
+                          Can be one of:
+                          - `int`: Skip this many rows after the header row
+                          - `list[int]`: Skip specific row indices (0-based relative to data rows)
+                          - `Callable[[int], bool]`: Function that receives row index (0-based
+                          relative to data rows) and returns True to skip the row
+                          - `None`: If `header_row` is None, skips empty rows at beginning
         :param schema_sample_rows: Specifies how many rows should be used to determine
                                    the dtype of a column. Cannot be 0. A specific dtype can be
                                    enforced for some or all columns through the `dtypes` parameter.
@@ -262,8 +331,12 @@ class ExcelReader:
                             - A list of strings and ints, the column names and/or indices
                               (starting at 0)
                             - A string, a comma separated list of Excel column letters and column
-                              ranges (e.g. `“A:E”` or `“A,C,E:F”`, which would result in
-                              `A,B,C,D,E` and `A,C,E,F`)
+                              ranges (e.g. `"A:E"` or `"A,C,E:F"`, which would result in
+                              `A,B,C,D,E` and `A,C,E,F`). Also supports open-ended ranges
+                              (e.g. `"B:"` to select all columns from B onwards) and from-beginning
+                              ranges (e.g. `":C"` to select columns from A to C). These can be
+                              combined for "except" patterns (e.g. `":C,E:"` to select everything
+                              except column D)
                             - A callable, a function that takes a column and returns a boolean
                               indicating whether the column should be used
         :param dtypes: An optional dtype (for all columns)
@@ -301,7 +374,7 @@ class ExcelReader:
         *,
         header_row: int | None = None,
         column_names: list[str] | None = None,
-        skip_rows: int = 0,
+        skip_rows: int | None = None,
         n_rows: int | None = None,
         schema_sample_rows: int | None = 1_000,
         dtype_coercion: Literal["coerce", "strict"] = "coerce",
@@ -313,6 +386,7 @@ class ExcelReader:
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[False] = ...,
     ) -> ExcelTable: ...
+
     @typing.overload
     def load_table(
         self,
@@ -320,7 +394,7 @@ class ExcelReader:
         *,
         header_row: int | None = None,
         column_names: list[str] | None = None,
-        skip_rows: int = 0,
+        skip_rows: int | None = None,
         n_rows: int | None = None,
         schema_sample_rows: int | None = 1_000,
         dtype_coercion: Literal["coerce", "strict"] = "coerce",
@@ -331,14 +405,15 @@ class ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[True] = ...,
-    ) -> pa.RecordBatch: ...
+    ) -> "pa.RecordBatch": ...
+
     def load_table(
         self,
         name: str,
         *,
         header_row: int | None = None,
         column_names: list[str] | None = None,
-        skip_rows: int = 0,
+        skip_rows: int | None = None,
         n_rows: int | None = None,
         schema_sample_rows: int | None = 1_000,
         dtype_coercion: Literal["coerce", "strict"] = "coerce",
@@ -349,7 +424,7 @@ class ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: bool = False,
-    ) -> ExcelTable | pa.RecordBatch:
+    ) -> "ExcelTable | pa.RecordBatch":
         """Loads a table by name.
 
         :param name: The name of the table to load.
@@ -378,28 +453,45 @@ class ExcelReader:
                             - A list of strings and ints, the column names and/or indices
                               (starting at 0)
                             - A string, a comma separated list of Excel column letters and column
-                              ranges (e.g. `“A:E”` or `“A,C,E:F”`, which would result in
-                              `A,B,C,D,E` and `A,C,E,F`)
+                              ranges (e.g. `"A:E"` or `"A,C,E:F"`, which would result in
+                              `A,B,C,D,E` and `A,C,E,F`). Also supports open-ended ranges
+                              (e.g. `"B:"` to select all columns from B onwards) and from-beginning
+                              ranges (e.g. `":C"` to select columns from A to C). These can be
+                              combined for "except" patterns (e.g. `":C,E:"` to select everything
+                              except column D)
                             - A callable, a function that takes a column and returns a boolean
                               indicating whether the column should be used
         :param dtypes: An optional dtype (for all columns)
                        or dict of dtypes with keys as column indices or names.
         """
-        output = self._reader.load_table(  # type:ignore[call-overload,misc]
-            name=name,
-            header_row=header_row,
-            column_names=column_names,
-            skip_rows=skip_rows,
-            n_rows=n_rows,
-            schema_sample_rows=schema_sample_rows,
-            dtype_coercion=dtype_coercion,
-            use_columns=use_columns,
-            dtypes=dtypes,
-            eager=eager,
-        )
         if eager:
-            return output
-        return ExcelTable(output)
+            return self._reader.load_table(
+                name=name,
+                header_row=header_row,
+                column_names=column_names,
+                skip_rows=skip_rows,
+                n_rows=n_rows,
+                schema_sample_rows=schema_sample_rows,
+                dtype_coercion=dtype_coercion,
+                use_columns=use_columns,
+                dtypes=dtypes,
+                eager=True,
+            )
+        else:
+            return ExcelTable(
+                self._reader.load_table(
+                    name=name,
+                    header_row=header_row,
+                    column_names=column_names,
+                    skip_rows=skip_rows,
+                    n_rows=n_rows,
+                    schema_sample_rows=schema_sample_rows,
+                    dtype_coercion=dtype_coercion,
+                    use_columns=use_columns,
+                    dtypes=dtypes,
+                    eager=False,
+                )
+            )
 
     def load_sheet_eager(
         self,
@@ -407,13 +499,13 @@ class ExcelReader:
         *,
         header_row: int | None = 0,
         column_names: list[str] | None = None,
-        skip_rows: int | None = None,
+        skip_rows: int | list[int] | Callable[[int], bool] | None = None,
         n_rows: int | None = None,
         schema_sample_rows: int | None = 1_000,
         dtype_coercion: Literal["coerce", "strict"] = "coerce",
         use_columns: list[str] | list[int] | str | None = None,
         dtypes: DType | DTypeMap | None = None,
-    ) -> pa.RecordBatch:
+    ) -> "pa.RecordBatch":
         """Loads a sheet eagerly by index or name.
 
         For xlsx files, this will be faster and more memory-efficient, as it will use
@@ -515,11 +607,11 @@ def read_excel(source: Path | str | bytes) -> ExcelReader:
 
 
 __all__ = (
-    ## version
+    # version
     "__version__",
-    ## main entrypoint
+    # main entrypoint
     "read_excel",
-    ## Python types
+    # Python types
     "DType",
     "DTypeMap",
     # Excel reader

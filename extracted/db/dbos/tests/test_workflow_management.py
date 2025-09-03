@@ -630,7 +630,7 @@ def test_fork_version(
     assert queue_entries_are_cleaned_up(dbos)
 
 
-def test_garbage_collection(dbos: DBOS) -> None:
+def test_garbage_collection(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> None:
     event = threading.Event()
 
     @DBOS.step()
@@ -738,8 +738,8 @@ def test_global_timeout(dbos: DBOS) -> None:
     num_workflows = 10
     handles = [DBOS.start_workflow(blocked_workflow) for _ in range(num_workflows)]
 
-    # Wait one second, start one final workflow, then timeout all workflows started more than one second ago
-    time.sleep(1)
+    # Wait two seconds, start one final workflow, then timeout all workflows started more than one second ago
+    time.sleep(2)
     final_handle = DBOS.start_workflow(blocked_workflow)
     cutoff_epoch_timestamp_ms = int(time.time() * 1000) - 1000
     global_timeout(dbos, cutoff_epoch_timestamp_ms)

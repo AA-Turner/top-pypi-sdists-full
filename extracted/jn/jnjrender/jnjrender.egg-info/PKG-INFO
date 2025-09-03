@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jnjrender
-Version: 1.0.10
+Version: 1.0.11
 Summary: An utility to render Jinja2 templates in rendered text, taking a yaml environment 
 Author: Andrea Michelotti
 Requires-Dist: jinja2

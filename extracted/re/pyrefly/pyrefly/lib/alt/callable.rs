@@ -7,6 +7,7 @@
 
 use itertools::Itertools;
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_util::display::count;
@@ -640,7 +641,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
                     kwparams.insert(name, (ty, required == &Required::Required));
                 }
-                Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
+                Param::Kwargs(name, Type::Unpack(box Type::TypedDict(typed_dict))) => {
                     self.typed_dict_fields(typed_dict)
                         .into_iter()
                         .for_each(|(name, field)| {
@@ -649,6 +650,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 (type_owner.push(field.ty), field.required),
                             );
                         });
+                    if let ExtraItems::Extra(extra) =
+                        self.typed_dict_extra_items(typed_dict.class_object())
+                    {
+                        kwargs = Some((name.as_ref(), type_owner.push(extra.ty)))
+                    }
                     kwargs_is_unpack = true;
                 }
                 Param::Kwargs(name, ty) => {
@@ -948,18 +954,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         if let Some(targs) = ctor_targs.as_mut() {
             self.solver().freshen_class_targs(targs, self.uniques);
-            let substitution = targs.substitution();
-            let mp = substitution.as_map();
-            callable.params.visit_mut(&mut |t| t.subst_mut(mp));
+            let mp = targs.substitution_map();
+            callable.params.visit_mut(&mut |t| t.subst_mut(&mp));
             if let Some(obj) = self_obj.as_mut() {
-                obj.subst_mut(mp);
+                obj.subst_mut(&mp);
             } else if let Some(id) = callable_name.as_ref()
                 && id.func == dunder::NEW
                 && let Some((first, rest)) = args.split_first()
                 && let CallArg::Arg(TypeOrExpr::Type(obj, _)) = first
             {
                 // hack: we inserted a class type into the args list, but we need to substitute it
-                self_obj = Some((*obj).clone().subst(mp));
+                self_obj = Some((*obj).clone().subst(&mp));
                 args = rest;
             }
         }

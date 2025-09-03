@@ -6,7 +6,7 @@ from typing import List
 # create logger
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def int_enum_enum_list_joined(enum: Enum.__class__, delimiter: str = '\n') -> str:

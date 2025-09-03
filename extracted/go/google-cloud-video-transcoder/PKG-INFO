@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-video-transcoder
-Version: 1.16.0
+Version: 1.17.0
 Summary: Google Cloud Video Transcoder API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-video-transcoder
 Author: Google LLC

@@ -129,6 +129,8 @@ pub struct DataclassFieldKeywords {
     /// gt and lt specify the range of values that the field can take. None means no constraint
     pub lt: Option<Type>,
     pub gt: Option<Type>,
+    /// Whether we should strictly evaluate the type of the field
+    pub strict: Option<bool>,
     /// If a converter callable is passed in, its first positional parameter
     pub converter_param: Option<Type>,
 }
@@ -154,6 +156,7 @@ impl DataclassFieldKeywords {
             lt: None,
             gt: None,
             converter_param: None,
+            strict: None,
         }
     }
 
@@ -175,6 +178,8 @@ pub struct DataclassKeywords {
     pub eq: bool,
     pub unsafe_hash: bool,
     pub slots: bool,
+    // are extra fields allowed? appears as an actual keyword in pydantic models, while implicitly false in dataclasses
+    pub extra: bool,
 }
 
 impl DataclassKeywords {
@@ -201,6 +206,7 @@ impl DataclassKeywords {
             eq: map.get_bool(&Self::EQ).unwrap_or(defaults.eq_default),
             unsafe_hash: map.get_bool(&Self::UNSAFE_HASH).unwrap_or(false),
             slots: map.get_bool(&Self::SLOTS).unwrap_or(false),
+            extra: false,
         }
     }
 

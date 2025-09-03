@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tbp-nightly
-Version: 2.21.6a20250901
+Version: 2.21.6a20250902
 Summary: XProf Profiler Plugin
 Home-page: https://github.com/openxla/xprof-nightly
 Author: Google Inc.
@@ -17,7 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >= 2.7, != 3.0.*, != 3.1.*
 Description-Content-Type: text/markdown
-Requires-Dist: xprof-nightly==2.21.6a20250901
+Requires-Dist: xprof-nightly==2.21.6a20250902
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

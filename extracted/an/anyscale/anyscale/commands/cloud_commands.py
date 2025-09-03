@@ -244,8 +244,8 @@ def list_cloud(name: Optional[str], cloud_id: Optional[str], max_items: int,) ->
     )
 
 
-@cloud_cli.group("deployment", help="Manage the configuration for a cloud deployment.")
-def cloud_deployment_group() -> None:
+@cloud_cli.group("resource", help="Manage the configuration for a cloud resource.")
+def cloud_resource_group() -> None:
     pass
 
 
@@ -254,68 +254,68 @@ def cloud_config_group() -> None:
     pass
 
 
-@cloud_deployment_group.command(
+@cloud_resource_group.command(
     name="create",
-    help="Create a new cloud deployment in an existing cloud.",
+    help="Create a new cloud resource in an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_DEPLOYMENT_CREATE_EXAMPLE,
+    example=command_examples.CLOUD_RESOURCE_CREATE_EXAMPLE,
     is_alpha=True,
 )
 @click.option(
     "--cloud",
-    help="The name of the cloud to create the new deployment in.",
+    help="The name of the cloud to add the new resource to.",
     type=str,
     required=True,
 )
 @click.option(
     "--file",
     "-f",
-    help="Path to a YAML file defining the cloud deployment. Schema: https://docs.anyscale.com/reference/cloud/#clouddeployment.",
+    help="Path to a YAML file defining the cloud resource. Schema: https://docs.anyscale.com/reference/cloud/#cloudresource.",
     required=True,
 )
 @click.option(
     "--skip-verification",
     is_flag=True,
     default=False,
-    help="Skip cloud deployment verification.",
+    help="Skip cloud resource verification.",
 )
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
-def cloud_deployment_create(
+def cloud_resource_create(
     cloud: str, file: str, skip_verification: bool, yes: bool,
 ) -> None:
     try:
-        CloudController().create_cloud_deployment(cloud, file, skip_verification, yes)
+        CloudController().create_cloud_resource(cloud, file, skip_verification, yes)
     except click.ClickException as e:
         print(e)
 
 
-@cloud_deployment_group.command(
+@cloud_resource_group.command(
     name="delete",
-    help="Remove a cloud deployment from an existing cloud.",
+    help="Remove a cloud resource from an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_DEPLOYMENT_DELETE_EXAMPLE,
+    example=command_examples.CLOUD_RESOURCE_DELETE_EXAMPLE,
     is_alpha=True,
 )
 @click.option(
     "--cloud",
-    help="The name of the cloud to remove the deployment from.",
+    help="The name of the cloud to remove the resource from.",
     type=str,
     required=True,
 )
 @click.option(
-    "--deployment",
-    help="The name of the deployment to remove.",
+    "--resource",
+    help="The name of the cloud resource to remove.",
     type=str,
     required=True,
 )
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
-def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
+def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
     try:
-        CloudController().remove_cloud_deployment(cloud, deployment, yes)
+        CloudController().remove_cloud_resource(cloud, resource, yes)
     except click.ClickException as e:
         print(e)
 
@@ -361,7 +361,7 @@ def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
 @click.option(
     "--resources-file",
     "-f",
-    help="EXPERIMENTAL: Path to a YAML file defining a list of cloud resources. Schema: https://docs.anyscale.com/reference/cloud/#clouddeployment.",
+    help="EXPERIMENTAL: Path to a YAML file defining a list of cloud resources. Schema: https://docs.anyscale.com/reference/cloud/#cloudresource.",
     required=False,
 )
 @click.option(
@@ -387,7 +387,7 @@ def cloud_update(  # noqa: PLR0913
             "were both provided. Please only provide one of these two arguments."
         )
     if resources_file:
-        CloudController().update_cloud_deployments(
+        CloudController().update_cloud_resources(
             cloud_name=cloud_name or name,
             cloud_id=cloud_id,
             resources_file=resources_file,
@@ -1337,14 +1337,16 @@ def get_cloud(
             log.error("Cloud not found.")
             return
 
-        # Include all cloud deployments for the cloud.
-        cloud_deployments = CloudController().get_cloud_deployments(cloud_id=cloud.id)
+        # Include all cloud resources for the cloud.
+        cloud_resources = CloudController().get_formatted_cloud_resources(
+            cloud_id=cloud.id
+        )
         result = {
             "name": cloud.name,
             "id": cloud.id,
             "created_at": cloud.created_at,
             "is_default": cloud.is_default,
-            "deployments": cloud_deployments.get("deployments", []),
+            "resources": cloud_resources,
         }
 
         if output:

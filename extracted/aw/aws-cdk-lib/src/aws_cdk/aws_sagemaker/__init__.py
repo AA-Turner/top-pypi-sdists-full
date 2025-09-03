@@ -1606,6 +1606,29 @@ class CfnCluster(
                     security_group_ids=["securityGroupIds"],
                     subnets=["subnets"]
                 ),
+                scheduled_update_config=sagemaker.CfnCluster.ScheduledUpdateConfigProperty(
+                    schedule_expression="scheduleExpression",
+        
+                    # the properties below are optional
+                    deployment_config=sagemaker.CfnCluster.DeploymentConfigProperty(
+                        auto_rollback_configuration=[sagemaker.CfnCluster.AlarmDetailsProperty(
+                            alarm_name="alarmName"
+                        )],
+                        rolling_update_policy=sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                            maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                type="type",
+                                value=123
+                            ),
+        
+                            # the properties below are optional
+                            rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                type="type",
+                                value=123
+                            )
+                        ),
+                        wait_interval_in_seconds=123
+                    )
+                ),
                 threads_per_core=123,
                 training_plan_arn="trainingPlanArn"
             )],
@@ -1899,6 +1922,126 @@ class CfnCluster(
         jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.AlarmDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_name": "alarmName"},
+    )
+    class AlarmDetailsProperty:
+        def __init__(self, *, alarm_name: builtins.str) -> None:
+            '''The details of the alarm to monitor during the AMI update.
+
+            :param alarm_name: The name of the alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-alarmdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                alarm_details_property = sagemaker.CfnCluster.AlarmDetailsProperty(
+                    alarm_name="alarmName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7a8689483f1b57fd7208731fb78115535cc549c789e4cddd2cb4c380b1130461)
+                check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alarm_name": alarm_name,
+            }
+
+        @builtins.property
+        def alarm_name(self) -> builtins.str:
+            '''The name of the alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-alarmdetails.html#cfn-sagemaker-cluster-alarmdetails-alarmname
+            '''
+            result = self._values.get("alarm_name")
+            assert result is not None, "Required property 'alarm_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlarmDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.CapacitySizeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "value": "value"},
+    )
+    class CapacitySizeConfigProperty:
+        def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
+            '''The configuration of the size measurements of the AMI update.
+
+            Using this configuration, you can specify whether SageMaker should update your instance group by an amount or percentage of instances.
+
+            :param type: Specifies whether SageMaker should process the update by amount or percentage of instances.
+            :param value: Specifies the amount or percentage of instances SageMaker updates at a time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-capacitysizeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                capacity_size_config_property = sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                    type="type",
+                    value=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__037781baa9561e3f7cbaf9bb153526c9205251c5775d32248ba6db579b010bb2)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+                "value": value,
+            }
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Specifies whether SageMaker should process the update by amount or percentage of instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-capacitysizeconfig.html#cfn-sagemaker-cluster-capacitysizeconfig-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> jsii.Number:
+            '''Specifies the amount or percentage of instances SageMaker updates at a time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-capacitysizeconfig.html#cfn-sagemaker-cluster-capacitysizeconfig-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacitySizeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"volume_size_in_gb": "volumeSizeInGb"},
@@ -1971,6 +2114,7 @@ class CfnCluster(
             "instance_storage_configs": "instanceStorageConfigs",
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
+            "scheduled_update_config": "scheduledUpdateConfig",
             "threads_per_core": "threadsPerCore",
             "training_plan_arn": "trainingPlanArn",
         },
@@ -1989,6 +2133,7 @@ class CfnCluster(
             instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scheduled_update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ScheduledUpdateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             threads_per_core: typing.Optional[jsii.Number] = None,
             training_plan_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2004,6 +2149,7 @@ class CfnCluster(
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
+            :param scheduled_update_config: The configuration object of the schedule that SageMaker follows when updating the AMI.
             :param threads_per_core: The number of threads per CPU core you specified under ``CreateCluster`` .
             :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for this cluster instance group. For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
 
@@ -2039,6 +2185,29 @@ class CfnCluster(
                         security_group_ids=["securityGroupIds"],
                         subnets=["subnets"]
                     ),
+                    scheduled_update_config=sagemaker.CfnCluster.ScheduledUpdateConfigProperty(
+                        schedule_expression="scheduleExpression",
+                
+                        # the properties below are optional
+                        deployment_config=sagemaker.CfnCluster.DeploymentConfigProperty(
+                            auto_rollback_configuration=[sagemaker.CfnCluster.AlarmDetailsProperty(
+                                alarm_name="alarmName"
+                            )],
+                            rolling_update_policy=sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                                maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                    type="type",
+                                    value=123
+                                ),
+                
+                                # the properties below are optional
+                                rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                    type="type",
+                                    value=123
+                                )
+                            ),
+                            wait_interval_in_seconds=123
+                        )
+                    ),
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
                 )
@@ -2055,6 +2224,7 @@ class CfnCluster(
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
+                check_type(argname="argument scheduled_update_config", value=scheduled_update_config, expected_type=type_hints["scheduled_update_config"])
                 check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
                 check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2074,6 +2244,8 @@ class CfnCluster(
                 self._values["on_start_deep_health_checks"] = on_start_deep_health_checks
             if override_vpc_config is not None:
                 self._values["override_vpc_config"] = override_vpc_config
+            if scheduled_update_config is not None:
+                self._values["scheduled_update_config"] = scheduled_update_config
             if threads_per_core is not None:
                 self._values["threads_per_core"] = threads_per_core
             if training_plan_arn is not None:
@@ -2183,6 +2355,17 @@ class CfnCluster(
             '''
             result = self._values.get("override_vpc_config")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.VpcConfigProperty"]], result)
+
+        @builtins.property
+        def scheduled_update_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ScheduledUpdateConfigProperty"]]:
+            '''The configuration object of the schedule that SageMaker follows when updating the AMI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-scheduledupdateconfig
+            '''
+            result = self._values.get("scheduled_update_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ScheduledUpdateConfigProperty"]], result)
 
         @builtins.property
         def threads_per_core(self) -> typing.Optional[jsii.Number]:
@@ -2656,6 +2839,112 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.DeploymentConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auto_rollback_configuration": "autoRollbackConfiguration",
+            "rolling_update_policy": "rollingUpdatePolicy",
+            "wait_interval_in_seconds": "waitIntervalInSeconds",
+        },
+    )
+    class DeploymentConfigProperty:
+        def __init__(
+            self,
+            *,
+            auto_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.AlarmDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rolling_update_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.RollingUpdatePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wait_interval_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The deployment configuration for an endpoint, which contains the desired deployment strategy and rollback configurations.
+
+            :param auto_rollback_configuration: Automatic rollback configuration for handling endpoint deployment failures and recovery.
+            :param rolling_update_policy: Specifies a rolling deployment strategy for updating a SageMaker endpoint.
+            :param wait_interval_in_seconds: The duration in seconds that SageMaker waits before updating more instances in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-deploymentconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                deployment_config_property = sagemaker.CfnCluster.DeploymentConfigProperty(
+                    auto_rollback_configuration=[sagemaker.CfnCluster.AlarmDetailsProperty(
+                        alarm_name="alarmName"
+                    )],
+                    rolling_update_policy=sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                        maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                            type="type",
+                            value=123
+                        ),
+                
+                        # the properties below are optional
+                        rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                            type="type",
+                            value=123
+                        )
+                    ),
+                    wait_interval_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__823c22be7218dd1757ac713e9fc5c4758d319489b01bb6a9d4994ed7254be00f)
+                check_type(argname="argument auto_rollback_configuration", value=auto_rollback_configuration, expected_type=type_hints["auto_rollback_configuration"])
+                check_type(argname="argument rolling_update_policy", value=rolling_update_policy, expected_type=type_hints["rolling_update_policy"])
+                check_type(argname="argument wait_interval_in_seconds", value=wait_interval_in_seconds, expected_type=type_hints["wait_interval_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_rollback_configuration is not None:
+                self._values["auto_rollback_configuration"] = auto_rollback_configuration
+            if rolling_update_policy is not None:
+                self._values["rolling_update_policy"] = rolling_update_policy
+            if wait_interval_in_seconds is not None:
+                self._values["wait_interval_in_seconds"] = wait_interval_in_seconds
+
+        @builtins.property
+        def auto_rollback_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.AlarmDetailsProperty"]]]]:
+            '''Automatic rollback configuration for handling endpoint deployment failures and recovery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-deploymentconfig.html#cfn-sagemaker-cluster-deploymentconfig-autorollbackconfiguration
+            '''
+            result = self._values.get("auto_rollback_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.AlarmDetailsProperty"]]]], result)
+
+        @builtins.property
+        def rolling_update_policy(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.RollingUpdatePolicyProperty"]]:
+            '''Specifies a rolling deployment strategy for updating a SageMaker endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-deploymentconfig.html#cfn-sagemaker-cluster-deploymentconfig-rollingupdatepolicy
+            '''
+            result = self._values.get("rolling_update_policy")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.RollingUpdatePolicyProperty"]], result)
+
+        @builtins.property
+        def wait_interval_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The duration in seconds that SageMaker waits before updating more instances in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-deploymentconfig.html#cfn-sagemaker-cluster-deploymentconfig-waitintervalinseconds
+            '''
+            result = self._values.get("wait_interval_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.EnvironmentConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"f_sx_lustre_config": "fSxLustreConfig"},
@@ -2850,6 +3139,191 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.RollingUpdatePolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_batch_size": "maximumBatchSize",
+            "rollback_maximum_batch_size": "rollbackMaximumBatchSize",
+        },
+    )
+    class RollingUpdatePolicyProperty:
+        def __init__(
+            self,
+            *,
+            maximum_batch_size: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.CapacitySizeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            rollback_maximum_batch_size: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.CapacitySizeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies a rolling deployment strategy for updating a SageMaker endpoint.
+
+            :param maximum_batch_size: Batch size for each rolling step to provision capacity and turn on traffic on the new endpoint fleet, and terminate capacity on the old endpoint fleet. Value must be between 5% to 50% of the variant's total instance count.
+            :param rollback_maximum_batch_size: Batch size for rollback to the old endpoint fleet. Each rolling step to provision capacity and turn on traffic on the old endpoint fleet, and terminate capacity on the new endpoint fleet. If this field is absent, the default value will be set to 100% of total capacity which means to bring up the whole capacity of the old fleet at once during rollback.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-rollingupdatepolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                rolling_update_policy_property = sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                    maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                        type="type",
+                        value=123
+                    ),
+                
+                    # the properties below are optional
+                    rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                        type="type",
+                        value=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__009b52494cdfca8c8c772675b8315c71bd7b7eba9c48e4dc433f6d571074d1ad)
+                check_type(argname="argument maximum_batch_size", value=maximum_batch_size, expected_type=type_hints["maximum_batch_size"])
+                check_type(argname="argument rollback_maximum_batch_size", value=rollback_maximum_batch_size, expected_type=type_hints["rollback_maximum_batch_size"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_batch_size": maximum_batch_size,
+            }
+            if rollback_maximum_batch_size is not None:
+                self._values["rollback_maximum_batch_size"] = rollback_maximum_batch_size
+
+        @builtins.property
+        def maximum_batch_size(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.CapacitySizeConfigProperty"]:
+            '''Batch size for each rolling step to provision capacity and turn on traffic on the new endpoint fleet, and terminate capacity on the old endpoint fleet.
+
+            Value must be between 5% to 50% of the variant's total instance count.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-rollingupdatepolicy.html#cfn-sagemaker-cluster-rollingupdatepolicy-maximumbatchsize
+            '''
+            result = self._values.get("maximum_batch_size")
+            assert result is not None, "Required property 'maximum_batch_size' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.CapacitySizeConfigProperty"], result)
+
+        @builtins.property
+        def rollback_maximum_batch_size(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.CapacitySizeConfigProperty"]]:
+            '''Batch size for rollback to the old endpoint fleet.
+
+            Each rolling step to provision capacity and turn on traffic on the old endpoint fleet, and terminate capacity on the new endpoint fleet. If this field is absent, the default value will be set to 100% of total capacity which means to bring up the whole capacity of the old fleet at once during rollback.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-rollingupdatepolicy.html#cfn-sagemaker-cluster-rollingupdatepolicy-rollbackmaximumbatchsize
+            '''
+            result = self._values.get("rollback_maximum_batch_size")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.CapacitySizeConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RollingUpdatePolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ScheduledUpdateConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "schedule_expression": "scheduleExpression",
+            "deployment_config": "deploymentConfig",
+        },
+    )
+    class ScheduledUpdateConfigProperty:
+        def __init__(
+            self,
+            *,
+            schedule_expression: builtins.str,
+            deployment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.DeploymentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration object of the schedule that SageMaker follows when updating the AMI.
+
+            :param schedule_expression: A cron expression that specifies the schedule that SageMaker follows when updating the AMI.
+            :param deployment_config: The configuration to use when updating the AMI versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-scheduledupdateconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                scheduled_update_config_property = sagemaker.CfnCluster.ScheduledUpdateConfigProperty(
+                    schedule_expression="scheduleExpression",
+                
+                    # the properties below are optional
+                    deployment_config=sagemaker.CfnCluster.DeploymentConfigProperty(
+                        auto_rollback_configuration=[sagemaker.CfnCluster.AlarmDetailsProperty(
+                            alarm_name="alarmName"
+                        )],
+                        rolling_update_policy=sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                            maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                type="type",
+                                value=123
+                            ),
+                
+                            # the properties below are optional
+                            rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                type="type",
+                                value=123
+                            )
+                        ),
+                        wait_interval_in_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__81dc9ecbde9bb4b8c0eba924792ecc3f847c8f654d60156a7fde757af5d3a40c)
+                check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+                check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "schedule_expression": schedule_expression,
+            }
+            if deployment_config is not None:
+                self._values["deployment_config"] = deployment_config
+
+        @builtins.property
+        def schedule_expression(self) -> builtins.str:
+            '''A cron expression that specifies the schedule that SageMaker follows when updating the AMI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-scheduledupdateconfig.html#cfn-sagemaker-cluster-scheduledupdateconfig-scheduleexpression
+            '''
+            result = self._values.get("schedule_expression")
+            assert result is not None, "Required property 'schedule_expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def deployment_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.DeploymentConfigProperty"]]:
+            '''The configuration to use when updating the AMI versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-scheduledupdateconfig.html#cfn-sagemaker-cluster-scheduledupdateconfig-deploymentconfig
+            '''
+            result = self._values.get("deployment_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.DeploymentConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduledUpdateConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.VpcConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"security_group_ids": "securityGroupIds", "subnets": "subnets"},
@@ -2998,6 +3472,29 @@ class CfnClusterProps:
                     override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
                         security_group_ids=["securityGroupIds"],
                         subnets=["subnets"]
+                    ),
+                    scheduled_update_config=sagemaker.CfnCluster.ScheduledUpdateConfigProperty(
+                        schedule_expression="scheduleExpression",
+            
+                        # the properties below are optional
+                        deployment_config=sagemaker.CfnCluster.DeploymentConfigProperty(
+                            auto_rollback_configuration=[sagemaker.CfnCluster.AlarmDetailsProperty(
+                                alarm_name="alarmName"
+                            )],
+                            rolling_update_policy=sagemaker.CfnCluster.RollingUpdatePolicyProperty(
+                                maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                    type="type",
+                                    value=123
+                                ),
+            
+                                # the properties below are optional
+                                rollback_maximum_batch_size=sagemaker.CfnCluster.CapacitySizeConfigProperty(
+                                    type="type",
+                                    value=123
+                                )
+                            ),
+                            wait_interval_in_seconds=123
+                        )
                     ),
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
@@ -12096,6 +12593,10 @@ class CfnEndpointConfig(
         
                 # the properties below are optional
                 accelerator_type="acceleratorType",
+                capacity_reservation_config=sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                    capacity_reservation_preference="capacityReservationPreference",
+                    ml_reservation_arn="mlReservationArn"
+                ),
                 container_startup_health_check_timeout_in_seconds=123,
                 enable_ssm_access=False,
                 inference_ami_version="inferenceAmiVersion",
@@ -12200,6 +12701,10 @@ class CfnEndpointConfig(
         
                 # the properties below are optional
                 accelerator_type="acceleratorType",
+                capacity_reservation_config=sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                    capacity_reservation_preference="capacityReservationPreference",
+                    ml_reservation_arn="mlReservationArn"
+                ),
                 container_startup_health_check_timeout_in_seconds=123,
                 enable_ssm_access=False,
                 inference_ami_version="inferenceAmiVersion",
@@ -12880,6 +13385,76 @@ class CfnEndpointConfig(
 
         def __repr__(self) -> str:
             return "AsyncInferenceOutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "capacity_reservation_preference": "capacityReservationPreference",
+            "ml_reservation_arn": "mlReservationArn",
+        },
+    )
+    class CapacityReservationConfigProperty:
+        def __init__(
+            self,
+            *,
+            capacity_reservation_preference: typing.Optional[builtins.str] = None,
+            ml_reservation_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param capacity_reservation_preference: 
+            :param ml_reservation_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                capacity_reservation_config_property = sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                    capacity_reservation_preference="capacityReservationPreference",
+                    ml_reservation_arn="mlReservationArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2a2151d095fa930826bf09398cce21c64a2f6afc1dd93e43831ab27acfc0791c)
+                check_type(argname="argument capacity_reservation_preference", value=capacity_reservation_preference, expected_type=type_hints["capacity_reservation_preference"])
+                check_type(argname="argument ml_reservation_arn", value=ml_reservation_arn, expected_type=type_hints["ml_reservation_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if capacity_reservation_preference is not None:
+                self._values["capacity_reservation_preference"] = capacity_reservation_preference
+            if ml_reservation_arn is not None:
+                self._values["ml_reservation_arn"] = ml_reservation_arn
+
+        @builtins.property
+        def capacity_reservation_preference(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html#cfn-sagemaker-endpointconfig-capacityreservationconfig-capacityreservationpreference
+            '''
+            result = self._values.get("capacity_reservation_preference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ml_reservation_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-capacityreservationconfig.html#cfn-sagemaker-endpointconfig-capacityreservationconfig-mlreservationarn
+            '''
+            result = self._values.get("ml_reservation_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityReservationConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14038,6 +14613,7 @@ class CfnEndpointConfig(
         name_mapping={
             "variant_name": "variantName",
             "accelerator_type": "acceleratorType",
+            "capacity_reservation_config": "capacityReservationConfig",
             "container_startup_health_check_timeout_in_seconds": "containerStartupHealthCheckTimeoutInSeconds",
             "enable_ssm_access": "enableSsmAccess",
             "inference_ami_version": "inferenceAmiVersion",
@@ -14058,6 +14634,7 @@ class CfnEndpointConfig(
             *,
             variant_name: builtins.str,
             accelerator_type: typing.Optional[builtins.str] = None,
+            capacity_reservation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpointConfig.CapacityReservationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
             enable_ssm_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             inference_ami_version: typing.Optional[builtins.str] = None,
@@ -14077,6 +14654,7 @@ class CfnEndpointConfig(
 
             :param variant_name: The name of the production variant.
             :param accelerator_type: The size of the Elastic Inference (EI) instance to use for the production variant. EI instances provide on-demand GPU computing for inference. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ .
+            :param capacity_reservation_config: 
             :param container_startup_health_check_timeout_in_seconds: The timeout value, in seconds, for your inference container to pass health check by SageMaker Hosting. For more information about health check, see `How Your Container Should Respond to Health Check (Ping) Requests <https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-code.html#your-algorithms-inference-algo-ping-requests>`_ .
             :param enable_ssm_access: You can use this parameter to turn on native AWS Systems Manager (SSM) access for a production variant behind an endpoint. By default, SSM access is disabled for all production variants behind an endpoint. You can turn on or turn off SSM access for a production variant behind an existing endpoint by creating a new endpoint configuration and calling ``UpdateEndpoint`` .
             :param inference_ami_version: 
@@ -14104,6 +14682,10 @@ class CfnEndpointConfig(
                 
                     # the properties below are optional
                     accelerator_type="acceleratorType",
+                    capacity_reservation_config=sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                        capacity_reservation_preference="capacityReservationPreference",
+                        ml_reservation_arn="mlReservationArn"
+                    ),
                     container_startup_health_check_timeout_in_seconds=123,
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
@@ -14134,6 +14716,7 @@ class CfnEndpointConfig(
                 type_hints = typing.get_type_hints(_typecheckingstub__685c22aefe4bd12e237f4e6f239c6de7809e228c81d2604127d6824fa36dee01)
                 check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
                 check_type(argname="argument accelerator_type", value=accelerator_type, expected_type=type_hints["accelerator_type"])
+                check_type(argname="argument capacity_reservation_config", value=capacity_reservation_config, expected_type=type_hints["capacity_reservation_config"])
                 check_type(argname="argument container_startup_health_check_timeout_in_seconds", value=container_startup_health_check_timeout_in_seconds, expected_type=type_hints["container_startup_health_check_timeout_in_seconds"])
                 check_type(argname="argument enable_ssm_access", value=enable_ssm_access, expected_type=type_hints["enable_ssm_access"])
                 check_type(argname="argument inference_ami_version", value=inference_ami_version, expected_type=type_hints["inference_ami_version"])
@@ -14151,6 +14734,8 @@ class CfnEndpointConfig(
             }
             if accelerator_type is not None:
                 self._values["accelerator_type"] = accelerator_type
+            if capacity_reservation_config is not None:
+                self._values["capacity_reservation_config"] = capacity_reservation_config
             if container_startup_health_check_timeout_in_seconds is not None:
                 self._values["container_startup_health_check_timeout_in_seconds"] = container_startup_health_check_timeout_in_seconds
             if enable_ssm_access is not None:
@@ -14196,6 +14781,16 @@ class CfnEndpointConfig(
             '''
             result = self._values.get("accelerator_type")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def capacity_reservation_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpointConfig.CapacityReservationConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-capacityreservationconfig
+            '''
+            result = self._values.get("capacity_reservation_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpointConfig.CapacityReservationConfigProperty"]], result)
 
         @builtins.property
         def container_startup_health_check_timeout_in_seconds(
@@ -14620,6 +15215,10 @@ class CfnEndpointConfigProps:
             
                     # the properties below are optional
                     accelerator_type="acceleratorType",
+                    capacity_reservation_config=sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                        capacity_reservation_preference="capacityReservationPreference",
+                        ml_reservation_arn="mlReservationArn"
+                    ),
                     container_startup_health_check_timeout_in_seconds=123,
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
@@ -14724,6 +15323,10 @@ class CfnEndpointConfigProps:
             
                     # the properties below are optional
                     accelerator_type="acceleratorType",
+                    capacity_reservation_config=sagemaker.CfnEndpointConfig.CapacityReservationConfigProperty(
+                        capacity_reservation_preference="capacityReservationPreference",
+                        ml_reservation_arn="mlReservationArn"
+                    ),
                     container_startup_health_check_timeout_in_seconds=123,
                     enable_ssm_access=False,
                     inference_ami_version="inferenceAmiVersion",
@@ -54559,6 +55162,21 @@ def _typecheckingstub__429f3349777c49353a90fb2e147d893a183eb1e53971ad423f88736af
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7a8689483f1b57fd7208731fb78115535cc549c789e4cddd2cb4c380b1130461(
+    *,
+    alarm_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__037781baa9561e3f7cbaf9bb153526c9205251c5775d32248ba6db579b010bb2(
+    *,
+    type: builtins.str,
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9c3cafd59fbc880606685f87e0e67d5a5ce5428cfebf3db8838122cd54c4a361(
     *,
     volume_size_in_gb: typing.Optional[jsii.Number] = None,
@@ -54578,6 +55196,7 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduled_update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScheduledUpdateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threads_per_core: typing.Optional[jsii.Number] = None,
     training_plan_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -54623,6 +55242,15 @@ def _typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__823c22be7218dd1757ac713e9fc5c4758d319489b01bb6a9d4994ed7254be00f(
+    *,
+    auto_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AlarmDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    rolling_update_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.RollingUpdatePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wait_interval_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cc27d48d9ce12a3a8b77600174f3c178fb77c02533f3f57c2bb456bb3ae5b159(
     *,
     f_sx_lustre_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.FSxLustreConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -54641,6 +55269,22 @@ def _typecheckingstub__899364a165a53139f902fa4a999dd968cdc29639285dacf831f16633b
 def _typecheckingstub__bd76c8323d4b86bae18d24faa04bdbae1945db1d8ba5ca351b2ce27ff07f8aa6(
     *,
     eks: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterOrchestratorEksConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__009b52494cdfca8c8c772675b8315c71bd7b7eba9c48e4dc433f6d571074d1ad(
+    *,
+    maximum_batch_size: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CapacitySizeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    rollback_maximum_batch_size: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CapacitySizeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81dc9ecbde9bb4b8c0eba924792ecc3f847c8f654d60156a7fde757af5d3a40c(
+    *,
+    schedule_expression: builtins.str,
+    deployment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.DeploymentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -55776,6 +56420,14 @@ def _typecheckingstub__c3ae80c64de4a57385622840864bf472efd012f72363c8a905b70c436
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2a2151d095fa930826bf09398cce21c64a2f6afc1dd93e43831ab27acfc0791c(
+    *,
+    capacity_reservation_preference: typing.Optional[builtins.str] = None,
+    ml_reservation_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8f365f85e452b00846d8dd4987370795343fee0c95178a92e6cb69c5d32bba4e(
     *,
     csv_content_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -55877,6 +56529,7 @@ def _typecheckingstub__685c22aefe4bd12e237f4e6f239c6de7809e228c81d2604127d6824fa
     *,
     variant_name: builtins.str,
     accelerator_type: typing.Optional[builtins.str] = None,
+    capacity_reservation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointConfig.CapacityReservationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     enable_ssm_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     inference_ami_version: typing.Optional[builtins.str] = None,

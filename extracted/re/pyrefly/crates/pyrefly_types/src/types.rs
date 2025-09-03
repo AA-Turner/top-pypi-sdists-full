@@ -244,10 +244,14 @@ impl TArgs {
         Self::new(self.0.0.dupe(), tys)
     }
 
-    pub fn substitution<'a>(&'a self) -> Substitution<'a> {
+    pub fn substitution_map(&self) -> SmallMap<&Quantified, &Type> {
         let tparams = self.tparams();
         let tys = self.as_slice();
-        Substitution(tparams.quantifieds().zip(tys.iter()).collect())
+        tparams.quantifieds().zip(tys.iter()).collect()
+    }
+
+    pub fn substitution<'a>(&'a self) -> Substitution<'a> {
+        Substitution(self.substitution_map())
     }
 
     pub fn substitute_into(&self, ty: Type) -> Type {
@@ -260,10 +264,6 @@ pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 impl<'a> Substitution<'a> {
     pub fn substitute_into(&self, ty: Type) -> Type {
         ty.subst(&self.0)
-    }
-
-    pub fn as_map(&self) -> &SmallMap<&Quantified, &Type> {
-        &self.0
     }
 }
 
@@ -647,7 +647,12 @@ pub enum Type {
     Module(ModuleType),
     Forall(Box<Forall<Forallable>>),
     Var(Var),
+    /// The type of a value which is annotated with a type var.
     Quantified(Box<Quantified>),
+    /// The type of type var _value_ itself, after it has been bound to a function or a class.
+    /// This is equivalent to Type::TypeVar/ParamSpec/TypeVarTuple as a value, but when used
+    /// in a type annotation, it becomes Type::Quantified.
+    QuantifiedValue(Box<Quantified>),
     TypeGuard(Box<Type>),
     TypeIs(Box<Type>),
     Unpack(Box<Type>),
@@ -657,10 +662,18 @@ pub enum Type {
     SpecialForm(SpecialForm),
     Concatenate(Box<[Type]>, Box<Type>),
     ParamSpecValue(ParamList),
-    /// Used to represent `P.args`. The spec describes it as an annotation,
-    /// but it's easier to think of it as a type that can't occur in nested positions.
+    /// The type of a value which is annotated with `P.args`.
     Args(Box<Quantified>),
+    /// The type of a value which is annotated with `P.kwargs`.
     Kwargs(Box<Quantified>),
+    /// The type of the _value_ `P.args`.
+    /// This is equivalent to `typing.ParamSpecArgs`, but when used in a type annotation it
+    /// becomes Type::Args.
+    ArgsValue(Box<Quantified>),
+    /// The type of the _value_ `P.kwargs`.
+    /// This is equivalent to `typing.ParamSpecKwargs`, but when used in a type annotation it
+    /// becomes Type::Kwargs.
+    KwargsValue(Box<Quantified>),
     /// Used to represent a type that has a value representation, e.g. a class
     Type(Box<Type>),
     Ellipsis,
@@ -708,6 +721,7 @@ impl Visit for Type {
             Type::Forall(x) => x.visit(f),
             Type::Var(x) => x.visit(f),
             Type::Quantified(x) => x.visit(f),
+            Type::QuantifiedValue(x) => x.visit(f),
             Type::TypeGuard(x) => x.visit(f),
             Type::TypeIs(x) => x.visit(f),
             Type::Unpack(x) => x.visit(f),
@@ -719,6 +733,8 @@ impl Visit for Type {
             Type::ParamSpecValue(x) => x.visit(f),
             Type::Args(x) => x.visit(f),
             Type::Kwargs(x) => x.visit(f),
+            Type::ArgsValue(x) => x.visit(f),
+            Type::KwargsValue(x) => x.visit(f),
             Type::Type(x) => x.visit(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit(f),
@@ -752,6 +768,7 @@ impl VisitMut for Type {
             Type::Forall(x) => x.visit_mut(f),
             Type::Var(x) => x.visit_mut(f),
             Type::Quantified(x) => x.visit_mut(f),
+            Type::QuantifiedValue(x) => x.visit_mut(f),
             Type::TypeGuard(x) => x.visit_mut(f),
             Type::TypeIs(x) => x.visit_mut(f),
             Type::Unpack(x) => x.visit_mut(f),
@@ -763,6 +780,8 @@ impl VisitMut for Type {
             Type::ParamSpecValue(x) => x.visit_mut(f),
             Type::Args(x) => x.visit_mut(f),
             Type::Kwargs(x) => x.visit_mut(f),
+            Type::ArgsValue(x) => x.visit_mut(f),
+            Type::KwargsValue(x) => x.visit_mut(f),
             Type::Type(x) => x.visit_mut(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit_mut(f),
@@ -936,20 +955,24 @@ impl Type {
         }
     }
 
-    pub fn subst_mut(&mut self, mp: &SmallMap<&Quantified, &Type>) {
+    fn subst_mut_fn(&mut self, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
-        fn f(ty: &mut Type, mp: &SmallMap<&Quantified, &Type>) {
+        fn f(ty: &mut Type, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
             if let Type::Quantified(x) = ty {
-                if let Some(w) = mp.get(&**x) {
-                    *ty = (*w).clone();
+                if let Some(w) = mp(x) {
+                    *ty = w;
                 }
             } else {
                 ty.recurse_mut(&mut |x| f(x, mp));
             }
         }
+        f(self, mp);
+    }
+
+    pub fn subst_mut(&mut self, mp: &SmallMap<&Quantified, &Type>) {
         if !mp.is_empty() {
-            f(self, mp);
+            self.subst_mut_fn(&mut |x| mp.get(x).map(|t| (*t).clone()));
         }
     }
 
@@ -1264,6 +1287,16 @@ impl Type {
             if let Type::ParamSpecValue(params) = &mut ty {
                 transform_params(params);
             }
+        })
+    }
+
+    pub fn promote_typevar_values(self, stdlib: &Stdlib) -> Self {
+        self.transform(&mut |ty| match &ty {
+            Type::TypeVar(_) => *ty = stdlib.type_var().clone().to_type(),
+            Type::ParamSpec(_) => *ty = stdlib.param_spec().clone().to_type(),
+            Type::TypeVarTuple(_) => *ty = stdlib.type_var_tuple().clone().to_type(),
+            Type::QuantifiedValue(q) => *ty = q.class_type(stdlib).clone().to_type(),
+            _ => {}
         })
     }
 

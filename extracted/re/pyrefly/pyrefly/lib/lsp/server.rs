@@ -143,6 +143,7 @@ use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use lsp_types::request::WorkspaceSymbolRequest;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -182,7 +183,6 @@ use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::LspAnalysisConfig;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
-use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
@@ -240,6 +240,8 @@ pub struct Server {
     connection: ServerConnection,
     /// A thread pool of size one for heavy read operations on the State
     async_state_read_threads: ThreadPool,
+    /// A thread pool of size one for running background transactions on the State
+    transaction_threads: ThreadPool,
     lsp_queue: LspQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
@@ -850,6 +852,9 @@ impl Server {
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
                 NonZero::new(1).unwrap(),
             )),
+            transaction_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
+                NonZero::new(1).unwrap(),
+            )),
             lsp_queue,
             initialize_params,
             indexing_mode,
@@ -926,6 +931,7 @@ impl Server {
                 && !self
                     .workspaces
                     .get_with(path.to_path_buf(), |w| w.disable_type_errors)
+                    .unwrap_or_else(|| config.disable_type_errors_in_ide(e.path().as_path()))
             {
                 return Some((path.to_path_buf(), e.to_diagnostic()));
             }
@@ -991,7 +997,7 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         let state = self.state.dupe();
                         let lsp_queue = self.lsp_queue.dupe();
-                        std::thread::spawn(move || {
+                        self.transaction_threads.async_spawn(move || {
                             Self::populate_all_project_files_in_config(config, state, lsp_queue);
                         });
                     }
@@ -1028,7 +1034,7 @@ impl Server {
                 drop(indexed_workspaces);
                 let state = self.state.dupe();
                 let lsp_queue = self.lsp_queue.dupe();
-                std::thread::spawn(move || {
+                self.transaction_threads.async_spawn(move || {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
                         state,
@@ -1056,7 +1062,7 @@ impl Server {
         let state = self.state.dupe();
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
-        std::thread::spawn(move || {
+        self.transaction_threads.async_spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             f(transaction.as_mut());
             // Commit will be blocked until there are no ongoing reads.
@@ -1237,7 +1243,7 @@ impl Server {
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         let state = self.state.dupe();
         let open_files = self.open_files.dupe();
-        std::thread::spawn(move || {
+        self.transaction_threads.async_spawn(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
@@ -1390,15 +1396,16 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        let handle = match self.make_handle_if_enabled(uri) {
-            None => {
-                return Ok(CompletionResponse::List(CompletionList {
-                    is_incomplete: false,
-                    items: Vec::new(),
-                }));
-            }
-            Some(x) => x,
-        };
+        let (handle, import_format) =
+            match self.make_handle_with_lsp_analysis_config_if_enabled(uri) {
+                None => {
+                    return Ok(CompletionResponse::List(CompletionList {
+                        is_incomplete: false,
+                        items: Vec::new(),
+                    }));
+                }
+                Some((x, config)) => (x, config.and_then(|c| c.import_format).unwrap_or_default()),
+            };
         let items = transaction
             .get_module_info(&handle)
             .map(|info| {
@@ -1406,6 +1413,7 @@ impl Server {
                     &handle,
                     info.lined_buffer()
                         .from_lsp_position(params.text_document_position.position),
+                    import_format,
                 )
             })
             .unwrap_or_default();
@@ -1421,11 +1429,12 @@ impl Server {
         params: CodeActionParams,
     ) -> Option<CodeActionResponse> {
         let uri = &params.text_document.uri;
-        let handle = self.make_handle_if_enabled(uri)?;
+        let (handle, lsp_config) = self.make_handle_with_lsp_analysis_config_if_enabled(uri)?;
+        let import_format = lsp_config.and_then(|c| c.import_format).unwrap_or_default();
         let module_info = transaction.get_module_info(&handle)?;
         let range = module_info.lined_buffer().from_lsp_range(params.range);
         let code_actions = transaction
-            .local_quickfix_code_actions(&handle, range)?
+            .local_quickfix_code_actions(&handle, range, import_format)?
             .into_map(|(title, info, range, insert_text)| {
                 CodeActionOrCommand::CodeAction(CodeAction {
                     title,

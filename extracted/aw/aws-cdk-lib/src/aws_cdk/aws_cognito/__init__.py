@@ -1002,6 +1002,17 @@ user_pool_client = cognito.UserPoolClient(self, "UserPoolClient",
 )
 ```
 
+[Refresh token rotation](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html#using-the-refresh-token-rotation)
+can be configured to enable automatic rotation of refresh tokens. By default, refresh token rotation is disabled. When the refreshTokenRotationGracePeriod is 0, the grace period is disabled and a successful request immediately invalidates the submitted refresh token.
+
+```python
+pool = cognito.UserPool(self, "Pool")
+pool.add_client("app-client",
+    # ...
+    refresh_token_rotation_grace_period=Duration.seconds(40)
+)
+```
+
 See [Adding user device and session data to API requests](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-adaptive-authentication.html#user-pool-settings-adaptive-authentication-device-fingerprint) for more information.
 
 ### Resource Servers
@@ -8149,7 +8160,7 @@ class CfnUserPoolClient(
         :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to permit your app client to authorize access with. Scopes govern access control to user pool self-service API operations, user data from the ``userInfo`` endpoint, and third-party APIs. Scope values include ``phone`` , ``email`` , ``openid`` , and ``profile`` . The ``aws.cognito.signin.user.admin`` scope authorizes user self-service operations. Custom scopes with resource servers authorize access to external APIs.
         :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign. In AWS Regions where Amazon Pinpoint isn't available, user pools might not have access to analytics or might be configurable with campaigns in the US East (N. Virginia) Region. For more information, see `Using Amazon Pinpoint analytics <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-pinpoint-integration.html>`_ .
         :param auth_session_validity: Amazon Cognito creates a session token for each API request in an authentication flow. ``AuthSessionValidity`` is the duration, in minutes, of that session token. Your user pool native user must respond to each authentication challenge before the session expires.
-        :param callback_ur_ls: A list of allowed redirect, or callback, URLs for managed login authentication. These URLs are the paths where you want to send your users' browsers after they complete authentication with managed login or a third-party IdP. Typically, callback URLs are the home of an application that uses OAuth or OIDC libraries to process authentication outcomes. A redirect URI must meet the following requirements: - Be an absolute URI. - Be registered with the authorization server. Amazon Cognito doesn't accept authorization requests with ``redirect_uri`` values that aren't in the list of ``CallbackURLs`` that you provide in this parameter. - Not include a fragment component. See `OAuth 2.0 - Redirection Endpoint <https://docs.aws.amazon.com/https://tools.ietf.org/html/rfc6749#section-3.1.2>`_ . Amazon Cognito requires HTTPS over HTTP except for http://localhost for testing purposes only. App callback URLs such as myapp://example are also supported.
+        :param callback_ur_ls: A list of allowed redirect, or callback, URLs for managed login authentication. These URLs are the paths where you want to send your users' browsers after they complete authentication with managed login or a third-party IdP. Typically, callback URLs are the home of an application that uses OAuth or OIDC libraries to process authentication outcomes. A redirect URI must meet the following requirements: - Be an absolute URI. - Be registered with the authorization server. Amazon Cognito doesn't accept authorization requests with ``redirect_uri`` values that aren't in the list of ``CallbackURLs`` that you provide in this parameter. - Not include a fragment component. See `OAuth 2.0 - Redirection Endpoint <https://docs.aws.amazon.com/https://tools.ietf.org/html/rfc6749#section-3.1.2>`_ . Amazon Cognito requires HTTPS over HTTP except for callback URLs to ``http://localhost`` , ``http://127.0.0.1`` and ``http://[::1]`` . These callback URLs are for testing purposes only. You can specify custom TCP ports for your callback URLs. App callback URLs such as ``myapp://example`` are also supported.
         :param client_name: A friendly name for the app client that you want to create.
         :param default_redirect_uri: The default redirect URI. In app clients with one assigned IdP, replaces ``redirect_uri`` in authentication requests. Must be in the ``CallbackURLs`` list.
         :param enable_propagate_additional_user_context_data: When ``true`` , your application can include additional ``UserContextData`` in authentication requests. This data includes the IP address, and contributes to analysis by threat protection features. For more information about propagation of user context data, see `Adding session data to API requests <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-adaptive-authentication.html#user-pool-settings-adaptive-authentication-device-fingerprint>`_ . If you don’t include this parameter, you can't send the source IP address to Amazon Cognito threat protection features. You can only activate ``EnablePropagateAdditionalUserContextData`` in an app client that has a client secret.
@@ -8985,7 +8996,7 @@ class CfnUserPoolClientProps:
         :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to permit your app client to authorize access with. Scopes govern access control to user pool self-service API operations, user data from the ``userInfo`` endpoint, and third-party APIs. Scope values include ``phone`` , ``email`` , ``openid`` , and ``profile`` . The ``aws.cognito.signin.user.admin`` scope authorizes user self-service operations. Custom scopes with resource servers authorize access to external APIs.
         :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign. In AWS Regions where Amazon Pinpoint isn't available, user pools might not have access to analytics or might be configurable with campaigns in the US East (N. Virginia) Region. For more information, see `Using Amazon Pinpoint analytics <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-pinpoint-integration.html>`_ .
         :param auth_session_validity: Amazon Cognito creates a session token for each API request in an authentication flow. ``AuthSessionValidity`` is the duration, in minutes, of that session token. Your user pool native user must respond to each authentication challenge before the session expires.
-        :param callback_ur_ls: A list of allowed redirect, or callback, URLs for managed login authentication. These URLs are the paths where you want to send your users' browsers after they complete authentication with managed login or a third-party IdP. Typically, callback URLs are the home of an application that uses OAuth or OIDC libraries to process authentication outcomes. A redirect URI must meet the following requirements: - Be an absolute URI. - Be registered with the authorization server. Amazon Cognito doesn't accept authorization requests with ``redirect_uri`` values that aren't in the list of ``CallbackURLs`` that you provide in this parameter. - Not include a fragment component. See `OAuth 2.0 - Redirection Endpoint <https://docs.aws.amazon.com/https://tools.ietf.org/html/rfc6749#section-3.1.2>`_ . Amazon Cognito requires HTTPS over HTTP except for http://localhost for testing purposes only. App callback URLs such as myapp://example are also supported.
+        :param callback_ur_ls: A list of allowed redirect, or callback, URLs for managed login authentication. These URLs are the paths where you want to send your users' browsers after they complete authentication with managed login or a third-party IdP. Typically, callback URLs are the home of an application that uses OAuth or OIDC libraries to process authentication outcomes. A redirect URI must meet the following requirements: - Be an absolute URI. - Be registered with the authorization server. Amazon Cognito doesn't accept authorization requests with ``redirect_uri`` values that aren't in the list of ``CallbackURLs`` that you provide in this parameter. - Not include a fragment component. See `OAuth 2.0 - Redirection Endpoint <https://docs.aws.amazon.com/https://tools.ietf.org/html/rfc6749#section-3.1.2>`_ . Amazon Cognito requires HTTPS over HTTP except for callback URLs to ``http://localhost`` , ``http://127.0.0.1`` and ``http://[::1]`` . These callback URLs are for testing purposes only. You can specify custom TCP ports for your callback URLs. App callback URLs such as ``myapp://example`` are also supported.
         :param client_name: A friendly name for the app client that you want to create.
         :param default_redirect_uri: The default redirect URI. In app clients with one assigned IdP, replaces ``redirect_uri`` in authentication requests. Must be in the ``CallbackURLs`` list.
         :param enable_propagate_additional_user_context_data: When ``true`` , your application can include additional ``UserContextData`` in authentication requests. This data includes the IP address, and contributes to analysis by threat protection features. For more information about propagation of user context data, see `Adding session data to API requests <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-adaptive-authentication.html#user-pool-settings-adaptive-authentication-device-fingerprint>`_ . If you don’t include this parameter, you can't send the source IP address to Amazon Cognito threat protection features. You can only activate ``EnablePropagateAdditionalUserContextData`` in an app client that has a client secret.
@@ -9238,9 +9249,9 @@ class CfnUserPoolClientProps:
 
         See `OAuth 2.0 - Redirection Endpoint <https://docs.aws.amazon.com/https://tools.ietf.org/html/rfc6749#section-3.1.2>`_ .
 
-        Amazon Cognito requires HTTPS over HTTP except for http://localhost for testing purposes only.
+        Amazon Cognito requires HTTPS over HTTP except for callback URLs to ``http://localhost`` , ``http://127.0.0.1`` and ``http://[::1]`` . These callback URLs are for testing purposes only. You can specify custom TCP ports for your callback URLs.
 
-        App callback URLs such as myapp://example are also supported.
+        App callback URLs such as ``myapp://example`` are also supported.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-callbackurls
         '''
@@ -12246,7 +12257,7 @@ class CfnUserPoolRiskConfigurationAttachment(
             :param from_: The email address that sends the email message. The address must be either individually verified with Amazon Simple Email Service, or from a domain that has been verified with Amazon SES.
             :param mfa_email: The template for the email message that your user pool sends when MFA is challenged in response to a detected risk.
             :param no_action_email: The template for the email message that your user pool sends when no action is taken in response to a detected risk.
-            :param reply_to: The reply-to email address of an email template.
+            :param reply_to: The reply-to email address of an email template. Can be an email address in the format ``admin@example.com`` or ``Administrator <admin@example.com>`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype.html
             :exampleMetadata: fixture=_generated
@@ -12367,6 +12378,8 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def reply_to(self) -> typing.Optional[builtins.str]:
             '''The reply-to email address of an email template.
+
+            Can be an email address in the format ``admin@example.com`` or ``Administrator <admin@example.com>`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype-replyto
             '''
@@ -14455,6 +14468,7 @@ class IUserPool(_IResource_c80c4260, typing_extensions.Protocol):
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -14475,6 +14489,7 @@ class IUserPool(_IResource_c80c4260, typing_extensions.Protocol):
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -14625,6 +14640,7 @@ class _IUserPoolProxy(
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -14645,6 +14661,7 @@ class _IUserPoolProxy(
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -14668,6 +14685,7 @@ class _IUserPoolProxy(
             o_auth=o_auth,
             prevent_user_existence_errors=prevent_user_existence_errors,
             read_attributes=read_attributes,
+            refresh_token_rotation_grace_period=refresh_token_rotation_grace_period,
             refresh_token_validity=refresh_token_validity,
             supported_identity_providers=supported_identity_providers,
             user_pool_client_name=user_pool_client_name,
@@ -18069,6 +18087,7 @@ class UserPool(
         o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -18089,6 +18108,7 @@ class UserPool(
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -18110,6 +18130,7 @@ class UserPool(
             o_auth=o_auth,
             prevent_user_existence_errors=prevent_user_existence_errors,
             read_attributes=read_attributes,
+            refresh_token_rotation_grace_period=refresh_token_rotation_grace_period,
             refresh_token_validity=refresh_token_validity,
             supported_identity_providers=supported_identity_providers,
             user_pool_client_name=user_pool_client_name,
@@ -18341,6 +18362,7 @@ class UserPoolClient(
         o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -18362,6 +18384,7 @@ class UserPoolClient(
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -18385,6 +18408,7 @@ class UserPoolClient(
             o_auth=o_auth,
             prevent_user_existence_errors=prevent_user_existence_errors,
             read_attributes=read_attributes,
+            refresh_token_rotation_grace_period=refresh_token_rotation_grace_period,
             refresh_token_validity=refresh_token_validity,
             supported_identity_providers=supported_identity_providers,
             user_pool_client_name=user_pool_client_name,
@@ -18543,6 +18567,7 @@ class UserPoolClientIdentityProvider(
         "o_auth": "oAuth",
         "prevent_user_existence_errors": "preventUserExistenceErrors",
         "read_attributes": "readAttributes",
+        "refresh_token_rotation_grace_period": "refreshTokenRotationGracePeriod",
         "refresh_token_validity": "refreshTokenValidity",
         "supported_identity_providers": "supportedIdentityProviders",
         "user_pool_client_name": "userPoolClientName",
@@ -18565,6 +18590,7 @@ class UserPoolClientOptions:
         o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -18584,6 +18610,7 @@ class UserPoolClientOptions:
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -18625,6 +18652,7 @@ class UserPoolClientOptions:
             check_type(argname="argument o_auth", value=o_auth, expected_type=type_hints["o_auth"])
             check_type(argname="argument prevent_user_existence_errors", value=prevent_user_existence_errors, expected_type=type_hints["prevent_user_existence_errors"])
             check_type(argname="argument read_attributes", value=read_attributes, expected_type=type_hints["read_attributes"])
+            check_type(argname="argument refresh_token_rotation_grace_period", value=refresh_token_rotation_grace_period, expected_type=type_hints["refresh_token_rotation_grace_period"])
             check_type(argname="argument refresh_token_validity", value=refresh_token_validity, expected_type=type_hints["refresh_token_validity"])
             check_type(argname="argument supported_identity_providers", value=supported_identity_providers, expected_type=type_hints["supported_identity_providers"])
             check_type(argname="argument user_pool_client_name", value=user_pool_client_name, expected_type=type_hints["user_pool_client_name"])
@@ -18654,6 +18682,8 @@ class UserPoolClientOptions:
             self._values["prevent_user_existence_errors"] = prevent_user_existence_errors
         if read_attributes is not None:
             self._values["read_attributes"] = read_attributes
+        if refresh_token_rotation_grace_period is not None:
+            self._values["refresh_token_rotation_grace_period"] = refresh_token_rotation_grace_period
         if refresh_token_validity is not None:
             self._values["refresh_token_validity"] = refresh_token_validity
         if supported_identity_providers is not None:
@@ -18799,6 +18829,21 @@ class UserPoolClientOptions:
         '''
         result = self._values.get("read_attributes")
         return typing.cast(typing.Optional[ClientAttributes], result)
+
+    @builtins.property
+    def refresh_token_rotation_grace_period(
+        self,
+    ) -> typing.Optional[_Duration_4839e8c3]:
+        '''Enables refresh token rotation when set.
+
+        Defines the grace period for the original refresh token (0-60 seconds).
+
+        :default: - undefined (refresh token rotation is disabled)
+
+        :see: https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html#using-the-refresh-token-rotation
+        '''
+        result = self._values.get("refresh_token_rotation_grace_period")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def refresh_token_validity(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -18876,6 +18921,7 @@ class UserPoolClientOptions:
         "o_auth": "oAuth",
         "prevent_user_existence_errors": "preventUserExistenceErrors",
         "read_attributes": "readAttributes",
+        "refresh_token_rotation_grace_period": "refreshTokenRotationGracePeriod",
         "refresh_token_validity": "refreshTokenValidity",
         "supported_identity_providers": "supportedIdentityProviders",
         "user_pool_client_name": "userPoolClientName",
@@ -18899,6 +18945,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional[ClientAttributes] = None,
+        refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
         refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -18919,6 +18966,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
+        :param refresh_token_rotation_grace_period: Enables refresh token rotation when set. Defines the grace period for the original refresh token (0-60 seconds). Default: - undefined (refresh token rotation is disabled)
         :param refresh_token_validity: Validity of the refresh token. Values between 60 minutes and 10 years are valid. Default: Duration.days(30)
         :param supported_identity_providers: The list of identity providers that users should be able to use to sign in using this client. Default: - supports all identity providers that are registered with the user pool. If the user pool and/or identity providers are imported, either specify this option explicitly or ensure that the identity providers are registered with the user pool using the ``UserPool.registerIdentityProvider()`` API.
         :param user_pool_client_name: Name of the application client. Default: - cloudformation generated name
@@ -18973,6 +19021,7 @@ class UserPoolClientProps(UserPoolClientOptions):
             check_type(argname="argument o_auth", value=o_auth, expected_type=type_hints["o_auth"])
             check_type(argname="argument prevent_user_existence_errors", value=prevent_user_existence_errors, expected_type=type_hints["prevent_user_existence_errors"])
             check_type(argname="argument read_attributes", value=read_attributes, expected_type=type_hints["read_attributes"])
+            check_type(argname="argument refresh_token_rotation_grace_period", value=refresh_token_rotation_grace_period, expected_type=type_hints["refresh_token_rotation_grace_period"])
             check_type(argname="argument refresh_token_validity", value=refresh_token_validity, expected_type=type_hints["refresh_token_validity"])
             check_type(argname="argument supported_identity_providers", value=supported_identity_providers, expected_type=type_hints["supported_identity_providers"])
             check_type(argname="argument user_pool_client_name", value=user_pool_client_name, expected_type=type_hints["user_pool_client_name"])
@@ -19005,6 +19054,8 @@ class UserPoolClientProps(UserPoolClientOptions):
             self._values["prevent_user_existence_errors"] = prevent_user_existence_errors
         if read_attributes is not None:
             self._values["read_attributes"] = read_attributes
+        if refresh_token_rotation_grace_period is not None:
+            self._values["refresh_token_rotation_grace_period"] = refresh_token_rotation_grace_period
         if refresh_token_validity is not None:
             self._values["refresh_token_validity"] = refresh_token_validity
         if supported_identity_providers is not None:
@@ -19150,6 +19201,21 @@ class UserPoolClientProps(UserPoolClientOptions):
         '''
         result = self._values.get("read_attributes")
         return typing.cast(typing.Optional[ClientAttributes], result)
+
+    @builtins.property
+    def refresh_token_rotation_grace_period(
+        self,
+    ) -> typing.Optional[_Duration_4839e8c3]:
+        '''Enables refresh token rotation when set.
+
+        Defines the grace period for the original refresh token (0-60 seconds).
+
+        :default: - undefined (refresh token rotation is disabled)
+
+        :see: https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html#using-the-refresh-token-rotation
+        '''
+        result = self._values.get("refresh_token_rotation_grace_period")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def refresh_token_validity(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -25826,6 +25892,7 @@ def _typecheckingstub__6eaa0ebaf797c6ac4bac11bd73d9ad61c50892a9450e0ff5880903434
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -26161,6 +26228,7 @@ def _typecheckingstub__b4ce1f762a6eeaca3920ca827a1685cfa2b670f96aa13d8cfdded4055
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -26238,6 +26306,7 @@ def _typecheckingstub__e654de9921a676ab8214720f2ab2c7f212d67a62531595c721560e88c
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -26274,6 +26343,7 @@ def _typecheckingstub__80185296586b917ea24ebc48255c627ce95ec5c85ae2ab4e52736240b
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
@@ -26296,6 +26366,7 @@ def _typecheckingstub__95c8cad8419f2fd5def82ad39281b322b9ec6b2f7d891de939bf1e903
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,

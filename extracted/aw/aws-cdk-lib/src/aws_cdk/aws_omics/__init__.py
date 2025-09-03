@@ -2731,6 +2731,15 @@ class CfnWorkflow(
         
         cfn_workflow = omics.CfnWorkflow(self, "MyCfnWorkflow",
             accelerators="accelerators",
+            definition_repository=omics.CfnWorkflow.DefinitionRepositoryProperty(
+                connection_arn="connectionArn",
+                exclude_file_patterns=["excludeFilePatterns"],
+                full_repository_id="fullRepositoryId",
+                source_reference=omics.CfnWorkflow.SourceReferenceProperty(
+                    type="type",
+                    value="value"
+                )
+            ),
             definition_uri="definitionUri",
             description="description",
             engine="engine",
@@ -2742,11 +2751,16 @@ class CfnWorkflow(
                     optional=False
                 )
             },
+            parameter_template_path="parameterTemplatePath",
+            readme_markdown="readmeMarkdown",
+            readme_path="readmePath",
+            readme_uri="readmeUri",
             storage_capacity=123,
             storage_type="storageType",
             tags={
                 "tags_key": "tags"
-            }
+            },
+            workflow_bucket_owner_id="workflowBucketOwnerId"
         )
     '''
 
@@ -2756,29 +2770,41 @@ class CfnWorkflow(
         id: builtins.str,
         *,
         accelerators: typing.Optional[builtins.str] = None,
+        definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkflow.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkflow.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template_path: typing.Optional[builtins.str] = None,
+        readme_markdown: typing.Optional[builtins.str] = None,
+        readme_path: typing.Optional[builtins.str] = None,
+        readme_uri: typing.Optional[builtins.str] = None,
         storage_capacity: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workflow_bucket_owner_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param accelerators: 
+        :param definition_repository: Contains information about a source code repository that hosts the workflow definition files.
         :param definition_uri: The URI of a definition for the workflow.
         :param description: The parameter's description.
         :param engine: An engine for the workflow.
         :param main: The path of the main definition file for the workflow.
         :param name: The workflow's name.
         :param parameter_template: The workflow's parameter template.
+        :param parameter_template_path: Path to the primary workflow parameter template JSON file inside the repository.
+        :param readme_markdown: The markdown content for the workflow's README file. This provides documentation and usage information for users of the workflow.
+        :param readme_path: The path to the workflow README markdown file within the repository. This file provides documentation and usage information for the workflow. If not specified, the README.md file from the root directory of the repository will be used.
+        :param readme_uri: The S3 URI of the README file for the workflow. This file provides documentation and usage information for the workflow. The S3 URI must begin with s3://USER-OWNED-BUCKET/. The requester must have access to the S3 bucket and object. The max README content length is 500 KiB.
         :param storage_capacity: The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version. The ``storageCapacity`` can be overwritten at run time. The storage capacity is not required for runs with a ``DYNAMIC`` storage type.
         :param storage_type: 
         :param tags: Tags for the workflow.
+        :param workflow_bucket_owner_id: Optional workflow bucket owner ID to verify the workflow bucket.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9f00850d)
@@ -2786,15 +2812,21 @@ class CfnWorkflow(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkflowProps(
             accelerators=accelerators,
+            definition_repository=definition_repository,
             definition_uri=definition_uri,
             description=description,
             engine=engine,
             main=main,
             name=name,
             parameter_template=parameter_template,
+            parameter_template_path=parameter_template_path,
+            readme_markdown=readme_markdown,
+            readme_path=readme_path,
+            readme_uri=readme_uri,
             storage_capacity=storage_capacity,
             storage_type=storage_type,
             tags=tags,
+            workflow_bucket_owner_id=workflow_bucket_owner_id,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2906,6 +2938,24 @@ class CfnWorkflow(
         jsii.set(self, "accelerators", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="definitionRepository")
+    def definition_repository(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.DefinitionRepositoryProperty"]]:
+        '''Contains information about a source code repository that hosts the workflow definition files.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.DefinitionRepositoryProperty"]], jsii.get(self, "definitionRepository"))
+
+    @definition_repository.setter
+    def definition_repository(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.DefinitionRepositoryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b6e4242f1457a50b9f5b17595e8985df9311b3b5ec98f525f390f9387770415)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionRepository", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="definitionUri")
     def definition_uri(self) -> typing.Optional[builtins.str]:
         '''The URI of a definition for the workflow.'''
@@ -2989,6 +3039,58 @@ class CfnWorkflow(
         jsii.set(self, "parameterTemplate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="parameterTemplatePath")
+    def parameter_template_path(self) -> typing.Optional[builtins.str]:
+        '''Path to the primary workflow parameter template JSON file inside the repository.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "parameterTemplatePath"))
+
+    @parameter_template_path.setter
+    def parameter_template_path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d41351b64d942ee30b08547c1780197e0df1eca59541df6f21ad720a36cb6716)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameterTemplatePath", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readmeMarkdown")
+    def readme_markdown(self) -> typing.Optional[builtins.str]:
+        '''The markdown content for the workflow's README file.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "readmeMarkdown"))
+
+    @readme_markdown.setter
+    def readme_markdown(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecc1997459356ed8d8ca95f01eab7bd4215d815bf69cff594388b6f7222e0c8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readmeMarkdown", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readmePath")
+    def readme_path(self) -> typing.Optional[builtins.str]:
+        '''The path to the workflow README markdown file within the repository.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "readmePath"))
+
+    @readme_path.setter
+    def readme_path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16e36c31f82073225a89cc2a0da972aba7908d4ad2dd686757120c7089f99861)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readmePath", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readmeUri")
+    def readme_uri(self) -> typing.Optional[builtins.str]:
+        '''The S3 URI of the README file for the workflow.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "readmeUri"))
+
+    @readme_uri.setter
+    def readme_uri(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28c67e6013e7a108b99f462f48461025e53196240b5182ef0ee813188829ec6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readmeUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="storageCapacity")
     def storage_capacity(self) -> typing.Optional[jsii.Number]:
         '''The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.'''
@@ -3028,6 +3130,201 @@ class CfnWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__651d8f1caf8b2c987665acfeae50e19a5626bb723832dae7067c423aab3ac2b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowBucketOwnerId")
+    def workflow_bucket_owner_id(self) -> typing.Optional[builtins.str]:
+        '''Optional workflow bucket owner ID to verify the workflow bucket.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workflowBucketOwnerId"))
+
+    @workflow_bucket_owner_id.setter
+    def workflow_bucket_owner_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fec2ca5e32cee87eaac65d878c60669f18bb90724ac13ab05f21221ebd80766e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workflowBucketOwnerId", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_omics.CfnWorkflow.DefinitionRepositoryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connection_arn": "connectionArn",
+            "exclude_file_patterns": "excludeFilePatterns",
+            "full_repository_id": "fullRepositoryId",
+            "source_reference": "sourceReference",
+        },
+    )
+    class DefinitionRepositoryProperty:
+        def __init__(
+            self,
+            *,
+            connection_arn: typing.Optional[builtins.str] = None,
+            exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            full_repository_id: typing.Optional[builtins.str] = None,
+            source_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkflow.SourceReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains information about a source code repository that hosts the workflow definition files.
+
+            :param connection_arn: The Amazon Resource Name (ARN) of the connection to the source code repository.
+            :param exclude_file_patterns: A list of file patterns to exclude when retrieving the workflow definition from the repository.
+            :param full_repository_id: The full repository identifier, including the repository owner and name. For example, 'repository-owner/repository-name'.
+            :param source_reference: The source reference for the repository, such as a branch name, tag, or commit ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_omics as omics
+                
+                definition_repository_property = omics.CfnWorkflow.DefinitionRepositoryProperty(
+                    connection_arn="connectionArn",
+                    exclude_file_patterns=["excludeFilePatterns"],
+                    full_repository_id="fullRepositoryId",
+                    source_reference=omics.CfnWorkflow.SourceReferenceProperty(
+                        type="type",
+                        value="value"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a3c23b09e8f18584c69d282b6816697f2992e22dbf81773246b66875fbb0c0c8)
+                check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+                check_type(argname="argument exclude_file_patterns", value=exclude_file_patterns, expected_type=type_hints["exclude_file_patterns"])
+                check_type(argname="argument full_repository_id", value=full_repository_id, expected_type=type_hints["full_repository_id"])
+                check_type(argname="argument source_reference", value=source_reference, expected_type=type_hints["source_reference"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connection_arn is not None:
+                self._values["connection_arn"] = connection_arn
+            if exclude_file_patterns is not None:
+                self._values["exclude_file_patterns"] = exclude_file_patterns
+            if full_repository_id is not None:
+                self._values["full_repository_id"] = full_repository_id
+            if source_reference is not None:
+                self._values["source_reference"] = source_reference
+
+        @builtins.property
+        def connection_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the connection to the source code repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html#cfn-omics-workflow-definitionrepository-connectionarn
+            '''
+            result = self._values.get("connection_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def exclude_file_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of file patterns to exclude when retrieving the workflow definition from the repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html#cfn-omics-workflow-definitionrepository-excludefilepatterns
+            '''
+            result = self._values.get("exclude_file_patterns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def full_repository_id(self) -> typing.Optional[builtins.str]:
+            '''The full repository identifier, including the repository owner and name.
+
+            For example, 'repository-owner/repository-name'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html#cfn-omics-workflow-definitionrepository-fullrepositoryid
+            '''
+            result = self._values.get("full_repository_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_reference(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.SourceReferenceProperty"]]:
+            '''The source reference for the repository, such as a branch name, tag, or commit ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html#cfn-omics-workflow-definitionrepository-sourcereference
+            '''
+            result = self._values.get("source_reference")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.SourceReferenceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DefinitionRepositoryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_omics.CfnWorkflow.SourceReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "value": "value"},
+    )
+    class SourceReferenceProperty:
+        def __init__(
+            self,
+            *,
+            type: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Contains information about the source reference in a code repository, such as a branch, tag, or commit.
+
+            :param type: The type of source reference, such as branch, tag, or commit.
+            :param value: The value of the source reference, such as the branch name, tag name, or commit ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-sourcereference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_omics as omics
+                
+                source_reference_property = omics.CfnWorkflow.SourceReferenceProperty(
+                    type="type",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f4e57d9f64919c2d451cd965846e1f5ee2aa3404611459632e4dd2699b4654d1)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if type is not None:
+                self._values["type"] = type
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of source reference, such as branch, tag, or commit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-sourcereference.html#cfn-omics-workflow-sourcereference-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''The value of the source reference, such as the branch name, tag name, or commit ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-sourcereference.html#cfn-omics-workflow-sourcereference-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_omics.CfnWorkflow.WorkflowParameterProperty",
@@ -3107,15 +3404,21 @@ class CfnWorkflow(
     jsii_struct_bases=[],
     name_mapping={
         "accelerators": "accelerators",
+        "definition_repository": "definitionRepository",
         "definition_uri": "definitionUri",
         "description": "description",
         "engine": "engine",
         "main": "main",
         "name": "name",
         "parameter_template": "parameterTemplate",
+        "parameter_template_path": "parameterTemplatePath",
+        "readme_markdown": "readmeMarkdown",
+        "readme_path": "readmePath",
+        "readme_uri": "readmeUri",
         "storage_capacity": "storageCapacity",
         "storage_type": "storageType",
         "tags": "tags",
+        "workflow_bucket_owner_id": "workflowBucketOwnerId",
     },
 )
 class CfnWorkflowProps:
@@ -3123,28 +3426,40 @@ class CfnWorkflowProps:
         self,
         *,
         accelerators: typing.Optional[builtins.str] = None,
+        definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template_path: typing.Optional[builtins.str] = None,
+        readme_markdown: typing.Optional[builtins.str] = None,
+        readme_path: typing.Optional[builtins.str] = None,
+        readme_uri: typing.Optional[builtins.str] = None,
         storage_capacity: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workflow_bucket_owner_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkflow``.
 
         :param accelerators: 
+        :param definition_repository: Contains information about a source code repository that hosts the workflow definition files.
         :param definition_uri: The URI of a definition for the workflow.
         :param description: The parameter's description.
         :param engine: An engine for the workflow.
         :param main: The path of the main definition file for the workflow.
         :param name: The workflow's name.
         :param parameter_template: The workflow's parameter template.
+        :param parameter_template_path: Path to the primary workflow parameter template JSON file inside the repository.
+        :param readme_markdown: The markdown content for the workflow's README file. This provides documentation and usage information for users of the workflow.
+        :param readme_path: The path to the workflow README markdown file within the repository. This file provides documentation and usage information for the workflow. If not specified, the README.md file from the root directory of the repository will be used.
+        :param readme_uri: The S3 URI of the README file for the workflow. This file provides documentation and usage information for the workflow. The S3 URI must begin with s3://USER-OWNED-BUCKET/. The requester must have access to the S3 bucket and object. The max README content length is 500 KiB.
         :param storage_capacity: The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version. The ``storageCapacity`` can be overwritten at run time. The storage capacity is not required for runs with a ``DYNAMIC`` storage type.
         :param storage_type: 
         :param tags: Tags for the workflow.
+        :param workflow_bucket_owner_id: Optional workflow bucket owner ID to verify the workflow bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html
         :exampleMetadata: fixture=_generated
@@ -3157,6 +3472,15 @@ class CfnWorkflowProps:
             
             cfn_workflow_props = omics.CfnWorkflowProps(
                 accelerators="accelerators",
+                definition_repository=omics.CfnWorkflow.DefinitionRepositoryProperty(
+                    connection_arn="connectionArn",
+                    exclude_file_patterns=["excludeFilePatterns"],
+                    full_repository_id="fullRepositoryId",
+                    source_reference=omics.CfnWorkflow.SourceReferenceProperty(
+                        type="type",
+                        value="value"
+                    )
+                ),
                 definition_uri="definitionUri",
                 description="description",
                 engine="engine",
@@ -3168,28 +3492,41 @@ class CfnWorkflowProps:
                         optional=False
                     )
                 },
+                parameter_template_path="parameterTemplatePath",
+                readme_markdown="readmeMarkdown",
+                readme_path="readmePath",
+                readme_uri="readmeUri",
                 storage_capacity=123,
                 storage_type="storageType",
                 tags={
                     "tags_key": "tags"
-                }
+                },
+                workflow_bucket_owner_id="workflowBucketOwnerId"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09bedca50200dd06a4bbe4bb6135e76dacff76287249f3d28b8f285f8205f173)
             check_type(argname="argument accelerators", value=accelerators, expected_type=type_hints["accelerators"])
+            check_type(argname="argument definition_repository", value=definition_repository, expected_type=type_hints["definition_repository"])
             check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument main", value=main, expected_type=type_hints["main"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument parameter_template", value=parameter_template, expected_type=type_hints["parameter_template"])
+            check_type(argname="argument parameter_template_path", value=parameter_template_path, expected_type=type_hints["parameter_template_path"])
+            check_type(argname="argument readme_markdown", value=readme_markdown, expected_type=type_hints["readme_markdown"])
+            check_type(argname="argument readme_path", value=readme_path, expected_type=type_hints["readme_path"])
+            check_type(argname="argument readme_uri", value=readme_uri, expected_type=type_hints["readme_uri"])
             check_type(argname="argument storage_capacity", value=storage_capacity, expected_type=type_hints["storage_capacity"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workflow_bucket_owner_id", value=workflow_bucket_owner_id, expected_type=type_hints["workflow_bucket_owner_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if accelerators is not None:
             self._values["accelerators"] = accelerators
+        if definition_repository is not None:
+            self._values["definition_repository"] = definition_repository
         if definition_uri is not None:
             self._values["definition_uri"] = definition_uri
         if description is not None:
@@ -3202,12 +3539,22 @@ class CfnWorkflowProps:
             self._values["name"] = name
         if parameter_template is not None:
             self._values["parameter_template"] = parameter_template
+        if parameter_template_path is not None:
+            self._values["parameter_template_path"] = parameter_template_path
+        if readme_markdown is not None:
+            self._values["readme_markdown"] = readme_markdown
+        if readme_path is not None:
+            self._values["readme_path"] = readme_path
+        if readme_uri is not None:
+            self._values["readme_uri"] = readme_uri
         if storage_capacity is not None:
             self._values["storage_capacity"] = storage_capacity
         if storage_type is not None:
             self._values["storage_type"] = storage_type
         if tags is not None:
             self._values["tags"] = tags
+        if workflow_bucket_owner_id is not None:
+            self._values["workflow_bucket_owner_id"] = workflow_bucket_owner_id
 
     @builtins.property
     def accelerators(self) -> typing.Optional[builtins.str]:
@@ -3216,6 +3563,17 @@ class CfnWorkflowProps:
         '''
         result = self._values.get("accelerators")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def definition_repository(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.DefinitionRepositoryProperty]]:
+        '''Contains information about a source code repository that hosts the workflow definition files.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-definitionrepository
+        '''
+        result = self._values.get("definition_repository")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.DefinitionRepositoryProperty]], result)
 
     @builtins.property
     def definition_uri(self) -> typing.Optional[builtins.str]:
@@ -3274,6 +3632,48 @@ class CfnWorkflowProps:
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowParameterProperty]]]], result)
 
     @builtins.property
+    def parameter_template_path(self) -> typing.Optional[builtins.str]:
+        '''Path to the primary workflow parameter template JSON file inside the repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-parametertemplatepath
+        '''
+        result = self._values.get("parameter_template_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readme_markdown(self) -> typing.Optional[builtins.str]:
+        '''The markdown content for the workflow's README file.
+
+        This provides documentation and usage information for users of the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-readmemarkdown
+        '''
+        result = self._values.get("readme_markdown")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readme_path(self) -> typing.Optional[builtins.str]:
+        '''The path to the workflow README markdown file within the repository.
+
+        This file provides documentation and usage information for the workflow. If not specified, the README.md file from the root directory of the repository will be used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-readmepath
+        '''
+        result = self._values.get("readme_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readme_uri(self) -> typing.Optional[builtins.str]:
+        '''The S3 URI of the README file for the workflow.
+
+        This file provides documentation and usage information for the workflow. The S3 URI must begin with s3://USER-OWNED-BUCKET/. The requester must have access to the S3 bucket and object. The max README content length is 500 KiB.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-readmeuri
+        '''
+        result = self._values.get("readme_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def storage_capacity(self) -> typing.Optional[jsii.Number]:
         '''The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.
 
@@ -3300,6 +3700,15 @@ class CfnWorkflowProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def workflow_bucket_owner_id(self) -> typing.Optional[builtins.str]:
+        '''Optional workflow bucket owner ID to verify the workflow bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-workflowbucketownerid
+        '''
+        result = self._values.get("workflow_bucket_owner_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4436,15 +4845,21 @@ def _typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9
     id: builtins.str,
     *,
     accelerators: typing.Optional[builtins.str] = None,
+    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template_path: typing.Optional[builtins.str] = None,
+    readme_markdown: typing.Optional[builtins.str] = None,
+    readme_path: typing.Optional[builtins.str] = None,
+    readme_uri: typing.Optional[builtins.str] = None,
     storage_capacity: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workflow_bucket_owner_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4463,6 +4878,12 @@ def _typecheckingstub__f3d18757469eec460375791b428b2b2a8ebd5be703fbc705cb706233f
 
 def _typecheckingstub__286f71b00d1993ebc792c6e260606dac95cf17ec599b45b4cb2111b4ca57a0fe(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b6e4242f1457a50b9f5b17595e8985df9311b3b5ec98f525f390f9387770415(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.DefinitionRepositoryProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4503,6 +4924,30 @@ def _typecheckingstub__cd71f853b8475a5b472d76bce0cd20afc1269357412bdaa83e29ea355
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d41351b64d942ee30b08547c1780197e0df1eca59541df6f21ad720a36cb6716(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecc1997459356ed8d8ca95f01eab7bd4215d815bf69cff594388b6f7222e0c8a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16e36c31f82073225a89cc2a0da972aba7908d4ad2dd686757120c7089f99861(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28c67e6013e7a108b99f462f48461025e53196240b5182ef0ee813188829ec6a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__37c3d929054386cb4ebdbc60c2c3558d7cd34bed65861db5661f96d5d75ce7df(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -4521,6 +4966,30 @@ def _typecheckingstub__651d8f1caf8b2c987665acfeae50e19a5626bb723832dae7067c423aa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fec2ca5e32cee87eaac65d878c60669f18bb90724ac13ab05f21221ebd80766e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3c23b09e8f18584c69d282b6816697f2992e22dbf81773246b66875fbb0c0c8(
+    *,
+    connection_arn: typing.Optional[builtins.str] = None,
+    exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    full_repository_id: typing.Optional[builtins.str] = None,
+    source_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.SourceReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4e57d9f64919c2d451cd965846e1f5ee2aa3404611459632e4dd2699b4654d1(
+    *,
+    type: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a694580a5(
     *,
     description: typing.Optional[builtins.str] = None,
@@ -4532,15 +5001,21 @@ def _typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a6
 def _typecheckingstub__09bedca50200dd06a4bbe4bb6135e76dacff76287249f3d28b8f285f8205f173(
     *,
     accelerators: typing.Optional[builtins.str] = None,
+    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template_path: typing.Optional[builtins.str] = None,
+    readme_markdown: typing.Optional[builtins.str] = None,
+    readme_path: typing.Optional[builtins.str] = None,
+    readme_uri: typing.Optional[builtins.str] = None,
     storage_capacity: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workflow_bucket_owner_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

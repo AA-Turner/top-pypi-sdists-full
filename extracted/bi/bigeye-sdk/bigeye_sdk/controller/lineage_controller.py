@@ -26,7 +26,7 @@ from bigeye_sdk.model.lineage_facade import SimpleLineageConfigurationFile, Simp
 from bigeye_sdk.model.lineage_graph import LineageGraph, ContainmentNode, IntegrationNode
 from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType, SimpleCatalogEntityType
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class LineageController:

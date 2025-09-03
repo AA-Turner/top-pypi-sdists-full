@@ -612,3 +612,24 @@ def try_except_else_finally():
     e7 # E: `e7` is uninitialized
 "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/959
+testcase!(
+    test_lambda_captures_narrowed_variable,
+    r#"
+class A:
+    shape: int = 0
+
+def check[T](new: T, old: T) -> None:
+    if isinstance(new, A):
+        assert isinstance(old, A)
+        lambda: old.shape
+"#,
+);
+
+testcase!(
+    test_dunder_all_mutated_without_def,
+    r#"
+__all__ += []  # E: Could not find name `__all__`
+"#,
+);

@@ -15,6 +15,7 @@ import System.Runtime.Serialization
 import System.Security
 import System.Security.Authentication.ExtendedProtection
 
+System_Net_IPEndPoint = typing.Any
 System_Net_IPAddress = typing.Any
 System_Net_IPNetwork = typing.Any
 
@@ -883,7 +884,7 @@ class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[Sys
         ...
 
 
-class IPEndPoint(System.Net.EndPoint):
+class IPEndPoint(System.Net.EndPoint, System.ISpanFormattable, System.ISpanParsable[System_Net_IPEndPoint], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPEndPoint]):
     """Provides an IP address."""
 
     MIN_PORT: int = ...
@@ -943,10 +944,43 @@ class IPEndPoint(System.Net.EndPoint):
     def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
         ...
 
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPEndPoint:
+        """
+        Converts the UTF-8 span to its IPEndPoint equivalent.
+        
+        :param utf_8_text: A span containing the characters representing the IPEndPoint to convert.
+        :returns: contains the IPEndPoint value equivalent to what is contained in  if the conversion succeeded.
+        """
+        ...
+
     def serialize(self) -> System.Net.SocketAddress:
         ...
 
     def to_string(self) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to format the value of the current instance as characters into the provided span of characters.
+        
+        :param destination: When this method returns, this parameter is filled with this instance formatted characters.
+        :param chars_written: When this method returns, the number of bytes that were written in .
+        :returns: true if the formatting was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to format the value of the current instance as UTF-8 bytes into the provided span.
+        
+        :param utf_8_destination: When this method returns, this parameter is filled with this instance formatted UTF68 bytes.
+        :param bytes_written: When this method returns, the number of bytes that were written in .
+        :returns: true if the formatting was successful; otherwise, false.
+        """
         ...
 
     @staticmethod
@@ -957,6 +991,25 @@ class IPEndPoint(System.Net.EndPoint):
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+        """
+        Tries to convert the character span to its IPEndPoint equivalent.
+        
+        :param s: A span container the characters representing the IPEndPoint to convert.
+        :param result: When this method returns, contains the IPEndPoint value equivalent to what is contained in  if the conversion succeeded, or default if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+        """
+        Tries to convert the UTF-8 span to its IPEndPoint equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the IPEndPoint to convert.
+        :param result: When this method returns, contains the IPEndPoint value equivalent to what is contained in  if the conversion succeeded, or default if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
         ...
 
 

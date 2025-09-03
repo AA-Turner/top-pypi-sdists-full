@@ -9,8 +9,16 @@ from numbers import Number
 
 from . import version as __version__
 
+try:
+    # Requires Python >= 3.12
+    from csv import QUOTE_NOTNULL, QUOTE_STRINGS  # noqa: F401
+    _py312_constants = ["QUOTE_NOTNULL", "QUOTE_STRINGS"]
+except ImportError:
+    _py312_constants = []
+
+
 __all__ = ["QUOTE_MINIMAL", "QUOTE_ALL", "QUOTE_NONNUMERIC", "QUOTE_NONE",
-           "Error", "Dialect", "__doc__", "excel", "excel_tab",
+           *_py312_constants, "Error", "Dialect", "__doc__", "excel", "excel_tab",
            "field_size_limit", "reader", "writer",
            "register_dialect", "get_dialect", "list_dialects", "Sniffer",
            "unregister_dialect", "__version__", "DictReader", "DictWriter",
@@ -19,7 +27,7 @@ __all__ = ["QUOTE_MINIMAL", "QUOTE_ALL", "QUOTE_NONNUMERIC", "QUOTE_NONE",
 
 def _escape(payload):
     if payload is None:
-        return ''
+        return payload
     if isinstance(payload, Number):
         return payload
 
@@ -40,10 +48,10 @@ class _ProxyWriter:
         except TypeError as err:
             msg = "iterable expected, not %s" % type(row).__name__
             raise Error(msg) from err
-        return self.writer.writerow([_escape(field) for field in row])
+        return self.writer.writerow(_escape(field) for field in row)
 
     def writerows(self, rows):
-        return self.writer.writerows([[_escape(field) for field in row] for row in rows])
+        return self.writer.writerows((_escape(field) for field in row) for row in rows)
 
     def __getattr__(self, item):
         return getattr(self.writer, item)

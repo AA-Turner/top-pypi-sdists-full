@@ -9076,6 +9076,2042 @@ class CfnOwnerProps:
 
 
 @jsii.implements(_IInspectable_c2943556)
+class CfnPolicyGrant(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant",
+):
+    '''Adds a policy grant (an authorization policy) to a specified entity, including domain units, environment blueprint configurations, or environment profiles.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html
+    :cloudformationResource: AWS::DataZone::PolicyGrant
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_datazone as datazone
+        
+        # all_domain_units_grant_filter: Any
+        # all_users_grant_filter: Any
+        # create_environment: Any
+        # create_environment_from_blueprint: Any
+        # delegate_create_environment_profile: Any
+        
+        cfn_policy_grant = datazone.CfnPolicyGrant(self, "MyCfnPolicyGrant",
+            domain_identifier="domainIdentifier",
+            entity_identifier="entityIdentifier",
+            entity_type="entityType",
+            policy_type="policyType",
+        
+            # the properties below are optional
+            detail=datazone.CfnPolicyGrant.PolicyGrantDetailProperty(
+                add_to_project_member_pool=datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_asset_type=datazone.CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_domain_unit=datazone.CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_environment=create_environment,
+                create_environment_from_blueprint=create_environment_from_blueprint,
+                create_environment_profile=datazone.CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty(
+                    domain_unit_id="domainUnitId"
+                ),
+                create_form_type=datazone.CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_glossary=datazone.CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_project=datazone.CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                create_project_from_project_profile=datazone.CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty(
+                    include_child_domain_units=False,
+                    project_profiles=["projectProfiles"]
+                ),
+                delegate_create_environment_profile=delegate_create_environment_profile,
+                override_domain_unit_owners=datazone.CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                ),
+                override_project_owners=datazone.CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            ),
+            principal=datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty(
+                domain_unit=datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
+                    domain_unit_designation="domainUnitDesignation",
+                    domain_unit_grant_filter=datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty(
+                        all_domain_units_grant_filter=all_domain_units_grant_filter
+                    ),
+                    domain_unit_identifier="domainUnitIdentifier"
+                ),
+                group=datazone.CfnPolicyGrant.GroupPolicyGrantPrincipalProperty(
+                    group_identifier="groupIdentifier"
+                ),
+                project=datazone.CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty(
+                    project_designation="projectDesignation",
+                    project_grant_filter=datazone.CfnPolicyGrant.ProjectGrantFilterProperty(
+                        domain_unit_filter=datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                            domain_unit="domainUnit",
+        
+                            # the properties below are optional
+                            include_child_domain_units=False
+                        )
+                    ),
+                    project_identifier="projectIdentifier"
+                ),
+                user=datazone.CfnPolicyGrant.UserPolicyGrantPrincipalProperty(
+                    all_users_grant_filter=all_users_grant_filter,
+                    user_identifier="userIdentifier"
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        domain_identifier: builtins.str,
+        entity_identifier: builtins.str,
+        entity_type: builtins.str,
+        policy_type: builtins.str,
+        detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.PolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        principal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.PolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_identifier: The ID of the domain where you want to add a policy grant.
+        :param entity_identifier: The ID of the entity (resource) to which you want to add a policy grant.
+        :param entity_type: The type of entity (resource) to which the grant is added.
+        :param policy_type: The type of policy that you want to grant.
+        :param detail: The details of the policy grant member.
+        :param principal: The principal of the policy grant member.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4476b525fba06ea256a4c8b04c912bb45feea205dd2c102c7c88078ff113d152)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyGrantProps(
+            domain_identifier=domain_identifier,
+            entity_identifier=entity_identifier,
+            entity_type=entity_type,
+            policy_type=policy_type,
+            detail=detail,
+            principal=principal,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3faeafa857baa1538f71504ac217c137543b4527137502241912fb0b28e8c12d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06625d68fda6bb2d4ea904117fc518729d5a191ab36c54d31f85c44340706116)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Specifies the timestamp at which policy grant member was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''Specifies the user who created the policy grant member.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantId")
+    def attr_grant_id(self) -> builtins.str:
+        '''The unique identifier of the policy grant returned by the AddPolicyGrant API.
+
+        :cloudformationAttribute: GrantId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainIdentifier")
+    def domain_identifier(self) -> builtins.str:
+        '''The ID of the domain where you want to add a policy grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainIdentifier"))
+
+    @domain_identifier.setter
+    def domain_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f0d592dcbc7243f6ff69d38551f2367db3dfe7cb11b722c243ba9dd21532d02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="entityIdentifier")
+    def entity_identifier(self) -> builtins.str:
+        '''The ID of the entity (resource) to which you want to add a policy grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "entityIdentifier"))
+
+    @entity_identifier.setter
+    def entity_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45d4b8709da83c279d9ea87390acd1416bef7deff7bffec2c1eb7e5389978c71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "entityIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="entityType")
+    def entity_type(self) -> builtins.str:
+        '''The type of entity (resource) to which the grant is added.'''
+        return typing.cast(builtins.str, jsii.get(self, "entityType"))
+
+    @entity_type.setter
+    def entity_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6148bd2cc24aecd94013ce883c41241c92aaeab836656321daa9824f2ff00a5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "entityType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyType")
+    def policy_type(self) -> builtins.str:
+        '''The type of policy that you want to grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyType"))
+
+    @policy_type.setter
+    def policy_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d02ae9059bf0728549e33aafc0c766b8b8f090dd52edb4c84430f54b0fb5cae4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="detail")
+    def detail(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantDetailProperty"]]:
+        '''The details of the policy grant member.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantDetailProperty"]], jsii.get(self, "detail"))
+
+    @detail.setter
+    def detail(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantDetailProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "detail", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="principal")
+    def principal(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantPrincipalProperty"]]:
+        '''The principal of the policy grant member.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantPrincipalProperty"]], jsii.get(self, "principal"))
+
+    @principal.setter
+    def principal(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.PolicyGrantPrincipalProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45d419321fadd6a98deadda72952683f07d5458949542e513f1b882e2410bd06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class AddToProjectMemberPoolPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-addtoprojectmemberpoolpolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                add_to_project_member_pool_policy_grant_detail_property = datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a00db485513597db27a51284165bbcb2f1f31f387521883bcd3fc2d947885a40)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-addtoprojectmemberpoolpolicygrantdetail.html#cfn-datazone-policygrant-addtoprojectmemberpoolpolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AddToProjectMemberPoolPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class CreateAssetTypePolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createassettypepolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_asset_type_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__929246e3829473fb86c1a986312e35066791dec7e5f0e19189e082e8ab59b633)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createassettypepolicygrantdetail.html#cfn-datazone-policygrant-createassettypepolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateAssetTypePolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class CreateDomainUnitPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createdomainunitpolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_domain_unit_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__06a2c86ccf049f358bf260883bd5c4a779a334459f24272c3ceb1090db972291)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createdomainunitpolicygrantdetail.html#cfn-datazone-policygrant-createdomainunitpolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateDomainUnitPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain_unit_id": "domainUnitId"},
+    )
+    class CreateEnvironmentProfilePolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            domain_unit_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param domain_unit_id: The ID of the domain unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createenvironmentprofilepolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_environment_profile_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty(
+                    domain_unit_id="domainUnitId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__eb97a9aa9c216e08c5fce608a7d647c26a30b32e4c8971ac266049fb79460144)
+                check_type(argname="argument domain_unit_id", value=domain_unit_id, expected_type=type_hints["domain_unit_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_unit_id is not None:
+                self._values["domain_unit_id"] = domain_unit_id
+
+        @builtins.property
+        def domain_unit_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the domain unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createenvironmentprofilepolicygrantdetail.html#cfn-datazone-policygrant-createenvironmentprofilepolicygrantdetail-domainunitid
+            '''
+            result = self._values.get("domain_unit_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateEnvironmentProfilePolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class CreateFormTypePolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createformtypepolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_form_type_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ca233709c68e49672b3ebdd0d623daa388dd8ff1410ad41573fb4c73b82e7ac0)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createformtypepolicygrantdetail.html#cfn-datazone-policygrant-createformtypepolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateFormTypePolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class CreateGlossaryPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createglossarypolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_glossary_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e918618f09a88801172a408238e6500ab7dfa9e47609ebf0a1cf9e87427e1c1e)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createglossarypolicygrantdetail.html#cfn-datazone-policygrant-createglossarypolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateGlossaryPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "include_child_domain_units": "includeChildDomainUnits",
+            "project_profiles": "projectProfiles",
+        },
+    )
+    class CreateProjectFromProjectProfilePolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            project_profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Specifies whether to create a project from project profile policy grant details.
+
+            :param include_child_domain_units: Specifies whether to include child domain units when creating a project from project profile policy grant details.
+            :param project_profiles: Specifies project profiles when creating a project from project profile policy grant details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createprojectfromprojectprofilepolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_project_from_project_profile_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty(
+                    include_child_domain_units=False,
+                    project_profiles=["projectProfiles"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__616f7a054fc92674f6f61eb6bfd60bf476b3bb9a69a13ae61f86fe2b2f7d9b40)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+                check_type(argname="argument project_profiles", value=project_profiles, expected_type=type_hints["project_profiles"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+            if project_profiles is not None:
+                self._values["project_profiles"] = project_profiles
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to include child domain units when creating a project from project profile policy grant details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createprojectfromprojectprofilepolicygrantdetail.html#cfn-datazone-policygrant-createprojectfromprojectprofilepolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def project_profiles(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specifies project profiles when creating a project from project profile policy grant details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createprojectfromprojectprofilepolicygrantdetail.html#cfn-datazone-policygrant-createprojectfromprojectprofilepolicygrantdetail-projectprofiles
+            '''
+            result = self._values.get("project_profiles")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateProjectFromProjectProfilePolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class CreateProjectPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createprojectpolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                create_project_policy_grant_detail_property = datazone.CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ec4ae98e03f9cf9e3c1c38c7ae5c2a5f956924a86a2ca6c11297c56233e890cb)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy grant is applied to child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-createprojectpolicygrantdetail.html#cfn-datazone-policygrant-createprojectpolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateProjectPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_unit": "domainUnit",
+            "include_child_domain_units": "includeChildDomainUnits",
+        },
+    )
+    class DomainUnitFilterForProjectProperty:
+        def __init__(
+            self,
+            *,
+            domain_unit: builtins.str,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The domain unit filter of the project grant filter.
+
+            :param domain_unit: The domain unit ID to use in the filter.
+            :param include_child_domain_units: Specifies whether to include child domain units. Default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitfilterforproject.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                domain_unit_filter_for_project_property = datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                    domain_unit="domainUnit",
+                
+                    # the properties below are optional
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__747a962feb1ab808802cfb5e1207ea3216d2a62ddee83545abd46525e125beb0)
+                check_type(argname="argument domain_unit", value=domain_unit, expected_type=type_hints["domain_unit"])
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain_unit": domain_unit,
+            }
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def domain_unit(self) -> builtins.str:
+            '''The domain unit ID to use in the filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitfilterforproject.html#cfn-datazone-policygrant-domainunitfilterforproject-domainunit
+            '''
+            result = self._values.get("domain_unit")
+            assert result is not None, "Required property 'domain_unit' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to include child domain units.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitfilterforproject.html#cfn-datazone-policygrant-domainunitfilterforproject-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainUnitFilterForProjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"all_domain_units_grant_filter": "allDomainUnitsGrantFilter"},
+    )
+    class DomainUnitGrantFilterProperty:
+        def __init__(self, *, all_domain_units_grant_filter: typing.Any) -> None:
+            '''The grant filter for the domain unit.
+
+            In the current release of Amazon DataZone, the only supported filter is the ``allDomainUnitsGrantFilter`` .
+
+            :param all_domain_units_grant_filter: Specifies a grant filter containing all domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitgrantfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                # all_domain_units_grant_filter: Any
+                
+                domain_unit_grant_filter_property = datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty(
+                    all_domain_units_grant_filter=all_domain_units_grant_filter
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ebc0924bf25781aafce4151571c0dfcccd73718615647943e420d46750f8f47d)
+                check_type(argname="argument all_domain_units_grant_filter", value=all_domain_units_grant_filter, expected_type=type_hints["all_domain_units_grant_filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "all_domain_units_grant_filter": all_domain_units_grant_filter,
+            }
+
+        @builtins.property
+        def all_domain_units_grant_filter(self) -> typing.Any:
+            '''Specifies a grant filter containing all domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitgrantfilter.html#cfn-datazone-policygrant-domainunitgrantfilter-alldomainunitsgrantfilter
+            '''
+            result = self._values.get("all_domain_units_grant_filter")
+            assert result is not None, "Required property 'all_domain_units_grant_filter' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainUnitGrantFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_unit_designation": "domainUnitDesignation",
+            "domain_unit_grant_filter": "domainUnitGrantFilter",
+            "domain_unit_identifier": "domainUnitIdentifier",
+        },
+    )
+    class DomainUnitPolicyGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            domain_unit_designation: typing.Optional[builtins.str] = None,
+            domain_unit_grant_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.DomainUnitGrantFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            domain_unit_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The domain unit principal to whom the policy is granted.
+
+            :param domain_unit_designation: Specifes the designation of the domain unit users.
+            :param domain_unit_grant_filter: The grant filter for the domain unit.
+            :param domain_unit_identifier: The ID of the domain unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitpolicygrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                # all_domain_units_grant_filter: Any
+                
+                domain_unit_policy_grant_principal_property = datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
+                    domain_unit_designation="domainUnitDesignation",
+                    domain_unit_grant_filter=datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty(
+                        all_domain_units_grant_filter=all_domain_units_grant_filter
+                    ),
+                    domain_unit_identifier="domainUnitIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4b16d6c5df6e090d8d518fb48d0727131a1689a69ebc02fe4d3bdb5f2414769c)
+                check_type(argname="argument domain_unit_designation", value=domain_unit_designation, expected_type=type_hints["domain_unit_designation"])
+                check_type(argname="argument domain_unit_grant_filter", value=domain_unit_grant_filter, expected_type=type_hints["domain_unit_grant_filter"])
+                check_type(argname="argument domain_unit_identifier", value=domain_unit_identifier, expected_type=type_hints["domain_unit_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_unit_designation is not None:
+                self._values["domain_unit_designation"] = domain_unit_designation
+            if domain_unit_grant_filter is not None:
+                self._values["domain_unit_grant_filter"] = domain_unit_grant_filter
+            if domain_unit_identifier is not None:
+                self._values["domain_unit_identifier"] = domain_unit_identifier
+
+        @builtins.property
+        def domain_unit_designation(self) -> typing.Optional[builtins.str]:
+            '''Specifes the designation of the domain unit users.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitpolicygrantprincipal.html#cfn-datazone-policygrant-domainunitpolicygrantprincipal-domainunitdesignation
+            '''
+            result = self._values.get("domain_unit_designation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def domain_unit_grant_filter(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitGrantFilterProperty"]]:
+            '''The grant filter for the domain unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitpolicygrantprincipal.html#cfn-datazone-policygrant-domainunitpolicygrantprincipal-domainunitgrantfilter
+            '''
+            result = self._values.get("domain_unit_grant_filter")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitGrantFilterProperty"]], result)
+
+        @builtins.property
+        def domain_unit_identifier(self) -> typing.Optional[builtins.str]:
+            '''The ID of the domain unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-domainunitpolicygrantprincipal.html#cfn-datazone-policygrant-domainunitpolicygrantprincipal-domainunitidentifier
+            '''
+            result = self._values.get("domain_unit_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainUnitPolicyGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.GroupPolicyGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={"group_identifier": "groupIdentifier"},
+    )
+    class GroupPolicyGrantPrincipalProperty:
+        def __init__(self, *, group_identifier: builtins.str) -> None:
+            '''The group principal to whom the policy is granted.
+
+            :param group_identifier: The ID Of the group of the group principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-grouppolicygrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                group_policy_grant_principal_property = datazone.CfnPolicyGrant.GroupPolicyGrantPrincipalProperty(
+                    group_identifier="groupIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e1ff865839abd3c71e2085544851949a5ddb8ce549e7c5de934ae95fba801d84)
+                check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "group_identifier": group_identifier,
+            }
+
+        @builtins.property
+        def group_identifier(self) -> builtins.str:
+            '''The ID Of the group of the group principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-grouppolicygrantprincipal.html#cfn-datazone-policygrant-grouppolicygrantprincipal-groupidentifier
+            '''
+            result = self._values.get("group_identifier")
+            assert result is not None, "Required property 'group_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GroupPolicyGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class OverrideDomainUnitOwnersPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The grant details of the override domain unit owners policy.
+
+            :param include_child_domain_units: Specifies whether the policy is inherited by child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-overridedomainunitownerspolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                override_domain_unit_owners_policy_grant_detail_property = datazone.CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__907c10f730943e0d2be93a8bc019be369d2d72f805cc47a05bd5548250004219)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy is inherited by child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-overridedomainunitownerspolicygrantdetail.html#cfn-datazone-policygrant-overridedomainunitownerspolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OverrideDomainUnitOwnersPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_child_domain_units": "includeChildDomainUnits"},
+    )
+    class OverrideProjectOwnersPolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The details of the override project owners policy grant.
+
+            :param include_child_domain_units: Specifies whether the policy is inherited by child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-overrideprojectownerspolicygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                override_project_owners_policy_grant_detail_property = datazone.CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty(
+                    include_child_domain_units=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3cc5bba89e984da33746b491e3bfba60ce3a90fe2ac4e70265a0c2f60970c4d)
+                check_type(argname="argument include_child_domain_units", value=include_child_domain_units, expected_type=type_hints["include_child_domain_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_child_domain_units is not None:
+                self._values["include_child_domain_units"] = include_child_domain_units
+
+        @builtins.property
+        def include_child_domain_units(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether the policy is inherited by child domain units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-overrideprojectownerspolicygrantdetail.html#cfn-datazone-policygrant-overrideprojectownerspolicygrantdetail-includechilddomainunits
+            '''
+            result = self._values.get("include_child_domain_units")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OverrideProjectOwnersPolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.PolicyGrantDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "add_to_project_member_pool": "addToProjectMemberPool",
+            "create_asset_type": "createAssetType",
+            "create_domain_unit": "createDomainUnit",
+            "create_environment": "createEnvironment",
+            "create_environment_from_blueprint": "createEnvironmentFromBlueprint",
+            "create_environment_profile": "createEnvironmentProfile",
+            "create_form_type": "createFormType",
+            "create_glossary": "createGlossary",
+            "create_project": "createProject",
+            "create_project_from_project_profile": "createProjectFromProjectProfile",
+            "delegate_create_environment_profile": "delegateCreateEnvironmentProfile",
+            "override_domain_unit_owners": "overrideDomainUnitOwners",
+            "override_project_owners": "overrideProjectOwners",
+        },
+    )
+    class PolicyGrantDetailProperty:
+        def __init__(
+            self,
+            *,
+            add_to_project_member_pool: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_asset_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_domain_unit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_environment: typing.Any = None,
+            create_environment_from_blueprint: typing.Any = None,
+            create_environment_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_form_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_glossary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_project: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            create_project_from_project_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            delegate_create_environment_profile: typing.Any = None,
+            override_domain_unit_owners: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            override_project_owners: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The details of the policy grant.
+
+            :param add_to_project_member_pool: Specifies that the policy grant is to be added to the members of the project.
+            :param create_asset_type: Specifies that this is a create asset type policy.
+            :param create_domain_unit: Specifies that this is a create domain unit policy.
+            :param create_environment: Specifies that this is a create environment policy.
+            :param create_environment_from_blueprint: The details of the policy of creating an environment.
+            :param create_environment_profile: Specifies that this is a create environment profile policy.
+            :param create_form_type: Specifies that this is a create form type policy.
+            :param create_glossary: Specifies that this is a create glossary policy.
+            :param create_project: Specifies that this is a create project policy.
+            :param create_project_from_project_profile: Specifies whether to create a project from project profile.
+            :param delegate_create_environment_profile: Specifies that this is the delegation of the create environment profile policy.
+            :param override_domain_unit_owners: Specifies whether to override domain unit owners.
+            :param override_project_owners: Specifies whether to override project owners.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                # create_environment: Any
+                # create_environment_from_blueprint: Any
+                # delegate_create_environment_profile: Any
+                
+                policy_grant_detail_property = datazone.CfnPolicyGrant.PolicyGrantDetailProperty(
+                    add_to_project_member_pool=datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_asset_type=datazone.CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_domain_unit=datazone.CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_environment=create_environment,
+                    create_environment_from_blueprint=create_environment_from_blueprint,
+                    create_environment_profile=datazone.CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty(
+                        domain_unit_id="domainUnitId"
+                    ),
+                    create_form_type=datazone.CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_glossary=datazone.CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_project=datazone.CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_project_from_project_profile=datazone.CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty(
+                        include_child_domain_units=False,
+                        project_profiles=["projectProfiles"]
+                    ),
+                    delegate_create_environment_profile=delegate_create_environment_profile,
+                    override_domain_unit_owners=datazone.CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    override_project_owners=datazone.CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1a243c72750dcbc1020d8dd303c618c4dba86b4010d67ac08fafeaabc53ba6e6)
+                check_type(argname="argument add_to_project_member_pool", value=add_to_project_member_pool, expected_type=type_hints["add_to_project_member_pool"])
+                check_type(argname="argument create_asset_type", value=create_asset_type, expected_type=type_hints["create_asset_type"])
+                check_type(argname="argument create_domain_unit", value=create_domain_unit, expected_type=type_hints["create_domain_unit"])
+                check_type(argname="argument create_environment", value=create_environment, expected_type=type_hints["create_environment"])
+                check_type(argname="argument create_environment_from_blueprint", value=create_environment_from_blueprint, expected_type=type_hints["create_environment_from_blueprint"])
+                check_type(argname="argument create_environment_profile", value=create_environment_profile, expected_type=type_hints["create_environment_profile"])
+                check_type(argname="argument create_form_type", value=create_form_type, expected_type=type_hints["create_form_type"])
+                check_type(argname="argument create_glossary", value=create_glossary, expected_type=type_hints["create_glossary"])
+                check_type(argname="argument create_project", value=create_project, expected_type=type_hints["create_project"])
+                check_type(argname="argument create_project_from_project_profile", value=create_project_from_project_profile, expected_type=type_hints["create_project_from_project_profile"])
+                check_type(argname="argument delegate_create_environment_profile", value=delegate_create_environment_profile, expected_type=type_hints["delegate_create_environment_profile"])
+                check_type(argname="argument override_domain_unit_owners", value=override_domain_unit_owners, expected_type=type_hints["override_domain_unit_owners"])
+                check_type(argname="argument override_project_owners", value=override_project_owners, expected_type=type_hints["override_project_owners"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if add_to_project_member_pool is not None:
+                self._values["add_to_project_member_pool"] = add_to_project_member_pool
+            if create_asset_type is not None:
+                self._values["create_asset_type"] = create_asset_type
+            if create_domain_unit is not None:
+                self._values["create_domain_unit"] = create_domain_unit
+            if create_environment is not None:
+                self._values["create_environment"] = create_environment
+            if create_environment_from_blueprint is not None:
+                self._values["create_environment_from_blueprint"] = create_environment_from_blueprint
+            if create_environment_profile is not None:
+                self._values["create_environment_profile"] = create_environment_profile
+            if create_form_type is not None:
+                self._values["create_form_type"] = create_form_type
+            if create_glossary is not None:
+                self._values["create_glossary"] = create_glossary
+            if create_project is not None:
+                self._values["create_project"] = create_project
+            if create_project_from_project_profile is not None:
+                self._values["create_project_from_project_profile"] = create_project_from_project_profile
+            if delegate_create_environment_profile is not None:
+                self._values["delegate_create_environment_profile"] = delegate_create_environment_profile
+            if override_domain_unit_owners is not None:
+                self._values["override_domain_unit_owners"] = override_domain_unit_owners
+            if override_project_owners is not None:
+                self._values["override_project_owners"] = override_project_owners
+
+        @builtins.property
+        def add_to_project_member_pool(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty"]]:
+            '''Specifies that the policy grant is to be added to the members of the project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-addtoprojectmemberpool
+            '''
+            result = self._values.get("add_to_project_member_pool")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_asset_type(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create asset type policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createassettype
+            '''
+            result = self._values.get("create_asset_type")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_domain_unit(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create domain unit policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createdomainunit
+            '''
+            result = self._values.get("create_domain_unit")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_environment(self) -> typing.Any:
+            '''Specifies that this is a create environment policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createenvironment
+            '''
+            result = self._values.get("create_environment")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def create_environment_from_blueprint(self) -> typing.Any:
+            '''The details of the policy of creating an environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createenvironmentfromblueprint
+            '''
+            result = self._values.get("create_environment_from_blueprint")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def create_environment_profile(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create environment profile policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createenvironmentprofile
+            '''
+            result = self._values.get("create_environment_profile")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_form_type(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create form type policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createformtype
+            '''
+            result = self._values.get("create_form_type")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_glossary(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create glossary policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createglossary
+            '''
+            result = self._values.get("create_glossary")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_project(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty"]]:
+            '''Specifies that this is a create project policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createproject
+            '''
+            result = self._values.get("create_project")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def create_project_from_project_profile(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty"]]:
+            '''Specifies whether to create a project from project profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-createprojectfromprojectprofile
+            '''
+            result = self._values.get("create_project_from_project_profile")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def delegate_create_environment_profile(self) -> typing.Any:
+            '''Specifies that this is the delegation of the create environment profile policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-delegatecreateenvironmentprofile
+            '''
+            result = self._values.get("delegate_create_environment_profile")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def override_domain_unit_owners(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty"]]:
+            '''Specifies whether to override domain unit owners.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-overridedomainunitowners
+            '''
+            result = self._values.get("override_domain_unit_owners")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty"]], result)
+
+        @builtins.property
+        def override_project_owners(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty"]]:
+            '''Specifies whether to override project owners.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantdetail.html#cfn-datazone-policygrant-policygrantdetail-overrideprojectowners
+            '''
+            result = self._values.get("override_project_owners")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyGrantDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_unit": "domainUnit",
+            "group": "group",
+            "project": "project",
+            "user": "user",
+        },
+    )
+    class PolicyGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            domain_unit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.GroupPolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            project: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.UserPolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The policy grant principal.
+
+            :param domain_unit: The domain unit of the policy grant principal.
+            :param group: The group of the policy grant principal.
+            :param project: The project of the policy grant principal.
+            :param user: The user of the policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                # all_domain_units_grant_filter: Any
+                # all_users_grant_filter: Any
+                
+                policy_grant_principal_property = datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty(
+                    domain_unit=datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
+                        domain_unit_designation="domainUnitDesignation",
+                        domain_unit_grant_filter=datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty(
+                            all_domain_units_grant_filter=all_domain_units_grant_filter
+                        ),
+                        domain_unit_identifier="domainUnitIdentifier"
+                    ),
+                    group=datazone.CfnPolicyGrant.GroupPolicyGrantPrincipalProperty(
+                        group_identifier="groupIdentifier"
+                    ),
+                    project=datazone.CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty(
+                        project_designation="projectDesignation",
+                        project_grant_filter=datazone.CfnPolicyGrant.ProjectGrantFilterProperty(
+                            domain_unit_filter=datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                                domain_unit="domainUnit",
+                
+                                # the properties below are optional
+                                include_child_domain_units=False
+                            )
+                        ),
+                        project_identifier="projectIdentifier"
+                    ),
+                    user=datazone.CfnPolicyGrant.UserPolicyGrantPrincipalProperty(
+                        all_users_grant_filter=all_users_grant_filter,
+                        user_identifier="userIdentifier"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a4f16f264dfe6cc67b0a5aef8bc6077cbad5a08789dd817ca69444390ca87f5d)
+                check_type(argname="argument domain_unit", value=domain_unit, expected_type=type_hints["domain_unit"])
+                check_type(argname="argument group", value=group, expected_type=type_hints["group"])
+                check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+                check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_unit is not None:
+                self._values["domain_unit"] = domain_unit
+            if group is not None:
+                self._values["group"] = group
+            if project is not None:
+                self._values["project"] = project
+            if user is not None:
+                self._values["user"] = user
+
+        @builtins.property
+        def domain_unit(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty"]]:
+            '''The domain unit of the policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantprincipal.html#cfn-datazone-policygrant-policygrantprincipal-domainunit
+            '''
+            result = self._values.get("domain_unit")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty"]], result)
+
+        @builtins.property
+        def group(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.GroupPolicyGrantPrincipalProperty"]]:
+            '''The group of the policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantprincipal.html#cfn-datazone-policygrant-policygrantprincipal-group
+            '''
+            result = self._values.get("group")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.GroupPolicyGrantPrincipalProperty"]], result)
+
+        @builtins.property
+        def project(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty"]]:
+            '''The project of the policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantprincipal.html#cfn-datazone-policygrant-policygrantprincipal-project
+            '''
+            result = self._values.get("project")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty"]], result)
+
+        @builtins.property
+        def user(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.UserPolicyGrantPrincipalProperty"]]:
+            '''The user of the policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-policygrantprincipal.html#cfn-datazone-policygrant-policygrantprincipal-user
+            '''
+            result = self._values.get("user")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.UserPolicyGrantPrincipalProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.ProjectGrantFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain_unit_filter": "domainUnitFilter"},
+    )
+    class ProjectGrantFilterProperty:
+        def __init__(
+            self,
+            *,
+            domain_unit_filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.DomainUnitFilterForProjectProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The project grant filter.
+
+            :param domain_unit_filter: The domain unit filter of the project grant filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectgrantfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                project_grant_filter_property = datazone.CfnPolicyGrant.ProjectGrantFilterProperty(
+                    domain_unit_filter=datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                        domain_unit="domainUnit",
+                
+                        # the properties below are optional
+                        include_child_domain_units=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ca8335d0da75d7abf56d91a31f26811aec29d37deb7b388317a3b05c11f0c13d)
+                check_type(argname="argument domain_unit_filter", value=domain_unit_filter, expected_type=type_hints["domain_unit_filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain_unit_filter": domain_unit_filter,
+            }
+
+        @builtins.property
+        def domain_unit_filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitFilterForProjectProperty"]:
+            '''The domain unit filter of the project grant filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectgrantfilter.html#cfn-datazone-policygrant-projectgrantfilter-domainunitfilter
+            '''
+            result = self._values.get("domain_unit_filter")
+            assert result is not None, "Required property 'domain_unit_filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.DomainUnitFilterForProjectProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProjectGrantFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "project_designation": "projectDesignation",
+            "project_grant_filter": "projectGrantFilter",
+            "project_identifier": "projectIdentifier",
+        },
+    )
+    class ProjectPolicyGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            project_designation: typing.Optional[builtins.str] = None,
+            project_grant_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPolicyGrant.ProjectGrantFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            project_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The project policy grant principal.
+
+            :param project_designation: The project designation of the project policy grant principal.
+            :param project_grant_filter: The project grant filter of the project policy grant principal.
+            :param project_identifier: The project ID of the project policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectpolicygrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                project_policy_grant_principal_property = datazone.CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty(
+                    project_designation="projectDesignation",
+                    project_grant_filter=datazone.CfnPolicyGrant.ProjectGrantFilterProperty(
+                        domain_unit_filter=datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                            domain_unit="domainUnit",
+                
+                            # the properties below are optional
+                            include_child_domain_units=False
+                        )
+                    ),
+                    project_identifier="projectIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cf1bf50a91307a3e78245d0aaff4e631fa1f6af80d39eca8b29f0713b85fbfe5)
+                check_type(argname="argument project_designation", value=project_designation, expected_type=type_hints["project_designation"])
+                check_type(argname="argument project_grant_filter", value=project_grant_filter, expected_type=type_hints["project_grant_filter"])
+                check_type(argname="argument project_identifier", value=project_identifier, expected_type=type_hints["project_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if project_designation is not None:
+                self._values["project_designation"] = project_designation
+            if project_grant_filter is not None:
+                self._values["project_grant_filter"] = project_grant_filter
+            if project_identifier is not None:
+                self._values["project_identifier"] = project_identifier
+
+        @builtins.property
+        def project_designation(self) -> typing.Optional[builtins.str]:
+            '''The project designation of the project policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectpolicygrantprincipal.html#cfn-datazone-policygrant-projectpolicygrantprincipal-projectdesignation
+            '''
+            result = self._values.get("project_designation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def project_grant_filter(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.ProjectGrantFilterProperty"]]:
+            '''The project grant filter of the project policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectpolicygrantprincipal.html#cfn-datazone-policygrant-projectpolicygrantprincipal-projectgrantfilter
+            '''
+            result = self._values.get("project_grant_filter")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyGrant.ProjectGrantFilterProperty"]], result)
+
+        @builtins.property
+        def project_identifier(self) -> typing.Optional[builtins.str]:
+            '''The project ID of the project policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-projectpolicygrantprincipal.html#cfn-datazone-policygrant-projectpolicygrantprincipal-projectidentifier
+            '''
+            result = self._values.get("project_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProjectPolicyGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrant.UserPolicyGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "all_users_grant_filter": "allUsersGrantFilter",
+            "user_identifier": "userIdentifier",
+        },
+    )
+    class UserPolicyGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            all_users_grant_filter: typing.Any = None,
+            user_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The user policy grant principal.
+
+            :param all_users_grant_filter: The all users grant filter of the user policy grant principal.
+            :param user_identifier: The user ID of the user policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-userpolicygrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                # all_users_grant_filter: Any
+                
+                user_policy_grant_principal_property = datazone.CfnPolicyGrant.UserPolicyGrantPrincipalProperty(
+                    all_users_grant_filter=all_users_grant_filter,
+                    user_identifier="userIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6082ef506e21f62dc411e4b67ef1221396b9640f1ef92375bb0dc88fa7059b18)
+                check_type(argname="argument all_users_grant_filter", value=all_users_grant_filter, expected_type=type_hints["all_users_grant_filter"])
+                check_type(argname="argument user_identifier", value=user_identifier, expected_type=type_hints["user_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if all_users_grant_filter is not None:
+                self._values["all_users_grant_filter"] = all_users_grant_filter
+            if user_identifier is not None:
+                self._values["user_identifier"] = user_identifier
+
+        @builtins.property
+        def all_users_grant_filter(self) -> typing.Any:
+            '''The all users grant filter of the user policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-userpolicygrantprincipal.html#cfn-datazone-policygrant-userpolicygrantprincipal-allusersgrantfilter
+            '''
+            result = self._values.get("all_users_grant_filter")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def user_identifier(self) -> typing.Optional[builtins.str]:
+            '''The user ID of the user policy grant principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-policygrant-userpolicygrantprincipal.html#cfn-datazone-policygrant-userpolicygrantprincipal-useridentifier
+            '''
+            result = self._values.get("user_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UserPolicyGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_identifier": "domainIdentifier",
+        "entity_identifier": "entityIdentifier",
+        "entity_type": "entityType",
+        "policy_type": "policyType",
+        "detail": "detail",
+        "principal": "principal",
+    },
+)
+class CfnPolicyGrantProps:
+    def __init__(
+        self,
+        *,
+        domain_identifier: builtins.str,
+        entity_identifier: builtins.str,
+        entity_type: builtins.str,
+        policy_type: builtins.str,
+        detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        principal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicyGrant``.
+
+        :param domain_identifier: The ID of the domain where you want to add a policy grant.
+        :param entity_identifier: The ID of the entity (resource) to which you want to add a policy grant.
+        :param entity_type: The type of entity (resource) to which the grant is added.
+        :param policy_type: The type of policy that you want to grant.
+        :param detail: The details of the policy grant member.
+        :param principal: The principal of the policy grant member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datazone as datazone
+            
+            # all_domain_units_grant_filter: Any
+            # all_users_grant_filter: Any
+            # create_environment: Any
+            # create_environment_from_blueprint: Any
+            # delegate_create_environment_profile: Any
+            
+            cfn_policy_grant_props = datazone.CfnPolicyGrantProps(
+                domain_identifier="domainIdentifier",
+                entity_identifier="entityIdentifier",
+                entity_type="entityType",
+                policy_type="policyType",
+            
+                # the properties below are optional
+                detail=datazone.CfnPolicyGrant.PolicyGrantDetailProperty(
+                    add_to_project_member_pool=datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_asset_type=datazone.CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_domain_unit=datazone.CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_environment=create_environment,
+                    create_environment_from_blueprint=create_environment_from_blueprint,
+                    create_environment_profile=datazone.CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty(
+                        domain_unit_id="domainUnitId"
+                    ),
+                    create_form_type=datazone.CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_glossary=datazone.CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_project=datazone.CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    create_project_from_project_profile=datazone.CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty(
+                        include_child_domain_units=False,
+                        project_profiles=["projectProfiles"]
+                    ),
+                    delegate_create_environment_profile=delegate_create_environment_profile,
+                    override_domain_unit_owners=datazone.CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    ),
+                    override_project_owners=datazone.CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty(
+                        include_child_domain_units=False
+                    )
+                ),
+                principal=datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty(
+                    domain_unit=datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
+                        domain_unit_designation="domainUnitDesignation",
+                        domain_unit_grant_filter=datazone.CfnPolicyGrant.DomainUnitGrantFilterProperty(
+                            all_domain_units_grant_filter=all_domain_units_grant_filter
+                        ),
+                        domain_unit_identifier="domainUnitIdentifier"
+                    ),
+                    group=datazone.CfnPolicyGrant.GroupPolicyGrantPrincipalProperty(
+                        group_identifier="groupIdentifier"
+                    ),
+                    project=datazone.CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty(
+                        project_designation="projectDesignation",
+                        project_grant_filter=datazone.CfnPolicyGrant.ProjectGrantFilterProperty(
+                            domain_unit_filter=datazone.CfnPolicyGrant.DomainUnitFilterForProjectProperty(
+                                domain_unit="domainUnit",
+            
+                                # the properties below are optional
+                                include_child_domain_units=False
+                            )
+                        ),
+                        project_identifier="projectIdentifier"
+                    ),
+                    user=datazone.CfnPolicyGrant.UserPolicyGrantPrincipalProperty(
+                        all_users_grant_filter=all_users_grant_filter,
+                        user_identifier="userIdentifier"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02b61ca206174fae99b63c9d6459815d1820de1a30d1dce62ac9764b08287073)
+            check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
+            check_type(argname="argument entity_identifier", value=entity_identifier, expected_type=type_hints["entity_identifier"])
+            check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+            check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
+            check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_identifier": domain_identifier,
+            "entity_identifier": entity_identifier,
+            "entity_type": entity_type,
+            "policy_type": policy_type,
+        }
+        if detail is not None:
+            self._values["detail"] = detail
+        if principal is not None:
+            self._values["principal"] = principal
+
+    @builtins.property
+    def domain_identifier(self) -> builtins.str:
+        '''The ID of the domain where you want to add a policy grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-domainidentifier
+        '''
+        result = self._values.get("domain_identifier")
+        assert result is not None, "Required property 'domain_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def entity_identifier(self) -> builtins.str:
+        '''The ID of the entity (resource) to which you want to add a policy grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-entityidentifier
+        '''
+        result = self._values.get("entity_identifier")
+        assert result is not None, "Required property 'entity_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def entity_type(self) -> builtins.str:
+        '''The type of entity (resource) to which the grant is added.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-entitytype
+        '''
+        result = self._values.get("entity_type")
+        assert result is not None, "Required property 'entity_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_type(self) -> builtins.str:
+        '''The type of policy that you want to grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-policytype
+        '''
+        result = self._values.get("policy_type")
+        assert result is not None, "Required property 'policy_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def detail(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantDetailProperty]]:
+        '''The details of the policy grant member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-detail
+        '''
+        result = self._values.get("detail")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantDetailProperty]], result)
+
+    @builtins.property
+    def principal(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantPrincipalProperty]]:
+        '''The principal of the policy grant member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-principal
+        '''
+        result = self._values.get("principal")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantPrincipalProperty]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyGrantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12106,6 +14142,8 @@ __all__ = [
     "CfnGroupProfileProps",
     "CfnOwner",
     "CfnOwnerProps",
+    "CfnPolicyGrant",
+    "CfnPolicyGrantProps",
     "CfnProject",
     "CfnProjectMembership",
     "CfnProjectMembershipProps",
@@ -13342,6 +15380,235 @@ def _typecheckingstub__d35804fdeb7af54df495ac452da3f154252f3e8b980bc354ae920748f
     entity_identifier: builtins.str,
     entity_type: builtins.str,
     owner: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOwner.OwnerPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4476b525fba06ea256a4c8b04c912bb45feea205dd2c102c7c88078ff113d152(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_identifier: builtins.str,
+    entity_identifier: builtins.str,
+    entity_type: builtins.str,
+    policy_type: builtins.str,
+    detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    principal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3faeafa857baa1538f71504ac217c137543b4527137502241912fb0b28e8c12d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06625d68fda6bb2d4ea904117fc518729d5a191ab36c54d31f85c44340706116(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f0d592dcbc7243f6ff69d38551f2367db3dfe7cb11b722c243ba9dd21532d02(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45d4b8709da83c279d9ea87390acd1416bef7deff7bffec2c1eb7e5389978c71(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6148bd2cc24aecd94013ce883c41241c92aaeab836656321daa9824f2ff00a5d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d02ae9059bf0728549e33aafc0c766b8b8f090dd52edb4c84430f54b0fb5cae4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantDetailProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45d419321fadd6a98deadda72952683f07d5458949542e513f1b882e2410bd06(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyGrant.PolicyGrantPrincipalProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a00db485513597db27a51284165bbcb2f1f31f387521883bcd3fc2d947885a40(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__929246e3829473fb86c1a986312e35066791dec7e5f0e19189e082e8ab59b633(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06a2c86ccf049f358bf260883bd5c4a779a334459f24272c3ceb1090db972291(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb97a9aa9c216e08c5fce608a7d647c26a30b32e4c8971ac266049fb79460144(
+    *,
+    domain_unit_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca233709c68e49672b3ebdd0d623daa388dd8ff1410ad41573fb4c73b82e7ac0(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e918618f09a88801172a408238e6500ab7dfa9e47609ebf0a1cf9e87427e1c1e(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__616f7a054fc92674f6f61eb6bfd60bf476b3bb9a69a13ae61f86fe2b2f7d9b40(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    project_profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec4ae98e03f9cf9e3c1c38c7ae5c2a5f956924a86a2ca6c11297c56233e890cb(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__747a962feb1ab808802cfb5e1207ea3216d2a62ddee83545abd46525e125beb0(
+    *,
+    domain_unit: builtins.str,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebc0924bf25781aafce4151571c0dfcccd73718615647943e420d46750f8f47d(
+    *,
+    all_domain_units_grant_filter: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b16d6c5df6e090d8d518fb48d0727131a1689a69ebc02fe4d3bdb5f2414769c(
+    *,
+    domain_unit_designation: typing.Optional[builtins.str] = None,
+    domain_unit_grant_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.DomainUnitGrantFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_unit_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1ff865839abd3c71e2085544851949a5ddb8ce549e7c5de934ae95fba801d84(
+    *,
+    group_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__907c10f730943e0d2be93a8bc019be369d2d72f805cc47a05bd5548250004219(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3cc5bba89e984da33746b491e3bfba60ce3a90fe2ac4e70265a0c2f60970c4d(
+    *,
+    include_child_domain_units: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a243c72750dcbc1020d8dd303c618c4dba86b4010d67ac08fafeaabc53ba6e6(
+    *,
+    add_to_project_member_pool: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_asset_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateAssetTypePolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_domain_unit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateDomainUnitPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_environment: typing.Any = None,
+    create_environment_from_blueprint: typing.Any = None,
+    create_environment_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateEnvironmentProfilePolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_form_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateFormTypePolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_glossary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateGlossaryPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_project: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateProjectPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_project_from_project_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.CreateProjectFromProjectProfilePolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delegate_create_environment_profile: typing.Any = None,
+    override_domain_unit_owners: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.OverrideDomainUnitOwnersPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    override_project_owners: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.OverrideProjectOwnersPolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4f16f264dfe6cc67b0a5aef8bc6077cbad5a08789dd817ca69444390ca87f5d(
+    *,
+    domain_unit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.GroupPolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    project: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.ProjectPolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.UserPolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca8335d0da75d7abf56d91a31f26811aec29d37deb7b388317a3b05c11f0c13d(
+    *,
+    domain_unit_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.DomainUnitFilterForProjectProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf1bf50a91307a3e78245d0aaff4e631fa1f6af80d39eca8b29f0713b85fbfe5(
+    *,
+    project_designation: typing.Optional[builtins.str] = None,
+    project_grant_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.ProjectGrantFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    project_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6082ef506e21f62dc411e4b67ef1221396b9640f1ef92375bb0dc88fa7059b18(
+    *,
+    all_users_grant_filter: typing.Any = None,
+    user_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02b61ca206174fae99b63c9d6459815d1820de1a30d1dce62ac9764b08287073(
+    *,
+    domain_identifier: builtins.str,
+    entity_identifier: builtins.str,
+    entity_type: builtins.str,
+    policy_type: builtins.str,
+    detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    principal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

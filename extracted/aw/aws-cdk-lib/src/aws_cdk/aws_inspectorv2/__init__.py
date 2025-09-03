@@ -951,7 +951,7 @@ class CfnCodeSecurityIntegration(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration",
 ):
-    '''Inspector CodeSecurityIntegration resource schema.
+    '''Creates a code security integration with a source code repository provider.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
     :cloudformationResource: AWS::InspectorV2::CodeSecurityIntegration
@@ -1001,11 +1001,11 @@ class CfnCodeSecurityIntegration(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param create_integration_details: 
-        :param name: Code Security Integration name.
-        :param tags: 
-        :param type: 
-        :param update_integration_details: 
+        :param create_integration_details: Contains details required to create a code security integration with a specific repository provider.
+        :param name: The name of the code security integration.
+        :param tags: The tags to apply to the code security integration.
+        :param type: The type of repository provider for the integration.
+        :param update_integration_details: The updated integration details specific to the repository provider type.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80799b4356912cf375014b9f868e52ed37e885f4e1f3c1ddd85598a234badc5f)
@@ -1054,7 +1054,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''Code Security Integration ARN.
+        '''The Amazon Resource Name (ARN) of the code security integration.
 
         :cloudformationAttribute: Arn
         '''
@@ -1063,7 +1063,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrAuthorizationUrl")
     def attr_authorization_url(self) -> builtins.str:
-        '''Authorization URL for OAuth flow.
+        '''The URL used to authorize the integration with the repository provider.
 
         :cloudformationAttribute: AuthorizationUrl
         '''
@@ -1072,7 +1072,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
     def attr_created_at(self) -> builtins.str:
-        '''Creation timestamp.
+        '''The timestamp when the code security integration was created.
 
         :cloudformationAttribute: CreatedAt
         '''
@@ -1081,7 +1081,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedAt")
     def attr_last_updated_at(self) -> builtins.str:
-        '''Last update timestamp.
+        '''The timestamp when the code security integration was last updated.
 
         :cloudformationAttribute: LastUpdatedAt
         '''
@@ -1090,7 +1090,8 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The current status of the integration.
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -1098,7 +1099,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="attrStatusReason")
     def attr_status_reason(self) -> builtins.str:
-        '''Reason for the current status.
+        '''The reason for the current status of the code security integration.
 
         :cloudformationAttribute: StatusReason
         '''
@@ -1120,6 +1121,7 @@ class CfnCodeSecurityIntegration(
     def create_integration_details(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
+        '''Contains details required to create a code security integration with a specific repository provider.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]], jsii.get(self, "createIntegrationDetails"))
 
     @create_integration_details.setter
@@ -1135,7 +1137,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
-        '''Code Security Integration name.'''
+        '''The name of the code security integration.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -1148,6 +1150,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to apply to the code security integration.'''
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -1163,6 +1166,7 @@ class CfnCodeSecurityIntegration(
     @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> typing.Optional[builtins.str]:
+        '''The type of repository provider for the integration.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
 
     @type.setter
@@ -1177,6 +1181,7 @@ class CfnCodeSecurityIntegration(
     def update_integration_details(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
+        '''The updated integration details specific to the repository provider type.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], jsii.get(self, "updateIntegrationDetails"))
 
     @update_integration_details.setter
@@ -1200,8 +1205,9 @@ class CfnCodeSecurityIntegration(
             *,
             gitlab_self_managed: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''
-            :param gitlab_self_managed: 
+            '''Contains details required to create a code security integration with a specific repository provider.
+
+            :param gitlab_self_managed: Details specific to creating an integration with a self-managed GitLab instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-createdetails.html
             :exampleMetadata: fixture=_generated
@@ -1230,7 +1236,8 @@ class CfnCodeSecurityIntegration(
         def gitlab_self_managed(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"]:
-            '''
+            '''Details specific to creating an integration with a self-managed GitLab instance.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-createdetails.html#cfn-inspectorv2-codesecurityintegration-createdetails-gitlabselfmanaged
             '''
             result = self._values.get("gitlab_self_managed")
@@ -1260,9 +1267,10 @@ class CfnCodeSecurityIntegration(
             access_token: builtins.str,
             instance_url: builtins.str,
         ) -> None:
-            '''
-            :param access_token: 
-            :param instance_url: 
+            '''Contains details required to create an integration with a self-managed GitLab instance.
+
+            :param access_token: The personal access token used to authenticate with the self-managed GitLab instance.
+            :param instance_url: The URL of the self-managed GitLab instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html
             :exampleMetadata: fixture=_generated
@@ -1289,7 +1297,8 @@ class CfnCodeSecurityIntegration(
 
         @builtins.property
         def access_token(self) -> builtins.str:
-            '''
+            '''The personal access token used to authenticate with the self-managed GitLab instance.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail-accesstoken
             '''
             result = self._values.get("access_token")
@@ -1298,7 +1307,8 @@ class CfnCodeSecurityIntegration(
 
         @builtins.property
         def instance_url(self) -> builtins.str:
-            '''
+            '''The URL of the self-managed GitLab instance.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail-instanceurl
             '''
             result = self._values.get("instance_url")
@@ -1328,9 +1338,10 @@ class CfnCodeSecurityIntegration(
             github: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             gitlab_self_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param github: 
-            :param gitlab_self_managed: 
+            '''Contains details required to update a code security integration with a specific repository provider.
+
+            :param github: Details specific to updating an integration with GitHub.
+            :param gitlab_self_managed: Details specific to updating an integration with a self-managed GitLab instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html
             :exampleMetadata: fixture=_generated
@@ -1365,7 +1376,8 @@ class CfnCodeSecurityIntegration(
         def github(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]]:
-            '''
+            '''Details specific to updating an integration with GitHub.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-github
             '''
             result = self._values.get("github")
@@ -1375,7 +1387,8 @@ class CfnCodeSecurityIntegration(
         def gitlab_self_managed(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]]:
-            '''
+            '''Details specific to updating an integration with a self-managed GitLab instance.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-gitlabselfmanaged
             '''
             result = self._values.get("gitlab_self_managed")
@@ -1404,9 +1417,10 @@ class CfnCodeSecurityIntegration(
             code: builtins.str,
             installation_id: builtins.str,
         ) -> None:
-            '''
-            :param code: 
-            :param installation_id: 
+            '''Contains details required to update an integration with GitHub.
+
+            :param code: The authorization code received from GitHub to update the integration.
+            :param installation_id: The installation ID of the GitHub App associated with the integration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html
             :exampleMetadata: fixture=_generated
@@ -1433,7 +1447,8 @@ class CfnCodeSecurityIntegration(
 
         @builtins.property
         def code(self) -> builtins.str:
-            '''
+            '''The authorization code received from GitHub to update the integration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategithubintegrationdetail-code
             '''
             result = self._values.get("code")
@@ -1442,7 +1457,8 @@ class CfnCodeSecurityIntegration(
 
         @builtins.property
         def installation_id(self) -> builtins.str:
-            '''
+            '''The installation ID of the GitHub App associated with the integration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategithubintegrationdetail-installationid
             '''
             result = self._values.get("installation_id")
@@ -1467,8 +1483,9 @@ class CfnCodeSecurityIntegration(
     )
     class UpdateGitLabSelfManagedIntegrationDetailProperty:
         def __init__(self, *, auth_code: builtins.str) -> None:
-            '''
-            :param auth_code: 
+            '''Contains details required to update an integration with a self-managed GitLab instance.
+
+            :param auth_code: The authorization code received from the self-managed GitLab instance to update the integration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail.html
             :exampleMetadata: fixture=_generated
@@ -1492,7 +1509,8 @@ class CfnCodeSecurityIntegration(
 
         @builtins.property
         def auth_code(self) -> builtins.str:
-            '''
+            '''The authorization code received from the self-managed GitLab instance to update the integration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail-authcode
             '''
             result = self._values.get("auth_code")
@@ -1534,11 +1552,11 @@ class CfnCodeSecurityIntegrationProps:
     ) -> None:
         '''Properties for defining a ``CfnCodeSecurityIntegration``.
 
-        :param create_integration_details: 
-        :param name: Code Security Integration name.
-        :param tags: 
-        :param type: 
-        :param update_integration_details: 
+        :param create_integration_details: Contains details required to create a code security integration with a specific repository provider.
+        :param name: The name of the code security integration.
+        :param tags: The tags to apply to the code security integration.
+        :param type: The type of repository provider for the integration.
+        :param update_integration_details: The updated integration details specific to the repository provider type.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
         :exampleMetadata: fixture=_generated
@@ -1595,7 +1613,8 @@ class CfnCodeSecurityIntegrationProps:
     def create_integration_details(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.CreateDetailsProperty]]:
-        '''
+        '''Contains details required to create a code security integration with a specific repository provider.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-createintegrationdetails
         '''
         result = self._values.get("create_integration_details")
@@ -1603,7 +1622,7 @@ class CfnCodeSecurityIntegrationProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Code Security Integration name.
+        '''The name of the code security integration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-name
         '''
@@ -1612,7 +1631,8 @@ class CfnCodeSecurityIntegrationProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
+        '''The tags to apply to the code security integration.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-tags
         '''
         result = self._values.get("tags")
@@ -1620,7 +1640,8 @@ class CfnCodeSecurityIntegrationProps:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The type of repository provider for the integration.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-type
         '''
         result = self._values.get("type")
@@ -1630,7 +1651,8 @@ class CfnCodeSecurityIntegrationProps:
     def update_integration_details(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.UpdateDetailsProperty]]:
-        '''
+        '''The updated integration details specific to the repository provider type.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-updateintegrationdetails
         '''
         result = self._values.get("update_integration_details")
@@ -1654,7 +1676,7 @@ class CfnCodeSecurityScanConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration",
 ):
-    '''Inspector CodeSecurityScanConfiguration resource schema.
+    '''Creates a scan configuration for code security scanning.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
     :cloudformationResource: AWS::InspectorV2::CodeSecurityScanConfiguration
@@ -1704,11 +1726,11 @@ class CfnCodeSecurityScanConfiguration(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param configuration: 
-        :param level: 
-        :param name: Code Security Scan Configuration name.
-        :param scope_settings: 
-        :param tags: 
+        :param configuration: The configuration settings for the code security scan.
+        :param level: The security level for the scan configuration.
+        :param name: The name of the scan configuration.
+        :param scope_settings: The scope settings that define which repositories will be scanned.
+        :param tags: The tags to apply to the scan configuration.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f8087fd99eb325ae09773df4a6c219dda10efe85e43341cb1f5b576a1e88cef)
@@ -1757,7 +1779,7 @@ class CfnCodeSecurityScanConfiguration(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''Code Security Scan Configuration ARN.
+        '''The Amazon Resource Name (ARN) of the scan configuration.
 
         :cloudformationAttribute: Arn
         '''
@@ -1779,6 +1801,7 @@ class CfnCodeSecurityScanConfiguration(
     def configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
+        '''The configuration settings for the code security scan.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], jsii.get(self, "configuration"))
 
     @configuration.setter
@@ -1794,6 +1817,7 @@ class CfnCodeSecurityScanConfiguration(
     @builtins.property
     @jsii.member(jsii_name="level")
     def level(self) -> typing.Optional[builtins.str]:
+        '''The security level for the scan configuration.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "level"))
 
     @level.setter
@@ -1806,7 +1830,7 @@ class CfnCodeSecurityScanConfiguration(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
-        '''Code Security Scan Configuration name.'''
+        '''The name of the scan configuration.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -1821,6 +1845,7 @@ class CfnCodeSecurityScanConfiguration(
     def scope_settings(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
+        '''The scope settings that define which repositories will be scanned.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], jsii.get(self, "scopeSettings"))
 
     @scope_settings.setter
@@ -1836,6 +1861,7 @@ class CfnCodeSecurityScanConfiguration(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to apply to the scan configuration.'''
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -1865,10 +1891,11 @@ class CfnCodeSecurityScanConfiguration(
             continuous_integration_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             periodic_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param rule_set_categories: 
-            :param continuous_integration_scan_configuration: 
-            :param periodic_scan_configuration: 
+            '''Contains the configuration settings for code security scans.
+
+            :param rule_set_categories: The categories of security rules to be applied during the scan.
+            :param continuous_integration_scan_configuration: Configuration settings for continuous integration scans that run automatically when code changes are made.
+            :param periodic_scan_configuration: Configuration settings for periodic scans that run on a scheduled basis.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1907,7 +1934,8 @@ class CfnCodeSecurityScanConfiguration(
 
         @builtins.property
         def rule_set_categories(self) -> typing.List[builtins.str]:
-            '''
+            '''The categories of security rules to be applied during the scan.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-rulesetcategories
             '''
             result = self._values.get("rule_set_categories")
@@ -1918,7 +1946,8 @@ class CfnCodeSecurityScanConfiguration(
         def continuous_integration_scan_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]]:
-            '''
+            '''Configuration settings for continuous integration scans that run automatically when code changes are made.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-continuousintegrationscanconfiguration
             '''
             result = self._values.get("continuous_integration_scan_configuration")
@@ -1928,7 +1957,8 @@ class CfnCodeSecurityScanConfiguration(
         def periodic_scan_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]]:
-            '''
+            '''Configuration settings for periodic scans that run on a scheduled basis.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-periodicscanconfiguration
             '''
             result = self._values.get("periodic_scan_configuration")
@@ -1952,8 +1982,9 @@ class CfnCodeSecurityScanConfiguration(
     )
     class ContinuousIntegrationScanConfigurationProperty:
         def __init__(self, *, supported_events: typing.Sequence[builtins.str]) -> None:
-            '''
-            :param supported_events: 
+            '''Configuration settings for continuous integration scans that run automatically when code changes are made.
+
+            :param supported_events: The repository events that trigger continuous integration scans, such as pull requests or commits.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1977,7 +2008,8 @@ class CfnCodeSecurityScanConfiguration(
 
         @builtins.property
         def supported_events(self) -> typing.List[builtins.str]:
-            '''
+            '''The repository events that trigger continuous integration scans, such as pull requests or commits.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration-supportedevents
             '''
             result = self._values.get("supported_events")
@@ -2010,9 +2042,10 @@ class CfnCodeSecurityScanConfiguration(
             frequency: typing.Optional[builtins.str] = None,
             frequency_expression: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param frequency: 
-            :param frequency_expression: 
+            '''Configuration settings for periodic scans that run on a scheduled basis.
+
+            :param frequency: The frequency at which periodic scans are performed (such as weekly or monthly). If you don't provide the ``frequencyExpression`` Amazon Inspector chooses day for the scan to run. If you provide the ``frequencyExpression`` , the schedule must match the specified ``frequency`` .
+            :param frequency_expression: The schedule expression for periodic scans, in cron format.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2040,7 +2073,10 @@ class CfnCodeSecurityScanConfiguration(
 
         @builtins.property
         def frequency(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The frequency at which periodic scans are performed (such as weekly or monthly).
+
+            If you don't provide the ``frequencyExpression`` Amazon Inspector chooses day for the scan to run. If you provide the ``frequencyExpression`` , the schedule must match the specified ``frequency`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration-frequency
             '''
             result = self._values.get("frequency")
@@ -2048,7 +2084,8 @@ class CfnCodeSecurityScanConfiguration(
 
         @builtins.property
         def frequency_expression(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The schedule expression for periodic scans, in cron format.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration-frequencyexpression
             '''
             result = self._values.get("frequency_expression")
@@ -2076,8 +2113,11 @@ class CfnCodeSecurityScanConfiguration(
             *,
             project_selection_scope: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param project_selection_scope: 
+            '''The scope settings that define which repositories will be scanned.
+
+            If the ``ScopeSetting`` parameter is ``ALL`` the scan configuration applies to all existing and future projects imported into Amazon Inspector .
+
+            :param project_selection_scope: The scope of projects to be selected for scanning within the integrated repositories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-scopesettings.html
             :exampleMetadata: fixture=_generated
@@ -2101,7 +2141,8 @@ class CfnCodeSecurityScanConfiguration(
 
         @builtins.property
         def project_selection_scope(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The scope of projects to be selected for scanning within the integrated repositories.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-scopesettings.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings-projectselectionscope
             '''
             result = self._values.get("project_selection_scope")
@@ -2142,11 +2183,11 @@ class CfnCodeSecurityScanConfigurationProps:
     ) -> None:
         '''Properties for defining a ``CfnCodeSecurityScanConfiguration``.
 
-        :param configuration: 
-        :param level: 
-        :param name: Code Security Scan Configuration name.
-        :param scope_settings: 
-        :param tags: 
+        :param configuration: The configuration settings for the code security scan.
+        :param level: The security level for the scan configuration.
+        :param name: The name of the scan configuration.
+        :param scope_settings: The scope settings that define which repositories will be scanned.
+        :param tags: The tags to apply to the scan configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
         :exampleMetadata: fixture=_generated
@@ -2203,7 +2244,8 @@ class CfnCodeSecurityScanConfigurationProps:
     def configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty]]:
-        '''
+        '''The configuration settings for the code security scan.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-configuration
         '''
         result = self._values.get("configuration")
@@ -2211,7 +2253,8 @@ class CfnCodeSecurityScanConfigurationProps:
 
     @builtins.property
     def level(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The security level for the scan configuration.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-level
         '''
         result = self._values.get("level")
@@ -2219,7 +2262,7 @@ class CfnCodeSecurityScanConfigurationProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Code Security Scan Configuration name.
+        '''The name of the scan configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-name
         '''
@@ -2230,7 +2273,8 @@ class CfnCodeSecurityScanConfigurationProps:
     def scope_settings(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.ScopeSettingsProperty]]:
-        '''
+        '''The scope settings that define which repositories will be scanned.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings
         '''
         result = self._values.get("scope_settings")
@@ -2238,7 +2282,8 @@ class CfnCodeSecurityScanConfigurationProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
+        '''The tags to apply to the scan configuration.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-tags
         '''
         result = self._values.get("tags")

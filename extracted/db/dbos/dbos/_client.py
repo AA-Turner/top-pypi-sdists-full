@@ -16,6 +16,7 @@ from typing import (
 
 from dbos._app_db import ApplicationDatabase
 from dbos._context import MaxPriority, MinPriority
+from dbos._sys_db import SystemDatabase
 
 if sys.version_info < (3, 11):
     from typing_extensions import NotRequired
@@ -24,7 +25,11 @@ else:
 
 from dbos import _serialization
 from dbos._dbos import WorkflowHandle, WorkflowHandleAsync
-from dbos._dbos_config import get_system_database_url, is_valid_database_url
+from dbos._dbos_config import (
+    get_application_database_url,
+    get_system_database_url,
+    is_valid_database_url,
+)
 from dbos._error import DBOSException, DBOSNonExistentWorkflowError
 from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
 from dbos._serialization import WorkflowInputs
@@ -112,21 +117,32 @@ class WorkflowHandleClientAsyncPolling(Generic[R]):
 class DBOSClient:
     def __init__(
         self,
-        database_url: str,
+        database_url: Optional[str] = None,  # DEPRECATED
         *,
         system_database_url: Optional[str] = None,
-        system_database: Optional[str] = None,
+        application_database_url: Optional[str] = None,
+        system_database: Optional[str] = None,  # DEPRECATED
     ):
-        assert is_valid_database_url(database_url)
+        application_database_url = get_application_database_url(
+            {
+                "system_database_url": system_database_url,
+                "database_url": (
+                    database_url if database_url else application_database_url
+                ),
+            }
+        )
+        system_database_url = get_system_database_url(
+            {
+                "system_database_url": system_database_url,
+                "database_url": application_database_url,
+                "database": {"sys_db_name": system_database},
+            }
+        )
+        assert is_valid_database_url(system_database_url)
+        assert is_valid_database_url(application_database_url)
         # We only create database connections but do not run migrations
-        self._sys_db = SystemDatabase(
-            system_database_url=get_system_database_url(
-                {
-                    "system_database_url": system_database_url,
-                    "database_url": database_url,
-                    "database": {"sys_db_name": system_database},
-                }
-            ),
+        self._sys_db = SystemDatabase.create(
+            system_database_url=system_database_url,
             engine_kwargs={
                 "pool_timeout": 30,
                 "max_overflow": 0,
@@ -134,15 +150,14 @@ class DBOSClient:
             },
         )
         self._sys_db.check_connection()
-        self._app_db = ApplicationDatabase(
-            database_url=database_url,
+        self._app_db = ApplicationDatabase.create(
+            database_url=application_database_url,
             engine_kwargs={
                 "pool_timeout": 30,
                 "max_overflow": 0,
                 "pool_size": 2,
             },
         )
-        self._db_url = database_url
 
     def destroy(self) -> None:
         self._sys_db.destroy()
@@ -226,7 +241,7 @@ class DBOSClient:
         return WorkflowHandleClientPolling[R](workflow_id, self._sys_db)
 
     async def retrieve_workflow_async(self, workflow_id: str) -> WorkflowHandleAsync[R]:
-        status = asyncio.to_thread(get_workflow, self._sys_db, workflow_id)
+        status = await asyncio.to_thread(get_workflow, self._sys_db, workflow_id)
         if status is None:
             raise DBOSNonExistentWorkflowError(workflow_id)
         return WorkflowHandleClientAsyncPolling[R](workflow_id, self._sys_db)

@@ -17,6 +17,9 @@ from llama_cloud_services.files.client import FileClient
 from llama_cloud_services.constants import POLLING_TIMEOUT_SECONDS
 from llama_cloud_services.utils import is_terminal_status, augment_async_errors
 from llama_index.core.async_utils import DEFAULT_NUM_WORKERS, run_jobs
+from llama_cloud_services.beta.classifier.types import (
+    ClassifyJobResultsWithFiles,
+)
 
 
 class ClassificationOutput(BaseModel):
@@ -51,6 +54,24 @@ class ClassifyClient:
         self.polling_interval = polling_interval
         self.file_client = FileClient(client, project_id, organization_id)
         self.polling_timeout = polling_timeout
+
+    @classmethod
+    def from_api_key(
+        cls,
+        api_key: str,
+        project_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> "ClassifyClient":
+        """
+        Create a classify client from an API key.
+        """
+        client = AsyncLlamaCloud(token=api_key, base_url=base_url)
+        return cls(
+            client,
+            project_id,
+            organization_id,
+        )
 
     async def acreate_classify_job(
         self,
@@ -152,11 +173,12 @@ class ClassifyClient:
         file_input_path: str,
         parsing_configuration: Optional[ClassifyParsingConfiguration] = None,
         raise_on_error: bool = True,
-    ) -> ClassifyJobResults:
+    ) -> ClassifyJobResultsWithFiles:
         file = await self.file_client.upload_file(file_input_path)
-        return await self.aclassify_file_ids(
+        results = await self.aclassify_file_ids(
             rules, [file.id], parsing_configuration, raise_on_error
         )
+        return ClassifyJobResultsWithFiles.from_classify_job_results(results, [file])
 
     def classify_file_path(
         self,
@@ -164,7 +186,7 @@ class ClassifyClient:
         file_input_path: str,
         parsing_configuration: Optional[ClassifyParsingConfiguration] = None,
         raise_on_error: bool = True,
-    ) -> ClassifyJobResults:
+    ) -> ClassifyJobResultsWithFiles:
         with augment_async_errors():
             return asyncio.run(
                 self.aclassify_file_path(
@@ -180,7 +202,7 @@ class ClassifyClient:
         raise_on_error: bool = True,
         workers: int = DEFAULT_NUM_WORKERS,
         show_progress: bool = False,
-    ) -> ClassifyJobResults:
+    ) -> ClassifyJobResultsWithFiles:
         coroutines = [self.file_client.upload_file(path) for path in file_input_paths]
         files: list[File] = await run_jobs(
             coroutines,
@@ -188,9 +210,10 @@ class ClassifyClient:
             workers=workers,
             desc="Uploading files for classification",
         )
-        return await self.aclassify_file_ids(
+        results = await self.aclassify_file_ids(
             rules, [file.id for file in files], parsing_configuration, raise_on_error
         )
+        return ClassifyJobResultsWithFiles.from_classify_job_results(results, files)
 
     def classify_file_paths(
         self,
@@ -198,7 +221,7 @@ class ClassifyClient:
         file_input_paths: list[str],
         parsing_configuration: Optional[ClassifyParsingConfiguration] = None,
         raise_on_error: bool = True,
-    ) -> ClassifyJobResults:
+    ) -> ClassifyJobResultsWithFiles:
         with augment_async_errors():
             return asyncio.run(
                 self.aclassify_file_paths(

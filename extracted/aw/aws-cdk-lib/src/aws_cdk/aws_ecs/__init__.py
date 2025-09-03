@@ -2011,7 +2011,10 @@ volume_from_snapshot = ecs.ServiceManagedVolume(self, "EBSVolume",
     managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
         snap_shot_id="snap-066877671789bd71b",
         volume_type=ec2.EbsDeviceVolumeType.GP3,
-        file_system_type=ecs.FileSystemType.XFS
+        file_system_type=ecs.FileSystemType.XFS,
+        # Specifies the Amazon EBS Provisioned Rate for Volume Initialization.
+        # Valid range is between 100 and 300 MiB/s.
+        volume_initialization_rate=Size.mebibytes(200)
     )
 )
 
@@ -7527,9 +7530,9 @@ class CfnCluster(
 
             When services or tasks are run in the cluster with no launch type or capacity provider strategy specified, the default capacity provider strategy is used.
 
-            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used. Base value characteristics: - Only one capacity provider in a strategy can have a base defined - Default value is ``0`` if not specified - Valid range: 0 to 100,000 - Base requirements are satisfied first before weight distribution
             :param capacity_provider: The short name of the capacity provider.
-            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. Weight value characteristics: - Weight is considered after the base value is satisfied - Default value is ``0`` if not specified - Valid range: 0 to 1,000 - At least one capacity provider must have a weight greater than zero - Capacity providers with weight of ``0`` cannot place tasks Task distribution logic: - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios Examples: Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met. Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-cluster-capacityproviderstrategyitem.html
             :exampleMetadata: fixture=_generated
@@ -7561,9 +7564,16 @@ class CfnCluster(
 
         @builtins.property
         def base(self) -> typing.Optional[jsii.Number]:
-            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider.
+            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service.
 
             Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+
+            Base value characteristics:
+
+            - Only one capacity provider in a strategy can have a base defined
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 100,000
+            - Base requirements are satisfied first before weight distribution
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-cluster-capacityproviderstrategyitem.html#cfn-ecs-cluster-capacityproviderstrategyitem-base
             '''
@@ -7587,7 +7597,24 @@ class CfnCluster(
 
             If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail.
 
-            An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            Weight value characteristics:
+
+            - Weight is considered after the base value is satisfied
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 1,000
+            - At least one capacity provider must have a weight greater than zero
+            - Capacity providers with weight of ``0`` cannot place tasks
+
+            Task distribution logic:
+
+            - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider
+            - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios
+
+            Examples:
+
+            Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met.
+
+            Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-cluster-capacityproviderstrategyitem.html#cfn-ecs-cluster-capacityproviderstrategyitem-weight
             '''
@@ -8328,8 +8355,8 @@ class CfnClusterCapacityProviderAssociations(
             When services or tasks are run in the cluster with no launch type or capacity provider strategy specified, the default capacity provider strategy is used.
 
             :param capacity_provider: The short name of the capacity provider.
-            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
-            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used. Base value characteristics: - Only one capacity provider in a strategy can have a base defined - Default value is ``0`` if not specified - Valid range: 0 to 100,000 - Base requirements are satisfied first before weight distribution
+            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. Weight value characteristics: - Weight is considered after the base value is satisfied - Default value is ``0`` if not specified - Valid range: 0 to 1,000 - At least one capacity provider must have a weight greater than zero - Capacity providers with weight of ``0`` cannot place tasks Task distribution logic: - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios Examples: Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met. Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-clustercapacityproviderassociations-capacityproviderstrategy.html
             :exampleMetadata: fixture=_generated
@@ -8373,9 +8400,16 @@ class CfnClusterCapacityProviderAssociations(
 
         @builtins.property
         def base(self) -> typing.Optional[jsii.Number]:
-            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider.
+            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service.
 
             Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+
+            Base value characteristics:
+
+            - Only one capacity provider in a strategy can have a base defined
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 100,000
+            - Base requirements are satisfied first before weight distribution
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-clustercapacityproviderassociations-capacityproviderstrategy.html#cfn-ecs-clustercapacityproviderassociations-capacityproviderstrategy-base
             '''
@@ -8390,7 +8424,24 @@ class CfnClusterCapacityProviderAssociations(
 
             If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail.
 
-            An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            Weight value characteristics:
+
+            - Weight is considered after the base value is satisfied
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 1,000
+            - At least one capacity provider must have a weight greater than zero
+            - Capacity providers with weight of ``0`` cannot place tasks
+
+            Task distribution logic:
+
+            - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider
+            - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios
+
+            Examples:
+
+            Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met.
+
+            Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-clustercapacityproviderassociations-capacityproviderstrategy.html#cfn-ecs-clustercapacityproviderassociations-capacityproviderstrategy-weight
             '''
@@ -9038,6 +9089,12 @@ class CfnService(
             desired_count=123,
             enable_ecs_managed_tags=False,
             enable_execute_command=False,
+            force_new_deployment=ecs.CfnService.ForceNewDeploymentProperty(
+                enable_force_new_deployment=False,
+        
+                # the properties below are optional
+                force_new_deployment_nonce="forceNewDeploymentNonce"
+            ),
             health_check_grace_period_seconds=123,
             launch_type="launchType",
             load_balancers=[ecs.CfnService.LoadBalancerProperty(
@@ -9191,6 +9248,7 @@ class CfnService(
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        force_new_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ForceNewDeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.LoadBalancerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -9212,7 +9270,7 @@ class CfnService(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "ENABLED"
+        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "DISABLED"
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
@@ -9220,6 +9278,7 @@ class CfnService(
         :param desired_count: The number of instantiations of the specified task definition to place and keep running in your service. For new services, if a desired count is not specified, a default value of ``1`` is used. When using the ``DAEMON`` scheduling strategy, the desired count is not required. For existing services, if a desired count is not specified, it is omitted from the operation.
         :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
+        :param force_new_deployment: Determines whether to force a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination ( ``my_image:latest`` ) or to roll Fargate tasks onto a newer platform version.
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you don't specify a health check grace period value, the default value of ``0`` is used. If you don't use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service's tasks take a while to start and respond to health checks, you can specify a health check grace period of up to 2,147,483,647 seconds (about 69 years). During that time, the Amazon ECS service scheduler ignores health check status. This grace period can prevent the service scheduler from marking tasks as unhealthy and stopping them before they have time to come up.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
@@ -9251,6 +9310,7 @@ class CfnService(
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
+            force_new_deployment=force_new_deployment,
             health_check_grace_period_seconds=health_check_grace_period_seconds,
             launch_type=launch_type,
             load_balancers=load_balancers,
@@ -9464,6 +9524,24 @@ class CfnService(
             type_hints = typing.get_type_hints(_typecheckingstub__8e2bc49b758cd7bd2d560e7ef349cc9fd90122266047080d15fab50f91a3db2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableExecuteCommand", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="forceNewDeployment")
+    def force_new_deployment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ForceNewDeploymentProperty"]]:
+        '''Determines whether to force a new deployment of the service.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ForceNewDeploymentProperty"]], jsii.get(self, "forceNewDeployment"))
+
+    @force_new_deployment.setter
+    def force_new_deployment(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ForceNewDeploymentProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30697d792a144902af8d5ce8bec3db2e9ebb612ed4d71a72a5ee98dcace27fce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "forceNewDeployment", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckGracePeriodSeconds")
@@ -9978,9 +10056,9 @@ class CfnService(
 
             To use an AWS Fargate capacity provider, specify either the ``FARGATE`` or ``FARGATE_SPOT`` capacity providers. The AWS Fargate capacity providers are available to all accounts and only need to be associated with a cluster to be used in a capacity provider strategy.
 
-            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used. Base value characteristics: - Only one capacity provider in a strategy can have a base defined - Default value is ``0`` if not specified - Valid range: 0 to 100,000 - Base requirements are satisfied first before weight distribution
             :param capacity_provider: The short name of the capacity provider.
-            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. Weight value characteristics: - Weight is considered after the base value is satisfied - Default value is ``0`` if not specified - Valid range: 0 to 1,000 - At least one capacity provider must have a weight greater than zero - Capacity providers with weight of ``0`` cannot place tasks Task distribution logic: - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios Examples: Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met. Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-capacityproviderstrategyitem.html
             :exampleMetadata: fixture=_generated
@@ -10012,9 +10090,16 @@ class CfnService(
 
         @builtins.property
         def base(self) -> typing.Optional[jsii.Number]:
-            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider.
+            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service.
 
             Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+
+            Base value characteristics:
+
+            - Only one capacity provider in a strategy can have a base defined
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 100,000
+            - Base requirements are satisfied first before weight distribution
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-capacityproviderstrategyitem.html#cfn-ecs-service-capacityproviderstrategyitem-base
             '''
@@ -10038,7 +10123,24 @@ class CfnService(
 
             If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail.
 
-            An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            Weight value characteristics:
+
+            - Weight is considered after the base value is satisfied
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 1,000
+            - At least one capacity provider must have a weight greater than zero
+            - Capacity providers with weight of ``0`` cannot place tasks
+
+            Task distribution logic:
+
+            - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider
+            - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios
+
+            Examples:
+
+            Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met.
+
+            Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-capacityproviderstrategyitem.html#cfn-ecs-service-capacityproviderstrategyitem-weight
             '''
@@ -10794,6 +10896,81 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.ForceNewDeploymentProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_force_new_deployment": "enableForceNewDeployment",
+            "force_new_deployment_nonce": "forceNewDeploymentNonce",
+        },
+    )
+    class ForceNewDeploymentProperty:
+        def __init__(
+            self,
+            *,
+            enable_force_new_deployment: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            force_new_deployment_nonce: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param enable_force_new_deployment: 
+            :param force_new_deployment_nonce: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                force_new_deployment_property = ecs.CfnService.ForceNewDeploymentProperty(
+                    enable_force_new_deployment=False,
+                
+                    # the properties below are optional
+                    force_new_deployment_nonce="forceNewDeploymentNonce"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__61f79b8cfbfd89da452531f374d2c8ed25d98693945205dbbe670de811c5ed06)
+                check_type(argname="argument enable_force_new_deployment", value=enable_force_new_deployment, expected_type=type_hints["enable_force_new_deployment"])
+                check_type(argname="argument force_new_deployment_nonce", value=force_new_deployment_nonce, expected_type=type_hints["force_new_deployment_nonce"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enable_force_new_deployment": enable_force_new_deployment,
+            }
+            if force_new_deployment_nonce is not None:
+                self._values["force_new_deployment_nonce"] = force_new_deployment_nonce
+
+        @builtins.property
+        def enable_force_new_deployment(
+            self,
+        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html#cfn-ecs-service-forcenewdeployment-enableforcenewdeployment
+            '''
+            result = self._values.get("enable_force_new_deployment")
+            assert result is not None, "Required property 'enable_force_new_deployment' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def force_new_deployment_nonce(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html#cfn-ecs-service-forcenewdeployment-forcenewdeploymentnonce
+            '''
+            result = self._values.get("force_new_deployment_nonce")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ForceNewDeploymentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.LoadBalancerProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -10980,7 +11157,7 @@ class CfnService(
             - For tasks that are on AWS Fargate , because you don't have access to the underlying infrastructure your tasks are hosted on, any additional software needed must be installed outside of the task. For example, the Fluentd output aggregators or a remote host running Logstash to send Gelf logs to.
 
             :param log_driver: The log driver to use for the container. For tasks on AWS Fargate , the supported log drivers are ``awslogs`` , ``splunk`` , and ``awsfirelens`` . For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs`` , ``fluentd`` , ``gelf`` , ``json-file`` , ``journald`` , ``syslog`` , ``splunk`` , and ``awsfirelens`` . For more information about using the ``awslogs`` log driver, see `Send Amazon ECS logs to CloudWatch <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html>`_ in the *Amazon Elastic Container Service Developer Guide* . For more information about using the ``awsfirelens`` log driver, see `Send Amazon ECS logs to an AWS service or AWS Partner <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_ . .. epigraph:: If you have a custom driver that isn't listed, you can fork the Amazon ECS container agent project that's `available on GitHub <https://docs.aws.amazon.com/https://github.com/aws/amazon-ecs-agent>`_ and customize it to work with that driver. We encourage you to submit pull requests for changes that you would like to have included. However, we don't currently provide support for running modified copies of this software.
-            :param options: The configuration options to send to the log driver. The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following: - **awslogs-create-group** - Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to ``false`` . .. epigraph:: Your IAM policy must include the ``logs:CreateLogGroup`` permission before you attempt to use ``awslogs-create-group`` . - **awslogs-region** - Required: Yes Specify the AWS Region that the ``awslogs`` log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. - **awslogs-group** - Required: Yes Make sure to specify a log group that the ``awslogs`` log driver sends its log streams to. - **awslogs-stream-prefix** - Required: Yes, when using Fargate.Optional when using EC2. Use the ``awslogs-stream-prefix`` option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format ``prefix-name/container-name/ecs-task-id`` . If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. - **awslogs-datetime-format** - Required: No This option defines a multiline start pattern in Python ``strftime`` format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see `awslogs-datetime-format <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-datetime-format>`_ . You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. - **awslogs-multiline-pattern** - Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see `awslogs-multiline-pattern <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-multiline-pattern>`_ . This option is ignored if ``awslogs-datetime-format`` is also configured. You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. The following options apply to all supported log drivers. - **mode** - Required: No Valid values: ``non-blocking`` | ``blocking`` This option defines the delivery mode of log messages from the container to the log driver specified using ``logDriver`` . The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the ``blocking`` mode and the flow of logs is interrupted, calls from container code to write to the ``stdout`` and ``stderr`` streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the ``non-blocking`` mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the ``max-buffer-size`` option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see `Preventing log loss with non-blocking mode in the ``awslogs`` container log driver <https://docs.aws.amazon.com/containers/preventing-log-loss-with-non-blocking-mode-in-the-awslogs-container-log-driver/>`_ . You can set a default ``mode`` for all containers in a specific AWS Region by using the ``defaultLogDriverMode`` account setting. If you don't specify the ``mode`` option or configure the account setting, Amazon ECS will default to the ``non-blocking`` mode. For more information about the account setting, see `Default log driver mode <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#default-log-driver-mode>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: On June 25, 2025, Amazon ECS changed the default log driver mode from ``blocking`` to ``non-blocking`` to prioritize task availability over logging. To continue using the ``blocking`` mode after this change, do one of the following: - Set the ``mode`` option in your container definition's ``logConfiguration`` as ``blocking`` . - Set the ``defaultLogDriverMode`` account setting to ``blocking`` . - **max-buffer-size** - Required: No Default value: ``1m`` When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost. To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url`` . When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker. Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream`` . When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream`` . When you export logs to Amazon OpenSearch Service, you can specify options like ``Name`` , ``Host`` (OpenSearch Service endpoint without protocol), ``Port`` , ``Index`` , ``Type`` , ``Aws_auth`` , ``Aws_region`` , ``Suppress_Type_Name`` , and ``tls`` . For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_ . When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region`` , ``total_file_size`` , ``upload_timeout`` , and ``use_put_object`` as options. This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+            :param options: The configuration options to send to the log driver. The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following: - **awslogs-create-group** - Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to ``false`` . .. epigraph:: Your IAM policy must include the ``logs:CreateLogGroup`` permission before you attempt to use ``awslogs-create-group`` . - **awslogs-region** - Required: Yes Specify the AWS Region that the ``awslogs`` log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. - **awslogs-group** - Required: Yes Make sure to specify a log group that the ``awslogs`` log driver sends its log streams to. - **awslogs-stream-prefix** - Required: Yes, when using Fargate.Optional when using EC2. Use the ``awslogs-stream-prefix`` option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format ``prefix-name/container-name/ecs-task-id`` . If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. - **awslogs-datetime-format** - Required: No This option defines a multiline start pattern in Python ``strftime`` format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see `awslogs-datetime-format <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-datetime-format>`_ . You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. - **awslogs-multiline-pattern** - Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see `awslogs-multiline-pattern <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-multiline-pattern>`_ . This option is ignored if ``awslogs-datetime-format`` is also configured. You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. The following options apply to all supported log drivers. - **mode** - Required: No Valid values: ``non-blocking`` | ``blocking`` This option defines the delivery mode of log messages from the container to the log driver specified using ``logDriver`` . The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the ``blocking`` mode and the flow of logs is interrupted, calls from container code to write to the ``stdout`` and ``stderr`` streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the ``non-blocking`` mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the ``max-buffer-size`` option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see `Preventing log loss with non-blocking mode in the ``awslogs`` container log driver <https://docs.aws.amazon.com/containers/preventing-log-loss-with-non-blocking-mode-in-the-awslogs-container-log-driver/>`_ . You can set a default ``mode`` for all containers in a specific AWS Region by using the ``defaultLogDriverMode`` account setting. If you don't specify the ``mode`` option or configure the account setting, Amazon ECS will default to the ``non-blocking`` mode. For more information about the account setting, see `Default log driver mode <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#default-log-driver-mode>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: On June 25, 2025, Amazon ECS changed the default log driver mode from ``blocking`` to ``non-blocking`` to prioritize task availability over logging. To continue using the ``blocking`` mode after this change, do one of the following: - Set the ``mode`` option in your container definition's ``logConfiguration`` as ``blocking`` . - Set the ``defaultLogDriverMode`` account setting to ``blocking`` . - **max-buffer-size** - Required: No Default value: ``10m`` When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost. To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url`` . When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker. Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream`` . When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream`` . When you export logs to Amazon OpenSearch Service, you can specify options like ``Name`` , ``Host`` (OpenSearch Service endpoint without protocol), ``Port`` , ``Index`` , ``Type`` , ``Aws_auth`` , ``Aws_region`` , ``Suppress_Type_Name`` , and ``tls`` . For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_ . When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region`` , ``total_file_size`` , ``upload_timeout`` , and ``use_put_object`` as options. This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
             :param secret_options: The secrets to pass to the log configuration. For more information, see `Specifying sensitive data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-logconfiguration.html
@@ -11117,7 +11294,7 @@ class CfnService(
 
             - **max-buffer-size** - Required: No
 
-            Default value: ``1m``
+            Default value: ``10m``
 
             When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost.
 
@@ -13020,6 +13197,7 @@ class CfnService(
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableEcsManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period_seconds": "healthCheckGracePeriodSeconds",
         "launch_type": "launchType",
         "load_balancers": "loadBalancers",
@@ -13051,6 +13229,7 @@ class CfnServiceProps:
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        force_new_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ForceNewDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -13071,7 +13250,7 @@ class CfnServiceProps:
     ) -> None:
         '''Properties for defining a ``CfnService``.
 
-        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "ENABLED"
+        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "DISABLED"
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
@@ -13079,6 +13258,7 @@ class CfnServiceProps:
         :param desired_count: The number of instantiations of the specified task definition to place and keep running in your service. For new services, if a desired count is not specified, a default value of ``1`` is used. When using the ``DAEMON`` scheduling strategy, the desired count is not required. For existing services, if a desired count is not specified, it is omitted from the operation.
         :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
+        :param force_new_deployment: Determines whether to force a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination ( ``my_image:latest`` ) or to roll Fargate tasks onto a newer platform version.
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you don't specify a health check grace period value, the default value of ``0`` is used. If you don't use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service's tasks take a while to start and respond to health checks, you can specify a health check grace period of up to 2,147,483,647 seconds (about 69 years). During that time, the Amazon ECS service scheduler ignores health check status. This grace period can prevent the service scheduler from marking tasks as unhealthy and stopping them before they have time to come up.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
@@ -13140,6 +13320,12 @@ class CfnServiceProps:
                 desired_count=123,
                 enable_ecs_managed_tags=False,
                 enable_execute_command=False,
+                force_new_deployment=ecs.CfnService.ForceNewDeploymentProperty(
+                    enable_force_new_deployment=False,
+            
+                    # the properties below are optional
+                    force_new_deployment_nonce="forceNewDeploymentNonce"
+                ),
                 health_check_grace_period_seconds=123,
                 launch_type="launchType",
                 load_balancers=[ecs.CfnService.LoadBalancerProperty(
@@ -13289,6 +13475,7 @@ class CfnServiceProps:
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period_seconds", value=health_check_grace_period_seconds, expected_type=type_hints["health_check_grace_period_seconds"])
             check_type(argname="argument launch_type", value=launch_type, expected_type=type_hints["launch_type"])
             check_type(argname="argument load_balancers", value=load_balancers, expected_type=type_hints["load_balancers"])
@@ -13323,6 +13510,8 @@ class CfnServiceProps:
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period_seconds is not None:
             self._values["health_check_grace_period_seconds"] = health_check_grace_period_seconds
         if launch_type is not None:
@@ -13364,7 +13553,7 @@ class CfnServiceProps:
 
         For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** .
 
-        :default: - "ENABLED"
+        :default: - "DISABLED"
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-availabilityzonerebalancing
         '''
@@ -13462,6 +13651,19 @@ class CfnServiceProps:
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def force_new_deployment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ForceNewDeploymentProperty]]:
+        '''Determines whether to force a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination ( ``my_image:latest`` ) or to roll Fargate tasks onto a newer platform version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-forcenewdeployment
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ForceNewDeploymentProperty]], result)
 
     @builtins.property
     def health_check_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
@@ -17187,7 +17389,7 @@ class CfnTaskDefinition(
             '''The ``LogConfiguration`` property specifies log configuration options to send to a custom log driver for the container.
 
             :param log_driver: The log driver to use for the container. For tasks on AWS Fargate , the supported log drivers are ``awslogs`` , ``splunk`` , and ``awsfirelens`` . For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs`` , ``fluentd`` , ``gelf`` , ``json-file`` , ``journald`` , ``syslog`` , ``splunk`` , and ``awsfirelens`` . For more information about using the ``awslogs`` log driver, see `Send Amazon ECS logs to CloudWatch <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html>`_ in the *Amazon Elastic Container Service Developer Guide* . For more information about using the ``awsfirelens`` log driver, see `Send Amazon ECS logs to an AWS service or AWS Partner <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_ . .. epigraph:: If you have a custom driver that isn't listed, you can fork the Amazon ECS container agent project that's `available on GitHub <https://docs.aws.amazon.com/https://github.com/aws/amazon-ecs-agent>`_ and customize it to work with that driver. We encourage you to submit pull requests for changes that you would like to have included. However, we don't currently provide support for running modified copies of this software.
-            :param options: The configuration options to send to the log driver. The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following: - **awslogs-create-group** - Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to ``false`` . .. epigraph:: Your IAM policy must include the ``logs:CreateLogGroup`` permission before you attempt to use ``awslogs-create-group`` . - **awslogs-region** - Required: Yes Specify the AWS Region that the ``awslogs`` log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. - **awslogs-group** - Required: Yes Make sure to specify a log group that the ``awslogs`` log driver sends its log streams to. - **awslogs-stream-prefix** - Required: Yes, when using Fargate.Optional when using EC2. Use the ``awslogs-stream-prefix`` option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format ``prefix-name/container-name/ecs-task-id`` . If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. - **awslogs-datetime-format** - Required: No This option defines a multiline start pattern in Python ``strftime`` format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see `awslogs-datetime-format <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-datetime-format>`_ . You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. - **awslogs-multiline-pattern** - Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see `awslogs-multiline-pattern <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-multiline-pattern>`_ . This option is ignored if ``awslogs-datetime-format`` is also configured. You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. The following options apply to all supported log drivers. - **mode** - Required: No Valid values: ``non-blocking`` | ``blocking`` This option defines the delivery mode of log messages from the container to the log driver specified using ``logDriver`` . The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the ``blocking`` mode and the flow of logs is interrupted, calls from container code to write to the ``stdout`` and ``stderr`` streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the ``non-blocking`` mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the ``max-buffer-size`` option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see `Preventing log loss with non-blocking mode in the ``awslogs`` container log driver <https://docs.aws.amazon.com/containers/preventing-log-loss-with-non-blocking-mode-in-the-awslogs-container-log-driver/>`_ . You can set a default ``mode`` for all containers in a specific AWS Region by using the ``defaultLogDriverMode`` account setting. If you don't specify the ``mode`` option or configure the account setting, Amazon ECS will default to the ``non-blocking`` mode. For more information about the account setting, see `Default log driver mode <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#default-log-driver-mode>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: On June 25, 2025, Amazon ECS changed the default log driver mode from ``blocking`` to ``non-blocking`` to prioritize task availability over logging. To continue using the ``blocking`` mode after this change, do one of the following: - Set the ``mode`` option in your container definition's ``logConfiguration`` as ``blocking`` . - Set the ``defaultLogDriverMode`` account setting to ``blocking`` . - **max-buffer-size** - Required: No Default value: ``1m`` When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost. To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url`` . When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker. Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream`` . When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream`` . When you export logs to Amazon OpenSearch Service, you can specify options like ``Name`` , ``Host`` (OpenSearch Service endpoint without protocol), ``Port`` , ``Index`` , ``Type`` , ``Aws_auth`` , ``Aws_region`` , ``Suppress_Type_Name`` , and ``tls`` . For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_ . When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region`` , ``total_file_size`` , ``upload_timeout`` , and ``use_put_object`` as options. This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+            :param options: The configuration options to send to the log driver. The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following: - **awslogs-create-group** - Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to ``false`` . .. epigraph:: Your IAM policy must include the ``logs:CreateLogGroup`` permission before you attempt to use ``awslogs-create-group`` . - **awslogs-region** - Required: Yes Specify the AWS Region that the ``awslogs`` log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. - **awslogs-group** - Required: Yes Make sure to specify a log group that the ``awslogs`` log driver sends its log streams to. - **awslogs-stream-prefix** - Required: Yes, when using Fargate.Optional when using EC2. Use the ``awslogs-stream-prefix`` option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format ``prefix-name/container-name/ecs-task-id`` . If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. - **awslogs-datetime-format** - Required: No This option defines a multiline start pattern in Python ``strftime`` format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see `awslogs-datetime-format <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-datetime-format>`_ . You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. - **awslogs-multiline-pattern** - Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see `awslogs-multiline-pattern <https://docs.aws.amazon.com/https://docs.docker.com/config/containers/logging/awslogs/#awslogs-multiline-pattern>`_ . This option is ignored if ``awslogs-datetime-format`` is also configured. You cannot configure both the ``awslogs-datetime-format`` and ``awslogs-multiline-pattern`` options. .. epigraph:: Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. The following options apply to all supported log drivers. - **mode** - Required: No Valid values: ``non-blocking`` | ``blocking`` This option defines the delivery mode of log messages from the container to the log driver specified using ``logDriver`` . The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the ``blocking`` mode and the flow of logs is interrupted, calls from container code to write to the ``stdout`` and ``stderr`` streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the ``non-blocking`` mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the ``max-buffer-size`` option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see `Preventing log loss with non-blocking mode in the ``awslogs`` container log driver <https://docs.aws.amazon.com/containers/preventing-log-loss-with-non-blocking-mode-in-the-awslogs-container-log-driver/>`_ . You can set a default ``mode`` for all containers in a specific AWS Region by using the ``defaultLogDriverMode`` account setting. If you don't specify the ``mode`` option or configure the account setting, Amazon ECS will default to the ``non-blocking`` mode. For more information about the account setting, see `Default log driver mode <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#default-log-driver-mode>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: On June 25, 2025, Amazon ECS changed the default log driver mode from ``blocking`` to ``non-blocking`` to prioritize task availability over logging. To continue using the ``blocking`` mode after this change, do one of the following: - Set the ``mode`` option in your container definition's ``logConfiguration`` as ``blocking`` . - Set the ``defaultLogDriverMode`` account setting to ``blocking`` . - **max-buffer-size** - Required: No Default value: ``10m`` When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost. To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url`` . When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker. Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream`` . When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream`` . When you export logs to Amazon OpenSearch Service, you can specify options like ``Name`` , ``Host`` (OpenSearch Service endpoint without protocol), ``Port`` , ``Index`` , ``Type`` , ``Aws_auth`` , ``Aws_region`` , ``Suppress_Type_Name`` , and ``tls`` . For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_ . When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region`` , ``total_file_size`` , ``upload_timeout`` , and ``use_put_object`` as options. This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
             :param secret_options: The secrets to pass to the log configuration. For more information, see `Specifying sensitive data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-logconfiguration.html
@@ -17327,7 +17529,7 @@ class CfnTaskDefinition(
 
             - **max-buffer-size** - Required: No
 
-            Default value: ``1m``
+            Default value: ``10m``
 
             When ``non-blocking`` mode is used, the ``max-buffer-size`` log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost.
 
@@ -19956,9 +20158,9 @@ class CfnTaskSet(
 
             A capacity provider strategy can contain a maximum of 20 capacity providers.
 
-            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+            :param base: The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service. Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used. Base value characteristics: - Only one capacity provider in a strategy can have a base defined - Default value is ``0`` if not specified - Valid range: 0 to 100,000 - Base requirements are satisfied first before weight distribution
             :param capacity_provider: The short name of the capacity provider.
-            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            :param weight: The *weight* value designates the relative percentage of the total number of tasks launched that should use the specified capacity provider. The ``weight`` value is taken into consideration after the ``base`` value, if defined, is satisfied. If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail. Weight value characteristics: - Weight is considered after the base value is satisfied - Default value is ``0`` if not specified - Valid range: 0 to 1,000 - At least one capacity provider must have a weight greater than zero - Capacity providers with weight of ``0`` cannot place tasks Task distribution logic: - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios Examples: Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met. Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskset-capacityproviderstrategyitem.html
             :exampleMetadata: fixture=_generated
@@ -19990,9 +20192,16 @@ class CfnTaskSet(
 
         @builtins.property
         def base(self) -> typing.Optional[jsii.Number]:
-            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider.
+            '''The *base* value designates how many tasks, at a minimum, to run on the specified capacity provider for each service.
 
             Only one capacity provider in a capacity provider strategy can have a *base* defined. If no value is specified, the default value of ``0`` is used.
+
+            Base value characteristics:
+
+            - Only one capacity provider in a strategy can have a base defined
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 100,000
+            - Base requirements are satisfied first before weight distribution
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskset-capacityproviderstrategyitem.html#cfn-ecs-taskset-capacityproviderstrategyitem-base
             '''
@@ -20016,7 +20225,24 @@ class CfnTaskSet(
 
             If no ``weight`` value is specified, the default value of ``0`` is used. When multiple capacity providers are specified within a capacity provider strategy, at least one of the capacity providers must have a weight value greater than zero and any capacity providers with a weight of ``0`` can't be used to place tasks. If you specify multiple capacity providers in a strategy that all have a weight of ``0`` , any ``RunTask`` or ``CreateService`` actions using the capacity provider strategy will fail.
 
-            An example scenario for using weights is defining a strategy that contains two capacity providers and both have a weight of ``1`` , then when the ``base`` is satisfied, the tasks will be split evenly across the two capacity providers. Using that same logic, if you specify a weight of ``1`` for *capacityProviderA* and a weight of ``4`` for *capacityProviderB* , then for every one task that's run using *capacityProviderA* , four tasks would use *capacityProviderB* .
+            Weight value characteristics:
+
+            - Weight is considered after the base value is satisfied
+            - Default value is ``0`` if not specified
+            - Valid range: 0 to 1,000
+            - At least one capacity provider must have a weight greater than zero
+            - Capacity providers with weight of ``0`` cannot place tasks
+
+            Task distribution logic:
+
+            - Base satisfaction: The minimum number of tasks specified by the base value are placed on that capacity provider
+            - Weight distribution: After base requirements are met, additional tasks are distributed according to weight ratios
+
+            Examples:
+
+            Equal Distribution: Two capacity providers both with weight ``1`` will split tasks evenly after base requirements are met.
+
+            Weighted Distribution: If capacityProviderA has weight ``1`` and capacityProviderB has weight ``4`` , then for every 1 task on A, 4 tasks will run on B.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskset-capacityproviderstrategyitem.html#cfn-ecs-taskset-capacityproviderstrategyitem-weight
             '''
@@ -37629,6 +37855,7 @@ class ServiceConnectTlsConfiguration:
         "snap_shot_id": "snapShotId",
         "tag_specifications": "tagSpecifications",
         "throughput": "throughput",
+        "volume_initialization_rate": "volumeInitializationRate",
         "volume_type": "volumeType",
     },
 )
@@ -37645,6 +37872,7 @@ class ServiceManagedEBSVolumeConfiguration:
         snap_shot_id: typing.Optional[builtins.str] = None,
         tag_specifications: typing.Optional[typing.Sequence[typing.Union[EBSTagSpecification, typing.Dict[builtins.str, typing.Any]]]] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional[_Size_7b441c34] = None,
         volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
     ) -> None:
         '''Represents the configuration for an ECS Service managed EBS volume.
@@ -37658,6 +37886,7 @@ class ServiceManagedEBSVolumeConfiguration:
         :param snap_shot_id: The snapshot that Amazon ECS uses to create the volume. You must specify either ``size`` or ``snapshotId``. Default: - No snapshot.
         :param tag_specifications: Specifies the tags to apply to the volume and whether to propagate those tags to the volume. Default: - No tags are specified.
         :param throughput: The throughput to provision for a volume, in MiB/s, with a maximum of 1,000 MiB/s. This parameter is only supported for the gp3 volume type. Default: - No throughput.
+        :param volume_initialization_rate: Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The volume type. Default: - ec2.EbsDeviceVolumeType.GP2
 
         :exampleMetadata: infused
@@ -37717,6 +37946,7 @@ class ServiceManagedEBSVolumeConfiguration:
             check_type(argname="argument snap_shot_id", value=snap_shot_id, expected_type=type_hints["snap_shot_id"])
             check_type(argname="argument tag_specifications", value=tag_specifications, expected_type=type_hints["tag_specifications"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_initialization_rate", value=volume_initialization_rate, expected_type=type_hints["volume_initialization_rate"])
             check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if encrypted is not None:
@@ -37737,6 +37967,8 @@ class ServiceManagedEBSVolumeConfiguration:
             self._values["tag_specifications"] = tag_specifications
         if throughput is not None:
             self._values["throughput"] = throughput
+        if volume_initialization_rate is not None:
+            self._values["volume_initialization_rate"] = volume_initialization_rate
         if volume_type is not None:
             self._values["volume_type"] = volume_type
 
@@ -37859,6 +38091,17 @@ class ServiceManagedEBSVolumeConfiguration:
         '''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_initialization_rate(self) -> typing.Optional[_Size_7b441c34]:
+        '''Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), at which to download the snapshot blocks from Amazon S3 to the volume.
+
+        Valid range is between 100 and 300 MiB/s.
+
+        :default: undefined - The volume initialization rate is not set.
+        '''
+        result = self._values.get("volume_initialization_rate")
+        return typing.cast(typing.Optional[_Size_7b441c34], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[_EbsDeviceVolumeType_6792555b]:
@@ -40936,7 +41179,10 @@ class Volume:
                 managed_eBSVolume=ecs.ServiceManagedEBSVolumeConfiguration(
                     snap_shot_id="snap-066877671789bd71b",
                     volume_type=ec2.EbsDeviceVolumeType.GP3,
-                    file_system_type=ecs.FileSystemType.XFS
+                    file_system_type=ecs.FileSystemType.XFS,
+                    # Specifies the Amazon EBS Provisioned Rate for Volume Initialization.
+                    # Valid range is between 100 and 300 MiB/s.
+                    volume_initialization_rate=Size.mebibytes(200)
                 )
             )
             
@@ -46116,6 +46362,7 @@ def _typecheckingstub__ec1192a1d20e03deef75c7fa1457b92ecf9506c5c5df97b5a4473fc3a
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    force_new_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ForceNewDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -46193,6 +46440,12 @@ def _typecheckingstub__0796264636a393525b9d077dfa82f77a09a8b352f87f00df117276bb3
 
 def _typecheckingstub__8e2bc49b758cd7bd2d560e7ef349cc9fd90122266047080d15fab50f91a3db2e(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30697d792a144902af8d5ce8bec3db2e9ebb612ed4d71a72a5ee98dcace27fce(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ForceNewDeploymentProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -46382,6 +46635,14 @@ def _typecheckingstub__ac73ec1d9d94d0e545ad276e88baeb61d67c664fed33ac2082b94f93d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__61f79b8cfbfd89da452531f374d2c8ed25d98693945205dbbe670de811c5ed06(
+    *,
+    enable_force_new_deployment: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    force_new_deployment_nonce: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__251c3999c1586967f7c9091782e6a113831e05b5f853b910cad8c8e75f654def(
     *,
     advanced_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.AdvancedConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -46564,6 +46825,7 @@ def _typecheckingstub__7f93658ccdbf3f250d0d1ce12224e9eddaef71a8f664c6a279122f60d
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    force_new_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ForceNewDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -48888,6 +49150,7 @@ def _typecheckingstub__82a45c504d50ae45d687364dad808578c5d6f56116cf95de590987e67
     snap_shot_id: typing.Optional[builtins.str] = None,
     tag_specifications: typing.Optional[typing.Sequence[typing.Union[EBSTagSpecification, typing.Dict[builtins.str, typing.Any]]]] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_Size_7b441c34] = None,
     volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
 ) -> None:
     """Type checking stubs"""

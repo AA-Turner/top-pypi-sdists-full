@@ -6,7 +6,11 @@ from typing import Any
 from docstring_parser.common import DocstringAttr, DocstringParam
 
 from pydoclint.utils.edge_case_error import EdgeCaseError
-from pydoclint.utils.generic import specialEqual, stripQuotes
+from pydoclint.utils.generic import (
+    specialEqual,
+    stripCommentsFromTypeHints,
+    stripQuotes,
+)
 from pydoclint.utils.unparser_custom import unparseName
 
 
@@ -102,24 +106,34 @@ class Arg:
         typeHint: str | None = '' if anno is None else unparseName(anno)
         assert typeHint is not None  # to help mypy better understand type
 
-        defaultValue = argToDefaultMapping.get(astArg)
+        if astArg in argToDefaultMapping:
+            # This means there IS a default value, even if it's None
+            defaultValue = argToDefaultMapping[astArg]
+            return Arg(
+                name=astArg.arg,
+                typeHint=f'{typeHint}, default={unparseName(defaultValue)}',
+            )
 
-        # Extract the actual default value
-        finalDefault = None
-        if defaultValue is not None:
-            if isinstance(defaultValue, ast.Constant):
-                finalDefault = defaultValue.value
-            else:
-                # Fallback to unparsing if it's not a simple constant
-                finalDefault = unparseName(defaultValue)
+        # This means there is no default value, not even a "None"
+        return Arg(name=astArg.arg, typeHint=typeHint)
 
-        typeHintWithDefault = (
-            typeHint
-            if finalDefault is None
-            else f'{typeHint}, default={finalDefault!r}'
-        )
+    @classmethod
+    def fromArgWithMapping(
+            cls,
+            arg: 'Arg',
+            argToDefaultMapping: dict[str, ast.expr],
+    ) -> 'Arg':
+        """Construct an Arg object from another Arg with its default value"""
+        if arg.name in argToDefaultMapping:
+            # This means there IS a default value, even if it's None
+            defaultValue = argToDefaultMapping[arg.name]
+            return Arg(
+                name=arg.name,
+                typeHint=f'{arg.typeHint}, default={unparseName(defaultValue)}',
+            )
 
-        return Arg(name=astArg.arg, typeHint=typeHintWithDefault)
+        # This means there is no default value, not even a "None"
+        return arg
 
     @classmethod
     def fromAstAnnAssign(cls, astAnnAssign: ast.AnnAssign) -> 'Arg':
@@ -367,7 +381,14 @@ class ArgList:
         for selfArg in self.infoList:
             selfArgTypeHint: str = selfArg.typeHint
             otherArgTypeHint: str = other.lookup[selfArg.name]
-            if selfArgTypeHint != otherArgTypeHint:
+
+            # Here we use unparseName(ast.parse(...)) in order to get rid of
+            # the comments at the end of type hints,
+            # such as: `int, default=42  # noqa: E501`
+            if not specialEqual(
+                stripCommentsFromTypeHints(selfArgTypeHint),
+                stripCommentsFromTypeHints(otherArgTypeHint),
+            ):
                 result.append(selfArg)
 
         return result

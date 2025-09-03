@@ -3720,7 +3720,7 @@ class QueueProps:
         :param enforce_ssl: Enforce encryption of data in transit. Default: false
         :param fifo: Whether this a first-in-first-out (FIFO) queue. Default: false, unless queueName ends in '.fifo' or 'contentBasedDeduplication' is true.
         :param fifo_throughput_limit: For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group. (Only applies to FIFO queues.) Default: FifoThroughputLimit.PER_QUEUE
-        :param max_message_size_bytes: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer value from 1024 bytes (1 KiB) to 262144 bytes (256 KiB). The default value is 262144 (256 KiB). Default: 256KiB
+        :param max_message_size_bytes: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer value from 1024 bytes (1 KiB) to 1048576 bytes (1 MiB). The default value is 1048576 (1 MiB). Default: 1MiB
         :param queue_name: A name for the queue. If specified and this is a FIFO queue, must end in the string '.fifo'. Default: CloudFormation-generated name
         :param receive_message_wait_time: Default wait time for ReceiveMessage calls. Does not wait if set to 0, otherwise waits this amount of seconds by default for messages to arrive. For more information, see Amazon SQS Long Poll. Default: 0
         :param redrive_allow_policy: The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues. Default: - All source queues can designate this queue as their dead-letter queue.
@@ -3929,10 +3929,10 @@ class QueueProps:
     def max_message_size_bytes(self) -> typing.Optional[jsii.Number]:
         '''The limit of how many bytes that a message can contain before Amazon SQS rejects it.
 
-        You can specify an integer value from 1024 bytes (1 KiB) to 262144 bytes
-        (256 KiB). The default value is 262144 (256 KiB).
+        You can specify an integer value from 1024 bytes (1 KiB) to 1048576 bytes
+        (1 MiB). The default value is 1048576 (1 MiB).
 
-        :default: 256KiB
+        :default: 1MiB
         '''
         result = self._values.get("max_message_size_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4210,7 +4210,7 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
         :param enforce_ssl: Enforce encryption of data in transit. Default: false
         :param fifo: Whether this a first-in-first-out (FIFO) queue. Default: false, unless queueName ends in '.fifo' or 'contentBasedDeduplication' is true.
         :param fifo_throughput_limit: For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group. (Only applies to FIFO queues.) Default: FifoThroughputLimit.PER_QUEUE
-        :param max_message_size_bytes: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer value from 1024 bytes (1 KiB) to 262144 bytes (256 KiB). The default value is 262144 (256 KiB). Default: 256KiB
+        :param max_message_size_bytes: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer value from 1024 bytes (1 KiB) to 1048576 bytes (1 MiB). The default value is 1048576 (1 MiB). Default: 1MiB
         :param queue_name: A name for the queue. If specified and this is a FIFO queue, must end in the string '.fifo'. Default: CloudFormation-generated name
         :param receive_message_wait_time: Default wait time for ReceiveMessage calls. Does not wait if set to 0, otherwise waits this amount of seconds by default for messages to arrive. For more information, see Amazon SQS Long Poll. Default: 0
         :param redrive_allow_policy: The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues. Default: - All source queues can designate this queue as their dead-letter queue.

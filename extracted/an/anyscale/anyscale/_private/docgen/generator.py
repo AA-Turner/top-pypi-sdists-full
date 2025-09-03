@@ -20,7 +20,11 @@ from anyscale._private.models.model_base import (
     ModelEnumType,
     ResultIterator,
 )
-from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
+from anyscale.commands.util import (
+    AnyscaleCommand,
+    DeprecatedAnyscaleCommand,
+    LegacyAnyscaleCommand,
+)
 
 
 ModelType = Union[ModelBaseType, ModelEnumType]
@@ -301,13 +305,20 @@ class MarkdownGenerator:
                 raise ValueError(
                     f"Config model '{t.__name__}' is missing a '__doc_yaml_example__'."
                 )
-        if isinstance(t, AnyscaleCommand) and not cli_example:
+        if (
+            isinstance(
+                t, (AnyscaleCommand, DeprecatedAnyscaleCommand, LegacyAnyscaleCommand)
+            )
+            and not cli_example
+        ):
             raise ValueError(
                 f"CLI command '{t.name}' is missing a '__doc_cli_example__'."
             )
         if (
             not isinstance(t, ModelBaseType)
-            and not isinstance(t, AnyscaleCommand)
+            and not isinstance(
+                t, (AnyscaleCommand, DeprecatedAnyscaleCommand, LegacyAnyscaleCommand)
+            )
             and not py_example
         ):
             raise ValueError(
@@ -321,8 +332,10 @@ class MarkdownGenerator:
             try:
                 yaml.safe_load(yaml_example)
             except Exception as e:  # noqa: BLE001
+                # For CLI commands, use t.name; for SDK functions/models, use t.__name__
+                name = getattr(t, "name", getattr(t, "__name__", str(t)))
                 raise ValueError(
-                    f"'{t.__name__}.__doc_yaml_example__' is not valid YAML syntax"
+                    f"'{name}.__doc_yaml_example__' is not valid YAML syntax"
                 ) from e
 
             yaml_example = yaml_example.strip("\n")
@@ -334,8 +347,10 @@ class MarkdownGenerator:
             try:
                 ast.parse(py_example)
             except Exception as e:  # noqa: BLE001
+                # For CLI commands, use t.name; for SDK functions/models, use t.__name__
+                name = getattr(t, "name", getattr(t, "__name__", str(t)))
                 raise ValueError(
-                    f"'{t.__name__}.__doc_py_example__' is not valid Python syntax"
+                    f"'{name}.__doc_py_example__' is not valid Python syntax"
                 ) from e
 
             py_example = py_example.strip("\n")
@@ -413,7 +428,7 @@ class MarkdownGenerator:
 
         return md
 
-    def _gen_markdown_for_cli_command(
+    def _gen_markdown_for_cli_command(  # noqa: PLR0912
         self, c: click.Command, *, cli_prefix: str
     ) -> str:
         """Generate a markdown section for a CLI command.
@@ -438,9 +453,31 @@ class MarkdownGenerator:
             else:
                 new_c = c.get_new_cli()
                 new_cli_prefix = c.get_new_prefix()
-                md += ":::warning\n"
-                md += f"This command is deprecated. Upgrade to [{new_cli_prefix} {new_c.name}]({self._get_cli_anchor(new_c, new_cli_prefix)}). \n"
-                md += ":::\n"
+                if new_c and new_cli_prefix:
+                    md += ":::warning\n"
+                    md += f"This command is deprecated. Upgrade to [{new_cli_prefix} {new_c.name}]({self._get_cli_anchor(new_c, new_cli_prefix)}). \n"
+                    md += ":::\n"
+        elif isinstance(c, DeprecatedAnyscaleCommand):
+            md = f'### `{cli_prefix} {c.name}` <span class="label-h3 label-deprecated">Deprecated</span>\n'
+            md += ":::warning[Deprecated]\n"
+            # Build deprecation message similar to the command itself
+            parts = []
+            if hasattr(c, "__deprecation_message__") and c.__deprecation_message__:
+                parts.append(c.__deprecation_message__)
+            else:
+                parts.append(f"Command '{c.name}' is deprecated")
+
+            if hasattr(c, "__removal_date__") and c.__removal_date__:
+                date_str = c._format_removal_date(c.__removal_date__)  # noqa: SLF001
+                if date_str:
+                    parts.append(f"and will be removed on {date_str}")
+
+            if hasattr(c, "__alternative__") and c.__alternative__:
+                parts.append(f"Please {c.__alternative__}")
+
+            deprecation_msg = ". ".join(parts) + "."
+            md += deprecation_msg + "\n"
+            md += ":::\n"
         elif isinstance(c, AnyscaleCommand) and c.is_alpha:
             md = f'### `{cli_prefix} {c.name}` <span class="label-h3 label-alpha">Alpha</span>\n'
             md += ":::warning\n"
@@ -478,7 +515,8 @@ class MarkdownGenerator:
             md += "\n"
 
         should_have_example = not (
-            isinstance(c, LegacyAnyscaleCommand) or cli_prefix in CLI_NO_EXAMPLES
+            isinstance(c, (LegacyAnyscaleCommand, DeprecatedAnyscaleCommand))
+            or cli_prefix in CLI_NO_EXAMPLES
         )
         has_cli_example = hasattr(c, "__doc_cli_example__")
         if should_have_example or has_cli_example:

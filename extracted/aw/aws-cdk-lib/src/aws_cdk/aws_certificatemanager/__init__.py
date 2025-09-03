@@ -146,6 +146,17 @@ acm.PrivateCertificate(self, "PrivateCertificate",
 )
 ```
 
+## Requesting public SSL/TLS certificates exportable to use anywhere
+
+AWS Certificate Manager can issue an exportable public certificate. There is a charge at certificate issuance and again when the certificate renews. See [opting out of certificate transparency logging](https://docs.aws.amazon.com/acm/latest/userguide/acm-exportable-certificates.html) for details.
+
+```python
+acm.Certificate(self, "Certificate",
+    domain_name="test.example.com",
+    allow_export=True
+)
+```
+
 ## Requesting certificates without transparency logging
 
 Transparency logging can be opted out of for AWS Certificate Manager certificates. See [opting out of certificate transparency logging](https://docs.aws.amazon.com/acm/latest/userguide/acm-bestpractices.html#best-practices-transparency) for limits.
@@ -276,6 +287,7 @@ from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
     jsii_struct_bases=[],
     name_mapping={
         "domain_name": "domainName",
+        "allow_export": "allowExport",
         "certificate_name": "certificateName",
         "key_algorithm": "keyAlgorithm",
         "subject_alternative_names": "subjectAlternativeNames",
@@ -288,6 +300,7 @@ class CertificateProps:
         self,
         *,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         certificate_name: typing.Optional[builtins.str] = None,
         key_algorithm: typing.Optional["KeyAlgorithm"] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -297,6 +310,7 @@ class CertificateProps:
         '''Properties for your certificate.
 
         :param domain_name: Fully-qualified domain name to request a certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param certificate_name: The Certificate name. Since the Certificate resource doesn't support providing a physical name, the value provided here will be recorded in the ``Name`` tag Default: the full, absolute path of this construct
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
@@ -307,27 +321,27 @@ class CertificateProps:
 
         Example::
 
-            # To use your own domain name in a Distribution, you must associate a certificate
-            import aws_cdk.aws_certificatemanager as acm
-            import aws_cdk.aws_route53 as route53
-            
-            # hosted_zone: route53.HostedZone
-            
-            # my_bucket: s3.Bucket
-            
-            my_certificate = acm.Certificate(self, "mySiteCert",
-                domain_name="www.example.com",
-                validation=acm.CertificateValidation.from_dns(hosted_zone)
+            example_com = route53.HostedZone(self, "ExampleCom",
+                zone_name="example.com"
             )
-            cloudfront.Distribution(self, "myDist",
-                default_behavior=cloudfront.BehaviorOptions(origin=origins.S3Origin(my_bucket)),
-                domain_names=["www.example.com"],
-                certificate=my_certificate
+            example_net = route53.HostedZone(self, "ExampleNet",
+                zone_name="example.net"
+            )
+            
+            cert = acm.Certificate(self, "Certificate",
+                domain_name="test.example.com",
+                subject_alternative_names=["cool.example.com", "test.example.net"],
+                validation=acm.CertificateValidation.from_dns_multi_zone({
+                    "test.example.com": example_com,
+                    "cool.example.com": example_com,
+                    "test.example.net": example_net
+                })
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0454180af2ed6575d11cf361cd5374f722ba32d4007970472aca57751d85258f)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
             check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
             check_type(argname="argument subject_alternative_names", value=subject_alternative_names, expected_type=type_hints["subject_alternative_names"])
@@ -336,6 +350,8 @@ class CertificateProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_name": domain_name,
         }
+        if allow_export is not None:
+            self._values["allow_export"] = allow_export
         if certificate_name is not None:
             self._values["certificate_name"] = certificate_name
         if key_algorithm is not None:
@@ -356,6 +372,18 @@ class CertificateProps:
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_export(self) -> typing.Optional[builtins.bool]:
+        '''Enable or disable export of this certificate.
+
+        If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews.
+        Ref: https://aws.amazon.com/certificate-manager/pricing
+
+        :default: false
+        '''
+        result = self._values.get("allow_export")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def certificate_name(self) -> typing.Optional[builtins.str]:
@@ -1511,6 +1539,7 @@ class CfnCertificateProps:
     jsii_struct_bases=[CertificateProps],
     name_mapping={
         "domain_name": "domainName",
+        "allow_export": "allowExport",
         "certificate_name": "certificateName",
         "key_algorithm": "keyAlgorithm",
         "subject_alternative_names": "subjectAlternativeNames",
@@ -1528,6 +1557,7 @@ class DnsValidatedCertificateProps(CertificateProps):
         self,
         *,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         certificate_name: typing.Optional[builtins.str] = None,
         key_algorithm: typing.Optional["KeyAlgorithm"] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1542,6 +1572,7 @@ class DnsValidatedCertificateProps(CertificateProps):
         '''Properties to create a DNS validated certificate managed by AWS Certificate Manager.
 
         :param domain_name: Fully-qualified domain name to request a certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param certificate_name: The Certificate name. Since the Certificate resource doesn't support providing a physical name, the value provided here will be recorded in the ``Name`` tag Default: the full, absolute path of this construct
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
@@ -1573,6 +1604,7 @@ class DnsValidatedCertificateProps(CertificateProps):
                 hosted_zone=hosted_zone,
             
                 # the properties below are optional
+                allow_export=False,
                 certificate_name="certificateName",
                 cleanup_route53_records=False,
                 custom_resource_role=role,
@@ -1587,6 +1619,7 @@ class DnsValidatedCertificateProps(CertificateProps):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8749c95da859ba878861eff7c4231de11fa86681f0df8dbe02a3b4e4f5128b6)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
             check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
             check_type(argname="argument subject_alternative_names", value=subject_alternative_names, expected_type=type_hints["subject_alternative_names"])
@@ -1601,6 +1634,8 @@ class DnsValidatedCertificateProps(CertificateProps):
             "domain_name": domain_name,
             "hosted_zone": hosted_zone,
         }
+        if allow_export is not None:
+            self._values["allow_export"] = allow_export
         if certificate_name is not None:
             self._values["certificate_name"] = certificate_name
         if key_algorithm is not None:
@@ -1629,6 +1664,18 @@ class DnsValidatedCertificateProps(CertificateProps):
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_export(self) -> typing.Optional[builtins.bool]:
+        '''Enable or disable export of this certificate.
+
+        If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews.
+        Ref: https://aws.amazon.com/certificate-manager/pricing
+
+        :default: false
+        '''
+        result = self._values.get("allow_export")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def certificate_name(self) -> typing.Optional[builtins.str]:
@@ -1999,6 +2046,7 @@ class PrivateCertificate(
         *,
         certificate_authority: _ICertificateAuthority_26727cab,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         key_algorithm: typing.Optional[KeyAlgorithm] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -2007,6 +2055,7 @@ class PrivateCertificate(
         :param id: -
         :param certificate_authority: Private certificate authority (CA) that will be used to issue the certificate.
         :param domain_name: Fully-qualified domain name to request a private certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. When you request a private PKI certificate signed by a CA from AWS Private CA, the specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your private certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
         '''
@@ -2017,6 +2066,7 @@ class PrivateCertificate(
         props = PrivateCertificateProps(
             certificate_authority=certificate_authority,
             domain_name=domain_name,
+            allow_export=allow_export,
             key_algorithm=key_algorithm,
             subject_alternative_names=subject_alternative_names,
         )
@@ -2122,6 +2172,7 @@ class PrivateCertificate(
     name_mapping={
         "certificate_authority": "certificateAuthority",
         "domain_name": "domainName",
+        "allow_export": "allowExport",
         "key_algorithm": "keyAlgorithm",
         "subject_alternative_names": "subjectAlternativeNames",
     },
@@ -2132,6 +2183,7 @@ class PrivateCertificateProps:
         *,
         certificate_authority: _ICertificateAuthority_26727cab,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         key_algorithm: typing.Optional[KeyAlgorithm] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -2139,6 +2191,7 @@ class PrivateCertificateProps:
 
         :param certificate_authority: Private certificate authority (CA) that will be used to issue the certificate.
         :param domain_name: Fully-qualified domain name to request a private certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. When you request a private PKI certificate signed by a CA from AWS Private CA, the specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your private certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
 
@@ -2160,12 +2213,15 @@ class PrivateCertificateProps:
             type_hints = typing.get_type_hints(_typecheckingstub__74588c43933e5f34a3203601cc823ca974676f71701280dcd43e9f037bba43e3)
             check_type(argname="argument certificate_authority", value=certificate_authority, expected_type=type_hints["certificate_authority"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
             check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
             check_type(argname="argument subject_alternative_names", value=subject_alternative_names, expected_type=type_hints["subject_alternative_names"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "certificate_authority": certificate_authority,
             "domain_name": domain_name,
         }
+        if allow_export is not None:
+            self._values["allow_export"] = allow_export
         if key_algorithm is not None:
             self._values["key_algorithm"] = key_algorithm
         if subject_alternative_names is not None:
@@ -2187,6 +2243,18 @@ class PrivateCertificateProps:
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_export(self) -> typing.Optional[builtins.bool]:
+        '''Enable or disable export of this certificate.
+
+        If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews.
+        Ref: https://aws.amazon.com/certificate-manager/pricing
+
+        :default: false
+        '''
+        result = self._values.get("allow_export")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def key_algorithm(self) -> typing.Optional[KeyAlgorithm]:
@@ -2278,6 +2346,7 @@ class Certificate(
         id: builtins.str,
         *,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         certificate_name: typing.Optional[builtins.str] = None,
         key_algorithm: typing.Optional[KeyAlgorithm] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2288,6 +2357,7 @@ class Certificate(
         :param scope: -
         :param id: -
         :param domain_name: Fully-qualified domain name to request a certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param certificate_name: The Certificate name. Since the Certificate resource doesn't support providing a physical name, the value provided here will be recorded in the ``Name`` tag Default: the full, absolute path of this construct
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
@@ -2300,6 +2370,7 @@ class Certificate(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CertificateProps(
             domain_name=domain_name,
+            allow_export=allow_export,
             certificate_name=certificate_name,
             key_algorithm=key_algorithm,
             subject_alternative_names=subject_alternative_names,
@@ -2437,6 +2508,7 @@ class DnsValidatedCertificate(
             hosted_zone=hosted_zone,
         
             # the properties below are optional
+            allow_export=False,
             certificate_name="certificateName",
             cleanup_route53_records=False,
             custom_resource_role=role,
@@ -2460,6 +2532,7 @@ class DnsValidatedCertificate(
         region: typing.Optional[builtins.str] = None,
         route53_endpoint: typing.Optional[builtins.str] = None,
         domain_name: builtins.str,
+        allow_export: typing.Optional[builtins.bool] = None,
         certificate_name: typing.Optional[builtins.str] = None,
         key_algorithm: typing.Optional[KeyAlgorithm] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2475,6 +2548,7 @@ class DnsValidatedCertificate(
         :param region: AWS region that will host the certificate. This is needed especially for certificates used for CloudFront distributions, which require the region to be us-east-1. Default: the region the stack is deployed in.
         :param route53_endpoint: An endpoint of Route53 service, which is not necessary as AWS SDK could figure out the right endpoints for most regions, but for some regions such as those in aws-cn partition, the default endpoint is not working now, hence the right endpoint need to be specified through this prop. Route53 is not been officially launched in China, it is only available for AWS internal accounts now. To make DnsValidatedCertificate work for internal accounts now, a special endpoint needs to be provided. Default: - The AWS SDK will determine the Route53 endpoint to use based on region
         :param domain_name: Fully-qualified domain name to request a certificate for. May contain wildcards, such as ``*.domain.com``.
+        :param allow_export: Enable or disable export of this certificate. If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews. Ref: https://aws.amazon.com/certificate-manager/pricing Default: false
         :param certificate_name: The Certificate name. Since the Certificate resource doesn't support providing a physical name, the value provided here will be recorded in the ``Name`` tag Default: the full, absolute path of this construct
         :param key_algorithm: Specifies the algorithm of the public and private key pair that your certificate uses to encrypt data. Default: KeyAlgorithm.RSA_2048
         :param subject_alternative_names: Alternative domain names on your certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
@@ -2494,6 +2568,7 @@ class DnsValidatedCertificate(
             region=region,
             route53_endpoint=route53_endpoint,
             domain_name=domain_name,
+            allow_export=allow_export,
             certificate_name=certificate_name,
             key_algorithm=key_algorithm,
             subject_alternative_names=subject_alternative_names,
@@ -2640,6 +2715,7 @@ publication.publish()
 def _typecheckingstub__0454180af2ed6575d11cf361cd5374f722ba32d4007970472aca57751d85258f(
     *,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     certificate_name: typing.Optional[builtins.str] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2828,6 +2904,7 @@ def _typecheckingstub__0e42a641d895acaee35ba9ec88335a357b8cbfb64b98867f1792ccd63
 def _typecheckingstub__f8749c95da859ba878861eff7c4231de11fa86681f0df8dbe02a3b4e4f5128b6(
     *,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     certificate_name: typing.Optional[builtins.str] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2854,6 +2931,7 @@ def _typecheckingstub__f15cee4bdac8e70000027c8ca1386d49408a399d3919aa965c46bb68f
     *,
     certificate_authority: _ICertificateAuthority_26727cab,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -2872,6 +2950,7 @@ def _typecheckingstub__74588c43933e5f34a3203601cc823ca974676f71701280dcd43e9f037
     *,
     certificate_authority: _ICertificateAuthority_26727cab,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -2883,6 +2962,7 @@ def _typecheckingstub__64139efa4ed87482ec95b7e38ad6cf94c6873d02b05ba33c374316868
     id: builtins.str,
     *,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     certificate_name: typing.Optional[builtins.str] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2910,6 +2990,7 @@ def _typecheckingstub__9ce11c00a812f11e5a7783956e3e90d7c684153bef62852779a324183
     region: typing.Optional[builtins.str] = None,
     route53_endpoint: typing.Optional[builtins.str] = None,
     domain_name: builtins.str,
+    allow_export: typing.Optional[builtins.bool] = None,
     certificate_name: typing.Optional[builtins.str] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,

@@ -39,6 +39,7 @@ use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::alt::types::pydantic::PydanticMetadata;
+use crate::alt::types::pydantic::PydanticModelKind;
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassExpr;
 use crate::binding::base_class::BaseClassGeneric;
@@ -189,14 +190,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Named tuples do not support multiple inheritance".to_owned(),
             );
         }
-        // collect pydantic metadata
-        let (pydantic_validate_by_alias, pydantic_validate_by_name) =
-            self.extract_pydantic_validation_alias(&keywords);
+
         let pydantic_metadata = self.pydantic_metadata(
             &bases_with_metadata,
             pydantic_metadata_binding,
-            pydantic_validate_by_alias,
-            pydantic_validate_by_name,
+            &keywords,
+            errors,
+            cls.range(),
         );
 
         let is_typed_dict = has_typed_dict_base_class
@@ -288,6 +288,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let keywords =
             keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
+        // get pydantic model info. A root model is by default also a base model, while not every base model is a root model
+        let pydantic_model_kind = pydantic_metadata
+            .as_ref()
+            .map(|m| m.pydantic_model_kind.clone());
+
         ClassMetadata::new(
             bases,
             metaclass,
@@ -303,7 +308,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            pydantic_metadata.is_some(),
+            pydantic_model_kind,
         )
     }
 
@@ -376,27 +381,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         protocol_metadata
     }
 
-    fn extract_pydantic_validation_alias(
-        &self,
-        keywords: &Vec<(Name, Annotation)>,
-    ) -> (bool, bool) {
-        let mut pydantic_validate_by_alias = true;
-        let mut pydantic_validate_by_name = false;
-        // collect pydantic validation data from class keywords
-        for (name, ann) in keywords {
-            match name.as_str() {
-                "validate_by_alias" => {
-                    pydantic_validate_by_alias = ann.get_type().as_bool().unwrap_or(true);
-                }
-                "validate_by_name" => {
-                    pydantic_validate_by_name = ann.get_type().as_bool().unwrap_or(false);
-                }
-                _ => {}
-            }
-        }
-        (pydantic_validate_by_alias, pydantic_validate_by_name)
-    }
-
     fn named_tuple_metadata(
         &self,
         cls: &Class,
@@ -423,28 +407,105 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         pydantic_metadata_binding: &PydanticMetadataBinding,
-        class_validate_by_alias: bool,
-        class_validate_by_name: bool,
+        keywords: &[(Name, Annotation)],
+        errors: &ErrorCollector,
+        range: TextRange,
     ) -> Option<PydanticMetadata> {
         let has_pydantic_base_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
                 base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
             });
 
-        let is_pydantic_model = has_pydantic_base_model_base_class
+        let is_pydantic_base_model = has_pydantic_base_model_base_class
             || bases_with_metadata
                 .iter()
-                .any(|(_, metadata)| metadata.is_pydantic_model());
+                .any(|(_, metadata)| metadata.is_pydantic_base_model());
 
-        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
-        match pydantic_metadata_binding {
-            PydanticMetadataBinding { frozen } if is_pydantic_model => Some(PydanticMetadata {
-                frozen: *frozen,
-                class_validate_by_alias,
-                class_validate_by_name,
-            }),
-            _ => None,
+        if !is_pydantic_base_model {
+            return None;
         }
+
+        let has_pydantic_root_model_base_class =
+            bases_with_metadata.iter().any(|(base_class_object, _)| {
+                base_class_object.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
+            });
+
+        let has_root_model_kind = bases_with_metadata.iter().any(|(_, metadata)| {
+            matches!(
+                metadata.pydantic_model_kind(),
+                Some(PydanticModelKind::RootModel)
+            )
+        });
+
+        let pydantic_model_kind = if has_pydantic_root_model_base_class || has_root_model_kind {
+            PydanticModelKind::RootModel
+        } else {
+            PydanticModelKind::BaseModel
+        };
+
+        // Extract validate_by_alias & validate_by_name
+        let class_validate_by_alias = keywords
+            .iter()
+            .find(|(name, _)| name.as_str() == "validate_by_alias")
+            .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
+
+        let class_validate_by_name = keywords
+            .iter()
+            .find(|(name, _)| name.as_str() == "validate_by_name")
+            .is_some_and(|(_, ann)| ann.get_type().as_bool().unwrap_or(false));
+
+        let PydanticMetadataBinding { frozen, extra } = pydantic_metadata_binding;
+
+        // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
+        // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
+        // If we were to consider type narrowing in the "allow" case, we would need to propagate more data
+        // and narrow downstream. We are not following the narrowing approach in v1 though, but should discuss it
+        // for v2.
+        let extra = match keywords.iter().find(|(name, _)| name.as_str() == "extra") {
+            Some((_, ann)) => match ann.get_type() {
+                Type::Literal(Lit::Str(s)) => match s.as_str() {
+                    "allow" | "ignore" => true,
+                    "forbid" => false,
+                    _ => {
+                        self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidLiteral),
+                    "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
+                        .to_owned(),
+                );
+                        true
+                    }
+                },
+                _ => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidLiteral),
+                        "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
+                            .to_owned(),
+                    );
+                    true
+                }
+            },
+            None => {
+                // No "extra" keyword in the class-level keywords,
+                // so fallback to configdict
+                if let Some(configdict_extra) = extra {
+                    *configdict_extra
+                } else {
+                    true
+                }
+            }
+        };
+
+        Some(PydanticMetadata {
+            frozen: *frozen,
+            class_validate_by_alias,
+            class_validate_by_name,
+            extra,
+            pydantic_model_kind,
+        })
     }
 
     fn typed_dict_metadata(
@@ -699,6 +760,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Inject frozen data from pydantic model
             if let Some(pydantic) = pydantic_metadata {
                 kws.frozen = pydantic.frozen || kws.frozen;
+                kws.extra = pydantic.extra;
             }
 
             dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));

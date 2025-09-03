@@ -242,13 +242,31 @@ class Transformers(Model):
         if (
             FlaxPreTrainedModel is not None
             and isinstance(model, FlaxPreTrainedModel)
-        ):
+        ):  # pragma: no cover
             self.tensor_library_name = "jax"
+            warnings.warn("""
+                Support for `jax` has been deprecated and will be removed in
+                version 1.4.0 of Outlines. Please use `torch` instead.
+                Transformers models using `jax` do not support structured
+                generation.
+                """,
+                DeprecationWarning,
+                stacklevel=2,
+            )
         elif (
             TFPreTrainedModel is not None
             and isinstance(model, TFPreTrainedModel)
-        ):
+        ):  # pragma: no cover
             self.tensor_library_name = "tensorflow"
+            warnings.warn("""
+                Support for `tensorflow` has been deprecated and will be removed in
+                version 1.4.0 of Outlines. Please use `torch` instead.
+                Transformers models using `tensorflow` do not support structured
+                generation.
+                """,
+                DeprecationWarning,
+                stacklevel=2,
+            )
         else:
             self.tensor_library_name = "torch"
 

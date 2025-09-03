@@ -86,7 +86,7 @@ NAMESPACE_HEADING = """
 BIGCONFIG_REPORT = TypeVar('BIGCONFIG_REPORT', bound='BigConfigReport')
 REPORTS: List[BIGCONFIG_REPORT] = []
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def metric_type_not_supported(invalid: InvalidAssetMetricDefinitionApplication) -> bool:

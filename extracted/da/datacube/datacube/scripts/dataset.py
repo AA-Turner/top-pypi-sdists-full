@@ -7,8 +7,16 @@ import datetime
 import json
 import logging
 import sys
+import uuid
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import (
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Sequence,
+)
 from textwrap import dedent
 from typing import Any, Literal, cast
 from uuid import UUID
@@ -91,7 +99,7 @@ def dataset_stream(doc_stream, ds_resolve) -> Iterator:
         yield dataset
 
 
-def load_datasets_for_update(doc_stream: Iterable, index: Index) -> Iterator:
+def load_datasets_for_update(doc_stream: Iterable, index: Index) -> Generator[tuple]:
     """Consume stream of dataset documents, associate each to a product by looking
     up existing dataset in the index. Datasets not in the database will be
     logged.
@@ -797,10 +805,14 @@ def count_cmd(
     is_flag=True,
     default=False,
 )
-@click.argument("ids", nargs=-1)
+@click.argument("ids", nargs=-1, type=click.UUID)
 @ui.pass_index()
 def archive_cmd(
-    index: Index, archive_derived: bool, dry_run: bool, all_ds: bool, ids: list[str]
+    index: Index,
+    archive_derived: bool,
+    dry_run: bool,
+    all_ds: bool,
+    ids: Sequence[uuid.UUID],
 ) -> None:
     if not ids and not all_ds:
         echo("Error: no datasets provided\n", err=True)
@@ -813,10 +825,7 @@ def archive_cmd(
             index.datasets.get_all_dataset_ids(archived=False), True
         )
     else:
-        datasets_for_archive = {
-            UUID(dataset_id): exists
-            for dataset_id, exists in zip(ids, index.datasets.bulk_has(ids))
-        }
+        datasets_for_archive = dict(zip(ids, index.datasets.bulk_has(ids)))
 
         if False in datasets_for_archive.values():
             for dataset_id, exists in datasets_for_archive.items():
@@ -873,7 +882,7 @@ def archive_cmd(
     is_flag=True,
     default=False,
 )
-@click.argument("ids", nargs=-1)
+@click.argument("ids", nargs=-1, type=click.UUID)
 @ui.pass_index()
 def restore_cmd(
     index: Index,
@@ -881,7 +890,7 @@ def restore_cmd(
     derived_tolerance_seconds: int,
     dry_run: bool,
     all_ds: bool,
-    ids: list[str],
+    ids: Sequence[uuid.UUID],
 ) -> None:
     if not ids and not all_ds:
         echo("Error: no datasets provided\n", err=True)
@@ -899,7 +908,7 @@ def restore_cmd(
             sys.exit(-1)
 
         to_process = (
-            _get_derived_set(index, UUID(id_)) if restore_derived else {target_dataset}
+            _get_derived_set(index, id_) if restore_derived else {target_dataset}
         )
         _LOG.debug("%s selected", len(to_process))
 
@@ -946,10 +955,10 @@ def restore_cmd(
     default=False,
     help="Allow active datasets to be deleted (default: false)",
 )
-@click.argument("ids", nargs=-1)
+@click.argument("ids", nargs=-1, type=click.UUID)
 @ui.pass_index()
 def purge_cmd(
-    index: Index, dry_run: bool, all_ds: bool, force: bool, ids: list[str]
+    index: Index, dry_run: bool, all_ds: bool, force: bool, ids: Sequence[uuid.UUID]
 ) -> None:
     if not ids and not all_ds:
         echo("Error: no datasets provided\n", err=True)
@@ -961,10 +970,7 @@ def purge_cmd(
             index.datasets.get_all_dataset_ids(archived=True), True
         )
     else:
-        datasets_for_purge = {
-            UUID(dataset_id): exists
-            for dataset_id, exists in zip(ids, index.datasets.bulk_has(ids))
-        }
+        datasets_for_purge = dict(zip(ids, index.datasets.bulk_has(ids)))
 
         # Check for non-existent datasets
         if False in datasets_for_purge.values():

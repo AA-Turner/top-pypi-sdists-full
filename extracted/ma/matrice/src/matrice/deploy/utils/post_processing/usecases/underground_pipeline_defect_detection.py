@@ -42,21 +42,17 @@ class UndergroundPipelineDefectConfig(BaseConfig):
     confidence_threshold: float = 0.6
 
     usecase_categories: List[str] = field(
-        default_factory=lambda: ["crack", "hole", "impurity"]
+        default_factory=lambda: ['defect', 'crack', 'hole', 'obstacle']
     )
 
     target_categories: List[str] = field(
-        default_factory=lambda: ["crack", "hole", "impurity"]
+        default_factory=lambda: ['defect', 'crack', 'hole', 'obstacle']
     )
 
     alert_config: Optional[AlertConfig] = None
 
     index_to_category: Optional[Dict[int, str]] = field(
-        default_factory=lambda: {
-            0: "impurity",
-            1: "crack",
-            2: "hole",
-        }
+        default_factory=lambda: {0: 'defect', 1: 'crack', 2: 'hole', 3: 'obstacle'}
     )
 
 
@@ -70,7 +66,7 @@ class UndergroundPipelineDefectUseCase(BaseProcessor):
         self.CASE_VERSION: Optional[str] = '1.3'
 
         # List of categories to track
-        self.target_categories = ["crack", "hole", "impurity"]
+        self.target_categories = ['defect', 'crack', 'hole', 'obstacle']
 
         # Initialize smoothing tracker
         self.smoothing_tracker = None

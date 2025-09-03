@@ -70,6 +70,197 @@ from .. import (
 )
 
 
+@jsii.implements(_IInspectable_c2943556)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_aps.CfnResourcePolicy",
+):
+    '''Use resource-based policies to grant permissions to other AWS accounts or services to access your workspace.
+
+    Only Prometheus-compatible APIs can be used for workspace sharing. You can add non-Prometheus-compatible APIs to the policy, but they will be ignored. For more information, see `Prometheus-compatible APIs <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-APIReference-Prometheus-Compatible-Apis.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    If your workspace uses customer-managed AWS KMS keys for encryption, you must grant the principals in your resource-based policy access to those AWS KMS keys. You can do this by creating AWS KMS grants. For more information, see `CreateGrant <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>`_ in the *AWS KMS API Reference* and `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    For more information about working with IAM , see `Using Amazon Managed Service for Prometheus with IAM <https://docs.aws.amazon.com/prometheus/latest/userguide/security_iam_service-with-iam.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html
+    :cloudformationResource: AWS::APS::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_aps as aps
+        
+        cfn_resource_policy = aps.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            policy_document="policyDocument",
+            workspace_arn="workspaceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        policy_document: builtins.str,
+        workspace_arn: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The JSON to use as the Resource-based Policy.
+        :param workspace_arn: An ARN identifying a Workspace.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54f89d9ee1d6d400f40f83801fe40dee056ce969e9e0501ca1390285aab7cb82)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            policy_document=policy_document, workspace_arn=workspace_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fd684bb5425ae9b9586530c2118e55043226673b8740171d3f7c2b1fbd03b3d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c6a584b0420e6cc37e76ad4b000bc6d8f4137f577bf7075b4ec87bab8717d9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> builtins.str:
+        '''The JSON to use as the Resource-based Policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d726921aa53fc43f461134d2df5d60edb5d56b4fa67ef6e4e82d305af7b7eba5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceArn")
+    def workspace_arn(self) -> builtins.str:
+        '''An ARN identifying a Workspace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspaceArn"))
+
+    @workspace_arn.setter
+    def workspace_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f020f5d54f91c35f0b4332b16391ef6561cfc07a46cc5fc1e48d4acdb82a4b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_document": "policyDocument",
+        "workspace_arn": "workspaceArn",
+    },
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_document: builtins.str,
+        workspace_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy_document: The JSON to use as the Resource-based Policy.
+        :param workspace_arn: An ARN identifying a Workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            cfn_resource_policy_props = aps.CfnResourcePolicyProps(
+                policy_document="policyDocument",
+                workspace_arn="workspaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb05747fc90b1776c66fd40ec5d261399f93ac6b367fc973d5df8b912bd30997)
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_document": policy_document,
+            "workspace_arn": workspace_arn,
+        }
+
+    @builtins.property
+    def policy_document(self) -> builtins.str:
+        '''The JSON to use as the Resource-based Policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html#cfn-aps-resourcepolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_arn(self) -> builtins.str:
+        '''An ARN identifying a Workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html#cfn-aps-resourcepolicy-workspacearn
+        '''
+        result = self._values.get("workspace_arn")
+        assert result is not None, "Required property 'workspace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnRuleGroupsNamespace(
     _CfnResource_9df397a6,
@@ -1254,7 +1445,7 @@ class CfnWorkspace(
         :param alert_manager_definition: The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace. For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* . The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ). ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
         :param alias: The alias that is assigned to this workspace to help identify it. It does not need to be unique.
         :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-        :param logging_configuration: Contains information about the current rules and alerting logging configuration for the workspace. .. epigraph:: These logging configurations are only for rules and alerting logs.
+        :param logging_configuration: Contains information about the logging configuration for the workspace.
         :param query_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
         :param tags: The list of tag keys and values that are associated with the workspace.
         :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
@@ -1393,7 +1584,7 @@ class CfnWorkspace(
     def logging_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LoggingConfigurationProperty"]]:
-        '''Contains information about the current rules and alerting logging configuration for the workspace.'''
+        '''Contains information about the logging configuration for the workspace.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
@@ -1863,7 +2054,7 @@ class CfnWorkspace(
         def __init__(self, *, qsp_threshold: jsii.Number) -> None:
             '''Filtering criteria that determine which queries are logged.
 
-            :param qsp_threshold: Query logs with QSP above this limit are vended.
+            :param qsp_threshold: The Query Samples Processed (QSP) threshold above which queries will be logged. Queries processing more samples than this threshold will be captured in logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-loggingfilter.html
             :exampleMetadata: fixture=_generated
@@ -1887,7 +2078,9 @@ class CfnWorkspace(
 
         @builtins.property
         def qsp_threshold(self) -> jsii.Number:
-            '''Query logs with QSP above this limit are vended.
+            '''The Query Samples Processed (QSP) threshold above which queries will be logged.
+
+            Queries processing more samples than this threshold will be captured in logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-loggingfilter.html#cfn-aps-workspace-loggingfilter-qspthreshold
             '''
@@ -2087,7 +2280,7 @@ class CfnWorkspaceProps:
         :param alert_manager_definition: The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace. For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* . The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ). ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
         :param alias: The alias that is assigned to this workspace to help identify it. It does not need to be unique.
         :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-        :param logging_configuration: Contains information about the current rules and alerting logging configuration for the workspace. .. epigraph:: These logging configurations are only for rules and alerting logs.
+        :param logging_configuration: Contains information about the logging configuration for the workspace.
         :param query_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
         :param tags: The list of tag keys and values that are associated with the workspace.
         :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
@@ -2202,11 +2395,7 @@ class CfnWorkspaceProps:
     def logging_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.LoggingConfigurationProperty]]:
-        '''Contains information about the current rules and alerting logging configuration for the workspace.
-
-        .. epigraph::
-
-           These logging configurations are only for rules and alerting logs.
+        '''Contains information about the logging configuration for the workspace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-loggingconfiguration
         '''
@@ -2257,6 +2446,8 @@ class CfnWorkspaceProps:
 
 
 __all__ = [
+    "CfnResourcePolicy",
+    "CfnResourcePolicyProps",
     "CfnRuleGroupsNamespace",
     "CfnRuleGroupsNamespaceProps",
     "CfnScraper",
@@ -2266,6 +2457,48 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__54f89d9ee1d6d400f40f83801fe40dee056ce969e9e0501ca1390285aab7cb82(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_document: builtins.str,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fd684bb5425ae9b9586530c2118e55043226673b8740171d3f7c2b1fbd03b3d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96c6a584b0420e6cc37e76ad4b000bc6d8f4137f577bf7075b4ec87bab8717d9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d726921aa53fc43f461134d2df5d60edb5d56b4fa67ef6e4e82d305af7b7eba5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f020f5d54f91c35f0b4332b16391ef6561cfc07a46cc5fc1e48d4acdb82a4b8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb05747fc90b1776c66fd40ec5d261399f93ac6b367fc973d5df8b912bd30997(
+    *,
+    policy_document: builtins.str,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__02d681a4d4a1e9d9052c98f45bf8b21257e825ee8185b30ea4b6f887fc7416b1(
     scope: _constructs_77d1e7e8.Construct,

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from abc import ABC
 from json import JSONDecodeError
 from typing import List, Optional, Dict, Tuple
+
+from requests.auth import HTTPBasicAuth
+
+from bigeye_sdk.exceptions import InvalidConfigurationException
 from typing_extensions import deprecated
 
 import requests
@@ -71,7 +76,7 @@ from bigeye_sdk.model.metric_facade import SimpleUpsertMetricRequest
 from bigeye_sdk.model.protobuf_enum_facade import SimpleCatalogEntityType
 from bigeye_sdk.model.protobuf_extensions import MetricDebugQueries
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def datawatch_client_factory(auth: ApiAuth, workspace_config: WorkspaceConfig = None, workspace_id: int = None):
@@ -179,7 +184,14 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         self._auth = auth
         self.config = workspace_config
 
-    def _call_datawatch_impl(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None, proxies: dict = {}):
+    def _call_datawatch_impl(
+            self,
+            method: Method,
+            url,
+            body: str = None,
+            params: dict = None,
+            timeout: int = None,
+            proxies: dict = {}):
         try:
             fq_url = f'{self._base_url}{url}'
             log.info(f'Request Type: {method.name}; URL: {fq_url}; Body: {body}')
@@ -196,10 +208,23 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                 'proxies': proxies
             }
 
-            if isinstance(self._auth, APIKeyAuth):
-                headers.update(self._auth.get_auth_headers())
-            else:
-                kwargs.update(self._auth.get_auth_headers())
+            # Update headers with authentication
+            headers.update(self._auth.get_auth_headers())
+            # Add support for custom proxy authentication if configured.
+            proxy_user = os.environ.get('BIGEYE_PROXY_AUTH_USER', None)
+            proxy_pass = os.environ.get('BIGEYE_PROXY_AUTH_PASSWORD', None)
+            custom_auth_header_key = os.environ.get('BIGEYE_AUTH_HEADER_KEY', None)
+
+            # Validate proxy configuration - ensure custom header key is set to avoid conflicts
+            if (proxy_user or proxy_pass) and not custom_auth_header_key:
+                raise InvalidConfigurationException(
+                    "ERROR: When using proxy authentication (BIGEYE_PROXY_AUTH_USER/BIGEYE_PROXY_AUTH_PASSWORD), "
+                    "you must also set BIGEYE_AUTH_HEADER_KEY to avoid conflicts with the proxy auth header. "
+                    "Example: export BIGEYE_AUTH_HEADER_KEY='x-vendor-auth'"
+                )
+
+            if proxy_user and proxy_pass:
+                kwargs['auth'] = HTTPBasicAuth(proxy_user, proxy_pass)
 
             if method == Method.GET:
                 response = requests.get(**kwargs)

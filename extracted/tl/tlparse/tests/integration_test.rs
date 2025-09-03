@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use tempfile::tempdir;
-use tlparse;
+use tlparse::{self, parsers, CollectivesParityReport};
 
 fn prefix_exists(map: &HashMap<PathBuf, String>, prefix: &str) -> bool {
     map.keys()
@@ -1631,6 +1631,13 @@ fn test_all_ranks_basic() -> Result<(), Box<dyn std::error::Error>> {
     let landing_content = fs::read_to_string(landing_page).unwrap();
     assert!(landing_content.contains(r#"<a href="rank_0/index.html">"#));
     assert!(landing_content.contains(r#"<a href="rank_1/index.html">"#));
+    assert!(
+        !landing_content.contains("collectives_parity.json"),
+        "multi-rank landing page should not link collectives parity"
+    );
+
+    let rank0_content = fs::read_to_string(rank0_index).unwrap();
+    assert!(rank0_content.contains("collectives_parity.json"));
     Ok(())
 }
 
@@ -2362,6 +2369,152 @@ fn test_tensor_meta_divergence_groups() -> Result<(), Box<dyn std::error::Error>
 
     // Ranks 5 and 6 should be grouped together (same tensor meta)
     assert!(html_content.contains("Ranks: 5, 6"));
+
+    Ok(())
+}
+
+#[test]
+fn test_execution_order_multi_rank_divergence() -> anyhow::Result<()> {
+    // Test data: Two ranks with different execution orders
+    let exec_orders: fxhash::FxHashMap<u32, Vec<String>> = vec![
+        (
+            0_u32,
+            vec!["0/0".to_string(), "0/1".to_string(), "0/2".to_string()],
+        ),
+        (
+            1_u32,
+            vec!["0/1".to_string(), "0/0".to_string(), "0/2".to_string()],
+        ),
+    ]
+    .into_iter()
+    .collect();
+
+    // Mock collective schedules - different at index 0
+    let collective_schedule_by_graph: fxhash::FxHashMap<(u32, String), Vec<String>> = vec![
+        ((0_u32, "0/0".to_string()), vec!["all_reduce".to_string()]),
+        ((0_u32, "0/1".to_string()), vec!["all_gather".to_string()]),
+        ((1_u32, "0/0".to_string()), vec!["all_reduce".to_string()]),
+        ((1_u32, "0/1".to_string()), vec!["broadcast".to_string()]), // Different!
+    ]
+    .into_iter()
+    .collect();
+
+    // Mock cache status - different at index 1
+    let cache_status: fxhash::FxHashMap<(u32, String), String> = vec![
+        ((0_u32, "0/0".to_string()), "✅".to_string()),
+        ((0_u32, "0/1".to_string()), "❌".to_string()),
+        ((1_u32, "0/0".to_string()), "✅".to_string()),
+        ((1_u32, "0/1".to_string()), "✅".to_string()), // Different!
+    ]
+    .into_iter()
+    .collect();
+
+    let report = tlparse::execution_order::analyze_execution_order(
+        &exec_orders,
+        &collective_schedule_by_graph,
+        &cache_status,
+    );
+
+    assert_eq!(report.by_index.len(), 3);
+
+    // Index 0: Rank 0 has "0/0", Rank 1 has "0/1"
+    // Should detect collective schedule mismatch
+    let row_0 = &report.by_index[0];
+    assert_eq!(row_0.by_rank.get(&0_u32), Some(&"0/0".to_string()));
+    assert_eq!(row_0.by_rank.get(&1_u32), Some(&"0/1".to_string()));
+    assert!(row_0
+        .issues
+        .contains(&tlparse::execution_order::ExecOrderIssue::ScheduleMismatch));
+
+    // Index 1: Rank 0 has "0/1", Rank 1 has "0/0"
+    // Should detect cache mismatch
+    let row_1 = &report.by_index[1];
+    assert_eq!(row_1.by_rank.get(&0_u32), Some(&"0/1".to_string()));
+    assert_eq!(row_1.by_rank.get(&1_u32), Some(&"0/0".to_string()));
+    assert!(row_1
+        .issues
+        .contains(&tlparse::execution_order::ExecOrderIssue::CacheMismatch));
+
+    // Index 2: Both ranks have "0/2" - no issues
+    let row_2 = &report.by_index[2];
+    assert_eq!(row_2.by_rank.get(&0_u32), Some(&"0/2".to_string()));
+    assert_eq!(row_2.by_rank.get(&1_u32), Some(&"0/2".to_string()));
+    assert!(row_2.issues.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn test_collectives_parity_detects_mismatch() -> Result<(), Box<dyn std::error::Error>> {
+    let input_dir = PathBuf::from("tests/inputs/collectives_parity");
+    let temp_out = tempdir()?;
+    let out_dir = temp_out.path();
+
+    let mut cmd = Command::cargo_bin("tlparse")?;
+    cmd.arg(&input_dir)
+        .arg("--all-ranks-html")
+        .arg("--overwrite")
+        .arg("-o")
+        .arg(&out_dir)
+        .arg("--no-browser");
+    cmd.assert().success();
+
+    // Run collectives parity check on generated outputs
+    let out_dir_buf = out_dir.to_path_buf();
+    parsers::check_collectives_parity(&out_dir_buf, &[0, 1, 2])?;
+
+    // Verify rank 0 parity report exists and contains at least one mismatch
+    let rank_0_report_path = out_dir.join("rank_0").join("collectives_parity.json");
+    assert!(
+        rank_0_report_path.exists(),
+        "collectives_parity.json for rank 0 should exist"
+    );
+    let rank_0_report: CollectivesParityReport =
+        serde_json::from_str(&fs::read_to_string(&rank_0_report_path)?)?;
+    // Expect mismatches: graph -_0_1_0 has offset 1, graph -_0_0_0 missing wait
+    assert_eq!(rank_0_report.graphs.len(), 2);
+    let mut by_graph = HashMap::new();
+    for g in &rank_0_report.graphs {
+        by_graph.insert(g.graph.as_str(), g);
+    }
+    let g = by_graph.get("-_0_1_0").expect("missing -_0_1_0 entry");
+    assert_eq!(g.compile_id, "[0/1]");
+    assert_eq!(g.offset, 0);
+    assert_eq!(g.missing_waits, 3);
+    let g0 = by_graph.get("-_0_0_0").expect("missing -_0_0_0 entry");
+    assert_eq!(g0.compile_id, "[0/0]");
+    assert_eq!(g0.offset, 0);
+    assert_eq!(g0.missing_waits, 1);
+
+    Ok(())
+}
+
+#[test]
+fn test_graph_execution_order_diagnostics() -> Result<(), Box<dyn std::error::Error>> {
+    let input_dir = PathBuf::from("tests/graph_exec_order_tests");
+    let temp_out = tempdir()?;
+    let out_dir = temp_out.path();
+
+    let mut cmd = Command::cargo_bin("tlparse")?;
+    cmd.arg(&input_dir)
+        .arg("--all-ranks-html")
+        .arg("--overwrite")
+        .arg("-o")
+        .arg(&out_dir)
+        .arg("--no-browser");
+    cmd.assert().success();
+
+    let landing_page = out_dir.join("index.html");
+    assert!(landing_page.exists(), "Landing page should exist");
+
+    let html_content = fs::read_to_string(&landing_page)?;
+
+    assert!(html_content.contains("Graph Execution-Order Diagnostics"));
+
+    assert!(html_content.contains("Graph execution order differs across ranks"));
+
+    assert!(html_content.contains("Cache hit/miss sequence: Consistent across ranks"));
+    assert!(!html_content.contains("Warning:</strong> Cache hit/miss mismatch across ranks"));
 
     Ok(())
 }

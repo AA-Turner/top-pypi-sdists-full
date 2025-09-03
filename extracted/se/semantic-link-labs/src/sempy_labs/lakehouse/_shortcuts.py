@@ -2,6 +2,7 @@ import sempy.fabric as fabric
 import pandas as pd
 from .._helper_functions import (
     resolve_lakehouse_name_and_id,
+    resolve_workspace_id,
     resolve_workspace_name_and_id,
     _base_api,
     _create_dataframe,
@@ -268,6 +269,8 @@ def reset_shortcut_cache(workspace: Optional[str | UUID] = None):
 
     This is a wrapper function for the following API: `OneLake Shortcuts - Reset Shortcut Cache <https://learn.microsoft.com/rest/api/fabric/core/onelake-shortcuts/reset-shortcut-cache>`_.
 
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
+
     Parameters
     ----------
     workspace : str | uuid.UUID, default=None
@@ -281,6 +284,7 @@ def reset_shortcut_cache(workspace: Optional[str | UUID] = None):
     _base_api(
         request=f"/v1/workspaces/{workspace_id}/onelake/resetShortcutCache",
         method="post",
+        client="fabric_sp",
         lro_return_status_code=True,
         status_codes=None,
     )
@@ -318,7 +322,7 @@ def list_shortcuts(
         A pandas dataframe showing all the shortcuts which exist in the specified lakehouse.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
     (lakehouse_name, lakehouse_id) = resolve_lakehouse_name_and_id(
         lakehouse=lakehouse, workspace=workspace_id
     )
@@ -383,7 +387,9 @@ def list_shortcuts(
             source_item_id = tgt.get(sources.get(tgt_type), {}).get("itemId")
             bucket = tgt.get(sources.get(tgt_type), {}).get("bucket")
             source_workspace_name = (
-                resolve_workspace_name(workspace_id=source_workspace_id)
+                resolve_workspace_name(
+                    workspace_id=source_workspace_id, throw_error=False
+                )
                 if source_workspace_id is not None
                 else None
             )

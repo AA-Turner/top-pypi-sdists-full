@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from dvc.cli import completion, formatter
 from dvc.cli.command import CmdBase
 from dvc.cli.utils import append_doc_link
 from dvc.ui import ui
+
+if TYPE_CHECKING:
+    from dvc.ignore import CheckIgnoreResult
 
 
 class CmdCheckIgnore(CmdBase):
@@ -9,12 +14,15 @@ class CmdCheckIgnore(CmdBase):
         super().__init__(args)
         self.ignore_filter = self.repo.dvcignore
 
-    def _show_results(self, result):
-        if not result.match and not self.args.non_matching:
+    def _show_results(self, result: "CheckIgnoreResult"):
+        if not result.match and not self.args.details:
             return
 
         if self.args.details:
-            patterns = result.patterns
+            pattern_infos = result.pattern_infos
+            patterns = [str(pi) for pi in pattern_infos]
+            if not patterns and self.args.non_matching:
+                patterns = ["::"]
             if not self.args.all:
                 patterns = patterns[-1:]
 
@@ -22,13 +30,11 @@ class CmdCheckIgnore(CmdBase):
                 ui.write(pattern, result.file, sep="\t")
         else:
             ui.write(result.file)
+        return bool(result.pattern_infos)
 
     def _check_one_file(self, target):
         result = self.ignore_filter.check_ignore(target)
-        self._show_results(result)
-        if result.match:
-            return 0
-        return 1
+        return bool(self._show_results(result))
 
     def _interactive_mode(self):
         ret = 1
@@ -39,14 +45,14 @@ class CmdCheckIgnore(CmdBase):
                 break
             if not target:
                 break
-            if not self._check_one_file(target):
+            if self._check_one_file(target):
                 ret = 0
         return ret
 
     def _normal_mode(self):
         ret = 1
         for target in self.args.targets:
-            if not self._check_one_file(target):
+            if self._check_one_file(target):
                 ret = 0
         return ret
 
@@ -76,6 +82,8 @@ class CmdCheckIgnore(CmdBase):
 
 
 def add_parser(subparsers, parent_parser):
+    import argparse
+
     ADD_HELP = "Check whether files or directories are excluded due to `.dvcignore`."
 
     parser = subparsers.add_parser(
@@ -93,14 +101,7 @@ def add_parser(subparsers, parent_parser):
         help="Show the exclude patterns along with each target path.",
     )
     parser.add_argument(
-        "-a",
-        "--all",
-        action="store_true",
-        default=False,
-        help=(
-            "Include the target paths which don't match any pattern "
-            "in the `--details` list."
-        ),
+        "-a", "--all", action="store_true", default=False, help=argparse.SUPPRESS
     )
     parser.add_argument(
         "-n",

@@ -15,6 +15,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
+use pyrefly_types::quantified::Quantified;
 use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
@@ -64,6 +65,21 @@ use crate::types::types::Overload;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
 
+fn is_class_property_decorator_class_object(cls: &Class) -> bool {
+    let cls_name = cls.name();
+    // Obviously this is just a very naive heuristic. But it's not a crazy convention
+    // either and we have important customers that badly wants support of class properties.
+    cls_name == "classproperty" || cls_name == "lazy_classproperty"
+}
+
+fn is_class_property_decorator_type(ty: &Type) -> bool {
+    match ty {
+        Type::ClassDef(cls) => is_class_property_decorator_class_object(cls),
+        Type::ClassType(cls) => is_class_property_decorator_class_object(cls.class_object()),
+        _ => false,
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn solve_function_binding(
         &self,
@@ -80,20 +96,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let successor = self.get_function_successor(&def);
             if successor.is_none() {
                 // This is the last definition in the chain. We should produce an overload type.
-                let last_range = def.id_range();
                 let is_impl = def.is_impl();
-                let mut acc = Vec1::new((last_range, (*def.ty).clone(), def.metadata().clone()));
-                let mut first = def.undecorated;
+                let mut acc =
+                    Vec1::new((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
                 let mut impl_before_overload_range = None;
                 while let Some(def) = self.step_pred(predecessor) {
                     if def.is_overload() {
                         acc.push((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
-                        first = def.undecorated;
                     } else {
                         impl_before_overload_range = Some(def.id_range());
                         break;
                     }
                 }
+                let first_range = acc.last().0;
+                let last_range = acc.first().0;
                 if !skip_implementation {
                     if let Some(range) = impl_before_overload_range {
                         self.error(
@@ -114,7 +130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         self.error(
                             errors,
-                            first.id_range,
+                            first_range,
                             ErrorInfo::Kind(ErrorKind::InvalidOverload),
                             "Overloaded function must have an implementation".to_owned(),
                         );
@@ -123,20 +139,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if acc.len() == 1 {
                     self.error(
                         errors,
-                        first.id_range,
+                        first_range,
                         ErrorInfo::Kind(ErrorKind::InvalidOverload),
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     acc.split_off_first().0.1
                 } else {
                     acc.reverse();
+                    self.check_decorator_consistency_no_implementation(&acc, errors);
+                    let metadata = self.merge_overload_metadata_no_implementation(&acc);
                     Type::Overload(Overload {
                         signatures: self
-                            .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
+                            .extract_signatures(acc.first().2.kind.as_func_id().func, acc, errors)
                             .mapped(|(_, sig)| sig),
-                        // When an overloaded function doesn't have a implementation, all decorators are present on the first overload:
-                        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
-                        metadata: Box::new(first.metadata.clone()),
+                        metadata: Box::new(metadata.clone()),
                     })
                 }
             } else {
@@ -150,6 +166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 acc.push((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
             }
             acc.reverse();
+            self.check_decorator_consistency_with_implementation(&acc, &def, errors);
             if let Ok(defs) = Vec1::try_from_vec(acc) {
                 if defs.len() == 1 {
                     self.error(
@@ -160,10 +177,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     defs.split_off_first().0.1
                 } else {
-                    let metadata = self.merge_metadata(&defs, def.metadata().clone());
+                    let metadata = self
+                        .merge_overload_metadata_with_implementation(&defs, def.metadata().clone());
                     let sigs =
                         self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
-                    self.check_consistency(&sigs, &def, errors);
+                    self.check_signature_consistency(&sigs, &def, errors);
                     Type::Overload(Overload {
                         signatures: sigs.mapped(|(_, sig)| sig),
                         metadata: Box::new(metadata),
@@ -201,6 +219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_classmethod: is_dunder_init_subclass,
             ..Default::default()
         };
+        let mut found_class_property = false;
         let decorators = Box::from_iter(
             decorators
                 .iter()
@@ -217,6 +236,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
                     } else {
+                        if is_class_property_decorator_type(decorator_ty) {
+                            found_class_property = true;
+                        }
                         true
                     }
                 })
@@ -226,187 +248,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Look for a @classmethod or @staticmethod decorator and change the "self" type
         // accordingly. This is not totally correct, since it doesn't account for chaining
         // decorators, or weird cases like both decorators existing at the same time.
-        if flags.is_classmethod || is_dunder_new {
+        if flags.is_classmethod || found_class_property || is_dunder_new {
             self_type = self_type.map(Type::type_form);
         } else if flags.is_staticmethod {
             self_type = None;
         }
-
-        let get_requiredness =
-            |default: Option<&Expr>, check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>| {
-                match default {
-                    Some(default)
-                        if (stub_or_impl == FunctionStubOrImpl::Stub
-                            || self.module().path().style() == ModuleStyle::Interface)
-                            && matches!(default, Expr::EllipsisLiteral(_)) =>
-                    {
-                        Required::Optional(None)
-                    }
-                    Some(default) => Required::Optional(Some(self.expr(default, check, errors))),
-                    None => Required::Required,
-                }
-            };
-
-        // Determine the type of the parameter based on its binding. Left is annotated parameter, right is unannotated
-        let mut get_param_type_and_requiredness = |name: &Identifier, default: Option<&Expr>| {
-            let (ty, required) = match self.bindings().get_function_param(name) {
-                FunctionParameter::Annotated(idx) => {
-                    // If the parameter is annotated, we check the default value against the annotation
-                    let param_ty = self.get_idx(*idx).annotation.get_type().clone();
-                    let required = get_requiredness(
-                        default,
-                        Some((&param_ty, &|| {
-                            TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
-                                name.id.clone(),
-                            ))
-                        })),
-                    );
-                    (param_ty, required)
-                }
-                FunctionParameter::Unannotated(var, _) => {
-                    let required = get_requiredness(default, None);
-                    // If this is the first parameter and there is a self type, solve to `Self`.
-                    // We only try to solve the first param for now. Other unannotated params
-                    // are also Var. If a default value of type T is provided, it will resolve to Any | T.
-                    // Otherwise, it will be forced to Any
-                    if let Some(ty) = &self_type {
-                        self.is_subset_eq(&var.to_type(), ty);
-                    } else if let Required::Optional(Some(default_ty)) = &required {
-                        self.solver().is_subset_eq(
-                            &self.union(Type::any_implicit(), default_ty.clone()),
-                            &var.to_type(),
-                            self.type_order(),
-                        );
-                    }
-                    (self.solver().force_var(*var), required)
-                }
-            };
-            self_type = None; // Stop using `self` type solve Var params after the first param.
-            (ty, required)
-        };
-        let mut paramspec_args = None;
-        let mut paramspec_kwargs = None;
-        let mut params = Vec::with_capacity(def.parameters.len());
-        params.extend(def.parameters.posonlyargs.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
-            Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
-        }));
-
-        // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
-        let is_historical_args_usage =
-            def.parameters.posonlyargs.is_empty() && def.parameters.kwonlyargs.is_empty();
-        let mut seen_keyword_args = false;
-
-        params.extend(def.parameters.args.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
-
-            // If the parameter begins but does not end with "__", it is a positional-only parameter.
-            // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
-            if is_historical_args_usage
-                && x.parameter.name.starts_with("__")
-                && !x.parameter.name.ends_with("__")
-            {
-                if seen_keyword_args {
-                    self.error(
-                        errors,
-                        x.parameter.name.range,
-                        ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                        format!(
-                            "Positional-only parameter `{}` cannot appear after keyword parameters",
-                            x.parameter.name
-                        ),
-                    );
-                }
-
-                Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
-            } else {
-                seen_keyword_args |=
-                    x.parameter.name.as_str() != "self" && x.parameter.name.as_str() != "cls";
-                Param::Pos(x.parameter.name.id.clone(), ty, required)
-            }
-        }));
-        params.extend(def.parameters.vararg.iter().map(|x| {
-            let (ty, _) = get_param_type_and_requiredness(&x.name, None);
-            if let Type::Args(q) = &ty {
-                paramspec_args = Some(q.clone());
-            }
-            Param::VarArg(Some(x.name.id.clone()), ty)
-        }));
-        if paramspec_args.is_some()
-            && let Some(param) = def.parameters.kwonlyargs.first()
-        {
-            self.error(
-                errors,
-                param.range,
-                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                format!(
-                    "Keyword-only parameter `{}` may not appear after ParamSpec args parameter",
-                    param.parameter.name
-                ),
-            );
-        }
-        params.extend(def.parameters.kwonlyargs.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
-            Param::KwOnly(x.parameter.name.id.clone(), ty, required)
-        }));
-        params.extend(def.parameters.kwarg.iter().map(|x| {
-            let ty = match self.bindings().get_function_param(&x.name) {
-                FunctionParameter::Annotated(idx) => {
-                    let annot = self.get_idx(*idx);
-                    annot.annotation.get_type().clone()
-                }
-                FunctionParameter::Unannotated(var, _) => self.solver().force_var(*var),
-            };
-            if let Type::Kwargs(q) = &ty {
-                paramspec_kwargs = Some(q.clone());
-            }
-            Param::Kwargs(Some(x.name.id().clone()), ty)
-        }));
-
-        let paramspec = if let Some(q) = &paramspec_args
-            && paramspec_args == paramspec_kwargs
-        {
-            Some((**q).clone())
-        } else if paramspec_args != paramspec_kwargs {
-            if paramspec_args.is_some() != paramspec_kwargs.is_some() {
-                self.error(
-                    errors,
-                    def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
-                    "`ParamSpec` *args and **kwargs must be used together".to_owned(),
-                );
-            } else {
-                self.error(
-                    errors,
-                    def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
-                    "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
-                );
-            }
-            // If ParamSpec args and kwargs are invalid, fall back to Any
-            params = params
-                .into_iter()
-                .map(|p| match p {
-                    Param::Kwargs(name, Type::Kwargs(_)) => Param::Kwargs(name, Type::any_error()),
-                    Param::VarArg(name, Type::Args(_)) => Param::VarArg(name, Type::any_error()),
-                    _ => p,
-                })
-                .collect();
-            None
-        } else {
-            params = params
-                .into_iter()
-                .filter_map(|p| match p {
-                    Param::Kwargs(_, Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
-                    _ => Some(p),
-                })
-                .collect();
-            None
-        };
-
+        let (params, paramspec) =
+            self.get_params_and_paramspec(def, stub_or_impl, &mut self_type, errors);
         let mut tparams = self.scoped_type_params(def.type_params.as_deref());
         let legacy_tparams = legacy_tparams
             .iter()
@@ -422,7 +270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = FuncMetadata { kind, flags };
 
         Arc::new(UndecoratedFunction {
-            id_range: def.name.range,
+            identifier: ShortIdentifier::new(&def.name),
             metadata,
             decorators,
             tparams,
@@ -446,7 +294,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if matches!(&ret, Type::TypeGuard(_) | Type::TypeIs(_)) {
             self.validate_type_guard_positional_argument_count(
                 &def.params,
-                def.id_range,
+                def.id_range(),
                 &def.defining_cls,
                 def.metadata.flags.is_staticmethod,
                 errors,
@@ -587,6 +435,249 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             _ => false,
         }
+    }
+
+    fn get_requiredness(
+        &self,
+        default: Option<&Expr>,
+        check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>,
+        stub_or_impl: FunctionStubOrImpl,
+        errors: &ErrorCollector,
+    ) -> Required {
+        match default {
+            Some(default)
+                if (stub_or_impl == FunctionStubOrImpl::Stub
+                    || self.module().path().style() == ModuleStyle::Interface)
+                    && matches!(default, Expr::EllipsisLiteral(_)) =>
+            {
+                Required::Optional(None)
+            }
+            Some(default) => Required::Optional(Some(self.expr(default, check, errors))),
+            None => Required::Required,
+        }
+    }
+
+    /// Determine the type and required-ness of a parameter.
+    fn get_param_type_and_requiredness(
+        &self,
+        name: &Identifier,
+        default: Option<&Expr>,
+        stub_or_impl: FunctionStubOrImpl,
+        self_type: &mut Option<Type>,
+        errors: &ErrorCollector,
+    ) -> (Type, Required) {
+        let (ty, required) = match self.bindings().get_function_param(name) {
+            FunctionParameter::Annotated(idx) => {
+                // If the parameter is annotated, we check the default value against the annotation
+                let param_ty = self.get_idx(*idx).annotation.get_type().clone();
+                let required = self.get_requiredness(
+                    default,
+                    Some((&param_ty, &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
+                            name.id.clone(),
+                        ))
+                    })),
+                    stub_or_impl,
+                    errors,
+                );
+                (param_ty, required)
+            }
+            FunctionParameter::Unannotated(var, _) => {
+                let required = self.get_requiredness(default, None, stub_or_impl, errors);
+                // If this is the first parameter and there is a self type, solve to `Self`.
+                // We only try to solve the first param for now. Other unannotated params
+                // are also Var. If a default value of type T is provided, it will resolve to Any | T.
+                // Otherwise, it will be forced to Any
+                if let Some(ty) = self_type {
+                    self.is_subset_eq(&var.to_type(), ty);
+                } else if let Required::Optional(Some(default_ty)) = &required {
+                    self.solver().is_subset_eq(
+                        &self.union(Type::any_implicit(), default_ty.clone()),
+                        &var.to_type(),
+                        self.type_order(),
+                    );
+                }
+                (self.solver().force_var(*var), required)
+            }
+        };
+        *self_type = None; // Stop using `self` type solve Var params after the first param.
+        (ty, required)
+    }
+
+    fn get_params_and_paramspec(
+        &self,
+        def: &StmtFunctionDef,
+        stub_or_impl: FunctionStubOrImpl,
+        self_type: &mut Option<Type>,
+        errors: &ErrorCollector,
+    ) -> (Vec<Param>, Option<Quantified>) {
+        let mut paramspec_args = None;
+        let mut paramspec_kwargs = None;
+        let mut params = Vec::with_capacity(def.parameters.len());
+        params.extend(def.parameters.posonlyargs.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
+        }));
+
+        // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
+        let is_historical_args_usage =
+            def.parameters.posonlyargs.is_empty() && def.parameters.kwonlyargs.is_empty();
+        let mut seen_keyword_args = false;
+
+        params.extend(def.parameters.args.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+
+            // If the parameter begins but does not end with "__", it is a positional-only parameter.
+            // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
+            if is_historical_args_usage
+                && x.parameter.name.starts_with("__")
+                && !x.parameter.name.ends_with("__")
+            {
+                if seen_keyword_args {
+                    self.error(
+                        errors,
+                        x.parameter.name.range,
+                        ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                        format!(
+                            "Positional-only parameter `{}` cannot appear after keyword parameters",
+                            x.parameter.name
+                        ),
+                    );
+                }
+
+                Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
+            } else {
+                seen_keyword_args |=
+                    x.parameter.name.as_str() != "self" && x.parameter.name.as_str() != "cls";
+                Param::Pos(x.parameter.name.id.clone(), ty, required)
+            }
+        }));
+        params.extend(def.parameters.vararg.iter().map(|x| {
+            let (ty, _) = self.get_param_type_and_requiredness(
+                &x.name,
+                None,
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            if let Type::Args(q) = &ty {
+                paramspec_args = Some(q.clone());
+            }
+            Param::VarArg(Some(x.name.id.clone()), ty)
+        }));
+        if paramspec_args.is_some()
+            && let Some(param) = def.parameters.kwonlyargs.first()
+        {
+            self.error(
+                errors,
+                param.range,
+                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                format!(
+                    "Keyword-only parameter `{}` may not appear after ParamSpec args parameter",
+                    param.parameter.name
+                ),
+            );
+        }
+        params.extend(def.parameters.kwonlyargs.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            Param::KwOnly(x.parameter.name.id.clone(), ty, required)
+        }));
+        if let Some(x) = &def.parameters.kwarg {
+            let ty = match self.bindings().get_function_param(&x.name) {
+                FunctionParameter::Annotated(idx) => {
+                    let annot = self.get_idx(*idx);
+                    annot.annotation.get_type().clone()
+                }
+                FunctionParameter::Unannotated(var, _) => self.solver().force_var(*var),
+            };
+            if let Type::Kwargs(q) = &ty {
+                paramspec_kwargs = Some(q.clone());
+            }
+
+            if let Type::Unpack(box Type::TypedDict(typed_dict)) = &ty {
+                for (name, _) in self.typed_dict_fields(typed_dict) {
+                    if params.iter().any(|param| {
+                        matches!(
+                            param,
+                            Param::Pos(param_name, ..) | Param::KwOnly(param_name, ..)
+                                if param_name == &name
+                        )
+                    }) {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                            format!(
+                                "TypedDict key '{}' in **kwargs overlaps with parameter '{}'",
+                                name, name
+                            ),
+                        );
+                    }
+                }
+            }
+
+            params.push(Param::Kwargs(Some(x.name.id().clone()), ty));
+        }
+
+        let paramspec = if let Some(q) = &paramspec_args
+            && paramspec_args == paramspec_kwargs
+        {
+            Some((**q).clone())
+        } else if paramspec_args != paramspec_kwargs {
+            if paramspec_args.is_some() != paramspec_kwargs.is_some() {
+                self.error(
+                    errors,
+                    def.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    "`ParamSpec` *args and **kwargs must be used together".to_owned(),
+                );
+            } else {
+                self.error(
+                    errors,
+                    def.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
+                );
+            }
+            // If ParamSpec args and kwargs are invalid, fall back to Any
+            params = params
+                .into_iter()
+                .map(|p| match p {
+                    Param::Kwargs(name, Type::Kwargs(_)) => Param::Kwargs(name, Type::any_error()),
+                    Param::VarArg(name, Type::Args(_)) => Param::VarArg(name, Type::any_error()),
+                    _ => p,
+                })
+                .collect();
+            None
+        } else {
+            params = params
+                .into_iter()
+                .filter_map(|p| match p {
+                    Param::Kwargs(_, Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
+                    _ => Some(p),
+                })
+                .collect();
+            None
+        };
+        (params, paramspec)
     }
 
     fn check_top_level_function_decorator(
@@ -900,7 +991,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn merge_metadata(
+    fn merge_overload_metadata_with_implementation(
         &self,
         overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
         mut metadata: FuncMetadata,
@@ -918,6 +1009,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         metadata
     }
 
+    fn merge_overload_metadata_no_implementation(
+        &self,
+        overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
+    ) -> FuncMetadata {
+        let (first, remaining) = overloads.split_first().unwrap();
+        // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
+        // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
+        let mut metadata = first.2.clone();
+        // This does not apply to `@deprecated` - some overloads can be deprecated while others are fine.
+        metadata.flags.is_deprecated = false;
+        // `dataclass_transform()` can be on any of the overloads.
+        if metadata.flags.dataclass_transform_metadata.is_none() {
+            metadata.flags.dataclass_transform_metadata = remaining
+                .iter()
+                .find_map(|(_, _, metadata)| metadata.flags.dataclass_transform_metadata.clone());
+        }
+        metadata
+    }
+
     fn subst_function(&self, tparams: &TParams, func: Function) -> Function {
         let mp = tparams
             .as_vec()
@@ -929,7 +1039,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn check_consistency(
+    fn check_signature_consistency(
         &self,
         overloads: &Vec1<(TextRange, OverloadType)>,
         def: &DecoratedFunction,
@@ -1011,6 +1121,113 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 &|| TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn),
             );
+        }
+    }
+
+    fn check_decorator_consistency_no_implementation(
+        &self,
+        overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
+        errors: &ErrorCollector,
+    ) {
+        let is_static_method = overloads.iter().any(|x| x.2.flags.is_staticmethod);
+        let is_class_method = overloads.iter().any(|x| x.2.flags.is_classmethod);
+        for (overload_range, _, overload_metadata) in overloads.iter().skip(1) {
+            if overload_metadata.flags.has_final_decoration {
+                self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If an overloaded function has no implementation, `@final` should be applied to the first overload only.".to_owned(),
+                            );
+            }
+            if overload_metadata.flags.is_override {
+                self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If an overloaded function has no implementation, `@override` should be applied to the first overload only.".to_owned(),
+                            );
+            }
+        }
+        for (overload_range, _, overload_metadata) in overloads.iter() {
+            if overload_metadata.flags.is_staticmethod != is_static_method {
+                self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If `@staticmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
+                            );
+            }
+            if overload_metadata.flags.is_classmethod != is_class_method {
+                self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If `@classmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
+                            );
+            }
+        }
+    }
+
+    fn check_decorator_consistency_with_implementation(
+        &self,
+        overloads: &[(TextRange, Type, FuncMetadata)],
+        def: &DecoratedFunction,
+        errors: &ErrorCollector,
+    ) {
+        let is_static_method = def.metadata().flags.is_staticmethod
+            || overloads.iter().any(|x| x.2.flags.is_staticmethod);
+        let is_class_method = def.metadata().flags.is_classmethod
+            || overloads.iter().any(|x| x.2.flags.is_classmethod);
+        for (overload_range, _, overload_metadata) in overloads.iter() {
+            if overload_metadata.flags.has_final_decoration {
+                self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "`@final` should only be applied to the implementation of an overloaded function.".to_owned(),
+                    );
+            }
+            if overload_metadata.flags.is_override {
+                self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "`@override` should only be applied to the implementation of an overloaded function.".to_owned(),
+                    );
+            }
+            if overload_metadata.flags.is_staticmethod != is_static_method {
+                self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                    );
+            }
+            if overload_metadata.flags.is_classmethod != is_class_method {
+                self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                    );
+            }
+        }
+        if def.metadata().flags.is_staticmethod != is_static_method {
+            self.error(
+                    errors,
+                    def.id_range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                );
+        }
+        if def.metadata().flags.is_classmethod != is_class_method {
+            self.error(
+                    errors,
+                    def.id_range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                );
         }
     }
 

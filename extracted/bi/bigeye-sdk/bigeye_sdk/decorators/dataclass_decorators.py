@@ -2,7 +2,7 @@ import inspect
 
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def add_from_dict(cls):

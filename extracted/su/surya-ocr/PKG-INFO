@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: surya-ocr
-Version: 0.16.0
+Version: 0.16.1
 Summary: OCR, layout, reading order, and table recognition in 90+ languages
 License: GPL-3.0-or-later
 Keywords: ocr,pdf,text detection,text recognition,tables

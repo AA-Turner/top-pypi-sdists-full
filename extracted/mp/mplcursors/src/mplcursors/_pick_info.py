@@ -8,26 +8,24 @@ import copy
 import functools
 import inspect
 from inspect import Signature
-import itertools
 from numbers import Integral
 import re
 import warnings
 from weakref import WeakSet
 
-from matplotlib import cbook
 from matplotlib.axes import Axes
-from matplotlib.backend_bases import RendererBase
 from matplotlib.collections import (
     LineCollection, PatchCollection, PathCollection)
-from matplotlib.colorbar import Colorbar
 from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
-from matplotlib.figure import Figure
-from matplotlib.image import AxesImage
+from matplotlib.contour import ContourSet
+from matplotlib.image import AxesImage, BboxImage
 from matplotlib.lines import Line2D
+from matplotlib.offsetbox import AnnotationBbox, OffsetBox
 from matplotlib.patches import Patch, PathPatch, Polygon, Rectangle
 from matplotlib.quiver import Barbs, Quiver
 from matplotlib.text import Text
-from matplotlib.transforms import Affine2D
+from matplotlib.transforms import (
+    Affine2D, Bbox, BboxTransformFrom, BboxTransformTo)
 import numpy as np
 
 
@@ -129,6 +127,11 @@ Selection.extras.__doc__ = (
     "at the same time as the annotation.")
 
 
+def _gen_warning_text(kind, tp):
+    return "{} support for {} (MRO: {}) is missing.".format(
+        kind, tp.__name__, ", ".join(cls.__name__ for cls in tp.__mro__))
+
+
 @functools.singledispatch
 def compute_pick(artist, event):
     """
@@ -139,7 +142,7 @@ def compute_pick(artist, event):
     This is a single-dispatch function; implementations for various artist
     classes follow.
     """
-    warnings.warn(f"Pick support for {type(artist).__name__} is missing.")
+    warnings.warn(_gen_warning_text("Pick", type(artist)))
 
 
 class Index:
@@ -220,7 +223,7 @@ def _compute_projection_pick(artist, path, xy):
     # following are `LINETO` or `CLOSEPOLY`, and the last one is `STOP`, i.e.
     #     codes = path.codes
     #     assert (codes[0], codes[-1]) == (path.MOVETO, path.STOP)
-    #     assert np.in1d(codes[1:-1], [path.LINETO, path.CLOSEPOLY]).all()
+    #     assert np.isin(codes[1:-1], [path.LINETO, path.CLOSEPOLY]).all()
     vertices = tpath.vertices[:-1]
     codes = tpath.codes[:-1]
     mt_idxs, = (codes == tpath.MOVETO).nonzero()
@@ -232,15 +235,16 @@ def _compute_projection_pick(artist, path, xy):
     with np.errstate(invalid="ignore"):
         # Results in 0/0 for repeated consecutive points.
         us /= ls[:, None]
-    # Vectors from each vertex to the event (overwritten below).
+    # Vectors from each vertex to the event.
     vs = xy - vertices[:-1]
     # Clipped dot products -- `einsum` cannot be done in place, `clip` can.
     # `clip` can trigger invalid comparisons if there are nan points.
     with np.errstate(invalid="ignore"):
-        dot = np.clip(np.einsum("ij,ij->i", vs, us), 0, ls, out=vs[:, 0])
+        dot = np.clip(np.einsum("ij,ij->i", vs, us), 0, ls)
     # Projections.
     projs = vertices[:-1] + dot[:, None] * us
-    ds = np.hypot(*(xy - projs).T, out=vs[:, 1])
+    ds = np.hypot(*(xy - projs).T)
+    ds[mt_idxs[1:] - 1] = np.nan
     try:
         argmin = np.nanargmin(ds)
     except ValueError:  # Raised by nanargmin([nan]).
@@ -344,25 +348,38 @@ def _(artist, event):
         return Selection(artist, target, inds[argmin], ds[argmin], None, None)
     elif len(paths) and len(offsets):
         # Note that this won't select implicitly closed paths.
-        sels = [*filter(None, [
+        sels = [
             _compute_projection_pick(
                 artist,
                 Affine2D().translate(*offsets[ind % len(offsets)])
                 .transform_path(paths[ind % len(paths)]),
                 (event.x, event.y))
-            for ind in range(max(len(offsets), len(paths)))])]
-        if not sels:
+            for ind in range(max(len(offsets), len(paths)))]
+        if not any(sels):
             return None
-        idx = min(range(len(sels)), key=lambda idx: sels[idx].dist)
+        idx = min(range(len(sels)),
+                  key=lambda idx: sels[idx].dist if sels[idx] else np.inf)
         sel = sels[idx]
         if sel.dist >= artist.get_pickradius():
             return None
         return sel._replace(artist=artist, index=(idx, sel.index))
 
 
-@compute_pick.register(AxesImage)
+# This registration has no effect on mpl<3.8, where ContourSets are not artists
+# and thus do not appear in the draw tree.
+# Filled contours are picked identically to unfilled ones, in particular
+# because Path.contains_point does not handle holes in paths correctly; thus we
+# cannot determine which contour, among many nested ones, actually contains the
+# a point between two layers.
+@compute_pick.register(ContourSet)
 def _(artist, event):
-    if type(artist) != AxesImage:
+    return compute_pick.dispatch(LineCollection)(artist, event)
+
+
+@compute_pick.register(AxesImage)
+@compute_pick.register(BboxImage)
+def _(artist, event):
+    if type(artist) not in compute_pick.registry:
         # Skip and warn on subclasses (`NonUniformImage`, `PcolorImage`) as
         # they do not implement `contains` correctly.  Even if they did, they
         # would not support moving as we do not know where a given index maps
@@ -372,14 +389,13 @@ def _(artist, event):
     if not contains:
         return
     ns = np.asarray(artist.get_array().shape[:2])[::-1]  # (y, x) -> (x, y)
-    xy = np.array([event.xdata, event.ydata])
-    xmin, xmax, ymin, ymax = artist.get_extent()
-    # Handling of "upper" origin copied from AxesImage.get_cursor_data.
+    xf, yf = BboxTransformFrom(
+        artist.get_window_extent()).transform([event.x, event.y])
     if artist.origin == "upper":
-        ymin, ymax = ymax, ymin
-    low, high = np.array([[xmin, ymin], [xmax, ymax]])
-    idxs = ((xy - low) / (high - low) * ns).astype(int)[::-1]
-    return Selection(artist, xy, tuple(idxs), 0, None, None)
+        yf = 1 - yf
+    idxs = np.minimum(((xf, yf) * ns).astype(int), ns - 1)[::-1]
+    return Selection(artist, (event.xdata, event.ydata),
+                     tuple(idxs), 0, None, None)
 
 
 @compute_pick.register(Barbs)
@@ -463,6 +479,21 @@ def _(container, event):
         return Selection(container, target, sel.index, 0, None, None)
 
 
+@compute_pick.register(OffsetBox)
+def _(artist, event):
+    # Pass-through: actually picks a child artist.
+    return min(
+        filter(None, [compute_pick(child, event)
+                      for child in artist.get_children()]),
+        key=lambda sel: sel.dist, default=None)
+
+
+@compute_pick.register(AnnotationBbox)
+def _(artist, event):
+    # Pass-through: actually picks a child artist.
+    return compute_pick(artist.offsetbox, event)
+
+
 def _call_with_selection(func=None, *, argname="artist"):
     """Decorator that passes a `Selection` built from the non-kwonly args."""
 
@@ -505,9 +536,11 @@ def _format_coord_unspaced(ax, pos):
     else:
         x, y = pos
         # In mpl<3.3 (before #16776) format_x/ydata included trailing
-        # spaces, hence the rstrip() calls.
-        return (f"x={ax.format_xdata(x).rstrip()}\n"
-                f"y={ax.format_ydata(y).rstrip()}")
+        # spaces, hence the rstrip() calls.  format_xdata/format_ydata do not
+        # actually always return strs (see test_fixed_ticks_nonstr_labels),
+        # hence the explicit cast.
+        return (f"x={str(ax.format_xdata(x)).rstrip()}\n"
+                f"y={str(ax.format_ydata(y)).rstrip()}")
 
 
 @functools.singledispatch
@@ -519,8 +552,7 @@ def get_ann_text(sel):
     This is a single-dispatch function; implementations for various artist
     classes follow.
     """
-    warnings.warn(
-        f"Annotation support for {type(sel.artist).__name__} is missing.")
+    warnings.warn(_gen_warning_text("Annotation", type(sel.artist)))
     return ""
 
 
@@ -533,7 +565,7 @@ def get_ann_text(sel):
 def _(sel):
     artist = sel.artist
     label = artist.get_label() or ""
-    text = _format_coord_unspaced(artist.axes, sel.target)
+    text = _format_coord_unspaced(sel.annotation.axes, sel.target)
     if (_is_scatter(artist)
             # Heuristic: is the artist colormapped?
             # Note that this doesn't handle size-mapping (which is more likely
@@ -547,14 +579,21 @@ def _(sel):
     return text
 
 
-_Event = namedtuple("_Event", "xdata ydata")
-
-
-@get_ann_text.register(AxesImage)
+@get_ann_text.register(ContourSet)
 @_call_with_selection
 def _(sel):
     artist = sel.artist
-    text = _format_coord_unspaced(artist.axes, sel.target)
+    return "{}\n{}".format(
+        _format_coord_unspaced(sel.annotation.axes, sel.target),
+        artist.levels[sel.index[0] + artist.filled])
+
+
+@get_ann_text.register(AxesImage)
+@get_ann_text.register(BboxImage)
+@_call_with_selection
+def _(sel):
+    artist = sel.artist
+    text = _format_coord_unspaced(sel.annotation.axes, sel.target)
     cursor_text = artist.format_cursor_data(artist.get_array()[sel.index])
     return f"{text}\n{cursor_text}"
 
@@ -564,7 +603,7 @@ def _(sel):
 def _(sel):
     artist = sel.artist
     text = "{}\n({!s}, {!s})".format(
-        _format_coord_unspaced(artist.axes, sel.target),
+        _format_coord_unspaced(sel.annotation.axes, sel.target),
         artist.u[sel.index], artist.v[sel.index])
     return text
 
@@ -574,22 +613,19 @@ def _(sel):
 def _(sel):
     artist = sel.artist
     text = "{}\n({!s}, {!s})".format(
-        _format_coord_unspaced(artist.axes, sel.target),
+        _format_coord_unspaced(sel.annotation.axes, sel.target),
         artist.U[sel.index], artist.V[sel.index])
     return text
 
 
-@get_ann_text.register(ContainerArtist)
-@_call_with_selection
-def _(sel):
-    return get_ann_text(*sel._replace(artist=sel.artist.container))
+# NOTE: There is no get_ann_text(ContainerArtist) as the selection directly
+# refers to the Container itself.
 
 
 @get_ann_text.register(BarContainer)
 @_call_with_selection(argname="container")
 def _(sel):
-    return _format_coord_unspaced(
-        _artist_in_container(sel.artist).axes, sel.target)
+    return _format_coord_unspaced(sel.annotation.axes, sel.target)
 
 
 @get_ann_text.register(ErrorbarContainer)
@@ -604,8 +640,8 @@ def _(sel):
             if has:
                 err = (next(err_lcs).get_paths()[sel.index].vertices
                        - data_line.get_xydata()[sel.index])[:, idx]
-                err_s = [getattr(_artist_in_container(sel.artist).axes,
-                                 f"format_{dir}data")(e).rstrip()
+                err_s = [getattr(sel.annotation.axes, f"format_{dir}data")(e)
+                         .rstrip()
                          for e in err]
                 # We'd normally want to check err.sum() == 0, but that can run
                 # into fp inaccuracies.
@@ -667,7 +703,7 @@ def _(sel, *, key):
     return _move_within_points(
         sel,
         _untransform(data_xy, sel.artist.get_transform().transform(data_xy),
-                     sel.artist.axes),
+                     sel.annotation.axes),
         key=key)
 
 
@@ -680,35 +716,38 @@ def _(sel, *, key):
             sel,
             _untransform(
                 offsets, sel.artist.get_offset_transform().transform(offsets),
-                sel.artist.axes),
+                sel.annotation.axes),
             key=key)
     else:
         return sel
 
 
 @move.register(AxesImage)
+@move.register(BboxImage)
 @_call_with_selection
 def _(sel, *, key):
     ns = sel.artist.get_array().shape[:2]
-    delta = (
+    delta = np.array(
         {"left": [0, -1], "right": [0, +1], "down": [-1, 0], "up": [+1, 0]}[
-            key]
-        * np.array([-1 if sel.artist.axes.yaxis.get_inverted() else +1,
-                    -1 if sel.artist.axes.xaxis.get_inverted() else +1]))
-    idxs = (sel.index + delta) % ns
-    xmin, xmax, ymin, ymax = sel.artist.get_extent()
+            key])
     if sel.artist.origin == "upper":
-        ymin, ymax = ymax, ymin
-    low, high = np.array([[xmin, ymin], [xmax, ymax]])
-    target = ((idxs + .5) / ns)[::-1] * (high - low) + low
+        delta[0] *= -1
+    idxs = (sel.index + delta) % ns
+    yf, xf = (idxs + .5) / ns
+    if sel.artist.origin == "upper":
+        yf = 1 - yf
+    if isinstance(sel.artist, AxesImage):  # Same as below, but more accurate.
+        x0, x1, y0, y1 = sel.artist.get_extent()
+        trf = BboxTransformTo(Bbox.from_extents([x0, y0, x1, y1]))
+    elif isinstance(sel.artist, BboxImage):
+        trf = (BboxTransformTo(sel.artist.get_window_extent())
+               - sel.annotation.axes.transData)
+    target = trf.transform([xf, yf])
     return sel._replace(target=target, index=tuple(idxs))
 
 
-@move.register(ContainerArtist)
-@_call_with_selection
-def _(sel, *, key):
-    return (move(*sel._replace(artist=sel.artist.container), key=key)
-            ._replace(artist=sel.artist))
+# NOTE: There is no move(ContainerArtist) as the selection directly
+# refers to the Container itself.
 
 
 @move.register(ErrorbarContainer)
@@ -727,8 +766,7 @@ def make_highlight(sel, *, highlight_kwargs):
     This is a single-dispatch function; implementations for various artist
     classes follow.
     """
-    warnings.warn(
-        f"Highlight support for {type(sel.artist).__name__} is missing.")
+    warnings.warn(_gen_warning_text("Highlight", type(sel.artist)))
 
 
 def _set_valid_props(artist, kwargs):
@@ -745,12 +783,18 @@ def _(sel, *, highlight_kwargs):
     return hl
 
 
+@make_highlight.register(LineCollection)
 @make_highlight.register(PathCollection)
 @_call_with_selection
 def _(sel, *, highlight_kwargs):
     hl = copy.copy(sel.artist)
-    offsets = hl.get_offsets()
-    hl.set_offsets(np.where(
-        np.arange(len(offsets))[:, None] == sel.index, offsets, np.nan))
+    if _is_scatter(sel.artist):
+        offsets = hl.get_offsets()
+        hl.set_offsets(np.where(
+            np.arange(len(offsets))[:, None] == sel.index, offsets, np.nan))
+    else:
+        hl.set_paths([
+            path.vertices if i == sel.index[0] else np.empty((0, 2))
+            for i, path in enumerate(hl.get_paths())])
     _set_valid_props(hl, highlight_kwargs)
     return hl

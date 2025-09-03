@@ -119,6 +119,22 @@ class GetBuildVersioningUploadURLRequest(google.protobuf.message.Message):
 
 global___GetBuildVersioningUploadURLRequest = GetBuildVersioningUploadURLRequest
 
+class GetBuildVersioningUploadUrlsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PARAMS_FIELD_NUMBER: builtins.int
+    @property
+    def params(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[qwak.builds.build_url_pb2.BuildVersioningUrlParams]:
+        """The params to define the url."""
+    def __init__(
+        self,
+        *,
+        params: collections.abc.Iterable[qwak.builds.build_url_pb2.BuildVersioningUrlParams] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["params", b"params"]) -> None: ...
+
+global___GetBuildVersioningUploadUrlsRequest = GetBuildVersioningUploadUrlsRequest
+
 class GetBuildVersioningUploadURLResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -181,6 +197,78 @@ class AuthenticationDetail(google.protobuf.message.Message):
 
 global___AuthenticationDetail = AuthenticationDetail
 
+class GetBuildVersioningUploadUrlsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class UploadUrlInfosEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        @property
+        def value(self) -> global___UploadUrlInfo: ...
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: global___UploadUrlInfo | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["value", b"value"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    UPLOAD_URL_INFOS_FIELD_NUMBER: builtins.int
+    @property
+    def upload_url_infos(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___UploadUrlInfo]:
+        """Upload url intended for the upload"""
+    def __init__(
+        self,
+        *,
+        upload_url_infos: collections.abc.Mapping[builtins.str, global___UploadUrlInfo] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["upload_url_infos", b"upload_url_infos"]) -> None: ...
+
+global___GetBuildVersioningUploadUrlsResponse = GetBuildVersioningUploadUrlsResponse
+
+class UploadUrlInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class HeadersEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    UPLOAD_URL_FIELD_NUMBER: builtins.int
+    PATH_FIELD_NUMBER: builtins.int
+    HEADERS_FIELD_NUMBER: builtins.int
+    upload_url: builtins.str
+    """Upload url intended for the upload"""
+    path: builtins.str
+    """The Path we saved the artifact in"""
+    @property
+    def headers(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Headers to be used for the upload"""
+    def __init__(
+        self,
+        *,
+        upload_url: builtins.str = ...,
+        path: builtins.str = ...,
+        headers: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["headers", b"headers", "path", b"path", "upload_url", b"upload_url"]) -> None: ...
+
+global___UploadUrlInfo = UploadUrlInfo
+
 class JfrogAuthenticationDetail(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -214,6 +302,22 @@ class GetBuildVersioningDownloadURLRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["params", b"params"]) -> None: ...
 
 global___GetBuildVersioningDownloadURLRequest = GetBuildVersioningDownloadURLRequest
+
+class GetBuildVersioningDownloadUrLsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PARAMS_FIELD_NUMBER: builtins.int
+    @property
+    def params(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[qwak.builds.build_url_pb2.BuildVersioningUrlParams]:
+        """The params to define the url."""
+    def __init__(
+        self,
+        *,
+        params: collections.abc.Iterable[qwak.builds.build_url_pb2.BuildVersioningUrlParams] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["params", b"params"]) -> None: ...
+
+global___GetBuildVersioningDownloadUrLsRequest = GetBuildVersioningDownloadUrLsRequest
 
 class GetBuildVersioningDownloadURLResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -253,6 +357,75 @@ class GetBuildVersioningDownloadURLResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["download_url", b"download_url", "file_size", b"file_size", "headers", b"headers"]) -> None: ...
 
 global___GetBuildVersioningDownloadURLResponse = GetBuildVersioningDownloadURLResponse
+
+class GetBuildVersioningDownloadUrlsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class DownloadUrlInfosEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        @property
+        def value(self) -> global___DownloadUrlInfo: ...
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: global___DownloadUrlInfo | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["value", b"value"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    DOWNLOAD_URL_INFOS_FIELD_NUMBER: builtins.int
+    @property
+    def download_url_infos(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___DownloadUrlInfo]: ...
+    def __init__(
+        self,
+        *,
+        download_url_infos: collections.abc.Mapping[builtins.str, global___DownloadUrlInfo] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["download_url_infos", b"download_url_infos"]) -> None: ...
+
+global___GetBuildVersioningDownloadUrlsResponse = GetBuildVersioningDownloadUrlsResponse
+
+class DownloadUrlInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class HeadersEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    DOWNLOAD_URL_FIELD_NUMBER: builtins.int
+    FILE_SIZE_FIELD_NUMBER: builtins.int
+    HEADERS_FIELD_NUMBER: builtins.int
+    download_url: builtins.str
+    file_size: builtins.int
+    """The size of the file."""
+    @property
+    def headers(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        download_url: builtins.str = ...,
+        file_size: builtins.int = ...,
+        headers: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["download_url", b"download_url", "file_size", b"file_size", "headers", b"headers"]) -> None: ...
+
+global___DownloadUrlInfo = DownloadUrlInfo
 
 class ListBuildVersioningTagsRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

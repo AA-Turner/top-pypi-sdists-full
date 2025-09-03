@@ -1042,6 +1042,7 @@ class CfnFileSystem(
                 throughput_capacity=123,
                 weekly_maintenance_start_time="weeklyMaintenanceStartTime"
             ),
+            network_type="networkType",
             ontap_configuration=fsx.CfnFileSystem.OntapConfigurationProperty(
                 deployment_type="deploymentType",
         
@@ -1074,6 +1075,7 @@ class CfnFileSystem(
                     mode="mode"
                 ),
                 endpoint_ip_address_range="endpointIpAddressRange",
+                endpoint_ipv6_address_range="endpointIpv6AddressRange",
                 options=["options"],
                 preferred_subnet_id="preferredSubnetId",
                 read_cache_configuration=fsx.CfnFileSystem.ReadCacheConfigurationProperty(
@@ -1154,6 +1156,7 @@ class CfnFileSystem(
         file_system_type_version: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFileSystem.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_type: typing.Optional[builtins.str] = None,
         ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFileSystem.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFileSystem.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1171,6 +1174,7 @@ class CfnFileSystem(
         :param file_system_type_version: For FSx for Lustre file systems, sets the Lustre version for the file system that you're creating. Valid values are ``2.10`` , ``2.12`` , and ``2.15`` : - ``2.10`` is supported by the Scratch and Persistent_1 Lustre deployment types. - ``2.12`` is supported by all Lustre deployment types, except for ``PERSISTENT_2`` with a metadata configuration mode. - ``2.15`` is supported by all Lustre deployment types and is recommended for all new file systems. Default value is ``2.10`` , except for the following deployments: - Default value is ``2.12`` when ``DeploymentType`` is set to ``PERSISTENT_2`` without a metadata configuration mode. - Default value is ``2.15`` when ``DeploymentType`` is set to ``PERSISTENT_2`` with a metadata configuration mode.
         :param kms_key_id: The ID of the AWS Key Management Service ( AWS KMS ) key used to encrypt Amazon FSx file system data. Used as follows with Amazon FSx file system types: - Amazon FSx for Lustre ``PERSISTENT_1`` and ``PERSISTENT_2`` deployment types only. ``SCRATCH_1`` and ``SCRATCH_2`` types are encrypted using the Amazon FSx service AWS KMS key for your account. - Amazon FSx for NetApp ONTAP - Amazon FSx for OpenZFS - Amazon FSx for Windows File Server If this ID isn't specified, the Amazon FSx-managed key for your account is used. For more information, see `Encrypt <https://docs.aws.amazon.com//kms/latest/APIReference/API_Encrypt.html>`_ in the *AWS Key Management Service API Reference* .
         :param lustre_configuration: The Lustre configuration for the file system being created. This configuration is required if the ``FileSystemType`` is set to ``LUSTRE`` . .. epigraph:: The following parameters are not supported when creating Lustre file systems with a data repository association. - ``AutoImportPolicy`` - ``ExportPath`` - ``ImportedChunkSize`` - ``ImportPath``
+        :param network_type: The network type of the file system.
         :param ontap_configuration: The ONTAP configuration properties of the FSx for ONTAP file system that you are creating. This configuration is required if the ``FileSystemType`` is set to ``ONTAP`` .
         :param open_zfs_configuration: The Amazon FSx for OpenZFS configuration properties for the file system that you are creating. This configuration is required if the ``FileSystemType`` is set to ``OPENZFS`` .
         :param security_group_ids: A list of IDs specifying the security groups to apply to all network interfaces created for file system access. This list isn't returned in later requests to describe the file system. .. epigraph:: You must specify a security group if you are creating a Multi-AZ FSx for ONTAP file system in a VPC subnet that has been shared with you.
@@ -1190,6 +1194,7 @@ class CfnFileSystem(
             file_system_type_version=file_system_type_version,
             kms_key_id=kms_key_id,
             lustre_configuration=lustre_configuration,
+            network_type=network_type,
             ontap_configuration=ontap_configuration,
             open_zfs_configuration=open_zfs_configuration,
             security_group_ids=security_group_ids,
@@ -1378,6 +1383,19 @@ class CfnFileSystem(
             type_hints = typing.get_type_hints(_typecheckingstub__8646d19693a6f9abdd169bfa6ea6d4e784eba3f5391bff175f38918b462ca24a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lustreConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type of the file system.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7799a7898c1d78dcdd2f9531854e7ff35a8f4a27f4de33e706134e2fa35387ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="ontapConfiguration")
@@ -2647,6 +2665,7 @@ class CfnFileSystem(
             "daily_automatic_backup_start_time": "dailyAutomaticBackupStartTime",
             "disk_iops_configuration": "diskIopsConfiguration",
             "endpoint_ip_address_range": "endpointIpAddressRange",
+            "endpoint_ipv6_address_range": "endpointIpv6AddressRange",
             "options": "options",
             "preferred_subnet_id": "preferredSubnetId",
             "read_cache_configuration": "readCacheConfiguration",
@@ -2667,6 +2686,7 @@ class CfnFileSystem(
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
             disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             endpoint_ip_address_range: typing.Optional[builtins.str] = None,
+            endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
             options: typing.Optional[typing.Sequence[builtins.str]] = None,
             preferred_subnet_id: typing.Optional[builtins.str] = None,
             read_cache_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFileSystem.ReadCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2684,6 +2704,7 @@ class CfnFileSystem(
             :param daily_automatic_backup_start_time: A recurring daily time, in the format ``HH:MM`` . ``HH`` is the zero-padded hour of the day (0-23), and ``MM`` is the zero-padded minute of the hour. For example, ``05:00`` specifies 5 AM daily.
             :param disk_iops_configuration: The SSD IOPS (input/output operations per second) configuration for an Amazon FSx for NetApp ONTAP, Amazon FSx for Windows File Server, or FSx for OpenZFS file system. By default, Amazon FSx automatically provisions 3 IOPS per GB of storage capacity. You can provision additional IOPS per GB of storage. The configuration consists of the total number of provisioned SSD IOPS and how it is was provisioned, or the mode (by the customer or by Amazon FSx).
             :param endpoint_ip_address_range: (Multi-AZ only) Specifies the IP address range in which the endpoints to access your file system will be created. By default in the Amazon FSx API and Amazon FSx console, Amazon FSx selects an available /28 IP address range for you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP addresses for file systems deployed in the same VPC/route tables, as long as they don't overlap with any subnet.
+            :param endpoint_ipv6_address_range: (Multi-AZ only) Specifies the IP address range in which the endpoints to access your file system will be created. By default in the Amazon FSx API and Amazon FSx console, Amazon FSx selects an available /118 IP address range for you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP addresses for file systems deployed in the same VPC/route tables, as long as they don't overlap with any subnet.
             :param options: To delete a file system if there are child volumes present below the root volume, use the string ``DELETE_CHILD_VOLUMES_AND_SNAPSHOTS`` . If your file system has child volumes and you don't use this option, the delete request will fail.
             :param preferred_subnet_id: Required when ``DeploymentType`` is set to ``MULTI_AZ_1`` . This specifies the subnet in which you want the preferred file server to be located.
             :param read_cache_configuration: Specifies the optional provisioned SSD read cache on file systems that use the Intelligent-Tiering storage class.
@@ -2714,6 +2735,7 @@ class CfnFileSystem(
                         mode="mode"
                     ),
                     endpoint_ip_address_range="endpointIpAddressRange",
+                    endpoint_ipv6_address_range="endpointIpv6AddressRange",
                     options=["options"],
                     preferred_subnet_id="preferredSubnetId",
                     read_cache_configuration=fsx.CfnFileSystem.ReadCacheConfigurationProperty(
@@ -2751,6 +2773,7 @@ class CfnFileSystem(
                 check_type(argname="argument daily_automatic_backup_start_time", value=daily_automatic_backup_start_time, expected_type=type_hints["daily_automatic_backup_start_time"])
                 check_type(argname="argument disk_iops_configuration", value=disk_iops_configuration, expected_type=type_hints["disk_iops_configuration"])
                 check_type(argname="argument endpoint_ip_address_range", value=endpoint_ip_address_range, expected_type=type_hints["endpoint_ip_address_range"])
+                check_type(argname="argument endpoint_ipv6_address_range", value=endpoint_ipv6_address_range, expected_type=type_hints["endpoint_ipv6_address_range"])
                 check_type(argname="argument options", value=options, expected_type=type_hints["options"])
                 check_type(argname="argument preferred_subnet_id", value=preferred_subnet_id, expected_type=type_hints["preferred_subnet_id"])
                 check_type(argname="argument read_cache_configuration", value=read_cache_configuration, expected_type=type_hints["read_cache_configuration"])
@@ -2773,6 +2796,8 @@ class CfnFileSystem(
                 self._values["disk_iops_configuration"] = disk_iops_configuration
             if endpoint_ip_address_range is not None:
                 self._values["endpoint_ip_address_range"] = endpoint_ip_address_range
+            if endpoint_ipv6_address_range is not None:
+                self._values["endpoint_ipv6_address_range"] = endpoint_ipv6_address_range
             if options is not None:
                 self._values["options"] = options
             if preferred_subnet_id is not None:
@@ -2876,6 +2901,17 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-endpointipaddressrange
             '''
             result = self._values.get("endpoint_ip_address_range")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def endpoint_ipv6_address_range(self) -> typing.Optional[builtins.str]:
+            '''(Multi-AZ only) Specifies the IP address range in which the endpoints to access your file system will be created.
+
+            By default in the Amazon FSx API and Amazon FSx console, Amazon FSx selects an available /118 IP address range for you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP addresses for file systems deployed in the same VPC/route tables, as long as they don't overlap with any subnet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-endpointipv6addressrange
+            '''
+            result = self._values.get("endpoint_ipv6_address_range")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -3764,6 +3800,7 @@ class CfnFileSystem(
         "file_system_type_version": "fileSystemTypeVersion",
         "kms_key_id": "kmsKeyId",
         "lustre_configuration": "lustreConfiguration",
+        "network_type": "networkType",
         "ontap_configuration": "ontapConfiguration",
         "open_zfs_configuration": "openZfsConfiguration",
         "security_group_ids": "securityGroupIds",
@@ -3783,6 +3820,7 @@ class CfnFileSystemProps:
         file_system_type_version: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_type: typing.Optional[builtins.str] = None,
         ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3799,6 +3837,7 @@ class CfnFileSystemProps:
         :param file_system_type_version: For FSx for Lustre file systems, sets the Lustre version for the file system that you're creating. Valid values are ``2.10`` , ``2.12`` , and ``2.15`` : - ``2.10`` is supported by the Scratch and Persistent_1 Lustre deployment types. - ``2.12`` is supported by all Lustre deployment types, except for ``PERSISTENT_2`` with a metadata configuration mode. - ``2.15`` is supported by all Lustre deployment types and is recommended for all new file systems. Default value is ``2.10`` , except for the following deployments: - Default value is ``2.12`` when ``DeploymentType`` is set to ``PERSISTENT_2`` without a metadata configuration mode. - Default value is ``2.15`` when ``DeploymentType`` is set to ``PERSISTENT_2`` with a metadata configuration mode.
         :param kms_key_id: The ID of the AWS Key Management Service ( AWS KMS ) key used to encrypt Amazon FSx file system data. Used as follows with Amazon FSx file system types: - Amazon FSx for Lustre ``PERSISTENT_1`` and ``PERSISTENT_2`` deployment types only. ``SCRATCH_1`` and ``SCRATCH_2`` types are encrypted using the Amazon FSx service AWS KMS key for your account. - Amazon FSx for NetApp ONTAP - Amazon FSx for OpenZFS - Amazon FSx for Windows File Server If this ID isn't specified, the Amazon FSx-managed key for your account is used. For more information, see `Encrypt <https://docs.aws.amazon.com//kms/latest/APIReference/API_Encrypt.html>`_ in the *AWS Key Management Service API Reference* .
         :param lustre_configuration: The Lustre configuration for the file system being created. This configuration is required if the ``FileSystemType`` is set to ``LUSTRE`` . .. epigraph:: The following parameters are not supported when creating Lustre file systems with a data repository association. - ``AutoImportPolicy`` - ``ExportPath`` - ``ImportedChunkSize`` - ``ImportPath``
+        :param network_type: The network type of the file system.
         :param ontap_configuration: The ONTAP configuration properties of the FSx for ONTAP file system that you are creating. This configuration is required if the ``FileSystemType`` is set to ``ONTAP`` .
         :param open_zfs_configuration: The Amazon FSx for OpenZFS configuration properties for the file system that you are creating. This configuration is required if the ``FileSystemType`` is set to ``OPENZFS`` .
         :param security_group_ids: A list of IDs specifying the security groups to apply to all network interfaces created for file system access. This list isn't returned in later requests to describe the file system. .. epigraph:: You must specify a security group if you are creating a Multi-AZ FSx for ONTAP file system in a VPC subnet that has been shared with you.
@@ -3848,6 +3887,7 @@ class CfnFileSystemProps:
                     throughput_capacity=123,
                     weekly_maintenance_start_time="weeklyMaintenanceStartTime"
                 ),
+                network_type="networkType",
                 ontap_configuration=fsx.CfnFileSystem.OntapConfigurationProperty(
                     deployment_type="deploymentType",
             
@@ -3880,6 +3920,7 @@ class CfnFileSystemProps:
                         mode="mode"
                     ),
                     endpoint_ip_address_range="endpointIpAddressRange",
+                    endpoint_ipv6_address_range="endpointIpv6AddressRange",
                     options=["options"],
                     preferred_subnet_id="preferredSubnetId",
                     read_cache_configuration=fsx.CfnFileSystem.ReadCacheConfigurationProperty(
@@ -3956,6 +3997,7 @@ class CfnFileSystemProps:
             check_type(argname="argument file_system_type_version", value=file_system_type_version, expected_type=type_hints["file_system_type_version"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument lustre_configuration", value=lustre_configuration, expected_type=type_hints["lustre_configuration"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument ontap_configuration", value=ontap_configuration, expected_type=type_hints["ontap_configuration"])
             check_type(argname="argument open_zfs_configuration", value=open_zfs_configuration, expected_type=type_hints["open_zfs_configuration"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -3975,6 +4017,8 @@ class CfnFileSystemProps:
             self._values["kms_key_id"] = kms_key_id
         if lustre_configuration is not None:
             self._values["lustre_configuration"] = lustre_configuration
+        if network_type is not None:
+            self._values["network_type"] = network_type
         if ontap_configuration is not None:
             self._values["ontap_configuration"] = ontap_configuration
         if open_zfs_configuration is not None:
@@ -4086,6 +4130,15 @@ class CfnFileSystemProps:
         '''
         result = self._values.get("lustre_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.LustreConfigurationProperty]], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type of the file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ontap_configuration(
@@ -9619,6 +9672,7 @@ def _typecheckingstub__2d13764c3dcb8d96799af4fa191d042ff4511c33cfd1aecbf235dded3
     file_system_type_version: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_type: typing.Optional[builtins.str] = None,
     ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9674,6 +9728,12 @@ def _typecheckingstub__2a995a5203534aaa7de420e181d7312324d19d173e082b126d80f3d48
 
 def _typecheckingstub__8646d19693a6f9abdd169bfa6ea6d4e784eba3f5391bff175f38918b462ca24a(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.LustreConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7799a7898c1d78dcdd2f9531854e7ff35a8f4a27f4de33e706134e2fa35387ac(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9817,6 +9877,7 @@ def _typecheckingstub__5472f29690b088eacdf6c6853ffd8b23cd15c760dc30d812107be1280
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
     disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     endpoint_ip_address_range: typing.Optional[builtins.str] = None,
+    endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Sequence[builtins.str]] = None,
     preferred_subnet_id: typing.Optional[builtins.str] = None,
     read_cache_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.ReadCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9895,6 +9956,7 @@ def _typecheckingstub__cc6cf655096c0830614c2b73c7ebf907b07fc70f50859b1aa0f76bbf6
     file_system_type_version: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_type: typing.Optional[builtins.str] = None,
     ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,

@@ -68,7 +68,7 @@ for more granular details.
 
 ### Spark Jobs
 
-1. **ETL Jobs**
+#### ETL Jobs
 
 ETL jobs support pySpark and Scala languages, for which there are separate but
 similar constructors. ETL jobs default to the G2 worker type, but you can
@@ -132,7 +132,7 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
 )
 ```
 
-**Streaming Jobs**
+#### Streaming Jobs
 
 Streaming jobs are similar to ETL jobs, except that they perform ETL on data
 streams using the Apache Spark Structured Streaming framework. Some Spark
@@ -190,7 +190,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
 )
 ```
 
-**Flex Jobs**
+#### Flex Jobs
 
 The flexible execution class is appropriate for non-urgent jobs such as
 pre-production jobs, testing, and one-time data loads. Flexible jobs default
@@ -430,14 +430,14 @@ override it if you prefer for your trigger not to start on creation.
 Reference the workflow-triggers.test.ts unit tests for examples of creating
 workflows and triggers.
 
-1. **On-Demand Triggers**
+#### **1. On-Demand Triggers**
 
 On-demand triggers can start glue jobs or crawlers. This construct provides
 convenience functions to create on-demand crawler or job triggers. The constructor
 takes an optional description parameter, but abstracts the requirement of an
 actions list using the job or crawler objects using conditional types.
 
-1. **Scheduled Triggers**
+#### **2. Scheduled Triggers**
 
 You can create scheduled triggers using cron expressions. This construct
 provides daily, weekly, and monthly convenience functions,
@@ -465,13 +465,12 @@ The trigger actions are executed when the predicateCondition is true.
 A `Connection` allows Glue jobs, crawlers and development endpoints to access
 certain types of data stores.
 
-***Secrets Management
-**You must specify JDBC connection credentials in Secrets Manager and
-provide the Secrets Manager Key name as a property to the job connection.
-
+* **Secrets Management**
+  You must specify JDBC connection credentials in Secrets Manager and
+  provide the Secrets Manager Key name as a property to the job connection.
 * **Networking - the CDK determines the best fit subnet for Glue connection
-  configuration
-  **The prior version of the glue-alpha-module requires the developer to
+  configuration**
+  The prior version of the glue-alpha-module requires the developer to
   specify the subnet of the Connection when it’s defined. Now, you can still
   specify the specific subnet you want to use, but are no longer required
   to. You are only required to provide a VPC and either a public or private
@@ -6008,9 +6007,6 @@ class JobState(enum.Enum):
 class JobType(enum.Enum):
     '''(experimental) The job type.
 
-    If you need to use a JobType that doesn't exist as a static member, you
-    can instantiate a ``JobType`` object, e.g: ``JobType.of('other name')``.
-
     :stability: experimental
     '''
 
@@ -10490,9 +10486,6 @@ class Type:
 class WorkerType(enum.Enum):
     '''(experimental) The type of predefined worker that is allocated when a job runs.
 
-    If you need to use a WorkerType that doesn't exist as a static member, you
-    can instantiate a ``WorkerType`` object, e.g: ``WorkerType.of('other type')``
-
     :stability: experimental
     :exampleMetadata: infused
 
@@ -10551,6 +10544,16 @@ class WorkerType(enum.Enum):
 
     :stability: experimental
     '''
+    G_12X = "G_12X"
+    '''(experimental) G.12X Worker Type 12 DPU (48 vCPU, 192 GB of memory, 768 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with very large and resource-intensive workloads that require significant compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
+
+    :stability: experimental
+    '''
+    G_16X = "G_16X"
+    '''(experimental) G.16X Worker Type 16 DPU (64 vCPU, 256 GB of memory, 1024 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with the largest and most resource-intensive workloads that require maximum compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
+
+    :stability: experimental
+    '''
     G_025X = "G_025X"
     '''(experimental) G.025X Worker Type 0.25 DPU (2 vCPU, 4 GB of memory, 64 GB disk), and provides 1 executor per worker. Suitable for low volume streaming jobs.
 
@@ -10558,6 +10561,26 @@ class WorkerType(enum.Enum):
     '''
     Z_2X = "Z_2X"
     '''(experimental) Z.2X Worker Type.
+
+    :stability: experimental
+    '''
+    R_1X = "R_1X"
+    '''(experimental) R.1X Worker Type 1 M-DPU (4 vCPUs, 32 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+
+    :stability: experimental
+    '''
+    R_2X = "R_2X"
+    '''(experimental) R.2X Worker Type 2 M-DPU (8 vCPUs, 64 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+
+    :stability: experimental
+    '''
+    R_4X = "R_4X"
+    '''(experimental) R.4X Worker Type 4 M-DPU (16 vCPUs, 128 GB memory), We recommend this worker type for large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+
+    :stability: experimental
+    '''
+    R_8X = "R_8X"
+    '''(experimental) R.8X Worker Type 8 M-DPU (32 vCPUs, 256 GB memory), We recommend this worker type for very large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
 
     :stability: experimental
     '''

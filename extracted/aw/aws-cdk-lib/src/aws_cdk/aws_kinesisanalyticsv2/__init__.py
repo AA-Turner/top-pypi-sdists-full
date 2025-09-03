@@ -109,6 +109,12 @@ class CfnApplication(
                     ),
                     code_content_type="codeContentType"
                 ),
+                application_encryption_configuration=kinesisanalyticsv2.CfnApplication.ApplicationEncryptionConfigurationProperty(
+                    key_type="keyType",
+        
+                    # the properties below are optional
+                    key_id="keyId"
+                ),
                 application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
                     snapshots_enabled=False
                 ),
@@ -569,6 +575,7 @@ class CfnApplication(
         jsii_struct_bases=[],
         name_mapping={
             "application_code_configuration": "applicationCodeConfiguration",
+            "application_encryption_configuration": "applicationEncryptionConfiguration",
             "application_snapshot_configuration": "applicationSnapshotConfiguration",
             "application_system_rollback_configuration": "applicationSystemRollbackConfiguration",
             "environment_properties": "environmentProperties",
@@ -583,6 +590,7 @@ class CfnApplication(
             self,
             *,
             application_code_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationCodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             application_snapshot_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationSnapshotConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             application_system_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationSystemRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             environment_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.EnvironmentPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -594,6 +602,7 @@ class CfnApplication(
             '''Specifies the creation parameters for a Managed Service for Apache Flink application.
 
             :param application_code_configuration: The code location and type parameters for a Managed Service for Apache Flink application.
+            :param application_encryption_configuration: The configuration to manage encryption at rest.
             :param application_snapshot_configuration: Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
             :param application_system_rollback_configuration: Describes whether system rollbacks are enabled for a Managed Service for Apache Flink application.
             :param environment_properties: Describes execution properties for a Managed Service for Apache Flink application.
@@ -625,6 +634,12 @@ class CfnApplication(
                             zip_file_content="zipFileContent"
                         ),
                         code_content_type="codeContentType"
+                    ),
+                    application_encryption_configuration=kinesisanalyticsv2.CfnApplication.ApplicationEncryptionConfigurationProperty(
+                        key_type="keyType",
+                
+                        # the properties below are optional
+                        key_id="keyId"
                     ),
                     application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
                         snapshots_enabled=False
@@ -756,6 +771,7 @@ class CfnApplication(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f319eab92e)
                 check_type(argname="argument application_code_configuration", value=application_code_configuration, expected_type=type_hints["application_code_configuration"])
+                check_type(argname="argument application_encryption_configuration", value=application_encryption_configuration, expected_type=type_hints["application_encryption_configuration"])
                 check_type(argname="argument application_snapshot_configuration", value=application_snapshot_configuration, expected_type=type_hints["application_snapshot_configuration"])
                 check_type(argname="argument application_system_rollback_configuration", value=application_system_rollback_configuration, expected_type=type_hints["application_system_rollback_configuration"])
                 check_type(argname="argument environment_properties", value=environment_properties, expected_type=type_hints["environment_properties"])
@@ -766,6 +782,8 @@ class CfnApplication(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if application_code_configuration is not None:
                 self._values["application_code_configuration"] = application_code_configuration
+            if application_encryption_configuration is not None:
+                self._values["application_encryption_configuration"] = application_encryption_configuration
             if application_snapshot_configuration is not None:
                 self._values["application_snapshot_configuration"] = application_snapshot_configuration
             if application_system_rollback_configuration is not None:
@@ -791,6 +809,17 @@ class CfnApplication(
             '''
             result = self._values.get("application_code_configuration")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationCodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def application_encryption_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationEncryptionConfigurationProperty"]]:
+            '''The configuration to manage encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-applicationencryptionconfiguration
+            '''
+            result = self._values.get("application_encryption_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationEncryptionConfigurationProperty"]], result)
 
         @builtins.property
         def application_snapshot_configuration(
@@ -881,6 +910,79 @@ class CfnApplication(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplication.ApplicationEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key_type": "keyType", "key_id": "keyId"},
+    )
+    class ApplicationEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            key_type: builtins.str,
+            key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the configuration to manage encryption at rest.
+
+            :param key_type: Specifies the type of key used for encryption at rest.
+            :param key_id: The key ARN, key ID, alias ARN, or alias name of the KMS key used for encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                application_encryption_configuration_property = kinesisanalyticsv2.CfnApplication.ApplicationEncryptionConfigurationProperty(
+                    key_type="keyType",
+                
+                    # the properties below are optional
+                    key_id="keyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b0ca4d5bf924da35d1c2af5b8fecbbfa4b49c7928e20d9651037bdc17b94a906)
+                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key_type": key_type,
+            }
+            if key_id is not None:
+                self._values["key_id"] = key_id
+
+        @builtins.property
+        def key_type(self) -> builtins.str:
+            '''Specifies the type of key used for encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationencryptionconfiguration.html#cfn-kinesisanalyticsv2-application-applicationencryptionconfiguration-keytype
+            '''
+            result = self._values.get("key_type")
+            assert result is not None, "Required property 'key_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_id(self) -> typing.Optional[builtins.str]:
+            '''The key ARN, key ID, alias ARN, or alias name of the KMS key used for encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationencryptionconfiguration.html#cfn-kinesisanalyticsv2-application-applicationencryptionconfiguration-keyid
+            '''
+            result = self._values.get("key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplication.ApplicationMaintenanceConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -893,9 +995,9 @@ class CfnApplication(
             *,
             application_maintenance_window_start_time: builtins.str,
         ) -> None:
-            '''Describes the maintenance configuration for the application.
+            '''Specifies the maintenance configuration for a AKAlong .
 
-            :param application_maintenance_window_start_time: The start time for the maintenance window.
+            :param application_maintenance_window_start_time: The UTC timestamp of a day from which the eight-hour maintenance window will begin every day of the week. Maintenance of the application happens only during this eight-hour window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationmaintenanceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -919,7 +1021,9 @@ class CfnApplication(
 
         @builtins.property
         def application_maintenance_window_start_time(self) -> builtins.str:
-            '''The start time for the maintenance window.
+            '''The UTC timestamp of a day from which the eight-hour maintenance window will begin every day of the week.
+
+            Maintenance of the application happens only during this eight-hour window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationmaintenanceconfiguration.html#cfn-kinesisanalyticsv2-application-applicationmaintenanceconfiguration-applicationmaintenancewindowstarttime
             '''
@@ -4812,6 +4916,12 @@ class CfnApplicationProps:
                         ),
                         code_content_type="codeContentType"
                     ),
+                    application_encryption_configuration=kinesisanalyticsv2.CfnApplication.ApplicationEncryptionConfigurationProperty(
+                        key_type="keyType",
+            
+                        # the properties below are optional
+                        key_id="keyId"
+                    ),
                     application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
                         snapshots_enabled=False
                     ),
@@ -6181,6 +6291,7 @@ def _typecheckingstub__d7e73ac02523930b5016e0bf2bb2c85d746cb8caa198b78210930825b
 def _typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f319eab92e(
     *,
     application_code_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationCodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_snapshot_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSnapshotConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_system_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSystemRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.EnvironmentPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6188,6 +6299,14 @@ def _typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f31
     sql_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.SqlApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     zeppelin_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ZeppelinApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0ca4d5bf924da35d1c2af5b8fecbbfa4b49c7928e20d9651037bdc17b94a906(
+    *,
+    key_type: builtins.str,
+    key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

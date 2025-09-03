@@ -4066,7 +4066,7 @@ class CfnCodeSigningConfig(
         def __init__(self, *, untrusted_artifact_on_deployment: builtins.str) -> None:
             '''Code signing configuration `policies <https://docs.aws.amazon.com/lambda/latest/dg/configuration-codesigning.html#config-codesigning-policies>`_ specify the validation failure action for signature mismatch or expiry.
 
-            :param untrusted_artifact_on_deployment: Code signing configuration policy for deployment validation failure. If you set the policy to ``Enforce`` , Lambda blocks the deployment request if signature validation checks fail. If you set the policy to ``Warn`` , Lambda allows the deployment and creates a CloudWatch log. Default value: ``Warn`` Default: - "Warn"
+            :param untrusted_artifact_on_deployment: Code signing configuration policy for deployment validation failure. If you set the policy to ``Enforce`` , Lambda blocks the deployment request if signature validation checks fail. If you set the policy to ``Warn`` , Lambda allows the deployment and issues a new Amazon CloudWatch metric ( ``SignatureValidationErrors`` ) and also stores the warning in the CloudTrail log. Default value: ``Warn`` Default: - "Warn"
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-codesigningconfig-codesigningpolicies.html
             :exampleMetadata: fixture=_generated
@@ -4092,7 +4092,7 @@ class CfnCodeSigningConfig(
         def untrusted_artifact_on_deployment(self) -> builtins.str:
             '''Code signing configuration policy for deployment validation failure.
 
-            If you set the policy to ``Enforce`` , Lambda blocks the deployment request if signature validation checks fail. If you set the policy to ``Warn`` , Lambda allows the deployment and creates a CloudWatch log.
+            If you set the policy to ``Enforce`` , Lambda blocks the deployment request if signature validation checks fail. If you set the policy to ``Warn`` , Lambda allows the deployment and issues a new Amazon CloudWatch metric ( ``SignatureValidationErrors`` ) and also stores the warning in the CloudTrail log.
 
             Default value: ``Warn``
 
@@ -12005,6 +12005,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
         cache_from: typing.Optional[typing.Sequence[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
+        network: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         target_stage: typing.Optional[builtins.str] = None,
     ) -> "AssetCode":
@@ -12021,6 +12022,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
         :param file: Name of the Dockerfile, must relative to the docker build path. Default: ``Dockerfile``
+        :param network: Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_. Default: - no networking options
         :param platform: Set platform if server is multi-platform capable. *Requires Docker Engine API v1.38+*. Example value: ``linux/amd64`` Default: - no platform specified
         :param target_stage: Set build target for multi-stage container builds. Any stage defined afterwards will be ignored. Example value: ``build-env`` Default: - Build all stages defined in the Dockerfile
         '''
@@ -12035,6 +12037,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
             cache_from=cache_from,
             cache_to=cache_to,
             file=file,
+            network=network,
             platform=platform,
             target_stage=target_stage,
         )
@@ -12957,6 +12960,7 @@ class DlqDestinationConfig:
         "cache_from": "cacheFrom",
         "cache_to": "cacheTo",
         "file": "file",
+        "network": "network",
         "platform": "platform",
         "target_stage": "targetStage",
         "image_path": "imagePath",
@@ -12972,6 +12976,7 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
         cache_from: typing.Optional[typing.Sequence[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
+        network: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         target_stage: typing.Optional[builtins.str] = None,
         image_path: typing.Optional[builtins.str] = None,
@@ -12984,6 +12989,7 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
         :param file: Name of the Dockerfile, must relative to the docker build path. Default: ``Dockerfile``
+        :param network: Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_. Default: - no networking options
         :param platform: Set platform if server is multi-platform capable. *Requires Docker Engine API v1.38+*. Example value: ``linux/amd64`` Default: - no platform specified
         :param target_stage: Set build target for multi-stage container builds. Any stage defined afterwards will be ignored. Example value: ``build-env`` Default: - Build all stages defined in the Dockerfile
         :param image_path: The path in the Docker image where the asset is located after the build operation. Default: /asset
@@ -13020,6 +13026,7 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
                 ),
                 file="file",
                 image_path="imagePath",
+                network="network",
                 output_path="outputPath",
                 platform="platform",
                 target_stage="targetStage"
@@ -13034,6 +13041,7 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
             check_type(argname="argument cache_from", value=cache_from, expected_type=type_hints["cache_from"])
             check_type(argname="argument cache_to", value=cache_to, expected_type=type_hints["cache_to"])
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
+            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
             check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
             check_type(argname="argument target_stage", value=target_stage, expected_type=type_hints["target_stage"])
             check_type(argname="argument image_path", value=image_path, expected_type=type_hints["image_path"])
@@ -13049,6 +13057,8 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
             self._values["cache_to"] = cache_to
         if file is not None:
             self._values["file"] = file
+        if network is not None:
+            self._values["network"] = network
         if platform is not None:
             self._values["platform"] = platform
         if target_stage is not None:
@@ -13101,6 +13111,15 @@ class DockerBuildAssetOptions(_DockerBuildOptions_8e28be8a):
         :default: ``Dockerfile``
         '''
         result = self._values.get("file")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network(self) -> typing.Optional[builtins.str]:
+        '''Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_.
+
+        :default: - no networking options
+        '''
+        result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -32246,6 +32265,7 @@ def _typecheckingstub__5d398ddff6fb1e58c2dafd59b4cd46de157e95f7c1faf544bd0e4cee3
     cache_from: typing.Optional[typing.Sequence[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]] = None,
     file: typing.Optional[builtins.str] = None,
+    network: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     target_stage: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -32358,6 +32378,7 @@ def _typecheckingstub__cbc49d837c4da70ff80dadf559d6f8c32fce03c67b454d4d81e625f4f
     cache_from: typing.Optional[typing.Sequence[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[_DockerCacheOption_63aeecf2, typing.Dict[builtins.str, typing.Any]]] = None,
     file: typing.Optional[builtins.str] = None,
+    network: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     target_stage: typing.Optional[builtins.str] = None,
     image_path: typing.Optional[builtins.str] = None,

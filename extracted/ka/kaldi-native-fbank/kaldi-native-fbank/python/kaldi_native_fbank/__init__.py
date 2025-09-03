@@ -15,4 +15,4 @@ from _kaldi_native_fbank import (
     StftResult,
     WhisperFeatureOptions,
 )
-__version__ = '1.21.4'
+__version__ = '1.21.5'

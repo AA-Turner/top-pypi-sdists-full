@@ -1,12 +1,12 @@
 import pandas as pd
 from typing import Optional
-from ._helper_functions import (
+from sempy_labs._helper_functions import (
     _base_api,
     _create_dataframe,
     _conv_b64,
     delete_item,
     create_item,
-    get_item_definition,
+    _get_item_definition,
     resolve_workspace_id,
 )
 from uuid import UUID
@@ -25,6 +25,8 @@ def create_eventhouse(
     Creates a Fabric eventhouse.
 
     This is a wrapper function for the following API: `Items - Create Eventhouse <https://learn.microsoft.com/rest/api/fabric/environment/items/create-eventhouse>`_.
+
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
 
     Parameters
     ----------
@@ -127,6 +129,8 @@ def delete_eventhouse(name: str, workspace: Optional[str | UUID] = None):
 
     This is a wrapper function for the following API: `Items - Delete Eventhouse <https://learn.microsoft.com/rest/api/fabric/environment/items/delete-eventhouse>`_.
 
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
+
     Parameters
     ----------
     name: str
@@ -151,6 +155,8 @@ def get_eventhouse_definition(
 
     This is a wrapper function for the following API: `Items - Get Eventhouse Definition <https://learn.microsoft.com/rest/api/fabric/eventhouse/items/get-eventhouse-definition>`_.
 
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
+
     Parameters
     ----------
     eventhouse : str
@@ -168,7 +174,7 @@ def get_eventhouse_definition(
         The eventhouse definition in .json format or as a pandas dataframe.
     """
 
-    return get_item_definition(
+    return _get_item_definition(
         item=eventhouse,
         type="Eventhouse",
         workspace=workspace,

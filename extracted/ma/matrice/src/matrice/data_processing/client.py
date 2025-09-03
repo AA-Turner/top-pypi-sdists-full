@@ -745,7 +745,7 @@ def batch_create_dataset_items(batch, dataset_id, dataset_version, rpc):
         ],
     }
     resp = rpc.post(
-        "/v2/dataset/add_dataset_items",
+        "/v1/dataset_item/add_dataset_items",
         payload=payload,
     )
     logging.info(

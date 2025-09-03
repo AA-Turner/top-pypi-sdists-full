@@ -2,6 +2,16 @@
 
 import functools
 import re
+import urllib.parse
+from collections.abc import Mapping
+
+import orjson
+
+LANGSMITH_METADATA = "langsmith-metadata"
+LANGSMITH_TAGS = "langsmith-tags"
+LANGSMITH_PROJECT = "langsmith-project"
+# For security, don't include these in configuration
+DEFAULT_RUN_HEADERS_EXCLUDE = {"x-api-key", "x-tenant-id", "x-service-key"}
 
 
 def translate_pattern(pat: str) -> re.Pattern[str]:
@@ -21,6 +31,62 @@ def translate_pattern(pat: str) -> re.Pattern[str]:
 
     pattern = "".join(res)
     return re.compile(rf"(?s:{pattern})\Z")
+
+
+def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    """Extract headers that should be added to run configuration.
+
+    This function handles special cases like langsmith-trace and baggage headers,
+    while respecting the configurable header patterns.
+    """
+    configurable = {}
+    if not headers:
+        return configurable
+
+    for key, value in headers.items():
+        # First handle tracing stuff - always included regardless of patterns
+        if key == "langsmith-trace":
+            configurable[key] = value
+            if baggage := headers.get("baggage"):
+                for item in baggage.split(","):
+                    baggage_key, baggage_value = item.split("=")
+                    if (
+                        baggage_key == LANGSMITH_METADATA
+                        and baggage_key not in configurable
+                    ):
+                        configurable[baggage_key] = orjson.loads(
+                            urllib.parse.unquote(baggage_value)
+                        )
+                    elif baggage_key == LANGSMITH_TAGS:
+                        configurable[baggage_key] = urllib.parse.unquote(
+                            baggage_value
+                        ).split(",")
+                    elif baggage_key == LANGSMITH_PROJECT:
+                        configurable[baggage_key] = urllib.parse.unquote(baggage_value)
+            continue
+
+        # Check if header should be included based on patterns
+        # For run configuration, we have specific default behavior for x-* headers
+        if key.startswith("x-"):
+            # Check against default excludes for x-* headers
+            if key in DEFAULT_RUN_HEADERS_EXCLUDE:
+                # Check if explicitly included via patterns
+                if should_include_header(key):
+                    configurable[key] = value
+                continue
+            # Other x-* headers are included by default unless patterns exclude them
+            if should_include_header(key):
+                configurable[key] = value
+        elif key == "user-agent":
+            # user-agent is included by default unless excluded by patterns
+            if should_include_header(key):
+                configurable[key] = value
+        else:
+            # All other headers only included if patterns allow
+            if should_include_header(key):
+                configurable[key] = value
+
+    return configurable
 
 
 @functools.lru_cache(maxsize=1)
@@ -93,5 +159,5 @@ def pattern_matches(
         # If include patterns are specified, only include headers matching them
         return any(pattern.match(key) for pattern in include_patterns)
 
-    # Default behavior - include if not excluded
-    return True
+    # Default behavior - exclude
+    return False

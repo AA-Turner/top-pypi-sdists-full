@@ -5,6 +5,7 @@ from google.api import annotations_pb2 as _annotations_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from nominal.gen.v1 import alias_pb2 as _alias_pb2
 from nominal.gen.v1 import error_pb2 as _error_pb2
+from nominal.procedures.v1 import procedures_pb2 as _procedures_pb2
 from nominal.types import types_pb2 as _types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -248,29 +249,24 @@ class ProcedureExecutionGraph(_message.Message):
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: ProcedureExecutionGraph.NodeList
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureExecutionGraph.NodeList, _Mapping]] = ...) -> None: ...
+        value: _procedures_pb2.NodeList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_procedures_pb2.NodeList, _Mapping]] = ...) -> None: ...
     class StepEdgesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: ProcedureExecutionGraph.NodeList
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureExecutionGraph.NodeList, _Mapping]] = ...) -> None: ...
-    class NodeList(_message.Message):
-        __slots__ = ("value",)
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        value: _containers.RepeatedScalarFieldContainer[str]
-        def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
+        value: _procedures_pb2.NodeList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_procedures_pb2.NodeList, _Mapping]] = ...) -> None: ...
     NODES_FIELD_NUMBER: _ClassVar[int]
     ROOT_NODES_FIELD_NUMBER: _ClassVar[int]
     SECTION_EDGES_FIELD_NUMBER: _ClassVar[int]
     STEP_EDGES_FIELD_NUMBER: _ClassVar[int]
     nodes: _containers.MessageMap[str, ProcedureExecutionNode]
     root_nodes: _containers.RepeatedScalarFieldContainer[str]
-    section_edges: _containers.MessageMap[str, ProcedureExecutionGraph.NodeList]
-    step_edges: _containers.MessageMap[str, ProcedureExecutionGraph.NodeList]
-    def __init__(self, nodes: _Optional[_Mapping[str, ProcedureExecutionNode]] = ..., root_nodes: _Optional[_Iterable[str]] = ..., section_edges: _Optional[_Mapping[str, ProcedureExecutionGraph.NodeList]] = ..., step_edges: _Optional[_Mapping[str, ProcedureExecutionGraph.NodeList]] = ...) -> None: ...
+    section_edges: _containers.MessageMap[str, _procedures_pb2.NodeList]
+    step_edges: _containers.MessageMap[str, _procedures_pb2.NodeList]
+    def __init__(self, nodes: _Optional[_Mapping[str, ProcedureExecutionNode]] = ..., root_nodes: _Optional[_Iterable[str]] = ..., section_edges: _Optional[_Mapping[str, _procedures_pb2.NodeList]] = ..., step_edges: _Optional[_Mapping[str, _procedures_pb2.NodeList]] = ...) -> None: ...
 
 class ProcedureExecutionVariableValue(_message.Message):
     __slots__ = ("asset_rid", "string_value", "double_value", "boolean_value")
@@ -406,19 +402,13 @@ class GetProcedureExecutionRequest(_message.Message):
     include_display_graph: bool
     def __init__(self, procedure_execution_rid: _Optional[str] = ..., include_display_graph: bool = ...) -> None: ...
 
-class ProcedureExecutionDisplayGraph(_message.Message):
-    __slots__ = ("top_level_nodes",)
-    TOP_LEVEL_NODES_FIELD_NUMBER: _ClassVar[int]
-    top_level_nodes: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, top_level_nodes: _Optional[_Iterable[str]] = ...) -> None: ...
-
 class GetProcedureExecutionResponse(_message.Message):
     __slots__ = ("procedure_execution", "display_graph")
     PROCEDURE_EXECUTION_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
     procedure_execution: ProcedureExecution
-    display_graph: ProcedureExecutionDisplayGraph
-    def __init__(self, procedure_execution: _Optional[_Union[ProcedureExecution, _Mapping]] = ..., display_graph: _Optional[_Union[ProcedureExecutionDisplayGraph, _Mapping]] = ...) -> None: ...
+    display_graph: _procedures_pb2.ProcedureDisplayGraph
+    def __init__(self, procedure_execution: _Optional[_Union[ProcedureExecution, _Mapping]] = ..., display_graph: _Optional[_Union[_procedures_pb2.ProcedureDisplayGraph, _Mapping]] = ...) -> None: ...
 
 class ProcedureExecutionSearchQuery(_message.Message):
     __slots__ = ("search_text", "label", "property", "workspace", "procedure_rid", "commit_id", "created_by")

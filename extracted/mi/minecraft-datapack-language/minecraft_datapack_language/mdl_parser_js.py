@@ -316,15 +316,30 @@ class MDLParser:
                     suggestion="Replace 'for' with 'while' and adjust the loop structure"
                 )
             
-            # Check if this is a variable assignment
-            # Pattern 1: identifier = (simple assignment)
+            # Check if this is a variable assignment (identifier followed by =)
+            # Need to handle scope selectors like: identifier<scope> = ...
             if (self.current + 1 < len(self.tokens) and 
                 self.tokens[self.current + 1].type == TokenType.ASSIGN):
                 return self._parse_variable_assignment()
-            
-            # Pattern 2: identifier<scope> = (explicit scope assignment)
-            elif self._is_explicit_scope_assignment():
-                return self._parse_explicit_scope_assignment()
+            elif (self.current + 1 < len(self.tokens) and 
+                  self.tokens[self.current + 1].type == TokenType.LANGLE):
+                # This might be a scoped variable assignment: identifier<scope> = ...
+                # Look ahead to see if there's an assignment after the scope selector
+                temp_current = self.current + 1
+                while (temp_current < len(self.tokens) and 
+                       self.tokens[temp_current].type != TokenType.RANGLE and
+                       self.tokens[temp_current].type != TokenType.ASSIGN):
+                    temp_current += 1
+                
+                if (temp_current < len(self.tokens) and 
+                    self.tokens[temp_current].type == TokenType.RANGLE and
+                    temp_current + 1 < len(self.tokens) and
+                    self.tokens[temp_current + 1].type == TokenType.ASSIGN):
+                    # This is a scoped variable assignment
+                    return self._parse_variable_assignment()
+                else:
+                    # This is a command with scope selector
+                    return self._parse_command()
             else:
                 # Assume it's a command
                 return self._parse_command()
@@ -342,31 +357,29 @@ class MDLParser:
         
         # Check for scope selector after variable name
         scope = None
-        if not self._is_at_end() and self._peek().type == TokenType.SCOPE:
-            self._match(TokenType.SCOPE)  # consume 'scope'
+        if not self._is_at_end() and self._peek().type == TokenType.LANGLE:
+            self._match(TokenType.LANGLE)  # consume '<'
             
-            # Parse scope selector in angle brackets
-            if not self._is_at_end() and self._peek().type == TokenType.LANGLE:
-                self._match(TokenType.LANGLE)  # consume '<'
-                
-                # Parse scope selector content
-                scope_parts = []
-                while not self._is_at_end() and self._peek().type != TokenType.RANGLE:
-                    scope_parts.append(self._peek().value)
-                    self._advance()
-                
-                if self._is_at_end():
-                    raise create_parser_error(
-                        message="Unterminated scope selector",
-                        file_path=self.source_file,
-                        line=self._peek().line,
-                        column=self._peek().column,
-                        line_content=self._peek().value,
-                        suggestion="Add a closing '>' to terminate the scope selector"
-                    )
-                
-                self._match(TokenType.RANGLE)  # consume '>'
-                scope = ''.join(scope_parts)
+            # Parse scope selector content
+            scope_parts = []
+            while not self._is_at_end() and self._peek().type != TokenType.RANGLE:
+                scope_parts.append(self._peek().value)
+                self._advance()
+            
+            if self._is_at_end():
+                raise create_parser_error(
+                    message="Unterminated scope selector",
+                    file_path=self.source_file,
+                    line=self._peek().line,
+                    column=self._peek().column,
+                    line_content=self._peek().value,
+                    suggestion="Add a closing '>' to terminate the scope selector"
+                )
+            
+            self._match(TokenType.RANGLE)  # consume '>'
+            scope = ''.join(scope_parts)
+            # Update the name to include the scope selector
+            name = f"{name}<{scope}>"
         
         self._match(TokenType.ASSIGN)
         
@@ -382,6 +395,32 @@ class MDLParser:
         name_token = self._match(TokenType.IDENTIFIER)
         name = name_token.value
         
+        # Check for scope selector after variable name
+        scope = None
+        if not self._is_at_end() and self._peek().type == TokenType.LANGLE:
+            self._match(TokenType.LANGLE)  # consume '<'
+            
+            # Parse scope selector content
+            scope_parts = []
+            while not self._is_at_end() and self._peek().type != TokenType.RANGLE:
+                scope_parts.append(self._peek().value)
+                self._advance()
+            
+            if self._is_at_end():
+                raise create_parser_error(
+                    message="Unterminated scope selector",
+                    file_path=self.source_file,
+                    line=self._peek().line,
+                    column=self._peek().column,
+                    line_content=self._peek().value,
+                    suggestion="Add a closing '>' to terminate the scope selector"
+                )
+            
+            self._match(TokenType.RANGLE)  # consume '>'
+            scope = ''.join(scope_parts)
+            # Update the name to include the scope selector
+            name = f"{name}<{scope}>"
+        
         self._match(TokenType.ASSIGN)
         
         # Parse the value (could be a number or expression)
@@ -389,73 +428,7 @@ class MDLParser:
         
         self._match(TokenType.SEMICOLON)
         
-        return {"type": "variable_assignment", "name": name, "value": value}
-    
-    def _is_explicit_scope_assignment(self) -> bool:
-        """Check if current position is an explicit scope assignment pattern: var<scope> = value"""
-        if self.current >= len(self.tokens):
-            return False
-            
-        # Look for pattern: IDENTIFIER LANGLE ... RANGLE ASSIGN
-        idx = self.current + 1
-        
-        # Must have LANGLE after identifier
-        if idx >= len(self.tokens) or self.tokens[idx].type != TokenType.LANGLE:
-            return False
-        idx += 1
-        
-        # Skip tokens until we find RANGLE
-        while idx < len(self.tokens) and self.tokens[idx].type != TokenType.RANGLE:
-            idx += 1
-        
-        # Must find RANGLE
-        if idx >= len(self.tokens) or self.tokens[idx].type != TokenType.RANGLE:
-            return False
-        idx += 1
-        
-        # Must have ASSIGN after RANGLE
-        if idx >= len(self.tokens) or self.tokens[idx].type != TokenType.ASSIGN:
-            return False
-            
-        return True
-    
-    def _parse_explicit_scope_assignment(self) -> dict:
-        """Parse variable assignment with explicit scope: var<scope> = value"""
-        # Parse variable name
-        name_token = self._match(TokenType.IDENTIFIER)
-        name = name_token.value
-        
-        # Parse scope: <scope>
-        self._match(TokenType.LANGLE)
-        
-        # Parse scope selector content
-        scope_parts = []
-        while not self._is_at_end() and self._peek().type != TokenType.RANGLE:
-            scope_parts.append(self._peek().value)
-            self._advance()
-        
-        if self._is_at_end():
-            raise create_parser_error(
-                message="Unterminated scope selector in assignment",
-                file_path=self.source_file,
-                line=self._peek().line,
-                column=self._peek().column,
-                line_content=self._peek().value,
-                suggestion="Add a closing '>' to terminate the scope selector"
-            )
-        
-        self._match(TokenType.RANGLE)
-        scope = ''.join(scope_parts)
-        
-        # Parse assignment
-        self._match(TokenType.ASSIGN)
-        
-        # Parse the value
-        value = self._parse_expression()
-        
-        self._match(TokenType.SEMICOLON)
-        
-        return {"type": "explicit_scope_assignment", "name": name, "scope": scope, "value": value}
+        return {"type": "variable_assignment", "name": name, "scope": scope, "value": value}
     
     def _parse_if_statement(self) -> IfStatement:
         """Parse if statement."""
@@ -756,8 +729,47 @@ class MDLParser:
         """Parse a command."""
         command_parts = []
         while not self._is_at_end() and self._peek().type != TokenType.SEMICOLON:
-            command_parts.append(self._peek().value)
-            self._advance()
+            current_token = self._peek()
+            
+            # Check if this is an identifier that might be followed by a scope selector
+            if current_token.type == TokenType.IDENTIFIER:
+                identifier_name = current_token.value
+                command_parts.append(identifier_name)
+                self._advance()  # consume the identifier
+                
+                # Look ahead to see if there's a scope selector
+                if not self._is_at_end() and self._peek().type == TokenType.LANGLE:
+                    # This is a scoped variable - parse the scope selector
+                    self._match(TokenType.LANGLE)  # consume '<'
+                    
+                    # Parse scope selector content
+                    scope_parts = []
+                    while not self._is_at_end() and self._peek().type != TokenType.RANGLE:
+                        scope_parts.append(self._peek().value)
+                        self._advance()
+                    
+                    if self._is_at_end():
+                        raise create_parser_error(
+                            message="Unterminated scope selector in command",
+                            file_path=self.source_file,
+                            line=self._peek().line,
+                            column=self._peek().column,
+                            line_content=self._peek().value,
+                            suggestion="Add a closing '>' to terminate the scope selector"
+                        )
+                    
+                    self._match(TokenType.RANGLE)  # consume '>'
+                    scope_selector = ''.join(scope_parts)
+                    
+                    # Add the scope selector to the command parts
+                    command_parts.append(f"<{scope_selector}>")
+                else:
+                    # No scope selector, continue with next token
+                    continue
+            else:
+                # Regular token, just add it
+                command_parts.append(current_token.value)
+                self._advance()
         
         if self._is_at_end():
             raise create_parser_error(
@@ -907,9 +919,10 @@ class MDLParser:
             identifier_name = token.value
             self._advance()  # consume the identifier
             
-            # Check for explicit scope syntax: identifier<scope>
+            # Check if this identifier is followed by a scope selector
             if not self._is_at_end() and self._peek().type == TokenType.LANGLE:
-                self._advance()  # consume <
+                # This is a scoped variable - parse the scope selector
+                self._match(TokenType.LANGLE)  # consume '<'
                 
                 # Parse scope selector content
                 scope_parts = []
@@ -927,21 +940,12 @@ class MDLParser:
                         suggestion="Add a closing '>' to terminate the scope selector"
                     )
                 
-                self._advance()  # consume >
+                self._match(TokenType.RANGLE)  # consume '>'
                 scope_selector = ''.join(scope_parts)
                 
-                # Return variable expression with explicit scope encoded in name
-                return VariableExpression(f"{identifier_name}<{scope_selector}>")
-            
-            # Check if the identifier contains a scope selector (legacy single-token format)
-            elif '<' in identifier_name and identifier_name.endswith('>'):
-                # Extract variable name and scope selector
-                parts = identifier_name.split('<', 1)
-                if len(parts) == 2:
-                    var_name = parts[0]
-                    scope_selector = parts[1][:-1]  # Remove the closing >
-                    # For variable expressions in assignments, keep the full scoped name
-                    return VariableExpression(identifier_name)
+                # Create a scoped variable expression
+                full_name = f"{identifier_name}<{scope_selector}>"
+                return VariableExpression(full_name)
             
             # Regular variable expression without scope
             return VariableExpression(identifier_name)

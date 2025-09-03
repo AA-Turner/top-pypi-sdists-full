@@ -2,7 +2,7 @@
 # https://github.com/gepa-ai/gepa
 
 import random
-from typing import Any
+from typing import Any, Callable
 
 from gepa.adapters.default_adapter.default_adapter import DefaultAdapter
 from gepa.core.adapter import DataInst, GEPAAdapter, RolloutOutput, Trajectory
@@ -22,7 +22,7 @@ def optimize(
     trainset: list[DataInst],
     valset: list[DataInst] | None = None,
     adapter: GEPAAdapter[DataInst, Trajectory, RolloutOutput] | None = None,
-    task_lm: str | None = None,
+    task_lm: str | Callable | None = None,
     # Reflection-based configuration
     reflection_lm: LanguageModel | str | None = None,
     candidate_selection_strategy: str = "pareto",
@@ -124,9 +124,12 @@ def optimize(
         )
 
     assert max_metric_calls is not None, "max_metric_calls must be set"
-    assert reflection_lm is not None, (
-        "GEPA currently requires a reflection LM to be provided. We will soon support simpler application without specifying a reflection LM."
-    )
+
+    if not hasattr(adapter, "propose_new_texts"):
+        assert reflection_lm is not None, (
+            f"reflection_lm was not provided. The adapter used '{adapter!s}' does not provide a propose_new_texts method, " + \
+            "and hence, GEPA will use the default proposer, which requires a reflection_lm to be specified."
+        )
 
     if isinstance(reflection_lm, str):
         import litellm

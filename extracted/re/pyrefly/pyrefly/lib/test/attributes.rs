@@ -592,7 +592,7 @@ testcase!(
     test_class_generic_attribute_lookup,
     r#"
 class C[T]:
-    x = T
+    x: list[T] = []
 
 C.x  # E: Generic attribute `x` of class `C` is not visible on the class
 "#,
@@ -1069,10 +1069,12 @@ testcase!(
     r#"
 from typing import assert_type, Any
 class Foo:
-    x: int = 1
-def f[T: Foo](y: T) -> T:
-    assert_type(y.x, int)
-    assert_type(T.x, int)
+    def m(self) -> int:
+        return 0
+def f[T: Foo](y: T, z: type[T]) -> T:
+    assert_type(y.m(), int)
+    assert_type(z.m(y), int)
+    assert_type(T.m(y), Any) # E: Object of class `TypeVar` has no attribute `m`
     return y
     "#,
 );
@@ -1440,12 +1442,11 @@ def g(ann) -> None:
 );
 
 testcase!(
-    bug = "PyTorch TODO: this would be fixed by hasattr narrowing",
     test_tuple_attribute_example,
     r#"
 def f(obj, g, field_type, my_type,):
     assert issubclass(obj, tuple) and hasattr(obj, "_fields")
-    for f in obj._fields:  # E: Class `tuple` has no class attribute `_fields`
+    for f in obj._fields:
         if isinstance(field_type, my_type) and g is not None:
             if g is None:
                 raise ValueError(
@@ -1548,4 +1549,50 @@ def foo[T](x: type[T]):
     # mypy reveals the same thing we do (the type of `type.__new__`), while pyright reveals `Unknown`.
     reveal_type(get_type_t().__new__)  # E: Overload[(cls: type[Self@type], o: object, /) -> type, (cls: type[TypeVar[Self]], name: str, bases: tuple[type, ...], namespace: dict[str, Any], /, **kwds: Any) -> TypeVar[Self]]
     "#,
+);
+
+// T, P, and Ts are values of type TypeVar, ParamSpec, and TypeVarTuple respectively.
+// They should behave like values when we try to access attributes on them.
+testcase!(
+    test_typevar_value_lookups,
+    r#"
+from typing import Callable, TypeVar, ParamSpec, TypeVarTuple
+
+def ty[T](x: T) -> type[T]: ...
+
+T = TypeVar("T")
+P = ParamSpec("P")
+Ts = TypeVarTuple("Ts")
+
+T.__name__
+P.__name__
+P.args.__origin__
+P.kwargs.__origin__
+Ts.__name__
+
+ty(T).__name__
+ty(P).__name__
+ty(P.args).__origin__
+ty(P.args).__origin__
+ty(Ts).__name__
+
+def f(g: Callable[P, T], ts: tuple[*Ts], *args: P.args, **kwargs: P.kwargs):
+    args.count(1)
+    kwargs.keys()
+
+    ty(args).count(args, 1)
+    ty(kwargs).keys(kwargs)
+
+    T.__name__
+    P.__name__
+    P.args.__origin__
+    P.kwargs.__origin__
+    Ts.__name__
+
+    ty(T).__name__
+    ty(P).__name__
+    ty(P.args).__origin__
+    ty(P.args).__origin__
+    ty(Ts).__name__
+"#,
 );

@@ -65,6 +65,16 @@ jobs:
             .cache/huggingface
           key: garak-test-resources-shared
 
+      - name: More cached models
+        run: |
+          export HF_HUB_DISABLE_XET=1
+          # download translation support models too large for standard cache
+          huggingface-cli download facebook/m2m100_418M --quiet
+          huggingface-cli download Helsinki-NLP/opus-mt-en-fr --quiet
+          huggingface-cli download Helsinki-NLP/opus-mt-fr-en --quiet
+          huggingface-cli download Helsinki-NLP/opus-mt-en-jap --quiet
+          huggingface-cli download Helsinki-NLP/opus-mt-jap-en --quiet
+
       - name: Test with pytest
         run: |
           cd garak

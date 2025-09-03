@@ -15,7 +15,7 @@ HOME_DIR = str(Path.home())
 DEFAULT_CONFIG_FILE = os.path.join(HOME_DIR, '.bigeye', 'config.ini')
 
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class WorkspaceConfig(BaseModel):

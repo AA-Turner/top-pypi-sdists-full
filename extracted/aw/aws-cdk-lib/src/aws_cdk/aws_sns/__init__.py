@@ -125,13 +125,15 @@ my_topic = sns.Topic(self, "MyTopic")
 
 # Lambda should receive only message matching the following conditions on message body:
 # color: 'red' or 'orange'
+# store: property must not be present
 my_topic.add_subscription(subscriptions.LambdaSubscription(fn,
     filter_policy_with_message_body={
         "background": sns.FilterOrPolicy.policy({
             "color": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.string_filter(
                 allowlist=["red", "orange"]
             ))
-        })
+        }),
+        "store": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.not_exists_filter())
     }
 ))
 ```
@@ -2504,13 +2506,15 @@ class FilterOrPolicy(
         
         # Lambda should receive only message matching the following conditions on message body:
         # color: 'red' or 'orange'
+        # store: property must not be present
         my_topic.add_subscription(subscriptions.LambdaSubscription(fn,
             filter_policy_with_message_body={
                 "background": sns.FilterOrPolicy.policy({
                     "color": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.string_filter(
                         allowlist=["red", "orange"]
                     ))
-                })
+                }),
+                "store": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.not_exists_filter())
             }
         ))
     '''
@@ -4567,6 +4571,12 @@ class SubscriptionFilter(
     def exists_filter(cls) -> "SubscriptionFilter":
         '''Returns a subscription filter for attribute key matching.'''
         return typing.cast("SubscriptionFilter", jsii.sinvoke(cls, "existsFilter", []))
+
+    @jsii.member(jsii_name="notExistsFilter")
+    @builtins.classmethod
+    def not_exists_filter(cls) -> "SubscriptionFilter":
+        '''Returns a subscription filter for absence of attribute key.'''
+        return typing.cast("SubscriptionFilter", jsii.sinvoke(cls, "notExistsFilter", []))
 
     @jsii.member(jsii_name="numericFilter")
     @builtins.classmethod

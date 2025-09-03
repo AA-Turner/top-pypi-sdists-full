@@ -1770,7 +1770,7 @@ def batch_update_dataset_items(
             if is_yolo:
                 payload = convert_payload_to_coco_format(payload)
             response = rpc.put(
-                path="/v2/dataset/update-dataset-items/",
+                path="/v1/dataset_item/update-dataset-items/",
                 payload=payload,
             )
             logging.debug(

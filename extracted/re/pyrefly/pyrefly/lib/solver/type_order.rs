@@ -45,6 +45,11 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         Self(solver)
     }
 
+    #[allow(dead_code)]
+    pub fn is_debug(self) -> bool {
+        self.0.is_debug()
+    }
+
     pub fn stdlib(self) -> &'a Stdlib {
         self.0.stdlib
     }
@@ -89,12 +94,7 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
     }
 
     pub fn get_enum_member_count(self, cls: &Class) -> Option<usize> {
-        let meta = self.0.get_metadata_for_class(cls);
-        if meta.is_enum() {
-            Some(self.0.get_enum_members(cls).len())
-        } else {
-            None
-        }
+        self.0.get_enum_member_count(cls)
     }
 
     pub fn instance_as_dunder_call(self, class_type: &ClassType) -> Option<Type> {
@@ -134,6 +134,18 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn typed_dict_extra_items(self, cls: &Class) -> ExtraItems {
         self.0.typed_dict_extra_items(cls)
+    }
+
+    pub fn get_typed_dict_value_type(self, typed_dict: &TypedDict) -> Type {
+        self.0.get_typed_dict_value_type(typed_dict)
+    }
+
+    pub fn get_typed_dict_value_type_as_builtins_dict(
+        self,
+        typed_dict: &TypedDict,
+    ) -> Option<Type> {
+        self.0
+            .get_typed_dict_value_type_as_builtins_dict(typed_dict)
     }
 
     pub fn get_variance_from_class(self, cls: &Class) -> Arc<VarianceMap> {

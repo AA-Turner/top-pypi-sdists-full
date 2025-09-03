@@ -31,7 +31,7 @@ from bigeye_sdk.model.protobuf_enum_facade import SimplePredefinedMetricName, Si
     SimpleAutothresholdSensitivity, SimpleLookbackType, SimpleAggregationType
 from bigeye_sdk.serializable import PydanticSubtypeSerializable
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 freshness_metrics = [
     SimplePredefinedMetricName.HOURS_SINCE_LAST_LOAD,

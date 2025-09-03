@@ -42,11 +42,13 @@ from anyscale.client.openapi_client.models import (
     ComputeStack,
     CreateCloudResource,
     CreateCloudResourceGCP,
+    DecoratedCloudResource,
     EditableCloudResource,
     EditableCloudResourceGCP,
     FileStorage,
     GCPConfig,
     GCPFileStoreConfig,
+    KubernetesConfig,
     NetworkingMode,
     NFSMountTarget,
     ObjectStorage,
@@ -1437,33 +1439,52 @@ class CloudController(BaseController):
             return [self._remove_empty_values(v) for v in d]
         return d
 
-    def get_cloud_deployments(self, cloud_id: str) -> Dict[str, Any]:
+    def get_decorated_cloud_resources(
+        self, cloud_id: str
+    ) -> List[DecoratedCloudResource]:
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
             cloud_id=cloud_id,
         ).result
 
         if cloud.is_aioa:
             raise ValueError(
-                "Listing cloud deployments is only supported for customer-hosted clouds."
+                "Listing cloud resources is only supported for customer-hosted clouds."
             )
 
         try:
-            deployments = self.api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+            return self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
                 cloud_id=cloud_id,
             ).results
         except Exception as e:  # noqa: BLE001
             raise ClickException(
-                f"Failed to get cloud deployments for cloud {cloud.name} ({cloud_id}). Error: {e}"
+                f"Failed to get cloud resources for cloud {cloud.name} ({cloud_id}). Error: {e}"
             )
 
-        return {
-            "id": cloud_id,
-            "name": cloud.name,
-            "deployments": [
-                self._remove_empty_values(deployment.to_dict())
-                for deployment in deployments
-            ],
-        }
+    def get_formatted_cloud_resources(self, cloud_id: str) -> List[Any]:
+        cloud_resources = self.get_decorated_cloud_resources(cloud_id)
+        formatted_cloud_resources = [
+            self._remove_empty_values(cloud_resource.to_dict())
+            for cloud_resource in cloud_resources
+        ]
+        # Remove the deprecated cloud_deployment_id field.
+        for d in formatted_cloud_resources:
+            d.pop("cloud_deployment_id", None)
+        return formatted_cloud_resources
+
+    def get_cloud_resources(self, cloud_id: str) -> List[CloudDeployment]:
+        decorated_cloud_resources = self.get_decorated_cloud_resources(cloud_id)
+
+        # DecoratedCloudResource has extra fields that are not in CloudDeployment.
+        allowed_keys = set(CloudDeployment.attribute_map.keys())
+        allowed_keys.remove(
+            "cloud_deployment_id"
+        )  # Remove deprecated cloud_deployment_id field.
+        return [
+            CloudDeployment(
+                **{k: v for k, v in resource.to_dict().items() if k in allowed_keys}
+            )
+            for resource in decorated_cloud_resources
+        ]
 
     def update_aws_anyscale_iam_role(
         self,
@@ -1529,7 +1550,7 @@ class CloudController(BaseController):
 
         return role, iam_role_original_policy
 
-    def _generate_diff(self, existing: Dict[str, Any], new: Dict[str, Any]) -> str:
+    def _generate_diff(self, existing: List[Any], new: List[Any]) -> str:
         """
         Generates a diff between the existing and new dicts.
         """
@@ -1555,48 +1576,59 @@ class CloudController(BaseController):
 
         return formatted_diff.strip()
 
-    def _preprocess_aws(self, cloud_id: str, deployment: CloudDeployment,) -> None:
+    # Returns the role and original IAM policy, so that we can revert it if creating the cloud resource fails.
+    def _preprocess_aws(  # noqa: PLR0912
+        self, cloud_id: str, deployment: CloudDeployment
+    ) -> Tuple[Optional[Boto3Resource], Optional[str]]:
         if not deployment.aws_config and not deployment.file_storage:
-            return
+            return None, None
 
         if not validate_aws_credentials(self.log):
             raise ClickException(
-                "Updating cloud deployments requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
+                "Updating cloud resources requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
             )
 
-        # Get EFS mount target IP.
-        if (
-            deployment.file_storage
-            and FileStorage(**deployment.file_storage).file_storage_id
-        ):
-            file_storage = FileStorage(**deployment.file_storage)
+        role, iam_role_original_policy = None, None
 
-            try:
-                boto3_session = boto3.Session(region_name=deployment.region)
-                efs_mount_target_ip = _get_aws_efs_mount_target_ip(
-                    boto3_session, file_storage.file_storage_id,
-                )
-                if not efs_mount_target_ip:
-                    raise ClickException(
-                        f"EFS mount target IP not found for {file_storage.file_storage_id}."
+        # Get EFS mount target IP.
+        file_storage = None
+        if deployment.file_storage:
+            if isinstance(deployment.file_storage, dict):
+                file_storage = FileStorage(**deployment.file_storage)
+            else:
+                file_storage = deployment.file_storage
+
+            if file_storage.file_storage_id:
+                try:
+                    boto3_session = boto3.Session(region_name=deployment.region)
+                    efs_mount_target_ip = _get_aws_efs_mount_target_ip(
+                        boto3_session, file_storage.file_storage_id,
                     )
-                file_storage.mount_targets = [
-                    NFSMountTarget(address=efs_mount_target_ip)
-                ]
-            except ClientError as e:
-                self.log.log_resource_exception(
-                    CloudAnalyticsEventCloudResource.AWS_EFS, e
-                )
-                raise e
+                    if not efs_mount_target_ip:
+                        raise ClickException(
+                            f"EFS mount target IP not found for {file_storage.file_storage_id}."
+                        )
+                    file_storage.mount_targets = [
+                        NFSMountTarget(address=efs_mount_target_ip)
+                    ]
+                except ClientError as e:
+                    self.log.log_resource_exception(
+                        CloudAnalyticsEventCloudResource.AWS_EFS, e
+                    )
+                    raise e
 
             deployment.file_storage = file_storage
 
         if deployment.aws_config:
-            aws_config = AWSConfig(**deployment.aws_config)
+            if isinstance(deployment.aws_config, dict):
+                aws_config = AWSConfig(**deployment.aws_config)
+            else:
+                aws_config = deployment.aws_config
+
             assert deployment.region
 
             # Update Anyscale IAM role's assume policy to include the cloud ID as the external ID.
-            self.update_aws_anyscale_iam_role(
+            role, iam_role_original_policy = self.update_aws_anyscale_iam_role(
                 cloud_id,
                 deployment.region,
                 aws_config.anyscale_iam_role_id,
@@ -1623,13 +1655,19 @@ class CloudController(BaseController):
 
             deployment.aws_config = aws_config
 
+        return role, iam_role_original_policy
+
     def _preprocess_gcp(
         self, deployment: CloudDeployment,
     ):
         if not deployment.gcp_config:
             return
 
-        gcp_config = GCPConfig(**deployment.gcp_config)
+        if isinstance(deployment.gcp_config, dict):
+            gcp_config = GCPConfig(**deployment.gcp_config)
+        else:
+            gcp_config = deployment.gcp_config
+
         deployment.gcp_config = gcp_config
         if not deployment.file_storage and not gcp_config.memorystore_instance_name:
             return
@@ -1646,7 +1684,11 @@ class CloudController(BaseController):
 
         # Get Filestore mount target IP and root dir.
         if deployment.file_storage:
-            fs = FileStorage(**deployment.file_storage)
+            if isinstance(deployment.file_storage, dict):
+                fs = FileStorage(**deployment.file_storage)
+            else:
+                fs = deployment.file_storage
+
             if fs.file_storage_id:
                 if not gcp_config.vpc_name:
                     raise ClickException(
@@ -1664,7 +1706,7 @@ class CloudController(BaseController):
                     NFSMountTarget(address=filestore_config.mount_target_ip)
                 ]
 
-                deployment.file_storage = fs
+            deployment.file_storage = fs
 
         # Get Memorystore config.
         if gcp_config.memorystore_instance_name:
@@ -1676,7 +1718,7 @@ class CloudController(BaseController):
 
             deployment.gcp_config = gcp_config
 
-    def create_cloud_deployment(
+    def create_cloud_resource(
         self,
         cloud_name: str,
         spec_file: str,
@@ -1696,7 +1738,7 @@ class CloudController(BaseController):
         try:
             new_deployment = CloudDeployment(**spec)
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to parse deployment: {e}")
+            raise ClickException(f"Failed to parse cloud resource: {e}")
 
         if new_deployment.provider == CloudProviders.AWS:
             self._preprocess_aws(cloud_id=cloud_id, deployment=new_deployment)
@@ -1706,17 +1748,16 @@ class CloudController(BaseController):
         if not skip_verification and not self.verify_cloud_deployment(
             cloud_id=cloud_id, cloud_deployment=new_deployment
         ):
-            raise ClickException("Cloud deployment verification failed.")
+            raise ClickException("Cloud resource verification failed.")
 
         # Log an additional warning if a new deployment is being added but a deployment with the same AWS/GCP region already exists.
-        existing_spec = self.get_cloud_deployments(cloud_id)
-        existing_deployments = {
-            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
-            for deployment in existing_spec["deployments"]
+        existing_resources = {
+            resource.cloud_resource_id: resource
+            for resource in self.get_cloud_resources(cloud_id)
         }
         existing_stack_provider_regions = {
             (d.compute_stack, d.provider, d.region)
-            for d in existing_deployments.values()
+            for d in existing_resources.values()
             if d.provider in (CloudProviders.AWS, CloudProviders.GCP)
         }
         if (
@@ -1725,23 +1766,23 @@ class CloudController(BaseController):
             new_deployment.region,
         ) in existing_stack_provider_regions:
             self.log.warning(
-                f"A {new_deployment.provider} {new_deployment.compute_stack} deployment in region {new_deployment.region} already exists."
+                f"A {new_deployment.provider} {new_deployment.compute_stack} resource in region {new_deployment.region} already exists."
             )
-            confirm("Would you like to proceed with adding this deployment?", yes)
+            confirm("Would you like to proceed with adding this cloud resource?", yes)
 
-        # Add the deployment.
+        # Add the resource.
         try:
-            self.api_client.add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put(
+            self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
                 cloud_id=cloud_id, cloud_deployment=new_deployment,
             )
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to add cloud deployment: {e}")
+            raise ClickException(f"Failed to add cloud resource: {e}")
 
         self.log.info(
-            f"Successfully created cloud deployment{' ' + new_deployment.name if new_deployment.name else ''} in cloud {existing_spec['name']}!"
+            f"Successfully created cloud resource{' ' + new_deployment.name if new_deployment.name else ''} in cloud {cloud_name}!"
         )
 
-    def update_cloud_deployments(  # noqa: PLR0912, C901
+    def update_cloud_resources(  # noqa: PLR0912, C901
         self,
         cloud_name: Optional[str],
         cloud_id: Optional[str],
@@ -1763,26 +1804,27 @@ class CloudController(BaseController):
         spec = yaml.safe_load(path.read_text())
 
         # Get the existing spec.
-        existing_spec = self.get_cloud_deployments(cloud_id=cloud_id)
+        existing_resources = self.get_cloud_resources(cloud_id=cloud_id)
 
-        if len(existing_spec["deployments"]) > len(spec):
+        if len(existing_resources) > len(spec):
             raise ClickException(
-                "Please use `anyscale cloud deployment delete` to remove cloud deployments."
+                "Please use `anyscale cloud resource delete` to remove cloud resources."
             )
-        if len(existing_spec["deployments"]) < len(spec):
+        if len(existing_resources) < len(spec):
             raise ClickException(
-                "Please use `anyscale cloud deployment create` to add cloud deployments."
+                "Please use `anyscale cloud resource create` to add cloud resources."
             )
 
         # Diff the existing and new specs
-        diff = self._generate_diff(existing_spec["deployments"], spec)
+        diff = self._generate_diff(
+            [self._remove_empty_values(r.to_dict()) for r in existing_resources], spec
+        )
         if not diff:
             self.log.info("No changes detected.")
             return
 
-        existing_deployments = {
-            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
-            for deployment in existing_spec["deployments"]
+        existing_resources_dict = {
+            resource.cloud_resource_id: resource for resource in existing_resources
         }
 
         updated_deployments: List[CloudDeployment] = []
@@ -1790,21 +1832,21 @@ class CloudController(BaseController):
             try:
                 deployment = CloudDeployment(**d)
             except Exception as e:  # noqa: BLE001
-                raise ClickException(f"Failed to parse deployment: {e}")
+                raise ClickException(f"Failed to parse cloud resource: {e}")
 
-            if not deployment.cloud_deployment_id:
+            if not deployment.cloud_resource_id:
                 raise ClickException(
-                    "All cloud deployments must include a cloud_deployment_id."
+                    "All cloud resources must include a cloud_resource_id."
                 )
-            if deployment.cloud_deployment_id not in existing_deployments:
+            if deployment.cloud_resource_id not in existing_resources_dict:
                 raise ClickException(
-                    f"Cloud deployment {deployment.cloud_deployment_id} not found."
+                    f"Cloud resource {deployment.cloud_resource_id} not found."
                 )
             if deployment.provider == CloudProviders.PCP:
                 raise ClickException(
                     "Please use the `anyscale machine-pool` CLI to update machine pools."
                 )
-            if deployment != existing_deployments[deployment.cloud_deployment_id]:
+            if deployment != existing_resources_dict[deployment.cloud_resource_id]:
                 updated_deployments.append(deployment)
 
         # Log the diff and confirm.
@@ -1826,42 +1868,42 @@ class CloudController(BaseController):
                 cloud_id=cloud_id, cloud_deployment=deployment
             ):
                 raise ClickException(
-                    f"Verification failed for cloud deployment {deployment.name or deployment.cloud_deployment_id}."
+                    f"Verification failed for cloud resource {deployment.name or deployment.cloud_resource_id}."
                 )
 
-        # Update the deployments.
+        # Update the cloud resources.
         try:
-            self.api_client.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(
+            self.api_client.update_cloud_resources_api_v2_clouds_cloud_id_resources_put(
                 cloud_id=cloud_id, cloud_deployment=updated_deployments,
             )
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to update cloud deployments: {e}")
+            raise ClickException(f"Failed to update cloud resources: {e}")
 
         self.log.info(f"Successfully updated cloud {cloud_name or cloud_id}.")
 
-    def remove_cloud_deployment(
-        self, cloud_name: str, deployment_name: str, yes: bool,
+    def remove_cloud_resource(
+        self, cloud_name: str, resource_name: str, yes: bool,
     ):
         confirm(
-            f"Please confirm that you would like to remove deployment {deployment_name} from cloud {cloud_name}.",
+            f"Please confirm that you would like to remove resource {resource_name} from cloud {cloud_name}.",
             yes,
         )
 
         cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
         try:
-            with self.log.spinner("Removing cloud deployment..."):
-                self.api_client.remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete(
-                    cloud_id=cloud_id, cloud_deployment_name=deployment_name,
+            with self.log.spinner("Removing cloud resource..."):
+                self.api_client.remove_cloud_resource_api_v2_clouds_cloud_id_remove_resource_delete(
+                    cloud_id=cloud_id, cloud_resource_name=resource_name,
                 )
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to remove cloud deployment: {e}")
+            raise ClickException(f"Failed to remove cloud resource: {e}")
 
         self.log.warning(
             "The trust policy or service account that provides access to Anyscale's control plane needs to be deleted manually if you no longer wish for Anyscale to have access."
         )
 
         self.log.info(
-            f"Successfully removed deployment {deployment_name} from cloud {cloud_name}!"
+            f"Successfully removed resource {resource_name} from cloud {cloud_name}!"
         )
 
     def get_cloud_config(
@@ -2010,7 +2052,7 @@ class CloudController(BaseController):
         yes: bool = False,
     ) -> bool:
         """
-        Verifies a cloud by name or id, including all cloud deployments.
+        Verifies a cloud by name or id, including all cloud resources.
 
         Note: If your changes involve operations that may require additional permissions
         (for example, `boto3_session.client("efs").describe_backup_policy`), it's important
@@ -2036,15 +2078,15 @@ class CloudController(BaseController):
             return False
 
         try:
-            deployments = self.api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+            cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
                 cloud_id=cloud_id,
             ).results
         except Exception as e:  # noqa: BLE001
-            self.log.error(f"Failed to retrieve cloud deployments: {e}")
+            self.log.error(f"Failed to retrieve cloud resources: {e}")
             return False
 
-        if not deployments:
-            self.log.error("No cloud deployments found for this cloud")
+        if not cloud_resources:
+            self.log.error("No cloud resources found for this cloud")
             return False
 
         self.cloud_event_producer.init_trace_context(
@@ -2056,31 +2098,35 @@ class CloudController(BaseController):
             CloudAnalyticsEventName.COMMAND_START, succeeded=True
         )
 
-        deployment_results = []
-        for deployment in deployments:
+        cloud_resource_results = []
+        for cloud_resource in cloud_resources:
             try:
-                deployment_name = deployment.name or deployment.cloud_deployment_id
+                cloud_resource_name = (
+                    cloud_resource.name or cloud_resource.cloud_resource_id
+                )
 
-                self.log.info(f"Verifying deployment: {deployment_name}")
+                self.log.info(f"Verifying cloud resource: {cloud_resource_name}")
                 result = self.verify_cloud_deployment(
                     cloud_id,
-                    deployment,
+                    cloud_resource,
                     strict=strict,
                     _use_strict_iam_permissions=_use_strict_iam_permissions,
                     boto3_session=boto3_session,
                 )
-                deployment_results.append((deployment_name, result))
+                cloud_resource_results.append((cloud_resource_name, result))
 
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-                deployment_name = getattr(deployment, "name", None) or getattr(
-                    deployment, "cloud_deployment_id", "unknown"
+                cloud_resource_name = getattr(cloud_resource, "name", None) or getattr(
+                    cloud_resource, "cloud_resource_id", "unknown"
                 )
-                self.log.error(f"Failed to verify deployment {deployment_name}: {e}")
-                deployment_results.append((deployment_name, False))
+                self.log.error(
+                    f"Failed to verify cloud resource {cloud_resource_name}: {e}"
+                )
+                cloud_resource_results.append((cloud_resource_name, False))
 
-        self._print_deployment_verification_results(deployment_results)
+        self._print_cloud_resource_verification_results(cloud_resource_results)
 
-        overall_success = all(result for _, result in deployment_results)
+        overall_success = all(result for _, result in cloud_resource_results)
 
         self.cloud_event_producer.produce(
             CloudAnalyticsEventName.RESOURCES_VERIFIED, succeeded=overall_success,
@@ -2137,6 +2183,7 @@ class CloudController(BaseController):
         strict: bool = False,
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         boto3_session: Optional[boto3.Session] = None,
+        logger: CloudSetupLogger = None,
     ) -> bool:
         assert cloud_deployment.region
         assert cloud_deployment.aws_config
@@ -2176,6 +2223,7 @@ class CloudController(BaseController):
             == NetworkingMode.PRIVATE,
             strict=strict,
             _use_strict_iam_permissions=_use_strict_iam_permissions,
+            logger=logger,
         )
 
     def _get_memorydb_config_for_verification(
@@ -2465,26 +2513,26 @@ class CloudController(BaseController):
                 f"{quota_error_str}\n\nFor instructions on how to increase quotas, visit this link: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html#request-increase"
             )
 
-    def _print_deployment_verification_results(
-        self, deployment_results: List[Tuple[str, bool]]
+    def _print_cloud_resource_verification_results(
+        self, cloud_resource_results: List[Tuple[str, bool]]
     ) -> None:
-        """Print verification results for multiple deployments"""
+        """Print verification results for multiple cloud resources"""
         self.log.info("=" * 60)
-        self.log.info("DEPLOYMENT VERIFICATION RESULTS:")
+        self.log.info("CLOUD RESOURCE VERIFICATION RESULTS:")
         self.log.info("=" * 60)
 
-        for deployment_name, success in deployment_results:
+        for cloud_resource_name, success in cloud_resource_results:
             status = "PASSED" if success else "FAILED"
-            self.log.info(f"{deployment_name}: {status}")
+            self.log.info(f"{cloud_resource_name}: {status}")
 
         self.log.info("=" * 60)
 
-        passed_count = sum(1 for _, success in deployment_results if success)
-        total_count = len(deployment_results)
+        passed_count = sum(1 for _, success in cloud_resource_results if success)
+        total_count = len(cloud_resource_results)
 
         if passed_count == total_count:
             self.log.info(
-                f"Overall Result: ALL {total_count} deployments verified successfully"
+                f"Overall Result: ALL {total_count} cloud resources verified successfully"
             )
 
     def register_azure_or_generic_cloud(  # noqa: PLR0913
@@ -2561,21 +2609,30 @@ class CloudController(BaseController):
         # Attempt to create the cloud resource.
         try:
             with self.log.spinner("Registering Anyscale cloud resources..."):
-                cloud_resource = self.api_client.update_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_put(
+                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
                     cloud_id=cloud_id,
-                    update_cloud_with_cloud_resource=UpdateCloudWithCloudResource(
-                        cloud_resource_to_update=CreateCloudResource(
-                            compute_stack=ComputeStack.K8S,
-                            kubernetes_zones=kubernetes_zones,
-                            cloud_storage_bucket_name=cloud_storage_bucket_name,
-                            cloud_storage_bucket_endpoint=cloud_storage_bucket_endpoint,
-                            cloud_storage_bucket_region=cloud_storage_bucket_region
-                            or region,
-                            nfs_mount_targets=mount_targets,
-                            nfs_mount_path=nfs_mount_path,
+                    cloud_deployment=CloudDeployment(
+                        compute_stack=ComputeStack.K8S,
+                        provider=cloud_provider,
+                        region=region,
+                        object_storage=ObjectStorage(
+                            bucket_name=cloud_storage_bucket_name,
+                            region=cloud_storage_bucket_region or region,
+                            endpoint=cloud_storage_bucket_endpoint,
+                        )
+                        if cloud_storage_bucket_name
+                        else None,
+                        file_storage=FileStorage(
+                            mount_targets=mount_targets,
+                            mount_path=nfs_mount_path,
                             persistent_volume_claim=persistent_volume_claim,
                             csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
-                        ),
+                        )
+                        if mount_targets
+                        or persistent_volume_claim
+                        or csi_ephemeral_volume_driver
+                        else None,
+                        kubernetes_config=KubernetesConfig(zones=kubernetes_zones,),
                     ),
                 )
 
@@ -2598,26 +2655,27 @@ class CloudController(BaseController):
             raise ClickException(f"Cloud registration failed! {e}")
 
         # TODO (shomilj): Fetch & optionally run the Helm installation here.
-        cloud_resource_id = cloud_resource.result.cloud_resource.id
-        # For Azure and generic providers, add CLI token to helm command
-        if provider in ["azure", "generic"]:
-            helm_command = self._generate_helm_upgrade_command(
-                provider=provider,
-                cloud_deployment_id=cloud_resource_id,
-                region=region if provider != "generic" else None,
-                kubernetes_zones=kubernetes_zones,
-                operator_iam_identity=anyscale_operator_iam_identity
-                if provider == "azure"
-                else None,
-                anyscale_cli_token=None,  # TODO: use $ANYSCALE_CLI_TOKEN placeholder
-            )
-        else:
-            helm_command = self._generate_helm_upgrade_command(
-                provider=provider,
-                cloud_deployment_id=cloud_resource_id,
-                region=region,
-                kubernetes_zones=kubernetes_zones,
-            )
+
+        # Get the cloud resource ID to pass to the helm command.
+        cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+            cloud_id=cloud_id,
+        ).results
+        assert (
+            len(cloud_resources) == 1
+        ), f"Expected 1 cloud resource, got {len(cloud_resources)}"
+        cloud_resource_id = cloud_resources[0].cloud_resource_id
+
+        # Use CLI token to helm command
+        helm_command = self._generate_helm_upgrade_command(
+            provider=provider,
+            cloud_deployment_id=cloud_resource_id,
+            region=region if cloud_provider == CloudProviders.AZURE else None,
+            kubernetes_zones=kubernetes_zones,
+            operator_iam_identity=anyscale_operator_iam_identity
+            if cloud_provider == CloudProviders.AZURE
+            else None,
+            anyscale_cli_token=None,  # TODO: use $ANYSCALE_CLI_TOKEN placeholder
+        )
 
         self.log.info(
             f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}"
@@ -2710,55 +2768,40 @@ class CloudController(BaseController):
             raise
 
         try:
-            # The Anyscale IAM role is optional for the K8s stack.
-            has_anyscale_iam_role = compute_stack == ComputeStack.VM or (
-                compute_stack == ComputeStack.K8S and anyscale_iam_role_id
-            )
-
-            iam_role_original_policy = None
-            if has_anyscale_iam_role:
-                # Update anyscale IAM role's assume policy to include the cloud id as the external ID
-                role, iam_role_original_policy = self.update_aws_anyscale_iam_role(
-                    cloud_id=cloud_id,
-                    region=region,
+            cloud_resource = CloudDeployment(
+                compute_stack=compute_stack,
+                provider=CloudProviders.AWS,
+                region=region,
+                networking_mode=NetworkingMode.PRIVATE
+                if private_network
+                else NetworkingMode.PUBLIC,
+                object_storage=ObjectStorage(bucket_name=cloud_storage_bucket_name),
+                file_storage=FileStorage(
+                    file_storage_id=efs_id,
+                    persistent_volume_claim=persistent_volume_claim,
+                    csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
+                )
+                if efs_id or persistent_volume_claim or csi_ephemeral_volume_driver
+                else None,
+                aws_config=AWSConfig(
+                    vpc_id=vpc_id,
+                    subnet_ids=subnet_ids,
+                    security_group_ids=security_group_ids,
                     anyscale_iam_role_id=anyscale_iam_role_id,
                     external_id=external_id,
+                    cluster_iam_role_id=instance_iam_role_id,
+                    memorydb_cluster_name=memorydb_cluster_id,
+                ),
+                kubernetes_config=KubernetesConfig(
+                    anyscale_operator_iam_identity=anyscale_operator_iam_identity,
+                    zones=kubernetes_zones,
                 )
-
-            # When running on the VM compute stack, validate and retrieve the EFS mount target IP.
-            # When running on the K8S compute stack, EFS is optional; if efs_id is provided, then
-            # validate and retrieve the EFS mount target IP.
-            if efs_id:
-                try:
-                    boto3_session = boto3.Session(region_name=region)
-                    aws_efs_mount_target_ip = _get_aws_efs_mount_target_ip(
-                        boto3_session, efs_id
-                    )
-                except ClientError as e:
-                    self.log.log_resource_exception(
-                        CloudAnalyticsEventCloudResource.AWS_EFS, e
-                    )
-                    raise e
-            else:
-                boto3_session = None
-                aws_efs_mount_target_ip = None
-
-            # When running on the VM compute stack, associate the AWS subnets with their availability zones.
-            if compute_stack == ComputeStack.VM:
-                aws_subnet_ids_with_availability_zones = associate_aws_subnets_with_azs(
-                    subnet_ids, region, self.log
-                )
-            else:
-                aws_subnet_ids_with_availability_zones = None
-
-            # If memorydb cluster is provided, get the memorydb cluster config.
-            if memorydb_cluster_id is not None:
-                memorydb_cluster_config = _get_memorydb_cluster_config(
-                    memorydb_cluster_id, region, self.log
-                )
-            else:
-                memorydb_cluster_config = None
-
+                if compute_stack == ComputeStack.K8S
+                else None,
+            )
+            role, iam_role_original_policy = self._preprocess_aws(
+                cloud_id=cloud_id, deployment=cloud_resource
+            )
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.PREPROCESS_COMPLETE, succeeded=True
             )
@@ -2792,46 +2835,17 @@ class CloudController(BaseController):
                 )
             raise ClickException(f"Cloud registration failed! {error}")
 
-        aws_iam_role_arns = None
-        if compute_stack == ComputeStack.VM:
-            aws_iam_role_arns = [anyscale_iam_role_id, instance_iam_role_id]
-        elif compute_stack == ComputeStack.K8S and anyscale_iam_role_id:
-            aws_iam_role_arns = [anyscale_iam_role_id]
-
         try:
             # Verify cloud resources meet our requirement
-            create_cloud_resource = CreateCloudResource(
-                aws_vpc_id=vpc_id,
-                aws_subnet_ids_with_availability_zones=aws_subnet_ids_with_availability_zones,
-                aws_iam_role_arns=aws_iam_role_arns,
-                aws_security_groups=security_group_ids,
-                aws_s3_id=cloud_storage_bucket_name[len(S3_STORAGE_PREFIX) :],
-                aws_efs_id=efs_id,
-                aws_efs_mount_target_ip=aws_efs_mount_target_ip,
-                memorydb_cluster_config=memorydb_cluster_config,
-                compute_stack=compute_stack,
-                kubernetes_zones=kubernetes_zones,
-                kubernetes_dataplane_identity=anyscale_operator_iam_identity,
-                cloud_storage_bucket_name=cloud_storage_bucket_name,
-                persistent_volume_claim=persistent_volume_claim,
-                csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
-            )
-
             # Verification is only performed for VM compute stack.
             # TODO (shomilj): Add verification to the K8S compute stack as well.
             if compute_stack == ComputeStack.VM:
                 with self.log.spinner("Verifying cloud resources...") as spinner:
-                    if boto3_session is None:
-                        boto3_session = boto3.Session(region_name=region)
                     if (
                         not skip_verifications
-                        and not self.verify_aws_cloud_resources_for_create_cloud_resource(
-                            cloud_resource=create_cloud_resource,
-                            boto3_session=boto3_session,
-                            region=region,
-                            is_bring_your_own_resource=True,
-                            is_private_network=private_network,
+                        and not self.verify_aws_cloud_resources_for_cloud_deployment(
                             cloud_id=cloud_id,
+                            cloud_deployment=cloud_resource,
                             logger=CloudSetupLogger(spinner_manager=spinner),
                         )
                     ):
@@ -2879,12 +2893,9 @@ class CloudController(BaseController):
             with self.log.spinner(
                 "Updating Anyscale cloud with cloud resource..."
             ) as spinner:
-                # update cloud with verified cloud resources
-                cloud_resource = self.api_client.update_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_put(
-                    cloud_id=cloud_id,
-                    update_cloud_with_cloud_resource=UpdateCloudWithCloudResource(
-                        cloud_resource_to_update=create_cloud_resource,
-                    ),
+                # Update cloud with verified cloud resources.
+                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                    cloud_id=cloud_id, cloud_deployment=cloud_resource,
                 )
             # For now, only wait for the cloud to be active if the compute stack is VM.
             # TODO (shomilj): support this fully for Kubernetes after provider metadata
@@ -2892,7 +2903,15 @@ class CloudController(BaseController):
             if compute_stack == ComputeStack.VM:
                 self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.AWS)
             if compute_stack == ComputeStack.K8S:
-                cloud_resource_id = cloud_resource.result.cloud_resource.id
+                # Get the cloud resource ID to pass to the helm command.
+                cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                    cloud_id=cloud_id,
+                ).results
+                assert (
+                    len(cloud_resources) == 1
+                ), f"Expected 1 cloud resource, got {len(cloud_resources)}"
+                cloud_resource_id = cloud_resources[0].cloud_resource_id
+
                 helm_command = self._generate_helm_upgrade_command(
                     provider="aws",
                     cloud_deployment_id=cloud_resource_id,
@@ -2938,7 +2957,12 @@ class CloudController(BaseController):
             ).start_verification(cloud_id, CloudProviders.AWS, functions_to_verify, yes)
 
     def verify_gcp_cloud_resources_from_cloud_deployment(
-        self, cloud_id: str, cloud_deployment: CloudDeployment, strict: bool = False
+        self,
+        cloud_id: str,
+        cloud_deployment: CloudDeployment,
+        strict: bool = False,
+        yes: bool = False,
+        is_private_service_cloud: bool = False,
     ) -> bool:
         assert cloud_deployment.region
         assert cloud_deployment.gcp_config
@@ -2970,6 +2994,8 @@ class CloudController(BaseController):
             cloud_id=cloud_id,
             host_project_id=gcp_config.host_project_id,
             strict=strict,
+            yes=yes,
+            is_private_service_cloud=is_private_service_cloud,
         )
 
     def verify_gcp_cloud_resources_from_create_cloud_resource(
@@ -3184,7 +3210,6 @@ class CloudController(BaseController):
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
         )
-        gcp_utils = try_import_gcp_utils()
 
         # Create a cloud without cloud resources first
         # Provider ID is optional for K8s clouds.
@@ -3260,11 +3285,6 @@ class CloudController(BaseController):
             raise
 
         try:
-            # Set defaults for Kubernetes clouds.
-            if compute_stack == ComputeStack.K8S:
-                instance_service_account_email = ""
-                subnet_names = []
-
             enable_filestore = filestore_location and filestore_instance_id
 
             # Normally, for Kubernetes clouds, we don't need a VPC name, since networking is managed by Kubernetes.
@@ -3278,74 +3298,62 @@ class CloudController(BaseController):
                 if (enable_filestore or memorystore_instance_name) and not project_id:
                     raise ClickException("Please provide a project ID.")
 
-            if project_id:
-                factory = gcp_utils.get_google_cloud_client_factory(
-                    self.log, project_id
-                )
-
-            if enable_filestore:
-                filestore_config = gcp_utils.get_gcp_filestore_config(
-                    factory,
-                    project_id,
-                    vpc_name,
-                    filestore_location,
-                    filestore_instance_id,
-                    self.log,
-                )
-            else:
-                filestore_config = GCPFileStoreConfig(
-                    instance_name="", mount_target_ip="", root_dir=""
-                )
-                if compute_stack == ComputeStack.K8S:
-                    # Set vpc_name to empty string for Kubernetes clouds
-                    vpc_name = ""
-
-            if memorystore_instance_name:
-                memorystore_instance_config = gcp_utils.get_gcp_memorystore_config(
-                    factory, memorystore_instance_name
-                )
-            else:
-                memorystore_instance_config = None
-
             if not cloud_storage_bucket_name.startswith(GCS_STORAGE_PREFIX):
                 cloud_storage_bucket_name = (
                     GCS_STORAGE_PREFIX + cloud_storage_bucket_name
                 )
 
-            # Verify cloud resources meet our requirement
-            create_cloud_resource_gcp = CreateCloudResourceGCP(
-                gcp_vpc_id=vpc_name,
-                gcp_subnet_ids=subnet_names,
-                gcp_cluster_node_service_account_email=instance_service_account_email,
-                gcp_anyscale_iam_service_account_email=anyscale_service_account_email
-                or "",
-                gcp_filestore_config=filestore_config,
-                gcp_firewall_policy_ids=firewall_policy_names,
-                gcp_cloud_storage_bucket_id=cloud_storage_bucket_name[
-                    len(GCS_STORAGE_PREFIX) :
-                ],
-                memorystore_instance_config=memorystore_instance_config,
+            cloud_resource = CloudDeployment(
                 compute_stack=compute_stack,
-                kubernetes_zones=kubernetes_zones,
-                kubernetes_dataplane_identity=anyscale_operator_iam_identity,
-                cloud_storage_bucket_name=cloud_storage_bucket_name,
-                persistent_volume_claim=persistent_volume_claim,
-                csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
+                provider=CloudProviders.GCP,
+                region=region,
+                networking_mode=NetworkingMode.PRIVATE
+                if private_network
+                else NetworkingMode.PUBLIC,
+                object_storage=ObjectStorage(bucket_name=cloud_storage_bucket_name),
+                file_storage=FileStorage(
+                    file_storage_id="projects/{}/locations/{}/instances/{}".format(
+                        project_id, filestore_location, filestore_instance_id
+                    )
+                    if filestore_instance_id
+                    else None,
+                    persistent_volume_claim=persistent_volume_claim,
+                    csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
+                )
+                if filestore_instance_id
+                or persistent_volume_claim
+                or csi_ephemeral_volume_driver
+                else None,
+                gcp_config=GCPConfig(
+                    project_id=project_id,
+                    host_project_id=host_project_id,
+                    provider_name=provider_id,
+                    vpc_name=vpc_name,
+                    subnet_names=subnet_names,
+                    firewall_policy_names=firewall_policy_names,
+                    anyscale_service_account_email=anyscale_service_account_email,
+                    cluster_service_account_email=instance_service_account_email,
+                    memorystore_instance_name=memorystore_instance_name,
+                ),
+                kubernetes_config=KubernetesConfig(
+                    anyscale_operator_iam_identity=anyscale_operator_iam_identity,
+                    zones=kubernetes_zones,
+                )
+                if compute_stack == ComputeStack.K8S
+                else None,
             )
+
+            self._preprocess_gcp(cloud_resource)
 
             # Verification is only performed for VM compute stack.
             # TODO (shomilj): Add verification to the K8S compute stack as well.
             if compute_stack == ComputeStack.VM:
                 if (
                     not skip_verifications
-                    and not self.verify_gcp_cloud_resources_from_create_cloud_resource(
-                        cloud_resource=create_cloud_resource_gcp,
-                        project_id=project_id,
-                        host_project_id=host_project_id,
-                        region=region,
+                    and not self.verify_gcp_cloud_resources_from_cloud_deployment(
                         cloud_id=cloud_id,
+                        cloud_deployment=cloud_resource,
                         yes=yes,
-                        factory=factory,
                         is_private_service_cloud=is_private_service_cloud,
                     )
                 ):
@@ -3379,13 +3387,10 @@ class CloudController(BaseController):
             raise ClickException(f"Cloud registration failed! {e}")
 
         try:
-            # update cloud with verified cloud resources
             with self.log.spinner("Updating Anyscale cloud with cloud resources..."):
-                cloud_resource = self.api_client.update_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_gcp_router_cloud_id_put(
-                    cloud_id=cloud_id,
-                    update_cloud_with_cloud_resource_gcp=UpdateCloudWithCloudResourceGCP(
-                        cloud_resource_to_update=create_cloud_resource_gcp,
-                    ),
+                # Update cloud with verified cloud resources.
+                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                    cloud_id=cloud_id, cloud_deployment=cloud_resource,
                 )
             # For now, only wait for the cloud to be active if the compute stack is VM.
             # TODO (shomilj): support this fully for Kubernetes after provider metadata
@@ -3393,7 +3398,15 @@ class CloudController(BaseController):
             if compute_stack == ComputeStack.VM:
                 self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.GCP)
             if compute_stack == ComputeStack.K8S:
-                cloud_resource_id = cloud_resource.result.cloud_resource.id
+                # Get the cloud resource ID to pass to the helm command.
+                cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                    cloud_id=cloud_id,
+                ).results
+                assert (
+                    len(cloud_resources) == 1
+                ), f"Expected 1 cloud resource, got {len(cloud_resources)}"
+                cloud_resource_id = cloud_resources[0].cloud_resource_id
+
                 helm_command = self._generate_helm_upgrade_command(
                     provider="gcp",
                     cloud_deployment_id=cloud_resource_id,
@@ -3513,13 +3526,6 @@ class CloudController(BaseController):
                     )
 
             cloud = response.result
-        except ClickException as e:
-            raise ClickException(
-                f"Failed to update cloud state to deleting for cloud {cloud_name}: {e}"
-            )
-
-        # Clean up cloud resources
-        try:
             if cloud_provider == CloudProviders.AWS:
                 if not (cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S):
                     # Delete services resources

@@ -16,6 +16,7 @@ from langgraph_api.utils import (
     validate_stream_id,
     validate_uuid,
 )
+from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.validation import (
     ThreadCountRequest,
     ThreadCreate,
@@ -47,12 +48,17 @@ async def create_thread(
             if_exists=payload.get("if_exists") or "raise",
             ttl=payload.get("ttl"),
         )
-
+        config = {
+            "configurable": {
+                **get_configurable_headers(request.headers),
+                "thread_id": thread_id,
+            }
+        }
         if supersteps := payload.get("supersteps"):
             try:
                 await Threads.State.bulk(
                     conn,
-                    config={"configurable": {"thread_id": thread_id}},
+                    config=config,
                     supersteps=supersteps,
                 )
             except HTTPException as e:
@@ -77,6 +83,7 @@ async def search_threads(
             status=payload.get("status"),
             values=payload.get("values"),
             metadata=payload.get("metadata"),
+            ids=payload.get("ids"),
             limit=limit,
             offset=offset,
             sort_by=payload.get("sort_by"),
@@ -114,10 +121,14 @@ async def get_thread_state(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     subgraphs = request.query_params.get("subgraphs") in ("true", "True")
     async with connect() as conn:
+        config = {
+            "configurable": {
+                **get_configurable_headers(request.headers),
+                "thread_id": thread_id,
+            }
+        }
         state = state_snapshot_to_thread_state(
-            await Threads.State.get(
-                conn, {"configurable": {"thread_id": thread_id}}, subgraphs=subgraphs
-            )
+            await Threads.State.get(conn, config=config, subgraphs=subgraphs)
         )
     return ApiResponse(state)
 
@@ -131,15 +142,17 @@ async def get_thread_state_at_checkpoint(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     checkpoint_id = request.path_params["checkpoint_id"]
     async with connect() as conn:
+        config = {
+            "configurable": {
+                **get_configurable_headers(request.headers),
+                "thread_id": thread_id,
+                "checkpoint_id": checkpoint_id,
+            }
+        }
         state = state_snapshot_to_thread_state(
             await Threads.State.get(
                 conn,
-                {
-                    "configurable": {
-                        "thread_id": thread_id,
-                        "checkpoint_id": checkpoint_id,
-                    }
-                },
+                config=config,
                 subgraphs=request.query_params.get("subgraphs") in ("true", "True"),
             )
         )
@@ -155,10 +168,17 @@ async def get_thread_state_at_checkpoint_post(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadStateCheckpointRequest)
     async with connect() as conn:
+        config = {
+            "configurable": {
+                **payload["checkpoint"],
+                **get_configurable_headers(request.headers),
+                "thread_id": thread_id,
+            }
+        }
         state = state_snapshot_to_thread_state(
             await Threads.State.get(
                 conn,
-                {"configurable": {"thread_id": thread_id, **payload["checkpoint"]}},
+                config=config,
                 subgraphs=payload.get("subgraphs", False),
             )
         )
@@ -183,6 +203,7 @@ async def update_thread_state(
             config["configurable"]["user_id"] = user_id
     except AssertionError:
         pass
+    config["configurable"].update(get_configurable_headers(request.headers))
     async with connect() as conn:
         inserted = await Threads.State.post(
             conn,
@@ -206,7 +227,13 @@ async def get_thread_history(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid limit {limit_}") from None
     before = request.query_params.get("before")
-    config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "checkpoint_ns": "",
+            **get_configurable_headers(request.headers),
+        }
+    }
     async with connect() as conn:
         states = [
             state_snapshot_to_thread_state(c)
@@ -227,6 +254,7 @@ async def get_thread_history_post(
     payload = await request.json(ThreadStateSearch)
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     config["configurable"].update(payload.get("checkpoint", {}))
+    config["configurable"].update(get_configurable_headers(request.headers))
     async with connect() as conn:
         states = [
             state_snapshot_to_thread_state(c)

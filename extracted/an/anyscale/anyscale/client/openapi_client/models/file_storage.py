@@ -145,7 +145,7 @@ class FileStorage(object):
     def persistent_volume_claim(self):
         """Gets the persistent_volume_claim of this FileStorage.  # noqa: E501
 
-        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
+        For Kubernetes resources, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
 
         :return: The persistent_volume_claim of this FileStorage.  # noqa: E501
         :rtype: str
@@ -156,7 +156,7 @@ class FileStorage(object):
     def persistent_volume_claim(self, persistent_volume_claim):
         """Sets the persistent_volume_claim of this FileStorage.
 
-        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
+        For Kubernetes resources, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
 
         :param persistent_volume_claim: The persistent_volume_claim of this FileStorage.  # noqa: E501
         :type: str
@@ -168,7 +168,7 @@ class FileStorage(object):
     def csi_ephemeral_volume_driver(self):
         """Gets the csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
 
-        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+        For Kubernetes resources, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
 
         :return: The csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
         :rtype: str
@@ -179,7 +179,7 @@ class FileStorage(object):
     def csi_ephemeral_volume_driver(self, csi_ephemeral_volume_driver):
         """Sets the csi_ephemeral_volume_driver of this FileStorage.
 
-        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+        For Kubernetes resources, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
 
         :param csi_ephemeral_volume_driver: The csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
         :type: str

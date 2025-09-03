@@ -7358,6 +7358,11 @@ class CfnPredefinedAttribute(
             name="name",
         
             # the properties below are optional
+            attribute_configuration=connect.CfnPredefinedAttribute.AttributeConfigurationProperty(
+                enable_value_validation_on_association=False,
+                is_read_only=False
+            ),
+            purposes=["purposes"],
             values=connect.CfnPredefinedAttribute.ValuesProperty(
                 string_list=["stringList"]
             )
@@ -7371,6 +7376,8 @@ class CfnPredefinedAttribute(
         *,
         instance_arn: builtins.str,
         name: builtins.str,
+        attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.AttributeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
         values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.ValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
@@ -7378,6 +7385,8 @@ class CfnPredefinedAttribute(
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The name of the predefined attribute.
+        :param attribute_configuration: Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+        :param purposes: The assigned purposes of the predefined attribute.
         :param values: The values of a predefined attribute.
         '''
         if __debug__:
@@ -7385,7 +7394,11 @@ class CfnPredefinedAttribute(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPredefinedAttributeProps(
-            instance_arn=instance_arn, name=name, values=values
+            instance_arn=instance_arn,
+            name=name,
+            attribute_configuration=attribute_configuration,
+            purposes=purposes,
+            values=values,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -7470,6 +7483,37 @@ class CfnPredefinedAttribute(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="attributeConfiguration")
+    def attribute_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.AttributeConfigurationProperty"]]:
+        '''Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.AttributeConfigurationProperty"]], jsii.get(self, "attributeConfiguration"))
+
+    @attribute_configuration.setter
+    def attribute_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.AttributeConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a35185cbcad8cf64b09add2cb9a411bb5fb3931d6842d9f3fa81961530854cc3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="purposes")
+    def purposes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The assigned purposes of the predefined attribute.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "purposes"))
+
+    @purposes.setter
+    def purposes(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3fb80bfcdcc090748297325ceef4d8be4e1b929da48eb60f56de13f34de2eed4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "purposes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="values")
     def values(
         self,
@@ -7486,6 +7530,83 @@ class CfnPredefinedAttribute(
             type_hints = typing.get_type_hints(_typecheckingstub__08003c8bd2407db8849ebc9b0c31a79805d1a0f97f0579e4ac977dfa6a2fd356)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "values", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnPredefinedAttribute.AttributeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_value_validation_on_association": "enableValueValidationOnAssociation",
+            "is_read_only": "isReadOnly",
+        },
+    )
+    class AttributeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enable_value_validation_on_association: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            is_read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+
+            :param enable_value_validation_on_association: Enables customers to enforce strict validation on the specific values that this predefined attribute can hold.
+            :param is_read_only: Allows the predefined attribute to show up and be managed in the Amazon Connect UI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-predefinedattribute-attributeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                attribute_configuration_property = connect.CfnPredefinedAttribute.AttributeConfigurationProperty(
+                    enable_value_validation_on_association=False,
+                    is_read_only=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__385cfd98db42d25fe48e00c5c705e3669910e19bcbddd5556f58d6acb0861afc)
+                check_type(argname="argument enable_value_validation_on_association", value=enable_value_validation_on_association, expected_type=type_hints["enable_value_validation_on_association"])
+                check_type(argname="argument is_read_only", value=is_read_only, expected_type=type_hints["is_read_only"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_value_validation_on_association is not None:
+                self._values["enable_value_validation_on_association"] = enable_value_validation_on_association
+            if is_read_only is not None:
+                self._values["is_read_only"] = is_read_only
+
+        @builtins.property
+        def enable_value_validation_on_association(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Enables customers to enforce strict validation on the specific values that this predefined attribute can hold.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-predefinedattribute-attributeconfiguration.html#cfn-connect-predefinedattribute-attributeconfiguration-enablevaluevalidationonassociation
+            '''
+            result = self._values.get("enable_value_validation_on_association")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def is_read_only(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Allows the predefined attribute to show up and be managed in the Amazon Connect UI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-predefinedattribute-attributeconfiguration.html#cfn-connect-predefinedattribute-attributeconfiguration-isreadonly
+            '''
+            result = self._values.get("is_read_only")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AttributeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnPredefinedAttribute.ValuesProperty",
@@ -7546,7 +7667,13 @@ class CfnPredefinedAttribute(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_connect.CfnPredefinedAttributeProps",
     jsii_struct_bases=[],
-    name_mapping={"instance_arn": "instanceArn", "name": "name", "values": "values"},
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "attribute_configuration": "attributeConfiguration",
+        "purposes": "purposes",
+        "values": "values",
+    },
 )
 class CfnPredefinedAttributeProps:
     def __init__(
@@ -7554,12 +7681,16 @@ class CfnPredefinedAttributeProps:
         *,
         instance_arn: builtins.str,
         name: builtins.str,
+        attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
         values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPredefinedAttribute``.
 
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The name of the predefined attribute.
+        :param attribute_configuration: Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+        :param purposes: The assigned purposes of the predefined attribute.
         :param values: The values of a predefined attribute.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html
@@ -7576,6 +7707,11 @@ class CfnPredefinedAttributeProps:
                 name="name",
             
                 # the properties below are optional
+                attribute_configuration=connect.CfnPredefinedAttribute.AttributeConfigurationProperty(
+                    enable_value_validation_on_association=False,
+                    is_read_only=False
+                ),
+                purposes=["purposes"],
                 values=connect.CfnPredefinedAttribute.ValuesProperty(
                     string_list=["stringList"]
                 )
@@ -7585,11 +7721,17 @@ class CfnPredefinedAttributeProps:
             type_hints = typing.get_type_hints(_typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ecadacc4d)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument attribute_configuration", value=attribute_configuration, expected_type=type_hints["attribute_configuration"])
+            check_type(argname="argument purposes", value=purposes, expected_type=type_hints["purposes"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
             "name": name,
         }
+        if attribute_configuration is not None:
+            self._values["attribute_configuration"] = attribute_configuration
+        if purposes is not None:
+            self._values["purposes"] = purposes
         if values is not None:
             self._values["values"] = values
 
@@ -7612,6 +7754,26 @@ class CfnPredefinedAttributeProps:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attribute_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.AttributeConfigurationProperty]]:
+        '''Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-attributeconfiguration
+        '''
+        result = self._values.get("attribute_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.AttributeConfigurationProperty]], result)
+
+    @builtins.property
+    def purposes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The assigned purposes of the predefined attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-purposes
+        '''
+        result = self._values.get("purposes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(
@@ -17860,6 +18022,8 @@ def _typecheckingstub__aae8251f3c38f12791d918a121eabea35a0fd76a17fe96a45e59fab89
     *,
     instance_arn: builtins.str,
     name: builtins.str,
+    attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
     values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17889,8 +18053,28 @@ def _typecheckingstub__505c1fe18f355a3c8343fc74e29b578ea13ba483aa5951da1f12eba81
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a35185cbcad8cf64b09add2cb9a411bb5fb3931d6842d9f3fa81961530854cc3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.AttributeConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fb80bfcdcc090748297325ceef4d8be4e1b929da48eb60f56de13f34de2eed4(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__08003c8bd2407db8849ebc9b0c31a79805d1a0f97f0579e4ac977dfa6a2fd356(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__385cfd98db42d25fe48e00c5c705e3669910e19bcbddd5556f58d6acb0861afc(
+    *,
+    enable_value_validation_on_association: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17906,6 +18090,8 @@ def _typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ec
     *,
     instance_arn: builtins.str,
     name: builtins.str,
+    attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
     values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

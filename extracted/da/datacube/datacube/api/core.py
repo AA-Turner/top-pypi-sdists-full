@@ -11,6 +11,7 @@ import uuid
 import warnings
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from itertools import groupby
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
 import deprecat
@@ -792,6 +793,7 @@ class Datacube:
                 "The coords argument to Datacube.create_storage is now expected "
                 "as a DataArrayCoordinates object or None instead of a dict.",
                 ODC2DeprecationWarning,
+                stacklevel=2,
             )
             coords = None if coords == {} else DataArrayCoordinates(*coords.values())
 
@@ -1108,7 +1110,12 @@ class Datacube:
     def __enter__(self) -> Datacube:
         return self
 
-    def __exit__(self, type_, value, traceback) -> None:
+    def __exit__(
+        self,
+        type_: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()
 
 
@@ -1478,6 +1485,7 @@ def _handle_legacy_resolution(
         "or axis order can be specified with odc.geo.resxy_ or odc.geo.resyx_. "
         "Legacy resolution formats are assumed to use (y, x) ordering.",
         ODC2DeprecationWarning,
+        stacklevel=2,
     )
     if not len(resolution):
         _LOG.warning("Empty resolution value. Ignoring")

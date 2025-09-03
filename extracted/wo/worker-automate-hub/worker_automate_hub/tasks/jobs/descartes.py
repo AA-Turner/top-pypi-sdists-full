@@ -397,7 +397,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             screenshot_path = take_screenshot()
             # Clica no botão inclui para abrir a tela de item
             console.print("Clicando em Incluir...\n")
-            button_incluir = (905,546,)
+            button_incluir = (905,546)
             if button_incluir is not None:
                 pyautogui.click(button_incluir)
                 console.print("\nClicou em 'Incluir'", style="bold green")

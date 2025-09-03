@@ -34,10 +34,20 @@ class BuildsOrchestratorServiceStub(object):
                 request_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadURLRequest.SerializeToString,
                 response_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadURLResponse.FromString,
                 )
+        self.GetBuildVersioningUploadUrls = channel.unary_unary(
+                '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningUploadUrls',
+                request_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsRequest.SerializeToString,
+                response_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsResponse.FromString,
+                )
         self.GetBuildVersioningDownloadURL = channel.unary_unary(
                 '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningDownloadURL',
                 request_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLRequest.SerializeToString,
                 response_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLResponse.FromString,
+                )
+        self.GetBuildVersioningDownloadUrls = channel.unary_unary(
+                '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningDownloadUrls',
+                request_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrLsRequest.SerializeToString,
+                response_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrlsResponse.FromString,
                 )
         self.ListBuildVersioningTags = channel.unary_unary(
                 '/qwak.builds.orchestrator.BuildsOrchestratorService/ListBuildVersioningTags',
@@ -103,9 +113,21 @@ class BuildsOrchestratorServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetBuildVersioningUploadUrls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetBuildVersioningDownloadURL(self, request, context):
         """Request the service for a path ready for download the artifact
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetBuildVersioningDownloadUrls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -173,10 +195,20 @@ def add_BuildsOrchestratorServiceServicer_to_server(servicer, server):
                     request_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadURLRequest.FromString,
                     response_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadURLResponse.SerializeToString,
             ),
+            'GetBuildVersioningUploadUrls': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetBuildVersioningUploadUrls,
+                    request_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsRequest.FromString,
+                    response_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsResponse.SerializeToString,
+            ),
             'GetBuildVersioningDownloadURL': grpc.unary_unary_rpc_method_handler(
                     servicer.GetBuildVersioningDownloadURL,
                     request_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLRequest.FromString,
                     response_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLResponse.SerializeToString,
+            ),
+            'GetBuildVersioningDownloadUrls': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetBuildVersioningDownloadUrls,
+                    request_deserializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrLsRequest.FromString,
+                    response_serializer=qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrlsResponse.SerializeToString,
             ),
             'ListBuildVersioningTags': grpc.unary_unary_rpc_method_handler(
                     servicer.ListBuildVersioningTags,
@@ -287,6 +319,23 @@ class BuildsOrchestratorService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def GetBuildVersioningUploadUrls(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningUploadUrls',
+            qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsRequest.SerializeToString,
+            qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningUploadUrlsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def GetBuildVersioningDownloadURL(request,
             target,
             options=(),
@@ -300,6 +349,23 @@ class BuildsOrchestratorService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningDownloadURL',
             qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLRequest.SerializeToString,
             qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadURLResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetBuildVersioningDownloadUrls(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.builds.orchestrator.BuildsOrchestratorService/GetBuildVersioningDownloadUrls',
+            qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrLsRequest.SerializeToString,
+            qwak_dot_builds_dot_builds__orchestrator__service__pb2.GetBuildVersioningDownloadUrlsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

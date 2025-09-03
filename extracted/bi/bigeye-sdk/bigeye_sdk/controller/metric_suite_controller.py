@@ -64,7 +64,7 @@ from bigeye_sdk.model.protobuf_message_facade import (
 
 from bigeye_sdk.serializable import File, BIGCONFIG_FILE
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def get_fq_name_from_cohort(cohort: CohortDefinition, source_name: str = None):

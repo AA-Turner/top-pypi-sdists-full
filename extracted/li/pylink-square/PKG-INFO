@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: pylink-square
-Version: 1.7.0
+Version: 2.0.0
 Summary: Python interface for SEGGER J-Link.
 Home-page: http://www.github.com/Square/pylink
 Author: Square Embedded Software Team
 Author-email: esw-team@squareup.com
 License: Apache 2.0
 Keywords: SEGGER J-Link
+Requires-Python: >=3.0
 License-File: LICENSE.md
 Requires-Dist: psutil>=5.2.2
 Requires-Dist: six
@@ -32,6 +33,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 pylink
@@ -44,7 +46,7 @@ Python interface for the SEGGER J-Link.
 Requirements
 ------------
 
--  `Python >= 2.7 <https://www.python.org/downloads/>`__
+-  `Python >= 3.7 <https://www.python.org/downloads/>`__
 -  `GNU ARM Embedded
    Toolchain <https://launchpad.net/gcc-arm-embedded>`__ (for functional
    tests)

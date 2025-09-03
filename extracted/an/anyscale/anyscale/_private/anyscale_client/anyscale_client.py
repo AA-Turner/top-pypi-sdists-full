@@ -1292,7 +1292,7 @@ class AnyscaleClient(AnyscaleClientInterface):
     def _upload_local_runtime_env(
         self,
         cloud_id: str,
-        cloud_deployment_id: Optional[str],
+        cloud_resource_id: Optional[str],
         zip_file_bytes: bytes,
         content_hash: str,
         overwrite_existing_file: bool,
@@ -1302,7 +1302,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             file_type=CloudDataBucketFileType.RUNTIME_ENV_PACKAGES,
             file_name=file_name,
             access_mode=CloudDataBucketAccessMode.WRITE,
-            cloud_deployment_id=cloud_deployment_id,
+            cloud_resource_id=cloud_resource_id,
         )
         info: CloudDataBucketPresignedUrlResponse = self._internal_api_client.generate_cloud_data_bucket_presigned_url_api_v2_clouds_cloud_id_generate_cloud_data_bucket_presigned_url_post(
             cloud_id, request
@@ -1355,27 +1355,27 @@ class AnyscaleClient(AnyscaleClientInterface):
         cloud_id: str,
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = OVERWRITE_EXISTING_CLOUD_STORAGE_FILES,
-        cloud_deployment: Optional[str] = None,
+        cloud_resource_name: Optional[str] = None,
     ) -> str:
         if not pathlib.Path(local_dir).is_dir():
             raise RuntimeError(f"Path '{local_dir}' is not a valid directory.")
 
-        cloud_deployment_id = None
-        if cloud_deployment is not None:
-            cloud_deployments = self._internal_api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+        cloud_resource_id = None
+        if cloud_resource_name is not None:
+            cloud_resources = self._internal_api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
                 cloud_id=cloud_id,
             ).results
-            cloud_deployment_id = next(
+            cloud_resource_id = next(
                 (
-                    deployment.cloud_deployment_id
-                    for deployment in cloud_deployments
-                    if deployment.name == cloud_deployment
+                    cloud_resource.cloud_resource_id
+                    for cloud_resource in cloud_resources
+                    if cloud_resource.name == cloud_resource_name
                 ),
                 None,
             )
-            if cloud_deployment_id is None:
+            if cloud_resource_id is None:
                 raise ValueError(
-                    f"Cloud deployment '{cloud_deployment}' not found in cloud '{cloud_id}'"
+                    f"Cloud resource '{cloud_resource_name}' not found in cloud '{cloud_id}'"
                 )
 
         with zip_local_dir(local_dir, excludes=excludes) as (
@@ -1385,31 +1385,31 @@ class AnyscaleClient(AnyscaleClientInterface):
         ):
             info = self._upload_local_runtime_env(
                 cloud_id=cloud_id,
-                cloud_deployment_id=cloud_deployment_id,
+                cloud_resource_id=cloud_resource_id,
                 zip_file_bytes=zip_file_bytes,
                 content_hash=content_hash,
                 overwrite_existing_file=overwrite_existing_file,
             )
             return info.file_uri
 
-    def upload_local_dir_to_cloud_storage_multi_deployment(
+    def upload_local_dir_to_cloud_storage_multi_cloud_resource(
         self,
         local_dir: str,
         *,
         cloud_id: str,
-        cloud_deployments: List[Optional[str]],
+        cloud_resource_names: List[Optional[str]],
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = False,
     ) -> str:
         if not pathlib.Path(local_dir).is_dir():
             raise RuntimeError(f"Path '{local_dir}' is not a valid directory.")
 
-        all_cloud_deployments = self._internal_api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+        all_cloud_resources = self._internal_api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
             cloud_id=cloud_id,
         ).results
-        cloud_deployment_ids = {
-            deployment.name: deployment.cloud_deployment_id
-            for deployment in all_cloud_deployments
+        cloud_resource_names_to_ids = {
+            cloud_resource.name: cloud_resource.cloud_resource_id
+            for cloud_resource in all_cloud_resources
         }
 
         bucket_paths = set()
@@ -1419,19 +1419,19 @@ class AnyscaleClient(AnyscaleClientInterface):
             zip_file_bytes,
             content_hash,
         ):
-            for cloud_deployment in cloud_deployments:
-                if cloud_deployment is not None:
-                    if cloud_deployment not in cloud_deployment_ids:
+            for cloud_resource_name in cloud_resource_names:
+                if cloud_resource_name is not None:
+                    if cloud_resource_name not in cloud_resource_names_to_ids:
                         raise ValueError(
-                            f"Cloud deployment '{cloud_deployment}' not found in cloud '{cloud_id}'"
+                            f"Cloud resource '{cloud_resource_name}' not found in cloud '{cloud_id}'"
                         )
-                    cloud_deployment_id = cloud_deployment_ids[cloud_deployment]
+                    cloud_resource_id = cloud_resource_names_to_ids[cloud_resource_name]
                 else:
-                    cloud_deployment_id = None
+                    cloud_resource_id = None
 
                 info = self._upload_local_runtime_env(
                     cloud_id=cloud_id,
-                    cloud_deployment_id=cloud_deployment_id,
+                    cloud_resource_id=cloud_resource_id,
                     zip_file_bytes=zip_file_bytes,
                     content_hash=content_hash,
                     overwrite_existing_file=overwrite_existing_file,

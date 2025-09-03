@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-magnumclient
-Version: 4.8.1
+Version: 4.9.0
 Summary: Client library for Magnum API
 Home-page: https://docs.openstack.org/python-magnumclient/latest/
 Author: OpenStack
@@ -28,7 +28,7 @@ Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.log>=3.36.0
 Requires-Dist: oslo.serialization!=2.19.1,>=2.18.0
 Requires-Dist: oslo.utils>=3.33.0
-Requires-Dist: os-client-config>=1.28.0
+Requires-Dist: openstacksdk>=0.10.0
 Requires-Dist: osc-lib>=1.8.0
 Requires-Dist: PrettyTable>=0.7.2
 Requires-Dist: cryptography>=3.0

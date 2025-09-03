@@ -25,7 +25,7 @@ from bigeye_sdk.model.protobuf_message_facade import SimpleMetricDefinition, Sim
     SimpleNotificationChannel
 from bigeye_sdk.serializable import BigConfigFile
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class ColumnSelector(YamlModelWithValidatorContext):

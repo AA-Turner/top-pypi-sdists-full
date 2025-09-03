@@ -9,7 +9,7 @@ from bigeye_sdk.exceptions.exceptions import FileLoadException
 from bigeye_sdk.functions.search_and_match_functions import search_lines_in_source_lines
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 "{ file_name: { line_number: line }}"
 _BIGEYE_YAML_FILE_IX: Dict[str, Dict[int, str]] = {}

@@ -13,6 +13,7 @@ class GetChatWithPromptResponse(BaseModel):
     messages: str
     chatty_ai_agent: Optional[ChattyAIAgent] = Field(default=None)
     chat: Optional[Chat] = Field(default=None)
+    chain_of_thought_id: Optional[str] = Field(default=None)
 
 
     def to_dict(self) -> Dict[str, Any]:
@@ -23,7 +24,8 @@ class GetChatWithPromptResponse(BaseModel):
             "messages": self.messages,
             "n8n_agent_type": self.chatty_ai_agent.n8n_workspace_agent_type.value if self.chatty_ai_agent else None,
             "n8n_agent_type_parameters": self.chatty_ai_agent.n8n_workspace_agent_type_parameteres.model_dump() if self.chatty_ai_agent else None,
-            "phone_number": self.chat.client.get_waid() if self.chat else None
+            "phone_number": self.chat.client.get_waid() if self.chat else None,
+            "chain_of_thought_id": self.chain_of_thought_id
         }
         return output
 

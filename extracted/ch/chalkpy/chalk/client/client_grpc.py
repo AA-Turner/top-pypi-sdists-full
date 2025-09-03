@@ -1208,15 +1208,15 @@ class ChalkGRPCClient:
         Parameters
         ----------
         name : str
-           Name of the model to retrieve
+            Name of the model to retrieve
         version : int, optional
-           Specific version number to retrieve. If not provided, returns
-           information about all versions of the model
+            Specific version number to retrieve. If not provided, returns
+            information about all versions of the model
 
         Returns
         -------
         GetRegisteredModelResponse
-           Model information including metadata, versions, and configuration details
+            Model information including metadata, versions, and configuration details
 
         Examples
         --------

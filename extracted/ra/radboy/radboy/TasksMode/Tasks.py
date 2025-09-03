@@ -433,6 +433,11 @@ class Formulae:
                         'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
                         'exec':tax_rate_decimal
                     },
+                    f'{uuid1()}':{
+                        'cmds':['basic counter','bcounter','countto','count to'],
+                        'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
+                        'exec':OAR.CountTo
+                    },
                 }
                 
                 for i in preloader:
@@ -5390,6 +5395,12 @@ where:
                     'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["sw2669-oar","safeway-2669 ordered and rxd"],endCmd=[" ",''])]],
                     'desc':f"ordered and recieved dates tracking for Safeway 2669, and utils specific for this store",
                     'exec':lambda self=self: OAR.OrderAndRxdUi(),
+                    }
+        count+=1
+        self.options[str(uuid1())]={
+                    'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["count","count to","c+-"],endCmd=[" ",''])]],
+                    'desc':f"count up or down by amount and stop at point given",
+                    'exec':lambda self=self: OAR.CountTo(),
                     }
         count+=1
         #self.product_history=

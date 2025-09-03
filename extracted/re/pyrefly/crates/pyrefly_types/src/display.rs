@@ -27,6 +27,7 @@ use crate::qname::QName;
 use crate::tuple::Tuple;
 use crate::types::AnyStyle;
 use crate::types::BoundMethod;
+use crate::types::BoundMethodType;
 use crate::types::Forall;
 use crate::types::Forallable;
 use crate::types::NeverStyle;
@@ -279,7 +280,7 @@ impl<'a> TypeDisplayContext<'a> {
                 if self.hover && is_toplevel {
                     c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                 } else {
-                    c.fmt_with_type(f, &|t| self.display(t))
+                    c.fmt_with_type(f, &|t| self.display_internal(t))
                 }
             }
             Type::Overload(overload) => {
@@ -299,7 +300,23 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(f, "]")
             }
             Type::BoundMethod(box BoundMethod { obj, func }) => {
-                if self.hover {
+                if self.hover && is_toplevel {
+                    match func {
+                        BoundMethodType::Function(func) => func
+                            .signature
+                            .fmt_with_type_with_newlines(f, &|t| self.display_internal(t)),
+                        BoundMethodType::Forall(Forall {
+                            tparams,
+                            body: Function { signature: c, .. },
+                        }) => {
+                            write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
+                            c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                        }
+                        BoundMethodType::Overload(_) => {
+                            write!(f, "{}", self.display_internal(&func.clone().as_type()))
+                        }
+                    }
+                } else if self.hover {
                     write!(f, "{}", self.display_internal(&func.clone().as_type()))
                 } else {
                     write!(
@@ -347,14 +364,21 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Tuple(t) => t.fmt_with_type(f, |t| self.display_internal(t)),
             Type::Forall(box Forall {
                 tparams,
-                body: body @ (Forallable::Function(_) | Forallable::Callable(_)),
+                body:
+                    body @ (Forallable::Function(Function { signature: c, .. })
+                    | Forallable::Callable(c)),
             }) => {
-                write!(
-                    f,
-                    "[{}]{}",
-                    commas_iter(|| tparams.iter()),
-                    self.display_internal(&body.clone().as_type()),
-                )
+                if self.hover && is_toplevel {
+                    write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
+                    c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                } else {
+                    write!(
+                        f,
+                        "[{}]{}",
+                        commas_iter(|| tparams.iter()),
+                        self.display_internal(&body.clone().as_type()),
+                    )
+                }
             }
             Type::Forall(box Forall {
                 tparams,
@@ -375,11 +399,18 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Module(m) => write!(f, "Module[{m}]"),
             Type::Var(var) => write!(f, "{var}"),
             Type::Quantified(var) => write!(f, "{var}"),
+            Type::QuantifiedValue(var) => write!(f, "{var}"),
             Type::Args(q) => {
                 write!(f, "Args[{q}]")
             }
             Type::Kwargs(q) => {
                 write!(f, "Kwargs[{q}]")
+            }
+            Type::ArgsValue(q) => {
+                write!(f, "ArgsValue[{q}]")
+            }
+            Type::KwargsValue(q) => {
+                write!(f, "KwargsValue[{q}]")
             }
             Type::SpecialForm(x) => write!(f, "{x}"),
             Type::Ellipsis => write!(f, "Ellipsis"),
@@ -525,11 +556,23 @@ pub mod tests {
         let module_name = ModuleName::from_str(module_name_str);
         let class = fake_class(class_name, module_name_str, 10);
         let method = Callable::list(
-            ParamList::new(vec![Param::Pos(
-                Name::new_static("self"),
-                Type::any_explicit(),
-                Required::Required,
-            )]),
+            ParamList::new(vec![
+                Param::Pos(
+                    Name::new_static("self"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("x"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("y"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+            ]),
             Type::None,
         );
         Type::BoundMethod(Box::new(BoundMethod {
@@ -541,6 +584,50 @@ pub mod tests {
                     Name::new(class_name),
                     Name::new(method_name),
                 ),
+            }),
+        }))
+    }
+
+    fn fake_generic_bound_method(
+        method_name: &str,
+        class_name: &str,
+        module_name_str: &str,
+        tparams: Arc<TParams>,
+    ) -> Type {
+        let module_name = ModuleName::from_str(module_name_str);
+        let class = fake_class(class_name, module_name_str, 10);
+        let method = Callable::list(
+            ParamList::new(vec![
+                Param::Pos(
+                    Name::new_static("self"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("x"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("y"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+            ]),
+            Type::None,
+        );
+        Type::BoundMethod(Box::new(BoundMethod {
+            obj: Type::ClassDef(class),
+            func: BoundMethodType::Forall(Forall {
+                tparams,
+                body: Function {
+                    signature: method,
+                    metadata: FuncMetadata::def(
+                        module_name,
+                        Name::new(class_name),
+                        Name::new(method_name),
+                    ),
+                },
             }),
         }))
     }
@@ -780,6 +867,32 @@ pub mod tests {
     }
 
     #[test]
+    fn test_display_generic_callable() {
+        let uniques = UniqueFactory::new();
+        let param1 = Param::Pos(Name::new_static("hello"), Type::None, Required::Required);
+        let param2 = Param::KwOnly(Name::new_static("world"), Type::None, Required::Required);
+        let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        let generic_callable_type = Type::Forall(Box::new(Forall {
+            tparams: fake_tparams(vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)]),
+            body: Forallable::Callable(callable),
+        }));
+        let mut ctx = TypeDisplayContext::new(&[&generic_callable_type]);
+        assert_eq!(
+            ctx.display(&generic_callable_type).to_string(),
+            "[T](hello: None, *, world: None) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&generic_callable_type).to_string(),
+            r#"[T](
+    hello: None,
+    *,
+    world: None
+) -> None"#
+        );
+    }
+
+    #[test]
     fn test_display_args_kwargs_callable() {
         let args = Param::VarArg(Some(Name::new_static("my_args")), Type::any_implicit());
         let kwargs = Param::Kwargs(Some(Name::new_static("my_kwargs")), Type::any_implicit());
@@ -925,18 +1038,46 @@ pub mod tests {
     }
 
     #[test]
-    fn test_display_bound_method_for_hover() {
+    fn test_display_bound_method() {
         let bound_method = fake_bound_method("foo", "MyClass", "my.module");
         let mut ctx = TypeDisplayContext::new(&[&bound_method]);
-
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            "BoundMethod[type[MyClass], (self: Any) -> None]"
+            "BoundMethod[type[MyClass], (self: Any, x: Any, y: Any) -> None]"
         );
         ctx.set_display_mode_to_hover();
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            "(self: Any) -> None"
+            r#"(
+    self: Any,
+    x: Any,
+    y: Any
+) -> None"#
+        );
+    }
+
+    #[test]
+    fn test_display_generic_bound_method() {
+        let uniques = UniqueFactory::new();
+        let bound_method = fake_generic_bound_method(
+            "foo",
+            "MyClass",
+            "my.module",
+            fake_tparams(vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)]),
+        );
+        let mut ctx = TypeDisplayContext::new(&[&bound_method]);
+        assert_eq!(
+            ctx.display(&bound_method).to_string(),
+            "BoundMethod[type[MyClass], [T](self: Any, x: Any, y: Any) -> None]"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&bound_method).to_string(),
+            r#"[T](
+    self: Any,
+    x: Any,
+    y: Any
+) -> None"#
         );
     }
 }

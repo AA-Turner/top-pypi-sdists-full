@@ -53,7 +53,7 @@ def test_read_paste(nearest_resampling, tmpdir) -> None:
         resampling=nearest_resampling,
         fallback_nodata: int | float | None = -999,
         dst_nodata: int | float | None = -999,
-        check_paste=False,
+        check_paste: bool = False,
     ) -> tuple[np.ndarray, tuple[slice, slice]]:
         with RasterFileDataSource(mm.path, 1, nodata=fallback_nodata).open() as rdr:
             if check_paste:
@@ -176,9 +176,9 @@ def test_read_with_reproject(nearest_resampling, tmpdir) -> None:
 
     geobox = gbx.zoom_out(geobox, 4)
     yy, roi = _read(geobox, resampling="average")
-    nvalid = (yy != -999).sum()
-    nempty = (yy == -999).sum()
-    assert nvalid > nempty
+    num_valid = (yy != -999).sum()
+    num_empty = (yy == -999).sum()
+    assert num_valid > num_empty
 
 
 @nearest_resampling_parametrize
@@ -201,7 +201,7 @@ def test_read_paste_v2(nearest_resampling, tmpdir) -> None:
         resampling=nearest_resampling,
         fallback_nodata=-999,
         dst_nodata=-999,
-        check_paste=False,
+        check_paste: bool = False,
     ):
         rdr = open_reader(mm.path, nodata=fallback_nodata)
         if check_paste:
@@ -331,6 +331,6 @@ def test_read_with_reproject_v2(nearest_resampling, tmpdir) -> None:
 
     geobox = gbx.zoom_out(geobox, 4)
     yy, roi = _read(geobox, resampling="average")
-    nvalid = (yy != -999).sum()
-    nempty = (yy == -999).sum()
-    assert nvalid > nempty
+    num_valid = (yy != -999).sum()
+    num_empty = (yy == -999).sum()
+    assert num_valid > num_empty

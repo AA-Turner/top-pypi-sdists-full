@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clusterscope
-Version: 0.0.10
+Version: 0.0.11
 Summary: clusterscope is a python library to extract core information from HPC Clusters
 Author-email: Lucca Bertoncini <luccab@meta.com>, Kalyan Saladi <skalyan@meta.com>
 License: MIT License
@@ -27,7 +27,7 @@ License: MIT License
         
 Project-URL: Homepage, https://github.com/facebookresearch/clusterscope
 Project-URL: Issues, https://github.com/facebookresearch/clusterscope/issues
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev

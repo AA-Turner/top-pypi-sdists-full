@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc
-Version: 3.62.0
+Version: 3.63.0
 Summary: Git for data scientists - manage your code and data together
 Author-email: Dmitry Petrov <dmitry@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
@@ -102,7 +102,7 @@ Requires-Dist: beautifulsoup4>=4.4; extra == "tests"
 Requires-Dist: dvc-ssh; extra == "tests"
 Requires-Dist: filelock; extra == "tests"
 Requires-Dist: pytest<9,>=7; extra == "tests"
-Requires-Dist: pytest-rerunfailures; extra == "tests"
+Requires-Dist: pytest-rerunfailures<16.0; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-docker<4,>=1; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"

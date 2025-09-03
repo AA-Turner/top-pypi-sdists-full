@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 1.4.0
+Version: 1.5.0
 Summary: Shares Python package metadata at runtime.
 Author: Adam Karpierz
 Author-email: adam@karpierz.net
@@ -144,7 +144,7 @@ Authors
 Changelog
 =========
 
-1.4.0 (2025-08-15)
+1.5.0 (2025-09-01)
 ------------------
 - | Now about_from_setup() returns an instance of the 'about' class
   | (but backward compatibility is preserved).

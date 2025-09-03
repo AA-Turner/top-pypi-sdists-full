@@ -89,7 +89,7 @@ class ObjectStorage(object):
     def region(self):
         """Gets the region of this ObjectStorage.  # noqa: E501
 
-        The region for the cloud storage bucket. Defaults to the region of the deployment.  # noqa: E501
+        The region for the cloud storage bucket. Defaults to the region of the cloud resource.  # noqa: E501
 
         :return: The region of this ObjectStorage.  # noqa: E501
         :rtype: str
@@ -100,7 +100,7 @@ class ObjectStorage(object):
     def region(self, region):
         """Sets the region of this ObjectStorage.
 
-        The region for the cloud storage bucket. Defaults to the region of the deployment.  # noqa: E501
+        The region for the cloud storage bucket. Defaults to the region of the cloud resource.  # noqa: E501
 
         :param region: The region of this ObjectStorage.  # noqa: E501
         :type: str

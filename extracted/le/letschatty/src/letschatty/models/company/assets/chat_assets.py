@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from bson import ObjectId
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from letschatty.models.utils.types.serializer_type import SerializerType
 from letschatty.models.company.assets.ai_agents_v2.chatty_ai_mode import ChattyAIMode
 
@@ -67,3 +67,19 @@ class ContactPointAssignedToChat(AssignedAssetToChat):
 class ChattyAIAgentAssignedToChat(AssignedAssetToChat):
     mode: ChattyAIMode = Field(default=ChattyAIMode.OFF)
     requires_human_intervention: bool = Field(default=False)
+    is_processing: bool = Field(default=False)
+    last_call_started_at: Optional[datetime] = Field(default=None)
+    last_call_cot_id: Optional[StrObjectId] = Field(default=None)
+
+    def new_call(self, cot_id: StrObjectId) -> None:
+        self.is_processing = True
+        self.last_call_started_at = datetime.now(ZoneInfo("UTC"))
+        self.last_call_cot_id = cot_id
+
+    def is_call_valid(self, cot_id: StrObjectId) -> bool:
+        return self.last_call_cot_id == cot_id and self.is_processing
+
+    def end_call(self) -> None:
+        self.is_processing = False
+        self.last_call_started_at = None
+        self.last_call_cot_id = None

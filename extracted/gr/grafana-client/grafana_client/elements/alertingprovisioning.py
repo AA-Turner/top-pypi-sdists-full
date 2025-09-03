@@ -145,6 +145,14 @@ class AlertingProvisioning(Base):
         set_notification_policy_tree_path = "/v1/provisioning/policies"
         return self.client.PUT(set_notification_policy_tree_path, json=notification_policy_tree, headers=headers)
 
+    def delete_notification_policy_tree(self):
+        """
+        Removes notification policy tree
+        @return:
+        """
+        delete_notification_policy_tree_path = "/v1/provisioning/policies"
+        return self.client.DELETE(delete_notification_policy_tree_path)
+
     def get_mute_timings(self):
         """
         Gets all mute timings
@@ -188,7 +196,7 @@ class AlertingProvisioning(Base):
         @return:
         """
         delete_mute_timing_path = "/v1/provisioning/mute-timings/%s" % mutetiming_name
-        return self.client.GET(delete_mute_timing_path)
+        return self.client.DELETE(delete_mute_timing_path)
 
     def get_templates(self):
         """

@@ -1,8 +1,8 @@
 Metadata-Version: 2.3
 Name: garak
-Version: 0.12.0
+Version: 0.13.0
 Summary: LLM vulnerability scanner
-Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna
+Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash
 Author-email: Leon Derczynski <lderczynski@nvidia.com>, Subho Majumdar <subho@vijil.ai>, Erick Galinkin <egalinkin@nvidia.com>, Jeffrey Martin <jemartin@nvidia.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -14,10 +14,10 @@ Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Dist: base2048>=0.1.3
 Requires-Dist: transformers>=4.51.3
-Requires-Dist: datasets>=3.0.0
+Requires-Dist: datasets>=3.0.0,<4.0
 Requires-Dist: colorama>=0.4.3
 Requires-Dist: tqdm>=4.67.1
-Requires-Dist: cohere>=4.5.1,<5
+Requires-Dist: cohere>=5.16.0
 Requires-Dist: openai>=1.45.0,<2
 Requires-Dist: replicate>=0.8.3
 Requires-Dist: google-api-python-client>=2.0
@@ -34,7 +34,7 @@ Requires-Dist: cmd2==2.4.3
 Requires-Dist: torch>=2.6.0
 Requires-Dist: sentencepiece>=0.1.99
 Requires-Dist: markdown>=3.4.3
-Requires-Dist: numpy>=1.26.4,<2.0
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: zalgolib>=0.2.2
 Requires-Dist: ecoji>=0.1.1
 Requires-Dist: deepl==1.17.0
@@ -361,7 +361,7 @@ Larger artefacts, like model files and bigger corpora, are kept out of the repos
 
 ## FAQ
 
-We have an FAQ [here](https://github.com/NVIDIA/garak/blob/main/FAQ.md). Reach out if you have any more questions! [leon@garak.ai](mailto:leon@garak.ai)
+We have an FAQ [here](https://github.com/NVIDIA/garak/blob/main/FAQ.md). Reach out if you have any more questions! [garak@nvidia.com](mailto:garak@nvidia.com)
 
 Code reference documentation is at [garak.readthedocs.io](https://garak.readthedocs.io/en/latest/).
 

@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 import copy
 from enum import IntEnum
+import functools
 from functools import partial
 import sys
 import weakref
@@ -9,6 +10,7 @@ from weakref import WeakKeyDictionary, WeakSet
 
 import matplotlib as mpl
 from matplotlib.axes import Axes
+from matplotlib.backend_bases import MouseEvent
 from matplotlib.container import Container
 from matplotlib.figure import Figure
 import numpy as np
@@ -92,6 +94,7 @@ def _iter_axes_subartists(ax):
     yield from ax.lines
     yield from ax.patches
     yield from ax.texts
+    yield from ax.artists
 
 
 def _is_alive(artist):
@@ -330,33 +333,7 @@ class Cursor:
             sel.annotation.set_visible(value)
             sel.annotation.figure.canvas.draw_idle()
 
-    def _get_figure(self, aoc):
-        """Return the parent figure of artist-or-container *aoc*."""
-        if isinstance(aoc, Container):
-            try:
-                ca, = {artist for artist in (ref() for ref in self._artists)
-                       if isinstance(artist, _pick_info.ContainerArtist)
-                          and artist.container is aoc}
-            except ValueError:
-                raise ValueError(f"Cannot find parent figure of {aoc}")
-            return ca.figure
-        else:
-            return aoc.figure
-
-    def _get_axes(self, aoc):
-        """Return the parent axes of artist-or-container *aoc*."""
-        if isinstance(aoc, Container):
-            try:
-                ca, = {artist for artist in (ref() for ref in self._artists)
-                       if isinstance(artist, _pick_info.ContainerArtist)
-                          and artist.container is aoc}
-            except ValueError:
-                raise ValueError(f"Cannot find parent axes of {aoc}")
-            return ca.axes
-        else:
-            return aoc.axes
-
-    def add_selection(self, pi):
+    def add_selection(self, pi, fig, ax):
         """
         Create an annotation for a `Selection` and register it.
 
@@ -372,21 +349,19 @@ class Cursor:
         Likewise, if the text alignment is not explicitly set but the position
         is, then a suitable alignment will be automatically computed.
         """
+        # This method takes fig & ax as additional parameters to be robust when
+        # picking a Container/sub-artist which may be missing .figure/.axes.
         # pi: "pick_info", i.e. an incomplete selection.
-        # Pre-fetch the figure and axes, as callbacks may actually unset them.
-        figure = self._get_figure(pi.artist)
-        axes = self._get_axes(pi.artist)
         get_cached_renderer = (
-            figure.canvas.get_renderer
-            if hasattr(figure.canvas, "get_renderer")
-            else axes.get_renderer_cache)  # mpl<3.6.
+            fig.canvas.get_renderer
+            if hasattr(fig.canvas, "get_renderer")
+            else ax.get_renderer_cache)  # mpl<3.6.
         renderer = get_cached_renderer()
         if renderer is None:
-            figure.canvas.draw()  # Needed below anyways.
+            fig.canvas.draw()  # Needed below anyways.
             renderer = get_cached_renderer()
-        ann = axes.annotate(
-            _pick_info.get_ann_text(*pi), xy=pi.target,
-            xytext=(np.nan, np.nan),
+        ann = ax.annotate(
+            "", xy=pi.target, xytext=(np.nan, np.nan),
             horizontalalignment=_MarkedStr("center"),
             verticalalignment=_MarkedStr("center"),
             visible=self.visible,
@@ -396,8 +371,8 @@ class Cursor:
         # it gets drawn even above twinned axes.  But ann.axes must stay set,
         # so that e.g. unit converters get correctly applied.
         ann.remove()
-        ann.axes = axes
-        figure.add_artist(ann)
+        ann.axes = ax
+        fig.add_artist(ann)
         ann.draggable(use_blit=not self._multiple)
         extras = []
         if self._highlight:
@@ -405,19 +380,34 @@ class Cursor:
             if hl:
                 extras.append(hl)
         sel = pi._replace(annotation=ann, extras=extras)
+        # Update the text after setting the annotation on the Selection, so
+        # that get_ann_text can safely access sel.annotation.axes even if
+        # artist.axes itself is unset (Containers/sub-artist picks).
+        ann.set_text(_pick_info.get_ann_text(*sel))
         self._selections.append(sel)
         self._selection_stack.append(sel)
         for cb in self._callbacks["add"]:
             cb(sel)
 
+        user_set_ha = not isinstance(ann.get_horizontalalignment(), _MarkedStr)
+        user_set_va = not isinstance(ann.get_verticalalignment(), _MarkedStr)
+
         # Check that `ann.axes` is still set, as callbacks may have removed the
         # annotation.
         if ann.axes and ann.xyann == (np.nan, np.nan):
-            fig_bbox = figure.get_window_extent()
-            ax_bbox = axes.get_window_extent()
+            fig_bbox = fig.get_window_extent()
+            ax_bbox = ax.get_window_extent()
             overlaps = []
             for idx, annotation_position in enumerate(
                     self.annotation_positions):
+                if user_set_ha:
+                    annotation_position = {
+                        k: v for k, v in annotation_position.items()
+                        if k not in ["ha", "horizontalalignment"]}
+                if user_set_va:
+                    annotation_position = {
+                        k: v for k, v in annotation_position.items()
+                        if k not in ["va", "verticalalignment"]}
                 ann.set(**annotation_position)
                 # Work around matplotlib/matplotlib#7614: position update is
                 # missing.
@@ -430,35 +420,44 @@ class Cursor:
                      # the last used position as default.
                      idx == self._last_auto_position))
             auto_position = max(range(len(overlaps)), key=overlaps.__getitem__)
-            ann.set(**self.annotation_positions[auto_position])
+            annotation_position = self.annotation_positions[auto_position]
+            if user_set_ha:
+                annotation_position = {
+                    k: v for k, v in annotation_position.items()
+                    if k not in ["ha", "horizontalalignment"]}
+            if user_set_va:
+                annotation_position = {
+                    k: v for k, v in annotation_position.items()
+                    if k not in ["va", "verticalalignment"]}
+            ann.set(**annotation_position)
             self._last_auto_position = auto_position
         else:
-            if isinstance(ann.get_horizontalalignment(), _MarkedStr):
+            if not user_set_ha:
                 ann.set_horizontalalignment(
                     {-1: "right", 0: "center", 1: "left"}[
                         np.sign(np.nan_to_num(ann.xyann[0]))])
-            if isinstance(ann.get_verticalalignment(), _MarkedStr):
+            if not user_set_ha:
                 ann.set_verticalalignment(
                     {-1: "top", 0: "center", 1: "bottom"}[
                         np.sign(np.nan_to_num(ann.xyann[1]))])
 
         if (extras
                 or len(self.selections) > 1 and not self._multiple
-                or not figure.canvas.supports_blit):
+                or not fig.canvas.supports_blit):
             # Either:
             #  - there may be more things to draw, or
             #  - annotation removal will make a full redraw necessary, or
             #  - blitting is not (yet) supported.
-            figure.canvas.draw_idle()
+            fig.canvas.draw_idle()
         elif ann.axes:
             # Fast path, only needed if the annotation has not been immediately
             # removed.
             ann.draw(renderer)
-            figure.canvas.blit()
+            fig.canvas.blit()
         # Removal comes after addition so that the fast blitting path works.
         if not self._multiple:
-            for sel in self.selections[:-1]:
-                self.remove_selection(sel)
+            for other in self.selections[:-1]:
+                self.remove_selection(other)
         return sel
 
     def add_highlight(self, artist, *args, **kwargs):
@@ -596,37 +595,39 @@ class Cursor:
                 and (event.canvas.widgetlock.locked() == event.dblclick
                      or self._hover))
 
-    def _on_select_event(self, event):
-        if (not self._filter_mouse_event(event)
-                # See _on_pick.  (We only suppress selects, not deselects.)
-                or event in self._suppressed_events):
-            return
-        # Work around lack of support for twinned axes.
-        per_axes_event = {ax: _reassigned_axes_event(event, ax)
-                          for ax in {artist.axes for artist in self.artists}}
-        pis = []
+    def _gen_sorted_candidates(self, event):
+        per_axes_event = functools.lru_cache(None)(
+            partial(_reassigned_axes_event, event))  # Fix twin axes support.
+        pifas = []
         for artist in self.artists:
             if (artist.axes is None  # Removed or figure-level artist.
                     or event.canvas is not artist.figure.canvas
                     or not artist.get_visible()
                     or not artist.axes.contains(event)[0]):  # Cropped by axes.
                 continue
-            pi = _pick_info.compute_pick(artist, per_axes_event[artist.axes])
+            pi = _pick_info.compute_pick(artist, per_axes_event(artist.axes))
             if pi:
-                pis.append(pi)
-        # The any() check avoids picking an already selected artist at the same
-        # point, as likely the user is just dragging it.  We check this here
-        # rather than not adding the pick_info to pis at all, because in
-        # transient hover mode, selections should be cleared out only when no
-        # candidate picks (including such duplicates) exist at all.
-        pi = min((pi for pi in pis
-                  if not any((pi.artist, tuple(pi.target))
-                             == (other.artist, tuple(other.target))
-                             for other in self._selections)),
-                 key=lambda pi: pi.dist, default=None)
-        if pi:
-            self.add_selection(pi)
-        elif not pis and self._hover == HoverMode.Transient:
+                pifas.append((pi, artist.figure, artist.axes))
+        return sorted(pifas, key=lambda pifa: pifa[0].dist)
+
+    def _on_select_event(self, event):
+        if (not self._filter_mouse_event(event)
+                # See _on_pick.  (We only suppress selects, not deselects.)
+                or event in self._suppressed_events):
+            return
+        candidates = self._gen_sorted_candidates(event)
+        # If the pick corresponds to an already selected artist at the same
+        # point, the user is likely just dragging it.
+        duplicates = {(other.artist, tuple(other.target))
+                      for other in self._selections}
+        candidates_nodupe = [
+            (pi, fig, ax) for pi, fig, ax in candidates
+            if (pi.artist, tuple(pi.target)) not in duplicates]
+        if candidates_nodupe:
+            return self.add_selection(*candidates_nodupe[0])
+        elif not candidates and self._hover == HoverMode.Transient:
+            # In transient hover mode, selections should be cleared if no
+            # candidate picks *including duplicates* have been seen.
             for sel in self.selections:
                 if event.canvas is sel.annotation.figure.canvas:
                     self.remove_selection(sel)
@@ -658,16 +659,46 @@ class Cursor:
         sel = self._selection_stack[-1]
         for key in ["left", "right", "up", "down"]:
             if event.key == self.bindings[key]:
-                self.remove_selection(sel)
-                self.add_selection(_pick_info.move(*sel, key=key))
+                self.add_selection(
+                    _pick_info.move(*sel, key=key),
+                    sel.annotation.figure, sel.annotation.axes)
+                if self._multiple:  # Else, already removed.
+                    self.remove_selection(sel)  # Also unsets .figure, .axes.
                 break
+
+    def select_at(self, target, xy):
+        """
+        Trigger and return a selection on *target* at data coordinates *xy*.
+
+        *target* can be an axes or an artist.  The selection is guaranteed to
+        be, in the first case, on a child artist; in the second case, on that
+        specific artist.  If a click at *xy* does not result in a valid
+        selection, then None is returned.
+
+        Note
+        ----
+        This API is experimental and subject to future adjustments.
+        """
+        if isinstance(target, Axes):
+            ax = target
+        elif target in self.artists:
+            ax = target.axes
+        else:
+            raise ValueError(f"Not a valid target: {target}")
+        event = MouseEvent("button_press_event", ax.figure.canvas,
+                           *ax.transData.transform(xy))
+        candidates = [
+            (pi, fig, ax) for pi, fig, ax in self._gen_sorted_candidates(event)
+            if target in [pi.artist, ax]]
+        if candidates:
+            return self.add_selection(*candidates[0])
 
     def remove_selection(self, sel):
         """Remove a `Selection`."""
         self._selections.remove(sel)
         self._selection_stack.remove(sel)
         # <artist>.figure will be unset so we save them first.
-        figures = {artist.figure for artist in [sel.annotation] + sel.extras}
+        figs = {artist.figure for artist in [sel.annotation] + sel.extras}
         # ValueError is raised if the artist has already been removed.
         with suppress(ValueError):
             sel.annotation.remove()
@@ -676,8 +707,8 @@ class Cursor:
                 artist.remove()
         for cb in self._callbacks["remove"]:
             cb(sel)
-        for figure in figures:
-            figure.canvas.draw_idle()
+        for fig in figs:
+            fig.canvas.draw_idle()
 
 
 def cursor(pickables=None, **kwargs):

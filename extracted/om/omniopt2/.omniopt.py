@@ -5422,7 +5422,7 @@ def check_equation(variables: list, equation: str) -> Union[str, bool]:
 def set_objectives() -> dict:
     objectives = {}
 
-    for rn in args.result_names:
+    for rn in arg_result_names:
         key, value = "", ""
 
         if "=" in rn:
@@ -5889,7 +5889,7 @@ def print_result_names_overview_table() -> None:
 
         return None
 
-    if args.continue_previous_job is not None and args.result_names is not None and len(args.result_names) != 0 and original_result_names is not None and len(original_result_names) != 0:
+    if args.continue_previous_job is not None and arg_result_names is not None and len(arg_result_names) != 0 and original_result_names is not None and len(original_result_names) != 0:
         print_yellow("--result_names will be ignored in continued jobs. The result names from the previous job will be used.")
 
     if ax_client.experiment.optimization_config.is_moo_problem:
@@ -7270,9 +7270,6 @@ def finish_previous_jobs(new_msgs: List[str] = []) -> None:
 
     jobs_copy = global_vars["jobs"][:]
 
-    if len(jobs_copy) > 0:
-        print_debug(f"jobs in finish_previous_jobs: {jobs_copy}")
-
     finishing_jobs_start_time = time.time()
 
     with ThreadPoolExecutor() as finish_job_executor:
@@ -7882,6 +7879,7 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         print_debug(f"got pending observations: {pending_observations} (took {dt:.2f} seconds)")
 
         print_debug("getting global_gs.gen()")
+        print_debug(f"ax_client.experiment: {ax_client.experiment}")
         batched_generator_run = global_gs.gen(
             experiment=ax_client.experiment,
             n=remaining,
@@ -7946,16 +7944,14 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                     retries += 1
                     continue
 
-                print_debug(f"Fetching trial {cnt + 1}/{n}...")
                 progressbar_description(_get_trials_message(cnt + 1, n, trial_durations))
 
                 try:
                     result = create_and_handle_trial(arm)
                     if result is not None:
                         trial_index, trial_duration, trial_successful = result
-
                 except TrialRejected as e:
-                    print_debug(f"Trial rejected: {e}")
+                    print_debug(f"generate_trials: Trial rejected, error: {e}")
                     retries += 1
                     continue
 
@@ -7965,7 +7961,9 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                     cnt += 1
                     trials_dict[trial_index] = arm.parameters
 
-        return _finalize_generation(trials_dict, cnt, n, start_time)
+        finalized = finalize_generation(trials_dict, cnt, n, start_time)
+
+        return finalized
 
     except Exception as e:
         return _handle_generation_failure(e, n, recursion)
@@ -8015,7 +8013,7 @@ def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     end = time.time()
     return trial_index, float(end - start), True
 
-def _finalize_generation(trials_dict: Dict[int, Any], cnt: int, requested: int, start_time: float) -> Tuple[Dict[int, Any], bool]:
+def finalize_generation(trials_dict: Dict[int, Any], cnt: int, requested: int, start_time: float) -> Tuple[Dict[int, Any], bool]:
     total_time = time.time() - start_time
 
     log_gen_times.append(total_time)
@@ -9934,9 +9932,11 @@ def show_available_hardware_and_generation_strategy_string(gpu_string: str, gpu_
         pass
 
     if gpu_string:
-        console.print(f"[green]You have {cpu_count} CPUs available for the main process.[/green] [{gpu_color}]{gpu_string}[/{gpu_color}] [green]{gs_string}[/green]")
+        console.print(f"[green]You have {cpu_count} CPUs available for the main process.[/green] [{gpu_color}]{gpu_string}[/{gpu_color}]")
     else:
-        print_green(f"You have {cpu_count} CPUs available for the main process. {gs_string}")
+        print_green(f"You have {cpu_count} CPUs available for the main process.")
+
+    print_green(gs_string)
 
 def write_args_overview_table() -> None:
     table = Table(title="Arguments Overview")

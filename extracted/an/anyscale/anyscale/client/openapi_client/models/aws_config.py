@@ -336,7 +336,7 @@ class AWSConfig(object):
     def cloudformation_id(self):
         """Gets the cloudformation_id of this AWSConfig.  # noqa: E501
 
-        The CloudFormation stack ID, for deployments with Anyscale-managed resources.  # noqa: E501
+        The CloudFormation stack ID, for Anyscale-managed resources.  # noqa: E501
 
         :return: The cloudformation_id of this AWSConfig.  # noqa: E501
         :rtype: str
@@ -347,7 +347,7 @@ class AWSConfig(object):
     def cloudformation_id(self, cloudformation_id):
         """Sets the cloudformation_id of this AWSConfig.
 
-        The CloudFormation stack ID, for deployments with Anyscale-managed resources.  # noqa: E501
+        The CloudFormation stack ID, for Anyscale-managed resources.  # noqa: E501
 
         :param cloudformation_id: The cloudformation_id of this AWSConfig.  # noqa: E501
         :type: str

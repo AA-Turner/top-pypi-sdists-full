@@ -1,6 +1,7 @@
 import glob
 import os
 import subprocess
+import sys
 import time
 from typing import Any, Generator, Tuple
 from urllib.parse import quote
@@ -11,10 +12,7 @@ from fastapi import FastAPI
 from flask import Flask
 
 from dbos import DBOS, DBOSClient, DBOSConfig
-from dbos._app_db import ApplicationDatabase
-from dbos._dbos_config import get_system_database_url
 from dbos._schemas.system_database import SystemSchema
-from dbos._sys_db import SystemDatabase
 
 
 @pytest.fixture(scope="session")
@@ -25,10 +23,37 @@ def build_wheel() -> str:
     return wheel_files[0]
 
 
+def using_sqlite() -> bool:
+    return os.environ.get("DBOS_DATABASE", None) == "SQLITE"
+
+
+@pytest.fixture()
+def skip_with_sqlite() -> None:
+    if using_sqlite():
+        pytest.skip("Skipping test when testing SQLite")
+
+
+@pytest.fixture()
+def skip_with_sqlite_imprecise_time() -> None:
+    if using_sqlite() and sys.version_info < (3, 12):
+        pytest.skip(
+            "Skipping test when testing SQLite on Python version <3.12 as SQLite lacks ms-precision timestamps"
+        )
+
+
 def default_config() -> DBOSConfig:
     return {
         "name": "test-app",
-        "database_url": f"postgresql://postgres:{quote(os.environ.get('PGPASSWORD', 'dbos'), safe='')}@localhost:5432/dbostestpy",
+        "application_database_url": (
+            "sqlite:///test.sqlite"
+            if using_sqlite()
+            else f"postgresql://postgres:{quote(os.environ.get('PGPASSWORD', 'dbos'), safe='')}@localhost:5432/dbostestpy"
+        ),
+        "system_database_url": (
+            "sqlite:///test.sqlite"
+            if using_sqlite()
+            else f"postgresql://postgres:{quote(os.environ.get('PGPASSWORD', 'dbos'), safe='')}@localhost:5432/dbostestpy_dbos_sys"
+        ),
     }
 
 
@@ -37,69 +62,55 @@ def config() -> DBOSConfig:
     return default_config()
 
 
-@pytest.fixture()
-def sys_db(config: DBOSConfig) -> Generator[SystemDatabase, Any, None]:
-    assert config["database_url"] is not None
-    sys_db = SystemDatabase(
-        system_database_url=f"{config['database_url']}_dbos_sys",
-        engine_kwargs={
-            "pool_timeout": 30,
-            "max_overflow": 0,
-            "pool_size": 2,
-            "connect_args": {"connect_timeout": 30},
-        },
-    )
-    sys_db.run_migrations()
-    yield sys_db
-    sys_db.destroy()
-
-
-@pytest.fixture()
-def app_db(config: DBOSConfig) -> Generator[ApplicationDatabase, Any, None]:
-    assert config["database_url"] is not None
-    app_db = ApplicationDatabase(
-        database_url=config["database_url"],
-        engine_kwargs={
-            "pool_timeout": 30,
-            "max_overflow": 0,
-            "pool_size": 2,
-            "connect_args": {"connect_timeout": 30},
-        },
-    )
-    app_db.run_migrations()
-    yield app_db
-    app_db.destroy()
-
-
 @pytest.fixture(scope="session")
-def postgres_db_engine() -> sa.Engine:
+def db_engine() -> Generator[sa.Engine, Any, None]:
     cfg = default_config()
-    assert cfg["database_url"] is not None
-    return sa.create_engine(
-        sa.make_url(cfg["database_url"]).set(
-            drivername="postgresql+psycopg",
-            database="postgres",
-        ),
-        connect_args={
-            "connect_timeout": 30,
-        },
-    )
+    assert cfg["system_database_url"] is not None
+    if using_sqlite():
+        engine = sa.create_engine(cfg["system_database_url"])
+        yield engine
+    else:
+        engine = sa.create_engine(
+            sa.make_url(cfg["system_database_url"]).set(
+                drivername="postgresql+psycopg",
+                database="postgres",
+            ),
+            connect_args={
+                "connect_timeout": 30,
+            },
+        )
+        yield engine
+    engine.dispose()
 
 
 @pytest.fixture()
-def cleanup_test_databases(config: DBOSConfig, postgres_db_engine: sa.Engine) -> None:
-    assert config["database_url"] is not None
-    app_db_name = sa.make_url(config["database_url"]).database
-    sys_db_name = f"{app_db_name}_dbos_sys"
+def cleanup_test_databases(config: DBOSConfig, db_engine: sa.Engine) -> None:
+    assert config["application_database_url"] is not None
+    assert config["system_database_url"] is not None
 
-    with postgres_db_engine.connect() as connection:
-        connection.execution_options(isolation_level="AUTOCOMMIT")
-        connection.execute(
-            sa.text(f"DROP DATABASE IF EXISTS {app_db_name} WITH (FORCE)")
-        )
-        connection.execute(
-            sa.text(f"DROP DATABASE IF EXISTS {sys_db_name} WITH (FORCE)")
-        )
+    if using_sqlite():
+        # For SQLite, delete the database files
+        # Extract file path from SQLite URL
+        parsed_url = sa.make_url(config["system_database_url"])
+        db_path = parsed_url.database
+        assert db_path is not None
+
+        # Remove the database files if they exist
+        if os.path.exists(db_path):
+            os.remove(db_path)
+    else:
+        # For PostgreSQL, drop the databases
+        app_db_name = sa.make_url(config["application_database_url"]).database
+        sys_db_name = sa.make_url(config["system_database_url"]).database
+
+        with db_engine.connect() as connection:
+            connection.execution_options(isolation_level="AUTOCOMMIT")
+            connection.execute(
+                sa.text(f"DROP DATABASE IF EXISTS {app_db_name} WITH (FORCE)")
+            )
+            connection.execute(
+                sa.text(f"DROP DATABASE IF EXISTS {sys_db_name} WITH (FORCE)")
+            )
 
     # Clean up environment variables
     os.environ.pop("DBOS__VMID") if "DBOS__VMID" in os.environ else None
@@ -127,8 +138,12 @@ def dbos(
 
 @pytest.fixture()
 def client(config: DBOSConfig, dbos: DBOS) -> Generator[DBOSClient, Any, None]:
-    assert config["database_url"] is not None
-    client = DBOSClient(config["database_url"])
+    assert config["application_database_url"] is not None
+    assert config["system_database_url"] is not None
+    client = DBOSClient(
+        application_database_url=config["application_database_url"],
+        system_database_url=config["system_database_url"],
+    )
     yield client
     client.destroy()
 
@@ -197,3 +212,17 @@ def queue_entries_are_cleaned_up(dbos: DBOS) -> bool:
                 break
         time.sleep(1)
     return success
+
+
+# Force exit after test success or failure with appropriate error code
+_EXIT_CODE = None
+
+
+def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
+    global _EXIT_CODE
+    _EXIT_CODE = 0 if exitstatus == 0 else 1
+
+
+def pytest_unconfigure(config: Any) -> None:
+    code = _EXIT_CODE if _EXIT_CODE is not None else 1
+    sys.exit(code)

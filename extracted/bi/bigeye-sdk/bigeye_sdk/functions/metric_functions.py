@@ -34,7 +34,7 @@ from bigeye_sdk.model.protobuf_message_facade import (
     SimpleThreshold, SimpleTemplateMetric,
 )
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def _is_table_level_metric(metric_type: SimpleMetricType,

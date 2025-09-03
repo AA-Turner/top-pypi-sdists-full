@@ -434,6 +434,25 @@ To apply changes of the cluster, such as engine version, in the next scheduled m
 
 For details, see [Modifying an Amazon Aurora DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Modifying.html).
 
+### Retaining Automated Backups
+
+By default, when a database cluster is deleted, automated backups are removed immediately unless an AWS Backup policy specifies a point-in-time restore rule. You can control this behavior using the `deleteAutomatedBackups` property:
+
+```python
+# vpc: ec2.IVpc
+
+# Retain automated backups after cluster deletion
+rds.DatabaseCluster(self, "Database",
+    engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
+    writer=rds.ClusterInstance.provisioned("writer"),
+    vpc=vpc,
+    delete_automated_backups=False
+)
+```
+
+When set to `false`, automated backups are retained according to the configured retention period after the cluster is deleted. When set to `true` or not specified (default), automated backups are deleted immediately when the cluster is deleted.
+Detail about this feature can be found in the [AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Managing.Backups.Retaining.html).
+
 ### Migrating from instanceProps
 
 Creating instances in a `DatabaseCluster` using `instanceProps` & `instances` is
@@ -2391,11 +2410,14 @@ class AuroraMysqlClusterEngineProps:
             
             cluster = rds.DatabaseCluster(self, "Database",
                 engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-                writer=rds.ClusterInstance.provisioned("Instance",
-                    instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL)
+                writer=rds.ClusterInstance.provisioned("writer",
+                    ca_certificate=rds.CaCertificate.RDS_CA_RSA2048_G1
                 ),
-                readers=[rds.ClusterInstance.provisioned("reader")],
-                instance_update_behaviour=rds.InstanceUpdateBehaviour.ROLLING,  # Optional - defaults to rds.InstanceUpdateBehaviour.BULK
+                readers=[
+                    rds.ClusterInstance.serverless_v2("reader",
+                        ca_certificate=rds.CaCertificate.of("custom-ca")
+                    )
+                ],
                 vpc=vpc
             )
         '''
@@ -4047,6 +4069,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_13_21")
+    def VER_13_21(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "13.21".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_3")
     def VER_13_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.3".
@@ -4166,6 +4194,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_18")
+    def VER_14_18(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "14.18".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
     def VER_14_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.3".
@@ -4238,6 +4272,12 @@ class AuroraPostgresEngineVersion(
     def VER_15_12(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.12".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_13")
+    def VER_15_13(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "15.13".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
@@ -4372,6 +4412,12 @@ class AuroraPostgresEngineVersion(
     def VER_16_8_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.8 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8_LIMITLESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_9")
+    def VER_16_9(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.9".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_1")
@@ -21708,6 +21754,7 @@ class DatabaseClusterEngine(
         "credentials": "credentials",
         "database_insights_mode": "databaseInsightsMode",
         "default_database_name": "defaultDatabaseName",
+        "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
         "domain_role": "domainRole",
@@ -21769,6 +21816,7 @@ class DatabaseClusterFromSnapshotProps:
         credentials: typing.Optional[Credentials] = None,
         database_insights_mode: typing.Optional["DatabaseInsightsMode"] = None,
         default_database_name: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -21827,6 +21875,7 @@ class DatabaseClusterFromSnapshotProps:
         :param credentials: (deprecated) Credentials for the administrative user. Note - using this prop only works with ``Credentials.fromPassword()`` with the username of the snapshot, ``Credentials.fromUsername()`` with the username and password of the snapshot or ``Credentials.fromSecret()`` with a secret containing the username and password of the snapshot. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password that **will not be applied** to the cluster, use ``snapshotCredentials`` for the correct behavior.
         :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled and Amazon Aurora engine is used, otherwise not set.
         :param default_database_name: Name of a database which is automatically created inside the cluster. Default: - Database is not created in cluster.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. Default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: Indicates whether the DB cluster should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, ``undefined`` otherwise, which will not enable deletion protection. To disable deletion protection after it has been enabled, you must explicitly set this value to ``false``.
         :param domain: Directory ID for associating the DB cluster with a specific Active Directory. Necessary for enabling Kerberos authentication. If specified, the DB cluster joins the given Active Directory, enabling Kerberos authentication. If not specified, the DB cluster will not be associated with any Active Directory, and Kerberos authentication will not be enabled. Default: - DB cluster is not associated with an Active Directory; Kerberos authentication is not enabled.
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy ``AmazonRDSDirectoryServiceAccess`` or equivalent. Default: - If ``DatabaseClusterBaseProps.domain`` is specified, a role with the ``AmazonRDSDirectoryServiceAccess`` policy is automatically created.
@@ -21904,6 +21953,7 @@ class DatabaseClusterFromSnapshotProps:
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
             check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument default_database_name", value=default_database_name, expected_type=type_hints["default_database_name"])
+            check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
@@ -21974,6 +22024,8 @@ class DatabaseClusterFromSnapshotProps:
             self._values["database_insights_mode"] = database_insights_mode
         if default_database_name is not None:
             self._values["default_database_name"] = default_database_name
+        if delete_automated_backups is not None:
+            self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if domain is not None:
@@ -22224,6 +22276,15 @@ class DatabaseClusterFromSnapshotProps:
         '''
         result = self._values.get("default_database_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether to remove automated backups immediately after the DB cluster is deleted.
+
+        :default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
+        '''
+        result = self._values.get("delete_automated_backups")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -22775,6 +22836,7 @@ class DatabaseClusterLookupOptions:
         "credentials": "credentials",
         "database_insights_mode": "databaseInsightsMode",
         "default_database_name": "defaultDatabaseName",
+        "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
         "domain_role": "domainRole",
@@ -22835,6 +22897,7 @@ class DatabaseClusterProps:
         credentials: typing.Optional[Credentials] = None,
         database_insights_mode: typing.Optional["DatabaseInsightsMode"] = None,
         default_database_name: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -22892,6 +22955,7 @@ class DatabaseClusterProps:
         :param credentials: Credentials for the administrative user. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password
         :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled and Amazon Aurora engine is used, otherwise not set.
         :param default_database_name: Name of a database which is automatically created inside the cluster. Default: - Database is not created in cluster.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. Default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: Indicates whether the DB cluster should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, ``undefined`` otherwise, which will not enable deletion protection. To disable deletion protection after it has been enabled, you must explicitly set this value to ``false``.
         :param domain: Directory ID for associating the DB cluster with a specific Active Directory. Necessary for enabling Kerberos authentication. If specified, the DB cluster joins the given Active Directory, enabling Kerberos authentication. If not specified, the DB cluster will not be associated with any Active Directory, and Kerberos authentication will not be enabled. Default: - DB cluster is not associated with an Active Directory; Kerberos authentication is not enabled.
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy ``AmazonRDSDirectoryServiceAccess`` or equivalent. Default: - If ``DatabaseClusterBaseProps.domain`` is specified, a role with the ``AmazonRDSDirectoryServiceAccess`` policy is automatically created.
@@ -22977,6 +23041,7 @@ class DatabaseClusterProps:
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
             check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument default_database_name", value=default_database_name, expected_type=type_hints["default_database_name"])
+            check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
@@ -23046,6 +23111,8 @@ class DatabaseClusterProps:
             self._values["database_insights_mode"] = database_insights_mode
         if default_database_name is not None:
             self._values["default_database_name"] = default_database_name
+        if delete_automated_backups is not None:
+            self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if domain is not None:
@@ -23273,6 +23340,15 @@ class DatabaseClusterProps:
         '''
         result = self._values.get("default_database_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether to remove automated backups immediately after the DB cluster is deleted.
+
+        :default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
+        '''
+        result = self._values.get("delete_automated_backups")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.bool]:
@@ -34053,6 +34129,12 @@ class MysqlEngineVersion(
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_42"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_0_43")
+    def VER_8_0_43(cls) -> "MysqlEngineVersion":
+        '''Version "8.0.43".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_43"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_3")
     def VER_8_4_3(cls) -> "MysqlEngineVersion":
         '''Version "8.4.3".'''
@@ -34069,6 +34151,12 @@ class MysqlEngineVersion(
     def VER_8_4_5(cls) -> "MysqlEngineVersion":
         '''Version "8.4.5".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_4_6")
+    def VER_8_4_6(cls) -> "MysqlEngineVersion":
+        '''Version "8.4.6".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_6"))
 
     @builtins.property
     @jsii.member(jsii_name="mysqlFullVersion")
@@ -41475,6 +41563,12 @@ class SqlServerEngineVersion(
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6455_2_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_13_00_6460_7_V1")
+    def VER_13_00_6460_7_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "13.00.6460.7.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6460_7_V1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14")
     def VER_14(cls) -> "SqlServerEngineVersion":
         '''Version "14.00" (only a major version, without a specific minor version).'''
@@ -41625,6 +41719,12 @@ class SqlServerEngineVersion(
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3485_1_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_00_3495_9_V1")
+    def VER_14_00_3495_9_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "14.00.3495.9.v1 ".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3495_9_V1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15")
     def VER_15(cls) -> "SqlServerEngineVersion":
         '''Version "15.00" (only a major version, without a specific minor version).'''
@@ -41757,6 +41857,12 @@ class SqlServerEngineVersion(
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4430_1_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_00_4435_7_V1")
+    def VER_15_00_4435_7_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "15.00.4435.7.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4435_7_V1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16")
     def VER_16(cls) -> "SqlServerEngineVersion":
         '''Version "16.00" (only a major version, without a specific minor version).'''
@@ -41839,6 +41945,18 @@ class SqlServerEngineVersion(
     def VER_16_00_4185_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4185.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4185_3_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_00_4195_2_V1")
+    def VER_16_00_4195_2_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "16.00.4195.2.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4195_2_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_00_4205_1_V1")
+    def VER_16_00_4205_1_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "16.00.4205.1.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4205_1_V1"))
 
     @builtins.property
     @jsii.member(jsii_name="sqlServerFullVersion")
@@ -43682,6 +43800,7 @@ class DatabaseClusterFromSnapshot(
         credentials: typing.Optional[Credentials] = None,
         database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         default_database_name: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -43741,6 +43860,7 @@ class DatabaseClusterFromSnapshot(
         :param credentials: (deprecated) Credentials for the administrative user. Note - using this prop only works with ``Credentials.fromPassword()`` with the username of the snapshot, ``Credentials.fromUsername()`` with the username and password of the snapshot or ``Credentials.fromSecret()`` with a secret containing the username and password of the snapshot. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password that **will not be applied** to the cluster, use ``snapshotCredentials`` for the correct behavior.
         :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled and Amazon Aurora engine is used, otherwise not set.
         :param default_database_name: Name of a database which is automatically created inside the cluster. Default: - Database is not created in cluster.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. Default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: Indicates whether the DB cluster should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, ``undefined`` otherwise, which will not enable deletion protection. To disable deletion protection after it has been enabled, you must explicitly set this value to ``false``.
         :param domain: Directory ID for associating the DB cluster with a specific Active Directory. Necessary for enabling Kerberos authentication. If specified, the DB cluster joins the given Active Directory, enabling Kerberos authentication. If not specified, the DB cluster will not be associated with any Active Directory, and Kerberos authentication will not be enabled. Default: - DB cluster is not associated with an Active Directory; Kerberos authentication is not enabled.
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy ``AmazonRDSDirectoryServiceAccess`` or equivalent. Default: - If ``DatabaseClusterBaseProps.domain`` is specified, a role with the ``AmazonRDSDirectoryServiceAccess`` policy is automatically created.
@@ -43802,6 +43922,7 @@ class DatabaseClusterFromSnapshot(
             credentials=credentials,
             database_insights_mode=database_insights_mode,
             default_database_name=default_database_name,
+            delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
             domain_role=domain_role,
@@ -48069,6 +48190,7 @@ class DatabaseCluster(
         credentials: typing.Optional[Credentials] = None,
         database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         default_database_name: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -48127,6 +48249,7 @@ class DatabaseCluster(
         :param credentials: Credentials for the administrative user. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password
         :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled and Amazon Aurora engine is used, otherwise not set.
         :param default_database_name: Name of a database which is automatically created inside the cluster. Default: - Database is not created in cluster.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. Default: undefined - AWS RDS default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: Indicates whether the DB cluster should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, ``undefined`` otherwise, which will not enable deletion protection. To disable deletion protection after it has been enabled, you must explicitly set this value to ``false``.
         :param domain: Directory ID for associating the DB cluster with a specific Active Directory. Necessary for enabling Kerberos authentication. If specified, the DB cluster joins the given Active Directory, enabling Kerberos authentication. If not specified, the DB cluster will not be associated with any Active Directory, and Kerberos authentication will not be enabled. Default: - DB cluster is not associated with an Active Directory; Kerberos authentication is not enabled.
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy ``AmazonRDSDirectoryServiceAccess`` or equivalent. Default: - If ``DatabaseClusterBaseProps.domain`` is specified, a role with the ``AmazonRDSDirectoryServiceAccess`` policy is automatically created.
@@ -48187,6 +48310,7 @@ class DatabaseCluster(
             credentials=credentials,
             database_insights_mode=database_insights_mode,
             default_database_name=default_database_name,
+            delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
             domain_role=domain_role,
@@ -51980,6 +52104,7 @@ def _typecheckingstub__1e44b5aef872ca17869a17181382f06cd0166bdbe07e2c33701d3bf1e
     credentials: typing.Optional[Credentials] = None,
     database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     default_database_name: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -52047,6 +52172,7 @@ def _typecheckingstub__a32e21c90ab65d3cfdb3b7ef2a0d741ba1528ec8824cd1817d1e485b4
     credentials: typing.Optional[Credentials] = None,
     database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     default_database_name: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -53296,6 +53422,7 @@ def _typecheckingstub__d1a2e259091e12a41b0f5818df495769518e049ebcc89ed340ffc7ba4
     credentials: typing.Optional[Credentials] = None,
     database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     default_database_name: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -53816,6 +53943,7 @@ def _typecheckingstub__c6184cbbefaa372690b9776dafecbf5857cf9bfbab91d1666aad22c56
     credentials: typing.Optional[Credentials] = None,
     database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     default_database_name: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,

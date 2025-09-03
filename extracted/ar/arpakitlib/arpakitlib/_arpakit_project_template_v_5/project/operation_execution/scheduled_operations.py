@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any, Callable
 
 from pydantic import ConfigDict
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 
 from project.operation_execution.util import every_timedelta_is_time_func
 from project.sqlalchemy_db_.sqlalchemy_model import OperationDBM
@@ -17,25 +17,25 @@ class ScheduledOperation(BaseModel):
     timeout_after_creation: timedelta | None = None
 
 
-healthcheck_every_0_01_seconds_scheduled_operation = ScheduledOperation(
+healthcheck_every_0_01_seconds_so = ScheduledOperation(
     type=OperationDBM.Types.healthcheck_,
     input_data={"healthcheck": "healthcheck"},
     is_time_func=every_timedelta_is_time_func(td=timedelta(seconds=0.01))
 )
 
-healthcheck_every_3_seconds_scheduled_operation = ScheduledOperation(
+healthcheck_every_3_seconds_so = ScheduledOperation(
     type=OperationDBM.Types.healthcheck_,
     input_data={"healthcheck": "healthcheck"},
     is_time_func=every_timedelta_is_time_func(td=timedelta(seconds=3))
 )
 
-healthcheck_every_24_hours_scheduled_operation = ScheduledOperation(
+healthcheck_every_24_hours_so = ScheduledOperation(
     type=OperationDBM.Types.healthcheck_,
     input_data={"healthcheck": "healthcheck"},
     is_time_func=every_timedelta_is_time_func(td=timedelta(hours=24))
 )
 
-raise_fake_error_every_3_seconds_scheduled_operation = ScheduledOperation(
+raise_fake_error_every_3_seconds_so = ScheduledOperation(
     type=OperationDBM.Types.raise_fake_error_,
     input_data={"raise_fake_error": "raise_fake_error"},
     is_time_func=every_timedelta_is_time_func(td=timedelta(seconds=3))
@@ -44,6 +44,6 @@ raise_fake_error_every_3_seconds_scheduled_operation = ScheduledOperation(
 
 def get_scheduled_operations() -> list[ScheduledOperation]:
     res = []
-    res.append(healthcheck_every_3_seconds_scheduled_operation)
-    res.append(healthcheck_every_24_hours_scheduled_operation)
+    res.append(healthcheck_every_3_seconds_so)
+    res.append(healthcheck_every_24_hours_so)
     return res

@@ -243,9 +243,22 @@ def test_repeated_point(ax):
 
 
 @pytest.mark.parametrize("origin", ["lower", "upper"])
-def test_image(ax, origin):
+@pytest.mark.parametrize("kind", ["AxesImage", "BboxImage"])
+def test_image(ax, origin, kind):
     array = np.arange(6).reshape((3, 2))
-    ax.imshow(array, origin=origin)
+    im = ax.imshow(array, origin=origin)  # Always set limits & orientation.
+
+    if kind == "AxesImage":
+        xzero = 0
+    elif kind == "BboxImage":
+        im.remove()
+        ax.add_artist(
+            mpl.image.BboxImage(
+                mpl.transforms.TransformedBbox(
+                    mpl.transforms.Bbox([[-.5, -.5], [1.5, 2.5]]), ax.transData),
+                data=array, origin=origin))
+        ax.figure.canvas.draw()  # Force image autonorm.
+        xzero = approx(0)
 
     cursor = mplcursors.cursor()
     # Annotation text includes image value.
@@ -260,20 +273,22 @@ def test_image(ax, origin):
     assert array[sel.index] == 1
     _process_event("key_press_event", ax, (.123, .456), "shift+right")
     sel, = cursor.selections
-    assert _parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[0(?:\.00)?\]") == (0, 0)
+    assert (_parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[0(?:\.00)?\]")
+            == (xzero, 0))
     assert array[sel.index] == 0
     _process_event("key_press_event", ax, (.123, .456), "shift+up")
     sel, = cursor.selections
     assert (_parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[(.*)\]")
-            == {"upper": (0, 2, 4), "lower": (0, 1, 2)}[origin])
+            == {"upper": (xzero, 2, 4), "lower": (0, 1, 2)}[origin])
     assert array[sel.index] == {"upper": 4, "lower": 2}[origin]
     _process_event("key_press_event", ax, (.123, .456), "shift+down")
     sel, = cursor.selections
-    assert _parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[0(?:\.00)?\]") == (0, 0)
+    assert (_parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[0(?:\.00)?\]")
+            == (xzero, 0))
     assert array[sel.index] == 0
 
     cursor = mplcursors.cursor()
-    # Not picking out-of-axes or of image.
+    # Not picking out of axes or out of image.
     _process_event("__mouse_click__", ax, (-1, -1), 1)
     assert len(cursor.selections) == 0
     ax.set(xlim=(-1, None), ylim=(-1, None))
@@ -323,6 +338,19 @@ def test_patchcollection(ax):
     _process_event("__mouse_click__", ax, (.6, .6), 1)
     # The precision is really bad :(
     assert cursor.selections[0].index == approx((1, 2), abs=2e-2)
+
+
+@pytest.mark.skipif(getattr(mpl, "__version_info__", ()) < (3, 8),
+                    reason="No support for old-style contours.")
+def test_contour(ax):
+    ax.contour([[0, 1], [0, 1]], levels=[.5])
+    cursor = mplcursors.cursor()
+    _process_event("__mouse_click__", ax, (.5, .5), 1)
+    sel, = cursor.selections
+    x, y, v = _parse_annotation(sel, r"x=(.*)\ny=(.*)\n(.*)")
+    # The precision is really bad :(
+    assert (x, y) == approx((.5, .5), abs=2e-2)
+    assert v == .5
 
 
 @pytest.mark.parametrize("plotter", [Axes.quiver, Axes.barbs])
@@ -392,6 +420,19 @@ def test_stem(ax):
     assert cursor.selections[0].target == approx((0, 1))
     _process_event("__mouse_click__", ax, (0, .5), 1)
     assert cursor.selections[0].target == approx((0, 1))
+
+
+def test_annotationbbox(ax):
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    data = np.arange(9).reshape((3, 3))
+    ax.add_artist(mpl.offsetbox.AnnotationBbox(
+        mpl.offsetbox.OffsetImage(data, zoom=10), (.5, .5)))
+    ax.figure.canvas.draw()
+    cursor = mplcursors.cursor()
+    _process_event("__mouse_click__", ax, (.5, .5), 1)
+    sel, = cursor.selections
+    assert (_parse_annotation(sel, r"x=(.*)\ny=(.*)\n\[(.*)\]")
+            == approx((.5, .5, 4)))
 
 
 @pytest.mark.parametrize(
@@ -489,6 +530,14 @@ def test_highlight(ax, plotter, remove_click_on_annotation):
         1 if plotter is Axes.scatter and not remove_click_on_annotation else 0)
 
 
+def test_highlight_linecollection(ax):
+    ax.eventplot([0, 1])
+    cursor = mplcursors.cursor(highlight=True)
+    _process_event("__mouse_click__", ax, (0, 1), 1)
+    sel, = cursor.selections
+    assert sel.extras
+
+
 def test_misc_artists_highlight(ax):
     # Unsupported artists trigger a warning upon a highlighting attempt.
     ax.imshow([[0, 1], [2, 3]])
@@ -499,16 +548,24 @@ def test_misc_artists_highlight(ax):
 
 def test_callback(ax):
     ax.plot([0, 1])
-    calls = []
+    add_calls = []
+    remove_calls = []
     cursor = mplcursors.cursor()
-    @cursor.connect("add")
-    def on_add(sel):
-        calls.append(sel)
-    _process_event("__mouse_click__", ax, (.5, .5), 1)
-    assert len(calls) == 1
+    on_add = cursor.connect("add")(lambda sel: add_calls.append(sel))
+    on_remove = cursor.connect("remove")(lambda sel: remove_calls.append(sel))
+    _process_event("__mouse_click__", ax, (.3, .3), 1)
+    assert len(add_calls) == 1
+    assert len(remove_calls) == 0
+    _process_event("__mouse_click__", ax, (.7, .7), 1)
+    assert len(add_calls) == 2
+    assert len(remove_calls) == 1
     cursor.disconnect("add", on_add)
     _process_event("__mouse_click__", ax, (.5, .5), 1)
-    assert len(calls) == 1
+    assert len(add_calls) == 2
+    with pytest.raises(ValueError):
+        cursor.disconnect("add", lambda sel: None)
+    with pytest.raises(ValueError):
+        cursor.connect("foo", lambda sel: None)
 
 
 def test_remove_while_adding(ax):
@@ -531,7 +588,8 @@ def test_remove_multiple_overlapping(ax):
     cursor = mplcursors.cursor(multiple=True)
     _process_event("__mouse_click__", ax, (.5, .5), 1)
     sel, = cursor.selections
-    cursor.add_selection(copy.copy(sel))
+    cursor.add_selection(
+        copy.copy(sel), sel.annotation.figure, sel.annotation.axes)
     assert len(cursor.selections) == 2
     _process_event(*_get_remove_args(sel))
     assert [*map(id, cursor.selections)] == [id(sel)]  # To check LIFOness.
@@ -542,24 +600,21 @@ def test_remove_multiple_overlapping(ax):
 def test_autoalign(ax):
     ax.plot([0, 1])
     cursor = mplcursors.cursor()
-    cursor.connect(
+    cb = cursor.connect(
         "add", lambda sel: sel.annotation.set(position=(-10, 0)))
-    _process_event("__mouse_click__", ax, (.5, .5), 1)
+    _process_event("__mouse_click__", ax, (.4, .4), 1)
     sel, = cursor.selections
     assert (sel.annotation.get_ha() == "right"
             and sel.annotation.get_va() == "center")
-    cursor.remove_selection(sel)
+    cursor.disconnect("add", cb)
     cursor.connect(
         "add", lambda sel: sel.annotation.set(ha="center", va="bottom"))
-    _process_event("__mouse_click__", ax, (.5, .5), 1)
+    _process_event("__mouse_click__", ax, (.6, .6), 1)
     sel, = cursor.selections
     assert (sel.annotation.get_ha() == "center"
             and sel.annotation.get_va() == "bottom")
 
 
-@pytest.mark.xfail(
-    int(mpl.__version__.split(".")[0]) < 3,
-    reason="Matplotlib fails to disconnect dragging callbacks.")
 def test_drag(ax, capsys):
     l, = ax.plot([0, 1])
     cursor = mplcursors.cursor()
@@ -621,6 +676,20 @@ def test_keys(ax):
     assert len(cursor.selections) == 0
 
 
+def test_select_at(ax):
+    l1, = ax.plot([0, 1])
+    l2, = ax.plot([1, 0])
+    cursor = mplcursors.cursor([l1])
+    assert cursor.select_at(l1, (.5, .5)) is not None
+    assert len(cursor.selections) == 1
+    cursor.remove_selection(cursor.selections[0])
+    assert len(cursor.selections) == 0
+    assert cursor.select_at(ax, (.2, .2)) is not None
+    assert len(cursor.selections) == 1
+    with pytest.raises(ValueError):
+        cursor.select_at(l2, (.5, .5))
+
+
 def test_convenience(ax):
     l, = ax.plot([1, 2])
     assert len(mplcursors.cursor().artists) == 1
@@ -629,6 +698,23 @@ def test_convenience(ax):
     assert len(mplcursors.cursor([l]).artists) == 1
     bc = ax.bar(range(3), range(3))
     assert len(mplcursors.cursor(bc).artists) == 1
+
+
+@pytest.mark.skipif("figure.hooks" not in mpl.rcParams,
+                    reason="Matplotlib version without figure.hooks.")
+@pytest.mark.parametrize("envopt", ["", '{"hover": 1}'])
+def test_figurehook(monkeypatch, envopt):
+    monkeypatch.setenv("MPLCURSORS", envopt)
+    with mpl.rc_context({"figure.hooks": ["mplcursors:install"]}):
+        fig = plt.figure()
+        try:
+            ax = fig.add_subplot()
+            ax.plot([0, 1])
+            fig.canvas.draw()
+            _process_event("motion_notify_event", ax, (.5, .5))
+            assert len(fig.artists) == bool(envopt)  # The annotation.
+        finally:
+            plt.close(fig)
 
 
 def test_invalid_args():
@@ -679,6 +765,16 @@ def test_gc(ax):
     gc.collect()
     assert not f_img.alive
     assert not f_cursor.alive
+
+
+def test_fixed_ticks_nonstr_labels(ax):
+    ax.set_xticks([0])
+    ax.set_xticklabels([0])  # The formatter will return the label as an int.
+    ax.plot(0, 0, ".")
+    cursor = mplcursors.cursor(ax)
+    _process_event("__mouse_click__", ax, (0, 0), 1)
+    # Just check that this does not error out, but don't check the annotation
+    # text (it starts with "x=0" since #17266 but with "x=" before that).
 
 
 @pytest.mark.parametrize(

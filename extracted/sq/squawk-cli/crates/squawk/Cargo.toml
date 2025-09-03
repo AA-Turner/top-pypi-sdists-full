@@ -1,6 +1,6 @@
 [package]
 name = "squawk"
-version = "2.24.0"
+version = "2.25.0"
 default-run = "squawk"
 
 authors.workspace = true
@@ -21,7 +21,6 @@ tempfile.workspace = true
 serde.workspace = true
 structopt.workspace = true
 console.workspace = true
-atty.workspace = true
 base64.workspace = true
 simplelog.workspace = true
 log.workspace = true

@@ -1367,7 +1367,7 @@ class KubernetesCloudDeploymentVerifier:
         Args:
             cloud_deployment: The cloud deployment configuration
         """
-        deployment_name = cloud_deployment.name or cloud_deployment.cloud_deployment_id
+        deployment_name = cloud_deployment.name or cloud_deployment.cloud_resource_id
         self.log.info(f"Starting Kubernetes verification for: {deployment_name}")
 
         if cloud_deployment.file_storage is not None and isinstance(

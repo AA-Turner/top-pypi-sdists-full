@@ -130,7 +130,7 @@ class SepaDD(SepaPaymentInitn):
             bic = False
 
         TX_nodes = self._create_TX_node(bic)
-        TX_nodes['InstdAmtNode'].set("Ccy", self._config['currency'])
+        TX_nodes['InstdAmtNode'].set("Ccy", payment.get('currency', self._config['currency']))
         TX_nodes['InstdAmtNode'].text = int_to_decimal_str(payment['amount'])
 
         TX_nodes['MndtIdNode'].text = payment['mandate_id']
@@ -232,7 +232,10 @@ class SepaDD(SepaPaymentInitn):
         ED['CdtrAgtNode'] = ET.Element("CdtrAgt")
         ED['FinInstnId_CdtrAgt_Node'] = ET.Element("FinInstnId")
         if 'BIC' in self._config:
-            ED['BIC_CdtrAgt_Node'] = ET.Element("BIC")
+            if self.schema != 'pain.008.001.02':
+                ED['BIC_CdtrAgt_Node'] = ET.Element("BICFI")
+            else:
+                ED['BIC_CdtrAgt_Node'] = ET.Element("BIC")
         else:
             ED['Othr_CdtrAgt_Node'] = ET.Element("Othr")
             ED['Id_CdtrAgt_Node'] = ET.Element("Id")
@@ -263,7 +266,10 @@ class SepaDD(SepaPaymentInitn):
         ED['DbtrAgtNode'] = ET.Element("DbtrAgt")
         ED['FinInstnId_DbtrAgt_Node'] = ET.Element("FinInstnId")
         if bic:
-            ED['BIC_DbtrAgt_Node'] = ET.Element("BIC")
+            if self.schema != 'pain.008.001.02':
+                ED['BIC_DbtrAgt_Node'] = ET.Element("BICFI")
+            else:
+                ED['BIC_DbtrAgt_Node'] = ET.Element("BIC")
         else:
             ED['Id_DbtrAgt_Node'] = ET.Element("Id")
             ED['Othr_DbtrAgt_Node'] = ET.Element("Othr")

@@ -10,9 +10,9 @@ use lsp_types::ParameterLabel;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use ruff_text_size::TextSize;
 
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
@@ -203,22 +203,42 @@ foo.f("",3,True)
 6 | foo.f()
           ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 0
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 0
 
 8 | foo.f("", )
              ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 1
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 1
 
 10 | foo.f("",3, )
                 ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
 
 12 | foo.f("",3,True)
                 ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
 "#
         .trim(),
         report.trim(),

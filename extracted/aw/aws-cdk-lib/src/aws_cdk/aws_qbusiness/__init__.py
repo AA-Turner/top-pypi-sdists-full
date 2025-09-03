@@ -2865,7 +2865,7 @@ class CfnDataSource(
         :param description: A description for the data source connector.
         :param document_enrichment_configuration: Provides the configuration information for altering document metadata and content during the document ingestion process. For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
         :param media_extraction_configuration: The configuration for extracting information from media in documents.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources. This field is required for all connector types except custom connectors, where it is optional.
         :param sync_schedule: Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index. If you don't set a schedule, Amazon Q Business won't periodically update the index. Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
         :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
         :param vpc_configuration: Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source. For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
@@ -4268,7 +4268,7 @@ class CfnDataSourceProps:
         :param description: A description for the data source connector.
         :param document_enrichment_configuration: Provides the configuration information for altering document metadata and content during the document ingestion process. For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
         :param media_extraction_configuration: The configuration for extracting information from media in documents.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources. This field is required for all connector types except custom connectors, where it is optional.
         :param sync_schedule: Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index. If you don't set a schedule, Amazon Q Business won't periodically update the index. Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
         :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
         :param vpc_configuration: Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source. For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
@@ -4500,6 +4500,8 @@ class CfnDataSourceProps:
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources.
+
+        This field is required for all connector types except custom connectors, where it is optional.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-rolearn
         '''

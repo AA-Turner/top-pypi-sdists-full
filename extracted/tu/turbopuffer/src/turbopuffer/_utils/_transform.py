@@ -16,14 +16,17 @@ from ._utils import (
     lru_cache,
     is_mapping,
     is_iterable,
+    is_sequence,
 )
 from .._files import is_base64_file_input
+from .._types import SequenceNotStr
 from ._typing import (
     is_list_type,
     is_union_type,
     extract_type_arg,
     is_iterable_type,
     is_required_type,
+    is_sequence_type,
     is_annotated_type,
     strip_annotated_type,
 )
@@ -39,7 +42,7 @@ _T = TypeVar("_T")
 # HACK: annotations to sniff out that indicate data is of a vector type.
 # Unfortunately we don't get nice types like `Vector` directly.
 VectorRowAnnotation = Union[Iterable[float], str]
-VectorColumnAnnotation = Union[List[VectorRowAnnotation], Iterable[float], str]
+VectorColumnAnnotation = Union[SequenceNotStr[VectorRowAnnotation], Iterable[float], str]
 VectorAnnotations = cast(List[type], [VectorRowAnnotation, VectorColumnAnnotation])
 
 PropertyFormat = Literal["iso8601", "base64", "custom"]
@@ -194,6 +197,8 @@ def _transform_recursive(
         (is_list_type(stripped_type) and is_list(data))
         # Iterable[T]
         or (is_iterable_type(stripped_type) and is_iterable(data) and not isinstance(data, str))
+        # Sequence[T]
+        or (is_sequence_type(stripped_type) and is_sequence(data) and not isinstance(data, str))
     ):
         # dicts are technically iterable, but it is an iterable on the keys of the dict and is not usually
         # intended as an iterable, so we don't transform it.
@@ -374,6 +379,8 @@ async def _async_transform_recursive(
         (is_list_type(stripped_type) and is_list(data))
         # Iterable[T]
         or (is_iterable_type(stripped_type) and is_iterable(data) and not isinstance(data, str))
+        # Sequence[T]
+        or (is_sequence_type(stripped_type) and is_sequence(data) and not isinstance(data, str))
     ):
         # dicts are technically iterable, but it is an iterable on the keys of the dict and is not usually
         # intended as an iterable, so we don't transform it.

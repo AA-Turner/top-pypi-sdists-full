@@ -7,7 +7,7 @@ from anyscale.compute_config.models import (
     compute_config_type_from_dict,
     ComputeConfig,
     ComputeConfigType,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
 )
 
 
@@ -103,11 +103,9 @@ requirements: /tmp/requirements.txt
 
         if isinstance(compute_config, dict):
             compute_config = compute_config_type_from_dict(compute_config)
-        if not isinstance(
-            compute_config, (ComputeConfig, MultiDeploymentComputeConfig)
-        ):
+        if not isinstance(compute_config, (ComputeConfig, MultiResourceComputeConfig)):
             raise TypeError(
-                "'compute_config' must be a string, ComputeConfig, MultiDeploymentComputeConfig, or corresponding dict"
+                "'compute_config' must be a string, ComputeConfig, MultiResourceComputeConfig, or corresponding dict"
             )
 
         return compute_config

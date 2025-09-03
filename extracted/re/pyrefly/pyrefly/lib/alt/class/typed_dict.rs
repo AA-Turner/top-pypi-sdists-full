@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_types::simplify::unions_with_literals;
 use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::name::Name;
@@ -50,8 +51,10 @@ use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
+const CLEAR_METHOD: Name = Name::new_static("clear");
 const GET_METHOD: Name = Name::new_static("get");
 const POP_METHOD: Name = Name::new_static("pop");
+const POPITEM_METHOD: Name = Name::new_static("popitem");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 const KEY_PARAM: Name = Name::new_static("key");
 const DEFAULT_PARAM: Name = Name::new_static("default");
@@ -92,9 +95,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&field.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(Some(
                                         key_name.clone(),
-                                    ))
+                                    )))
                                 })),
                                 item_errors,
                             );
@@ -103,7 +106,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&extra.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictExtra)
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(None))
                                 })),
                                 item_errors,
                             );
@@ -270,10 +273,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), UPDATE_METHOD);
-
         let self_param = self.class_self_param(cls, true);
+        let extra = if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls) {
+            Some(extra.ty)
+        } else {
+            None
+        };
 
-        // ---- Overload: def update(__m: Partial[C], /)
+        // ---- Overload: def update(m: Partial[C], /)
         let full_typed_dict = self.as_typed_dict_unchecked(cls);
         let partial_typed_dict_ty = Type::PartialTypedDict(full_typed_dict);
 
@@ -282,7 +289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ParamList::new(vec![
                     self_param.clone(),
                     Param::PosOnly(
-                        Some(Name::new_static("__m")),
+                        Some(Name::new_static("m")),
                         partial_typed_dict_ty,
                         Required::Required,
                     ),
@@ -292,17 +299,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata: metadata.clone(),
         });
 
-        // ---- Overload: update(__m: Iterable[tuple[Literal["key"], value]])
-        let tuple_types: Vec<Type> = self
+        // ---- Overload: update(m: Iterable[tuple[Literal["key"], value]], /)
+        let get_tuple = |name, ty| Type::Tuple(Tuple::Concrete(vec![self.name_or_str(name), ty]));
+        let mut tuple_types: Vec<Type> = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
-            .map(|(name, field)| {
-                Type::Tuple(Tuple::Concrete(vec![
-                    name_to_literal_type(name),
-                    field.ty.clone(),
-                ]))
-            })
+            .map(|(name, field)| get_tuple(Some(name), field.ty))
             .collect();
+        if let Some(extra) = &extra {
+            tuple_types.push(get_tuple(None, extra.clone()));
+        }
 
         let iterable_ty = self.stdlib.iterable(self.unions(tuple_types)).to_type();
 
@@ -310,11 +316,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signature: Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::PosOnly(
-                        Some(Name::new_static("__m")),
-                        iterable_ty,
-                        Required::Required,
-                    ),
+                    Param::PosOnly(Some(Name::new_static("m")), iterable_ty, Required::Required),
                 ]),
                 Type::None,
             ),
@@ -322,13 +324,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         });
 
         // ---- Overload: update(*, x=..., y=...)
-        let keyword_params: Vec<_> = self
+        let mut keyword_params = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
             .map(|(name, field)| {
                 Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional(None))
             })
-            .collect();
+            .collect::<Vec<_>>();
+        if let Some(extra) = extra {
+            keyword_params.push(Param::Kwargs(None, extra));
+        }
 
         let overload_kwargs = OverloadType::Function(Function {
             signature: Callable::list(
@@ -348,6 +353,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signatures,
             metadata: Box::new(metadata),
         }))
+    }
+
+    /// Get a (key, default: T) -> ValueType | T overload.
+    fn get_overload_with_default(
+        &self,
+        metadata: &FuncMetadata,
+        self_param: &Param,
+        name: Option<&Name>,
+        ty: Type,
+    ) -> OverloadType {
+        let q = Quantified::type_var(
+            Name::new("_T"),
+            self.uniques,
+            None,
+            Restriction::Unrestricted,
+        );
+        let tparams = vec![TParam {
+            quantified: q.clone(),
+            variance: PreInferenceVariance::PInvariant,
+        }];
+        OverloadType::Forall(Forall {
+            tparams: Arc::new(TParams::new(tparams)),
+            body: Function {
+                signature: Callable::list(
+                    ParamList::new(vec![
+                        self_param.clone(),
+                        self.key_param(name),
+                        Param::PosOnly(
+                            Some(DEFAULT_PARAM.clone()),
+                            q.clone().to_type(),
+                            Required::Required,
+                        ),
+                    ]),
+                    self.union(ty, q.to_type()),
+                ),
+                metadata: metadata.clone(),
+            },
+        })
     }
 
     fn get_typed_dict_get(
@@ -393,39 +436,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata: metadata.clone(),
                 }));
                 // (self, key: Literal["key"], default: T) -> ValueType | T
-                let q = Quantified::type_var(
-                    Name::new("_T"),
-                    self.uniques,
-                    None,
-                    Restriction::Unrestricted,
-                );
-
-                let tparams = vec![TParam {
-                    quantified: q.clone(),
-                    variance: PreInferenceVariance::PInvariant,
-                }];
-
-                literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: Arc::new(TParams::new(tparams)),
-                    body: Function {
-                        signature: Callable::list(
-                            ParamList::new(vec![
-                                self_param.clone(),
-                                key_param.clone(),
-                                Param::PosOnly(
-                                    Some(DEFAULT_PARAM.clone()),
-                                    q.clone().to_type(),
-                                    Required::Required,
-                                ),
-                            ]),
-                            self.union(field.ty.clone(), q.to_type()),
-                        ),
-                        metadata: metadata.clone(),
-                    },
-                }));
+                literal_signatures.push(self.get_overload_with_default(
+                    &metadata,
+                    &self_param,
+                    Some(name),
+                    field.ty,
+                ));
             }
         }
-        let signatures = Vec1::from_vec_push(
+        let value_ty = self.get_typed_dict_value_type_from_fields(cls, fields);
+        let mut signatures = Vec1::from_vec_push(
             literal_signatures,
             OverloadType::Function(Function {
                 signature: Callable::list(
@@ -436,21 +456,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.stdlib.str().clone().to_type(),
                             Required::Required,
                         ),
-                        Param::PosOnly(
-                            Some(DEFAULT_PARAM.clone()),
-                            object_ty.clone(),
-                            Required::Optional(None),
-                        ),
                     ]),
-                    object_ty.clone(),
+                    Type::optional(value_ty.clone()),
                 ),
                 metadata: metadata.clone(),
             }),
         );
+        signatures.push(self.get_overload_with_default(&metadata, &self_param, None, value_ty));
         ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
             metadata: Box::new(metadata),
         }))
+    }
+
+    fn name_or_str(&self, name: Option<&Name>) -> Type {
+        if let Some(name) = name {
+            name_to_literal_type(name)
+        } else {
+            self.stdlib.str().clone().to_type()
+        }
+    }
+
+    fn key_param(&self, name: Option<&Name>) -> Param {
+        Param::PosOnly(
+            Some(KEY_PARAM.clone()),
+            self.name_or_str(name),
+            Required::Required,
+        )
+    }
+
+    fn gen_pop_overloads_for_field(
+        &self,
+        metadata: &FuncMetadata,
+        self_param: &Param,
+        name: Option<&Name>,
+        read_only: bool,
+        required: bool,
+        ty: Type,
+        overloads: &mut Vec<OverloadType>,
+    ) {
+        if required || read_only {
+            // do not pop required or read-only keys
+            return;
+        }
+
+        // 1) no default: (self, key: Literal["field_name"]) -> FieldType
+        overloads.push(OverloadType::Function(Function {
+            signature: Callable::list(
+                ParamList::new(vec![self_param.clone(), self.key_param(name)]),
+                ty.clone(),
+            ),
+            metadata: metadata.clone(),
+        }));
+
+        // 2) default: (self, key: Literal["field_name"], default: _T) -> FieldType | _T
+        overloads.push(self.get_overload_with_default(metadata, self_param, name, ty));
     }
 
     /// Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
@@ -461,104 +521,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<ClassSynthesizedField> {
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), POP_METHOD);
         let self_param = self.class_self_param(cls, true);
-
         let mut literal_signatures: Vec<OverloadType> = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
-            if field.required {
-                // do not pop required keys
-                continue;
-            } else {
-                let key_param = Param::PosOnly(
-                    Some(KEY_PARAM.clone()),
-                    name_to_literal_type(name),
-                    Required::Required,
-                );
-
-                let q = Quantified::type_var(
-                    Name::new("_T"),
-                    self.uniques,
-                    None,
-                    Restriction::Unrestricted,
-                );
-                let tparams = vec![TParam {
-                    quantified: q.clone(),
-                    variance: PreInferenceVariance::PInvariant,
-                }];
-
-                // 1) no default: (self, key: Literal["field_name"]) -> Optional[FieldType]
-                literal_signatures.push(OverloadType::Function(Function {
-                    signature: Callable::list(
-                        ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                        Type::optional(field.ty.clone()),
-                    ),
-                    metadata: metadata.clone(),
-                }));
-
-                // 2) default: (self, key: Literal["field_name"], default: _T) -> Union[FieldType, _T]
-                literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: Arc::new(TParams::new(tparams.clone())),
-                    body: Function {
-                        signature: Callable::list(
-                            ParamList::new(vec![
-                                self_param.clone(),
-                                key_param.clone(),
-                                Param::PosOnly(
-                                    Some(DEFAULT_PARAM.clone()),
-                                    q.clone().to_type(),
-                                    Required::Required,
-                                ),
-                            ]),
-                            self.union(field.ty.clone(), q.clone().to_type()),
-                        ),
-                        metadata: metadata.clone(),
-                    },
-                }));
-            }
-        }
-
-        let signatures = Vec1::try_from_vec(literal_signatures).ok()?;
-
-        Some(ClassSynthesizedField::new(Type::Overload(Overload {
-            signatures,
-            metadata: Box::new(metadata),
-        })))
-    }
-
-    fn get_typed_dict_delitem(
-        &self,
-        cls: &Class,
-        fields: &SmallMap<Name, bool>,
-    ) -> Option<ClassSynthesizedField> {
-        let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::DELITEM);
-
-        let self_param = self.class_self_param(cls, true);
-
-        let mut literal_signatures: Vec<OverloadType> = Vec::new();
-        for (name, field) in self.names_to_fields(cls, fields) {
-            if field.required {
-                // Do not allow deletion of required keys
-                // Call resolution will fall back to typeshed
-                continue;
-            }
-
-            let key_param = Param::PosOnly(
-                Some(KEY_PARAM.clone()),
-                name_to_literal_type(name),
-                Required::Required,
+            self.gen_pop_overloads_for_field(
+                &metadata,
+                &self_param,
+                Some(name),
+                field.is_read_only(),
+                field.required,
+                field.ty,
+                &mut literal_signatures,
             );
-
-            // Construct an overload of the form: (self, key: Literal["field_name"]) -> None
-            literal_signatures.push(OverloadType::Function(Function {
-                signature: Callable::list(
-                    ParamList::new(vec![self_param.clone(), key_param]),
-                    Type::None,
-                ),
-                metadata: metadata.clone(),
-            }));
         }
-
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls) {
+            self.gen_pop_overloads_for_field(
+                &metadata,
+                &self_param,
+                None,
+                extra.read_only,
+                false,
+                self.get_typed_dict_value_type_from_fields(cls, fields),
+                &mut literal_signatures,
+            );
+        }
         let signatures = Vec1::try_from_vec(literal_signatures).ok()?;
-
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
             metadata: Box::new(metadata),
@@ -575,32 +561,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let self_param = self.class_self_param(cls, true);
         let metadata =
             FuncMetadata::def(self.module().name(), cls.name().clone(), SETDEFAULT_METHOD);
-        let make_overload = |(name, field): (&Name, TypedDictField)| {
-            if field.is_read_only() {
+        let make_overload = |name: Option<&Name>, read_only: bool, field_ty: Type| {
+            if read_only {
                 None
             } else {
                 Some(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![
                             self_param.clone(),
-                            Param::PosOnly(
-                                Some(KEY_PARAM.clone()),
-                                name_to_literal_type(name),
-                                Required::Required,
-                            ),
+                            self.key_param(name),
                             Param::PosOnly(
                                 Some(DEFAULT_PARAM.clone()),
-                                field.ty.clone(),
+                                field_ty.clone(),
                                 Required::Required,
                             ),
                         ]),
-                        field.ty.clone(),
+                        field_ty,
                     ),
                     metadata: metadata.clone(),
                 }))
             }
         };
-        let overloads = fields_iter.filter_map(make_overload).collect::<Vec<_>>();
+        let mut overloads = fields_iter
+            .filter_map(|(name, field)| make_overload(Some(name), field.is_read_only(), field.ty))
+            .collect::<Vec<_>>();
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls)
+            && let Some(overload) = make_overload(
+                None,
+                extra.read_only,
+                self.get_typed_dict_value_type_from_fields(cls, fields),
+            )
+        {
+            overloads.push(overload);
+        }
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures: Vec1::try_from_vec(overloads).ok()?,
             metadata: Box::new(metadata),
@@ -616,19 +609,48 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// If the TypedDict is assignable to `dict[str, VT]`, return `VT`.
+    pub fn get_typed_dict_value_type_as_builtins_dict(
+        &self,
+        typed_dict: &TypedDict,
+    ) -> Option<Type> {
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict.class_object())
+            && !extra.read_only
+            && self.typed_dict_fields(typed_dict).values().all(|field| {
+                !field.is_read_only() && !field.required && self.is_equal(&field.ty, &extra.ty)
+            })
+        {
+            Some(extra.ty)
+        } else {
+            None
+        }
+    }
+
     /// Get the type of a value in the TypedDict.
     fn get_typed_dict_value_type_from_fields(
         &self,
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> Type {
-        let extra = self.typed_dict_extra_items(cls).extra_item(self.stdlib).ty;
+        let extra_items = self.typed_dict_extra_items(cls);
+        if matches!(extra_items, ExtraItems::Default) {
+            // extra_items defaults to `ReadOnly[object]`, and `object | ...` simplifies to `object`.
+            return self.stdlib.object().clone().to_type();
+        }
+        let extra = extra_items.extra_item(self.stdlib).ty;
         let mut values = self
             .names_to_fields(cls, fields)
             .map(|(_, field)| field.ty)
             .collect::<Vec<_>>();
-        values.push(extra);
-        self.unions(values)
+        // We can't use self.unions(...) here because it calls is_subset_eq, which may need to get
+        // a TypedDict's value type, which would lead to infinite recursion if the TypedDict
+        // contains itself.
+        if values.is_empty() {
+            extra
+        } else {
+            values.push(extra);
+            unions_with_literals(values, self.stdlib, &|cls| self.get_enum_member_count(cls))
+        }
     }
 
     /// Synthesize an `items()` method.
@@ -671,6 +693,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })))
     }
 
+    fn all_items_are_removable(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> bool {
+        !self
+            .typed_dict_extra_items(cls)
+            .extra_item(self.stdlib)
+            .read_only
+            && self
+                .names_to_fields(cls, fields)
+                .all(|(_, field)| !field.is_read_only() && !field.required)
+    }
+
+    fn get_typed_dict_clear(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        if !self.all_items_are_removable(cls, fields) {
+            return None;
+        }
+        Some(ClassSynthesizedField::new(Type::Function(Box::new(
+            Function {
+                signature: Callable::list(
+                    ParamList::new(vec![self.class_self_param(cls, true)]),
+                    Type::None,
+                ),
+                metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), CLEAR_METHOD),
+            },
+        ))))
+    }
+
+    fn get_typed_dict_popitem(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        if !self.all_items_are_removable(cls, fields) {
+            return None;
+        }
+        Some(ClassSynthesizedField::new(Type::Function(Box::new(
+            Function {
+                signature: Callable::list(
+                    ParamList::new(vec![self.class_self_param(cls, true)]),
+                    Type::Tuple(Tuple::Concrete(vec![
+                        self.stdlib.str().clone().to_type(),
+                        self.get_typed_dict_value_type_from_fields(cls, fields),
+                    ])),
+                ),
+                metadata: FuncMetadata::def(
+                    self.module().name(),
+                    cls.name().clone(),
+                    POPITEM_METHOD,
+                ),
+            },
+        ))))
+    }
+
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
@@ -681,11 +758,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             UPDATE_METHOD => self.get_typed_dict_update(cls, &td.fields),
             VALUES_METHOD => self.get_typed_dict_values(cls, &td.fields),
         };
+        if let Some(m) = self.get_typed_dict_clear(cls, &td.fields) {
+            fields.insert(CLEAR_METHOD, m);
+        }
         if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
             fields.insert(POP_METHOD, m);
         }
-        if let Some(m) = self.get_typed_dict_delitem(cls, &td.fields) {
-            fields.insert(dunder::DELITEM, m);
+        if let Some(m) = self.get_typed_dict_popitem(cls, &td.fields) {
+            fields.insert(POPITEM_METHOD, m);
         }
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
             fields.insert(SETDEFAULT_METHOD, m);

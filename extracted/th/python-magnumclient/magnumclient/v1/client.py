@@ -15,13 +15,14 @@
 
 from keystoneauth1.exceptions import catalog
 from keystoneauth1 import session as ksa_session
-import os_client_config
+from openstack import config as occ
 from oslo_utils import importutils
 
 from magnumclient.common import httpclient
 from magnumclient.v1 import certificates
 from magnumclient.v1 import cluster_templates
 from magnumclient.v1 import clusters
+from magnumclient.v1 import credentials
 from magnumclient.v1 import mservices
 from magnumclient.v1 import nodegroups
 from magnumclient.v1 import quotas
@@ -35,8 +36,8 @@ LEGACY_DEFAULT_SERVICE_TYPE = 'container'
 
 
 def _load_session(cloud=None, insecure=False, timeout=None, **kwargs):
-    cloud_config = os_client_config.OpenStackConfig()
-    cloud_config = cloud_config.get_one_cloud(
+    cloud_config = occ.OpenStackConfig()
+    cloud_config = cloud_config.get_one(
         cloud=cloud,
         verify=not insecure,
         **kwargs)
@@ -213,3 +214,4 @@ class Client(object):
         self.stats = stats.StatsManager(self.http_client)
         self.quotas = quotas.QuotasManager(self.http_client)
         self.nodegroups = nodegroups.NodeGroupManager(self.http_client)
+        self.credentials = credentials.CredentialManager(self.http_client)

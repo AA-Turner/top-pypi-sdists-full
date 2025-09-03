@@ -24,6 +24,7 @@ from langgraph_api.utils import (
     validate_select_columns,
     validate_uuid,
 )
+from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.validation import (
     AssistantCountRequest,
     AssistantCreate,
@@ -240,6 +241,9 @@ async def get_assistant_graph(
         assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
     config = await ajson_loads(assistant["config"])
+    configurable = config.setdefault("configurable", {})
+    configurable.update(get_configurable_headers(request.headers))
+
     async with get_graph(
         assistant["graph_id"],
         config,
@@ -294,6 +298,8 @@ async def get_assistant_subgraphs(
         assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
         config = await ajson_loads(assistant["config"])
+        configurable = config.setdefault("configurable", {})
+        configurable.update(get_configurable_headers(request.headers))
         async with get_graph(
             assistant["graph_id"],
             config,
@@ -340,6 +346,8 @@ async def get_assistant_schemas(
         # TODO Implementa  cache so we can de-dent and release this connection.
         assistant = await fetchone(assistant_)
         config = await ajson_loads(assistant["config"])
+        configurable = config.setdefault("configurable", {})
+        configurable.update(get_configurable_headers(request.headers))
         async with get_graph(
             assistant["graph_id"],
             config,

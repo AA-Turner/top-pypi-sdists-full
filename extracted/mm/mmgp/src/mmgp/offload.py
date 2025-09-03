@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.5.10 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.5.11 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -66,7 +66,6 @@ from accelerate import init_empty_weights
 
 import functools
 import types
-from functools import lru_cache
 import torch
 
 
@@ -89,6 +88,23 @@ class QEmbedding(QModuleMixin, torch.nn.Embedding):
 
 
 shared_state = {}
+
+def get_cache(cache_name):
+    all_cache = shared_state.get("_cache",  None)
+    if all_cache is None:
+        all_cache = {}
+        shared_state["_cache"]=  all_cache
+    cache = shared_state.get(cache_name, None)
+    if cache is None:
+        cache = {}
+        all_cache[cache_name] = cache
+    return cache
+
+def clear_caches():
+    all_cache = shared_state.get("_cache",  None)
+    if all_cache is not None:
+        all_cache.clear()
+
 
 mmm = safetensors2.mmm
 
@@ -623,6 +639,7 @@ def _pin_to_memory(model, model_id, partialPinning = False, pinnedPEFTLora = Tru
                 total += size
 
             current_big_tensor = big_tensors[big_tensor_no]
+
             if is_buffer :
                 _force_load_buffer(p) # otherwise potential memory leak
             if isinstance(p, QTensor):
@@ -671,7 +688,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.10) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.11) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1032,7 +1049,7 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
 
         if split_linear_modules_map != None:
             new_state_dict = dict()
-            suffixes = [(".alpha", -2, False), (".lora_B.weight", -3, True), (".lora_A.weight", -3, False)]
+            suffixes = [(".alpha", -2, False), (".lora_B.weight", -3, True), (".lora_A.weight", -3, False), (".lora_up.weight", -3, True), (".lora_down.weight", -3, False)]
             for module_name, module_data in state_dict.items():
                 name_parts = module_name.split(".")
                 for suffix, pos, any_split in suffixes: 
@@ -1306,7 +1323,7 @@ def fast_load_transformers_model(model_path: str,  do_quantize = False, quantiza
         model_path = [model_path]
 
 
-    if not builtins.all(file_name.endswith(".sft") or file_name.endswith(".safetensors") or file_name.endswith(".pt") for file_name in model_path):
+    if not builtins.all(file_name.endswith(".sft") or file_name.endswith(".safetensors") or file_name.endswith(".pt") or file_name.endswith(".ckpt") for file_name in model_path):
         raise Exception("full model path to file expected")
 
     model_path = [ _get_model(file) for file in model_path] 
@@ -1314,7 +1331,7 @@ def fast_load_transformers_model(model_path: str,  do_quantize = False, quantiza
         raise Exception("Unable to find file")
     
     verboseLevel = _compute_verbose_level(verboseLevel)
-    if model_path[-1].endswith(".pt"):
+    if model_path[-1].endswith(".pt") or model_path[-1].endswith(".ckpt"):
         metadata = None
     else:
         with safetensors2.safe_open(model_path[-1], writable_tensors =writable_tensors) as f:
@@ -2681,6 +2698,21 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
                     print(f"Model '{model_id}' already pinned to reserved memory")
             else:
                 _pin_to_memory(current_model, model_id, partialPinning= partialPinning, pinnedPEFTLora = pinnedPEFTLora, perc_reserved_mem_max = perc_reserved_mem_max, verboseLevel=verboseLevel)            
+                # empty_tensor = torch.empty((1,))
+                # for sub_module_name, sub_module  in current_model.named_modules():
+                #     for k, p in  sub_module.named_parameters(recurse=False):
+                #         if p is not None:
+                #             if isinstance(p, QTensor):
+                #                 p._data.data = empty_tensor
+                #                 p._scale.data = empty_tensor
+                #             else:
+                #                 p.data = empty_tensor
+                #             del k
+                #     for k, v in  sub_module.named_buffers(recurse=False):
+                #         del k
+                # sub_module = None
+                # v = None
+                # gc.collect()
         current_budget = model_budgets[model_id]
         cur_blocks_prefix, prev_blocks_name, cur_blocks_name,cur_blocks_seq, is_mod_seq = None, None, None, -1, False
         self.loaded_blocks[model_id] = None

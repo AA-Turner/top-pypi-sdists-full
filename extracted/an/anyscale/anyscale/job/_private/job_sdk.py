@@ -19,7 +19,7 @@ from anyscale.client.openapi_client.models.ray_runtime_env_config import (
 from anyscale.compute_config.models import (
     ComputeConfig,
     ComputeConfigType,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
 )
 from anyscale.job.models import (
     JobConfig,
@@ -82,13 +82,13 @@ class PrivateJobSDK(WorkloadSDK):
             - 'working_dir' will be set to '.'.
             - 'pip' will be set to the workspace-managed requirements file.
         """
-        cloud_deployments = self._get_compute_config_cloud_deployments(
+        cloud_resource_names = self._get_compute_config_cloud_resources(
             compute_config=config.compute_config, cloud=config.cloud
         )
-        assert len(cloud_deployments) > 0
+        assert len(cloud_resource_names) > 0
 
         runtime_env: Dict[str, Any] = {}
-        if len(cloud_deployments) == 1:
+        if len(cloud_resource_names) == 1:
             [runtime_env] = self.override_and_upload_local_dirs_single_deployment(
                 [runtime_env],
                 working_dir_override=config.working_dir,
@@ -97,10 +97,10 @@ class PrivateJobSDK(WorkloadSDK):
                 autopopulate_in_workspace=autopopulate_in_workspace,
                 additional_py_modules=config.py_modules,
                 py_executable_override=config.py_executable,
-                cloud_deployment=cloud_deployments[0],
+                cloud_resource_name=cloud_resource_names[0],
             )
         else:
-            [runtime_env] = self.override_and_upload_local_dirs_multi_deployment(
+            [runtime_env] = self.override_and_upload_local_dirs_multi_cloud_resource(
                 [runtime_env],
                 working_dir_override=config.working_dir,
                 excludes_override=config.excludes,
@@ -108,7 +108,7 @@ class PrivateJobSDK(WorkloadSDK):
                 autopopulate_in_workspace=autopopulate_in_workspace,
                 additional_py_modules=config.py_modules,
                 py_executable_override=config.py_executable,
-                cloud_deployments=cloud_deployments,
+                cloud_resource_names=cloud_resource_names,
             )
         [runtime_env] = self.override_and_load_requirements_files(
             [runtime_env],
@@ -121,15 +121,15 @@ class PrivateJobSDK(WorkloadSDK):
 
         return runtime_env or None
 
-    def _get_compute_config_cloud_deployments(
+    def _get_compute_config_cloud_resources(
         self, compute_config: Union[ComputeConfigType, str, None], cloud: Optional[str]
     ) -> List[Optional[str]]:
         if isinstance(compute_config, ComputeConfig):
-            # single-deployment compute config
-            return [compute_config.cloud_deployment]
+            # single-cloud resource compute config
+            return [compute_config.cloud_resource]
 
-        if isinstance(compute_config, MultiDeploymentComputeConfig):
-            return [config.cloud_deployment for config in compute_config.configs]
+        if isinstance(compute_config, MultiResourceComputeConfig):
+            return [config.cloud_resource for config in compute_config.configs]
 
         compute_config_id = self._resolve_compute_config_id(
             compute_config=compute_config, cloud=cloud

@@ -5551,6 +5551,9 @@ class CfnAddon(
             # the properties below are optional
             addon_version="addonVersion",
             configuration_values="configurationValues",
+            namespace_config=eks.CfnAddon.NamespaceConfigProperty(
+                namespace="namespace"
+            ),
             pod_identity_associations=[eks.CfnAddon.PodIdentityAssociationProperty(
                 role_arn="roleArn",
                 service_account="serviceAccount"
@@ -5574,6 +5577,7 @@ class CfnAddon(
         cluster_name: builtins.str,
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[builtins.str] = None,
+        namespace_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAddon.NamespaceConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         pod_identity_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAddon.PodIdentityAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         preserve_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         resolve_conflicts: typing.Optional[builtins.str] = None,
@@ -5587,6 +5591,7 @@ class CfnAddon(
         :param cluster_name: The name of your cluster.
         :param addon_version: The version of the add-on.
         :param configuration_values: The configuration values that you provided.
+        :param namespace_config: The namespace configuration for the addon. This specifies the Kubernetes namespace where the addon is installed.
         :param pod_identity_associations: An array of EKS Pod Identity associations owned by the add-on. Each association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed.
         :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on. Conflicts are handled based on the value you choose: - *None* – If the self-managed version of the add-on is installed on your cluster, Amazon EKS doesn't change the value. Creation of the add-on might fail. - *Overwrite* – If the self-managed version of the add-on is installed on your cluster and the Amazon EKS default value is different than the existing value, Amazon EKS changes the value to the Amazon EKS default value. - *Preserve* – This is similar to the NONE option. If the self-managed version of the add-on is installed on your cluster Amazon EKS doesn't change the add-on resource properties. Creation of the add-on might fail if conflicts are detected. This option works differently during the update operation. For more information, see ```UpdateAddon`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateAddon.html>`_ . If you don't currently have the self-managed version of the add-on installed on your cluster, the Amazon EKS add-on is installed. Amazon EKS sets all values to default values, regardless of the option that you specify.
@@ -5602,6 +5607,7 @@ class CfnAddon(
             cluster_name=cluster_name,
             addon_version=addon_version,
             configuration_values=configuration_values,
+            namespace_config=namespace_config,
             pod_identity_associations=pod_identity_associations,
             preserve_on_delete=preserve_on_delete,
             resolve_conflicts=resolve_conflicts,
@@ -5714,6 +5720,24 @@ class CfnAddon(
         jsii.set(self, "configurationValues", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="namespaceConfig")
+    def namespace_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAddon.NamespaceConfigProperty"]]:
+        '''The namespace configuration for the addon.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAddon.NamespaceConfigProperty"]], jsii.get(self, "namespaceConfig"))
+
+    @namespace_config.setter
+    def namespace_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAddon.NamespaceConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__039b518895f39f54dce3ea31a35bed66445fb7b5e7f4c52a89adafc86911f331)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="podIdentityAssociations")
     def pod_identity_associations(
         self,
@@ -5787,6 +5811,58 @@ class CfnAddon(
             type_hints = typing.get_type_hints(_typecheckingstub__61cfcc2cd9aba81e02df7f2a5c976044dc5e5cbf6c05b880c4944cb357ebd775)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnAddon.NamespaceConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"namespace": "namespace"},
+    )
+    class NamespaceConfigProperty:
+        def __init__(self, *, namespace: builtins.str) -> None:
+            '''The custom namespace configuration to use with the add-on.
+
+            :param namespace: The custom namespace for creating the add-on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-namespaceconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                namespace_config_property = eks.CfnAddon.NamespaceConfigProperty(
+                    namespace="namespace"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c336eaf5f7476c60c3b0b8dc688fc9ea53319525b39f820a30e2510a38e67cbc)
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "namespace": namespace,
+            }
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The custom namespace for creating the add-on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-namespaceconfig.html#cfn-eks-addon-namespaceconfig-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NamespaceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnAddon.PodIdentityAssociationProperty",
@@ -5870,6 +5946,7 @@ class CfnAddon(
         "cluster_name": "clusterName",
         "addon_version": "addonVersion",
         "configuration_values": "configurationValues",
+        "namespace_config": "namespaceConfig",
         "pod_identity_associations": "podIdentityAssociations",
         "preserve_on_delete": "preserveOnDelete",
         "resolve_conflicts": "resolveConflicts",
@@ -5885,6 +5962,7 @@ class CfnAddonProps:
         cluster_name: builtins.str,
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[builtins.str] = None,
+        namespace_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.NamespaceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         pod_identity_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.PodIdentityAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         preserve_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         resolve_conflicts: typing.Optional[builtins.str] = None,
@@ -5897,6 +5975,7 @@ class CfnAddonProps:
         :param cluster_name: The name of your cluster.
         :param addon_version: The version of the add-on.
         :param configuration_values: The configuration values that you provided.
+        :param namespace_config: The namespace configuration for the addon. This specifies the Kubernetes namespace where the addon is installed.
         :param pod_identity_associations: An array of EKS Pod Identity associations owned by the add-on. Each association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed.
         :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on. Conflicts are handled based on the value you choose: - *None* – If the self-managed version of the add-on is installed on your cluster, Amazon EKS doesn't change the value. Creation of the add-on might fail. - *Overwrite* – If the self-managed version of the add-on is installed on your cluster and the Amazon EKS default value is different than the existing value, Amazon EKS changes the value to the Amazon EKS default value. - *Preserve* – This is similar to the NONE option. If the self-managed version of the add-on is installed on your cluster Amazon EKS doesn't change the add-on resource properties. Creation of the add-on might fail if conflicts are detected. This option works differently during the update operation. For more information, see ```UpdateAddon`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateAddon.html>`_ . If you don't currently have the self-managed version of the add-on installed on your cluster, the Amazon EKS add-on is installed. Amazon EKS sets all values to default values, regardless of the option that you specify.
@@ -5919,6 +5998,9 @@ class CfnAddonProps:
                 # the properties below are optional
                 addon_version="addonVersion",
                 configuration_values="configurationValues",
+                namespace_config=eks.CfnAddon.NamespaceConfigProperty(
+                    namespace="namespace"
+                ),
                 pod_identity_associations=[eks.CfnAddon.PodIdentityAssociationProperty(
                     role_arn="roleArn",
                     service_account="serviceAccount"
@@ -5938,6 +6020,7 @@ class CfnAddonProps:
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument addon_version", value=addon_version, expected_type=type_hints["addon_version"])
             check_type(argname="argument configuration_values", value=configuration_values, expected_type=type_hints["configuration_values"])
+            check_type(argname="argument namespace_config", value=namespace_config, expected_type=type_hints["namespace_config"])
             check_type(argname="argument pod_identity_associations", value=pod_identity_associations, expected_type=type_hints["pod_identity_associations"])
             check_type(argname="argument preserve_on_delete", value=preserve_on_delete, expected_type=type_hints["preserve_on_delete"])
             check_type(argname="argument resolve_conflicts", value=resolve_conflicts, expected_type=type_hints["resolve_conflicts"])
@@ -5951,6 +6034,8 @@ class CfnAddonProps:
             self._values["addon_version"] = addon_version
         if configuration_values is not None:
             self._values["configuration_values"] = configuration_values
+        if namespace_config is not None:
+            self._values["namespace_config"] = namespace_config
         if pod_identity_associations is not None:
             self._values["pod_identity_associations"] = pod_identity_associations
         if preserve_on_delete is not None:
@@ -5999,6 +6084,19 @@ class CfnAddonProps:
         '''
         result = self._values.get("configuration_values")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def namespace_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAddon.NamespaceConfigProperty]]:
+        '''The namespace configuration for the addon.
+
+        This specifies the Kubernetes namespace where the addon is installed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-addon.html#cfn-eks-addon-namespaceconfig
+        '''
+        result = self._values.get("namespace_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAddon.NamespaceConfigProperty]], result)
 
     @builtins.property
     def pod_identity_associations(
@@ -18265,6 +18363,17 @@ class ServiceLoadBalancerAddressOptions:
 class TaintEffect(enum.Enum):
     '''Effect types of kubernetes node taint.
 
+    Note: These values are specifically for AWS EKS NodeGroups and use the AWS API format.
+    When using AWS CLI or API, taint effects must be NO_SCHEDULE, PREFER_NO_SCHEDULE, or NO_EXECUTE.
+    When using Kubernetes directly or kubectl, taint effects must be NoSchedule, PreferNoSchedule, or NoExecute.
+
+    For Kubernetes manifests (like Karpenter NodePools), use string literals with PascalCase format:
+
+    - 'NoSchedule' instead of TaintEffect.NO_SCHEDULE
+    - 'PreferNoSchedule' instead of TaintEffect.PREFER_NO_SCHEDULE
+    - 'NoExecute' instead of TaintEffect.NO_EXECUTE
+
+    :see: https://docs.aws.amazon.com/eks/latest/userguide/node-taints-managed-node-groups.html
     :exampleMetadata: infused
 
     Example::
@@ -22322,6 +22431,7 @@ def _typecheckingstub__45ff0728c7d6fc5f47c97aa791c327f70a32e19bdf463d94d9351053f
     cluster_name: builtins.str,
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[builtins.str] = None,
+    namespace_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.NamespaceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     pod_identity_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.PodIdentityAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     preserve_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     resolve_conflicts: typing.Optional[builtins.str] = None,
@@ -22367,6 +22477,12 @@ def _typecheckingstub__f2b158aed78a78d2962c2650df64f6c3880ccb508ebd6b281bda6c1a1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__039b518895f39f54dce3ea31a35bed66445fb7b5e7f4c52a89adafc86911f331(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAddon.NamespaceConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__04a430658e28600fba10a8c3e5edab2978904829dda6f2c70e9cca8560f7e400(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAddon.PodIdentityAssociationProperty]]]],
 ) -> None:
@@ -22397,6 +22513,13 @@ def _typecheckingstub__61cfcc2cd9aba81e02df7f2a5c976044dc5e5cbf6c05b880c4944cb35
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c336eaf5f7476c60c3b0b8dc688fc9ea53319525b39f820a30e2510a38e67cbc(
+    *,
+    namespace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3925c850dd0d0ad3b9faeea87aafbe69220a7bf33d95af5527715674625c9891(
     *,
     role_arn: builtins.str,
@@ -22411,6 +22534,7 @@ def _typecheckingstub__484b2779e40e4780cb0940ac7bc9daaf91fa04347613d732138d3be3d
     cluster_name: builtins.str,
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[builtins.str] = None,
+    namespace_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.NamespaceConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     pod_identity_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAddon.PodIdentityAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     preserve_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     resolve_conflicts: typing.Optional[builtins.str] = None,

@@ -38,7 +38,8 @@ class CreateResourceNotification(object):
         'project_id': 'str',
         'user_id': 'str',
         'notification_events': 'list[ResourceAlertEventType]',
-        'notification_channel': 'CreateNotificationChannelRecord'
+        'notification_channel': 'CreateNotificationChannelRecord',
+        'alert_config': 'object'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class CreateResourceNotification(object):
         'project_id': 'project_id',
         'user_id': 'user_id',
         'notification_events': 'notification_events',
-        'notification_channel': 'notification_channel'
+        'notification_channel': 'notification_channel',
+        'alert_config': 'alert_config'
     }
 
-    def __init__(self, name=None, cloud_id=None, project_id=None, user_id=None, notification_events=None, notification_channel=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, cloud_id=None, project_id=None, user_id=None, notification_events=None, notification_channel=None, alert_config=None, local_vars_configuration=None):  # noqa: E501
         """CreateResourceNotification - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class CreateResourceNotification(object):
         self._user_id = None
         self._notification_events = None
         self._notification_channel = None
+        self._alert_config = None
         self.discriminator = None
 
         self.name = name
@@ -73,6 +76,8 @@ class CreateResourceNotification(object):
         self.notification_events = notification_events
         if notification_channel is not None:
             self.notification_channel = notification_channel
+        if alert_config is not None:
+            self.alert_config = alert_config
 
     @property
     def name(self):
@@ -217,6 +222,29 @@ class CreateResourceNotification(object):
         """
 
         self._notification_channel = notification_channel
+
+    @property
+    def alert_config(self):
+        """Gets the alert_config of this CreateResourceNotification.  # noqa: E501
+
+        The alert configuration for resource alert events.  # noqa: E501
+
+        :return: The alert_config of this CreateResourceNotification.  # noqa: E501
+        :rtype: object
+        """
+        return self._alert_config
+
+    @alert_config.setter
+    def alert_config(self, alert_config):
+        """Sets the alert_config of this CreateResourceNotification.
+
+        The alert configuration for resource alert events.  # noqa: E501
+
+        :param alert_config: The alert_config of this CreateResourceNotification.  # noqa: E501
+        :type: object
+        """
+
+        self._alert_config = alert_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

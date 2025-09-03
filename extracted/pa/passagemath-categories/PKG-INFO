@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-categories
-Version: 10.6.13
+Version: 10.6.14
 Summary: passagemath: Sage categories and basic rings
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-objects~=10.6.13.0
+Requires-Dist: passagemath-objects~=10.6.14.0
 Requires-Dist: memory_allocator
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"

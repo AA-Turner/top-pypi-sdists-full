@@ -18,10 +18,10 @@ from __future__ import annotations
 __all__ = ("ApiClient", "with_api_errors_handling")
 
 import functools
-import os
 from collections.abc import (
     Callable,
     Iterable,
+    Mapping,
 )
 from dataclasses import dataclass
 from json import JSONDecodeError
@@ -42,7 +42,10 @@ from neptune_api.api.ingestion import (
     bulk_check_status,
     ingest,
 )
-from neptune_api.api.storage import signed_url_generic
+from neptune_api.api.storage import (
+    complete_multipart_upload,
+    signed_url_generic,
+)
 from neptune_api.auth_helpers import exchange_api_key
 from neptune_api.credentials import Credentials
 from neptune_api.errors import (
@@ -55,9 +58,11 @@ from neptune_api.errors import (
 )
 from neptune_api.models import (
     ClientConfig,
+    CompleteMultipartUploadRequest,
     CreateSignedUrlsRequest,
     CreateSignedUrlsResponse,
     FileToSign,
+    MultipartPart,
     Permission,
 )
 from neptune_api.proto.neptune_pb.ingest.v1.pub.client_pb2 import (
@@ -75,7 +80,11 @@ from neptune_scale.exceptions import (
     NeptuneUnexpectedResponseError,
 )
 from neptune_scale.sync.parameters import HTTP_CLIENT_NETWORKING_TIMEOUT
-from neptune_scale.util.envs import ALLOW_SELF_SIGNED_CERTIFICATE
+from neptune_scale.util.envs import (
+    ALLOW_SELF_SIGNED_CERTIFICATE,
+    VERIFY_SSL,
+    get_bool,
+)
 from neptune_scale.util.logger import get_logger
 
 logger = get_logger()
@@ -179,7 +188,11 @@ class ApiClient:
     def __init__(self, api_token: str) -> None:
         credentials = Credentials.from_api_key(api_key=api_token)
 
-        verify_ssl: bool = os.environ.get(ALLOW_SELF_SIGNED_CERTIFICATE, "False").lower() in ("false", "0")
+        verify_ssl: bool = get_bool(
+            VERIFY_SSL,
+            default_invalid=True,
+            default_missing=not get_bool(ALLOW_SELF_SIGNED_CERTIFICATE, default_missing=False, default_invalid=False),
+        )
 
         logger.debug("Trying to connect to Neptune API")
         config, token_urls = get_config_and_token_urls(credentials=credentials, verify_ssl=verify_ssl)
@@ -227,6 +240,25 @@ class ApiClient:
             client=self.backend,
             body=CreateSignedUrlsRequest(
                 files=files_to_sign,
+            ),
+        )
+
+    def complete_multipart_upload(
+        self, upload_id: str, project: str, path: str, etags: Mapping[int, str]
+    ) -> Response[Any]:
+        return complete_multipart_upload.sync_detailed(
+            client=self.backend,
+            body=CompleteMultipartUploadRequest(
+                upload_id=upload_id,
+                project_identifier=project,
+                path=path,
+                parts=[
+                    MultipartPart(
+                        part_number=ix,
+                        etag=etag,
+                    )
+                    for ix, etag in etags.items()
+                ],
             ),
         )
 

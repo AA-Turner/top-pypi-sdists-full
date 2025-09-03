@@ -2430,7 +2430,7 @@ class CfnService(
 
             :param egress_configuration: Network configuration settings for outbound message traffic.
             :param ingress_configuration: Network configuration settings for inbound message traffic.
-            :param ip_address_type: App Runner provides you with the option to choose between *Internet Protocol version 4 (IPv4)* and *dual stack* (IPv4 and IPv6) for your incoming public network configuration. This is an optional parameter. If you do not specify an ``IpAddressType`` , it defaults to select IPv4. .. epigraph:: Currently, App Runner supports dual stack for only Public endpoint. Only IPv4 is supported for Private endpoint. If you update a service that's using dual-stack Public endpoint to a Private endpoint, your App Runner service will default to support only IPv4 for Private endpoint and fail to receive traffic originating from IPv6 endpoint.
+            :param ip_address_type: App Runner provides you with the option to choose between *IPv4* and *dual stack* (IPv4 and IPv6) for your incoming public network configuration. This is an optional parameter. If you do not specify an ``IpAddressType`` , it defaults to select IPv4.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2491,12 +2491,9 @@ class CfnService(
 
         @builtins.property
         def ip_address_type(self) -> typing.Optional[builtins.str]:
-            '''App Runner provides you with the option to choose between *Internet Protocol version 4 (IPv4)* and *dual stack* (IPv4 and IPv6) for your incoming public network configuration.
+            '''App Runner provides you with the option to choose between *IPv4* and *dual stack* (IPv4 and IPv6) for your incoming public network configuration.
 
             This is an optional parameter. If you do not specify an ``IpAddressType`` , it defaults to select IPv4.
-            .. epigraph::
-
-               Currently, App Runner supports dual stack for only Public endpoint. Only IPv4 is supported for Private endpoint. If you update a service that's using dual-stack Public endpoint to a Private endpoint, your App Runner service will default to support only IPv4 for Private endpoint and fail to receive traffic originating from IPv6 endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html#cfn-apprunner-service-networkconfiguration-ipaddresstype
             '''
@@ -3196,7 +3193,7 @@ class CfnVpcConnector(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner currently only provides support for IPv4.
+        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
         :param security_groups: A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets. If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
         :param tags: A list of metadata items that you can associate with your VPC connector resource. A tag is a key-value pair. .. epigraph:: A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
         :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, AWS CloudFormation generates a name for your VPC connector.
@@ -3355,7 +3352,7 @@ class CfnVpcConnectorProps:
     ) -> None:
         '''Properties for defining a ``CfnVpcConnector``.
 
-        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner currently only provides support for IPv4.
+        :param subnets: A list of IDs of subnets that App Runner should use when it associates your service with a custom Amazon VPC. Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify. .. epigraph:: App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
         :param security_groups: A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets. If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
         :param tags: A list of metadata items that you can associate with your VPC connector resource. A tag is a key-value pair. .. epigraph:: A ``VpcConnector`` is immutable, so you cannot update its tags. To change the tags, replace the resource. To replace a ``VpcConnector`` , you must provide a new combination of security groups.
         :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, AWS CloudFormation generates a name for your VPC connector.
@@ -3404,7 +3401,7 @@ class CfnVpcConnectorProps:
         Specify IDs of subnets of a single Amazon VPC. App Runner determines the Amazon VPC from the subnets you specify.
         .. epigraph::
 
-           App Runner currently only provides support for IPv4.
+           App Runner only supports subnets of IP address type *IPv4* and *dual stack* (IPv4 and IPv6).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-subnets
         '''

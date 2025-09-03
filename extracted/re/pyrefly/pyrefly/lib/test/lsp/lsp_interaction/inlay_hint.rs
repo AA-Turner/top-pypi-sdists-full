@@ -61,10 +61,18 @@ fn test_inlay_hint_default_config() {
                 },
                 {
                     "label":": tuple[Literal[1], Literal[2]]",
-                    "position":{"character":6,"line":10},
+                    "position":{"character":6,"line":11},
                     "textEdits":[{
                         "newText":": tuple[Literal[1], Literal[2]]",
-                        "range":{"end":{"character":6,"line":10},"start":{"character":6,"line":10}}
+                        "range":{"end":{"character":6,"line":11},"start":{"character":6,"line":11}}
+                    }]
+                },
+                {
+                    "label":" -> Literal[0]",
+                    "position":{"character":15,"line":14},
+                    "textEdits":[{
+                        "newText":" -> Literal[0]",
+                        "range":{"end":{"character":15,"line":14},"start":{"character":15,"line":14}}
                     }]
                 }
             ])),
@@ -231,6 +239,14 @@ fn test_inlay_hint_disable_variables() {
                         "newText":" -> tuple[Literal[1], Literal[2]]",
                         "range":{"end":{"character":21,"line":6},"start":{"character":21,"line":6}}
                     }]
+                },
+                {
+                    "label":" -> Literal[0]",
+                    "position":{"character":15,"line":14},
+                    "textEdits":[{
+                        "newText":" -> Literal[0]",
+                        "range":{"end":{"character":15,"line":14},"start":{"character":15,"line":14}}
+                    }]
                 }])),
                 error: None,
             }),
@@ -311,10 +327,10 @@ fn test_inlay_hint_disable_returns() {
                 id: RequestId::from(3),
                 result: Some(serde_json::json!([{
                     "label":": tuple[Literal[1], Literal[2]]",
-                    "position":{"character":6,"line":10},
+                    "position":{"character":6,"line":11},
                     "textEdits":[{
                         "newText":": tuple[Literal[1], Literal[2]]",
-                        "range":{"end":{"character":6,"line":10},"start":{"character":6,"line":10}}
+                        "range":{"end":{"character":6,"line":11},"start":{"character":6,"line":11}}
                     }]
                 }])),
                 error: None,

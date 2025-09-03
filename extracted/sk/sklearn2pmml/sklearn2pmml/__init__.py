@@ -1,3 +1,4 @@
+from dataclasses import asdict, is_dataclass
 from importlib.metadata import version, PackageNotFoundError
 from pandas import CategoricalDtype
 from pathlib import Path
@@ -130,6 +131,12 @@ def _is_extension_class(obj):
 
 def _escape(obj, escape_func):
 	if isinstance(obj, (BaseEstimator, TransformerMixin)):
+		if hasattr(obj, "__sklearn_tags__"):
+			tags = obj.__sklearn_tags__()
+			if is_dataclass(tags):
+				tags = asdict(tags)
+			obj._sklearn_tags = tags
+
 		is_extension_class, base_class = _is_extension_class(obj)
 		if is_extension_class:
 			obj.pmml_base_class_ = base_class
@@ -172,8 +179,6 @@ def make_pmml_pipeline(estimator, active_fields = None, target_fields = None):
 		Label name(s). If missing, "y" is assumed.
 
 	"""
-	if not isinstance(estimator, BaseEstimator):
-		raise TypeError("The estimator object is not an instance of {0}".format(BaseEstimator.__name__))
 	pipeline = PMMLPipeline([
 		("estimator", estimator)
 	])

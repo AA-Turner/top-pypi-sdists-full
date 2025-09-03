@@ -22,6 +22,9 @@ class StickyLogo(Svg):
         width: Var[int | str] | int | str | None = None,
         height: Var[int | str] | int | str | None = None,
         xmlns: Var[str] | str | None = None,
+        view_box: Var[str] | str | None = None,
+        preserve_aspect_ratio: Var[str] | str | None = None,
+        transform: Var[str] | str | None = None,
         access_key: Var[str] | str | None = None,
         auto_capitalize: Literal[
             "characters", "none", "off", "on", "sentences", "words"

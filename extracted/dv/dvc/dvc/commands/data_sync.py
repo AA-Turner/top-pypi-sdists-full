@@ -22,17 +22,18 @@ class CmdDataBase(CmdBase):
 
 
 class CmdDataPull(CmdDataBase):
-    def log_summary(self, stats):
+    def log_summary(self, result):
         from dvc.commands.checkout import log_changes
 
-        log_changes(stats)
+        stats = result.pop("stats", {})
+        log_changes(result)
         super().log_summary(stats)
 
     def run(self):
         from dvc.exceptions import CheckoutError, DvcException
 
         try:
-            stats = self.repo.pull(
+            result = self.repo.pull(
                 targets=self.args.targets,
                 jobs=self.args.jobs,
                 remote=self.args.remote,
@@ -46,10 +47,10 @@ class CmdDataPull(CmdDataBase):
                 glob=self.args.glob,
                 allow_missing=self.args.allow_missing,
             )
-            self.log_summary(stats)
+            self.log_summary(result)
         except (CheckoutError, DvcException) as exc:
-            if stats := getattr(exc, "stats", {}):
-                self.log_summary(stats)
+            if result := getattr(exc, "result", {}):
+                self.log_summary(result)
             logger.exception("failed to pull data from the cloud")
             return 1
 
@@ -149,7 +150,7 @@ def add_parser(subparsers, _parent_parser):
     )
     pull_parser.add_argument(
         "-r", "--remote", help="Remote storage to pull from", metavar="<name>"
-    )
+    ).complete = completion.REMOTE
     pull_parser.add_argument(
         "-a",
         "--all-branches",
@@ -224,7 +225,7 @@ def add_parser(subparsers, _parent_parser):
     )
     push_parser.add_argument(
         "-r", "--remote", help="Remote storage to push to", metavar="<name>"
-    )
+    ).complete = completion.REMOTE
     push_parser.add_argument(
         "-a",
         "--all-branches",
@@ -286,7 +287,7 @@ def add_parser(subparsers, _parent_parser):
     )
     fetch_parser.add_argument(
         "-r", "--remote", help="Remote storage to fetch from", metavar="<name>"
-    )
+    ).complete = completion.REMOTE
     fetch_parser.add_argument(
         "-a",
         "--all-branches",
@@ -379,7 +380,7 @@ def add_parser(subparsers, _parent_parser):
         "--remote",
         help="Remote storage to compare local cache to",
         metavar="<name>",
-    )
+    ).complete = completion.REMOTE
     status_parser.add_argument(
         "-a",
         "--all-branches",

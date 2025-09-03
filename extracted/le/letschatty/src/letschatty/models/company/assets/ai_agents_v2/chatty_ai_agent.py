@@ -29,6 +29,20 @@ class N8NWorkspaceAgentType(StrEnum):
         else:
             return f"{base_url}/demo/{path(agent_type)}"
 
+    @staticmethod
+    def get_n8n_webhook_url_manual_trigger(agent_type: 'N8NWorkspaceAgentType', environment: Environment) -> str:
+        base_url = "https://n8n.letschatty.com/webhook"
+        def path(agent_type: N8NWorkspaceAgentType) -> str:
+            return {
+                N8NWorkspaceAgentType.CALENDAR_SCHEDULER: "calendar_scheduler/manual_trigger",
+                N8NWorkspaceAgentType.TOKKO_BROKER: "tokko_broker/manual_trigger",
+                N8NWorkspaceAgentType.DEFAULT: "default/manual_trigger",
+            }[agent_type]
+        if environment == Environment.PRODUCTION:
+            return f"{base_url}/{path(agent_type)}"
+        else:
+            return f"{base_url}/demo/{path(agent_type)}"
+
 class N8NWorkspaceAgentTypeParameters(BaseModel):
     """Parameters for the N8N workspace agent type"""
     calendars: Optional[List[str]] = Field(default=None, description="List of emails to be used as calendars")

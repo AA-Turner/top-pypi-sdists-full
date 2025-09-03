@@ -3,7 +3,6 @@ import ssl
 import subprocess
 import sys
 import threading
-from multiprocessing import Queue
 
 import certifi
 from dotenv import load_dotenv
@@ -24,6 +23,7 @@ from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
+from abstra_internals.tasks_watcher import TasksWatcher, on_tasks_update
 from abstra_internals.utils.browser import background_open_editor
 from abstra_internals.version import check_latest_version
 
@@ -36,7 +36,7 @@ def start_consumer(controller: MainController):
 
     th = threading.Thread(
         daemon=True,
-        name="start_consumer::ExecutionConsumer",
+        name="ExecutionConsumer",
         target=ConsumerController(controller, consumer).start_loop,
     )
 
@@ -89,7 +89,7 @@ def editor(headless: bool):
     check_latest_version()
     AbstraLogger.init("local")
 
-    repositories = build_editor_repositories(Queue())
+    repositories = build_editor_repositories()
     main_controller = MainController(repositories)
     main_controller.reset_repositories()
     StdioPatcher.apply(main_controller)
@@ -107,6 +107,9 @@ def editor(headless: bool):
 
     logs_watcher = LogsWatcher([on_logs_update])
     logs_watcher.start()
+
+    tasks_watcher = TasksWatcher([on_tasks_update])
+    tasks_watcher.start()
 
     start_consumer(main_controller)
 

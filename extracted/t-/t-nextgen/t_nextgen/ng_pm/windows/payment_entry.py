@@ -18,6 +18,7 @@ if IS_WINDOWS_OS:
     from pywinauto.application import WindowSpecification
     from pywinauto.controls.uia_controls import ListItemWrapper, EditWrapper
     from pywinauto.findwindows import ElementNotFoundError
+    from pywinauto.base_wrapper import ElementNotEnabled
     from pywinauto.keyboard import send_keys
     from pywinauto.timings import wait_until
 from t_ocr import Textract
@@ -1049,12 +1050,40 @@ class PaymentEntryWindow(NextGenWindow):
         return enc_clm
 
     def get_resub_value(self) -> str:
-        """This method gets the value from the resub field.
+        """This method quickly gets the value from the resub field.
 
         Returns:
-            str: resub value
+            str | None: resub value if found, otherwise None
         """
-        resub = self.desktop_app.dialog.child_window(
-            title="_txtDataEntry_116", control_type="Edit", top_level_only=True
-        ).get_value()
-        return resub
+        edit = self.desktop_app.dialog.child_window(title="PaymentEntry", control_type="Window").child_window(
+            auto_id="_txtDataEntry_116", control_type="Edit"
+        )
+        return str(edit.get_value())
+
+    def payment_entry_window_opened_in_encounter(self, num: str, resub: str) -> bool:
+        """Check if Payment Entry is opened for a given encounter number and resub value.
+
+        Args:
+            num (str): Encounter number to verify.
+            resub (str): Expected resub value.
+
+        Returns:
+            bool: True if Payment Entry matches both encounter and resub, else False.
+        """
+        self.logger.debug(f"Checking if payment entry window is opened for encounter: {num}")
+        try:
+            enc_clm = self.get_enc_clm_edit_value()
+        except (ElementNotFoundError, ElementNotEnabled, TimeoutError):
+            self.logger.info("Payment Entry window not opened or encounter field not readable.")
+            return False
+
+        if not enc_clm or num not in enc_clm:
+            return False
+
+        resub_value = self.get_resub_value()
+        if str(resub) != str(resub_value):
+            self.logger.debug(f"Resub mismatch or not readable: expected={resub!r}, got={resub_value!r}")
+            return False
+
+        self.logger.debug("Payment Entry is opened for the expected encounter and resub.")
+        return True

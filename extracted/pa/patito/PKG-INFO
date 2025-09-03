@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: patito
-Version: 0.8.4
+Version: 0.8.5
 Summary: A dataframe modelling library built on top of polars and pydantic.
 Project-URL: Homepage, https://github.com/JakobGM/patito
 Project-URL: Repository, https://github.com/JakobGM/patito
@@ -10,7 +10,7 @@ License-Expression: MIT
 License-File: LICENSE
 Keywords: dataframe,validation
 Requires-Python: >=3.9
-Requires-Dist: polars>=1.10.0
+Requires-Dist: polars>=1.32.0
 Requires-Dist: pydantic>=2.7.0
 Requires-Dist: typing-extensions
 Provides-Extra: caching

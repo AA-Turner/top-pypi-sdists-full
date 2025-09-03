@@ -974,7 +974,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                 recebimento_fisico = datetime.strptime(recebimento_fisico, "%d/%m/%Y")
 
                 #se a data do aceite no Ahead ultrapassar dois dias após a emissão da nota,  deve-se colocar o vencimento para a mesma data do “Receb. Físico”/Aceite.
-                if ((recebimento_fisico >= dt_emissao + timedelta(days=2)) and ("vibra" in nota.get("nomeFornecedor").lower() or "ipiranga" in nota.get("nomeFornecedor").lower() or "raizen" in nota.get("nomeFornecedor").lower() or "charru" in nota.get("nomeFornecedor").lower())):
+                if ((recebimento_fisico >= dt_emissao + timedelta(days=2)) and ("vibra" in nota.get("nomeFornecedor").lower() or "ipiranga" in nota.get("nomeFornecedor").lower() or "raizen" in nota.get("nomeFornecedor").lower())): # or  "charru" in nota.get("nomeFornecedor").lower())):
                     recebimento_fisico = recebimento_fisico.strftime("%d/%m/%Y")
                     console.print(f"Informando a data de vencimento, {recebimento_fisico}... \n")
                     vencimento = panel_TabParcelamento.child_window(
@@ -986,6 +986,18 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                         class_name="TDBIEditDate"
                     )
                     data_vencimento = nota.get("dataVencimento")
+                    vencimento.set_edit_text(data_vencimento)
+                elif "charru" in nota.get("nomeFornecedor").lower():
+                    vencimento = panel_TabParcelamento.child_window(
+                        class_name="TDBIEditDate"
+                    )
+                    data_vencimento = nota.get("dataEmissao")
+                    # Converte string para datetime
+                    data_dt = datetime.strptime(data_vencimento, "%d/%m/%Y")
+                    # Soma 30 dias
+                    data_dt_venc = data_dt + timedelta(days=30)
+                    # Converte de volta para string no mesmo formato
+                    data_vencimento = data_dt_venc.strftime("%d/%m/%Y")
                     vencimento.set_edit_text(data_vencimento)
                 else:
                     #Senão adicionar 1 dia a emissao
@@ -1027,7 +1039,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                 console.print(f"Processo de incluir pagamento realizado com sucesso... \n")
             else:
                 data_vencimento = ""
-                if "vibra" in nota.get("nomeFornecedor").lower() or "ipiranga" in nota.get("nomeFornecedor").lower() or "raizen" in nota.get("nomeFornecedor").lower() or "charru" in nota.get("nomeFornecedor").lower():
+                if "vibra" in nota.get("nomeFornecedor").lower() or "ipiranga" in nota.get("nomeFornecedor").lower() or "raizen" in nota.get("nomeFornecedor").lower(): #or "charru" in nota.get("nomeFornecedor").lower():
                     dt_emissao = nota.get("dataEmissao")
                     dt_emissao = datetime.strptime(dt_emissao, "%d/%m/%Y")
                     pattern = r"(\d{2}/\d{2}/\d{4})"
@@ -1042,9 +1054,20 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                         dt_emissao = dt_emissao + timedelta(days=1)
                         dt_emissao = dt_emissao.strftime("%d/%m/%Y")
                         data_vencimento = dt_emissao
+                elif "charru" in nota.get("nomeFornecedor").lower():
+                    vencimento = panel_TabParcelamento.child_window(
+                        class_name="TDBIEditDate"
+                    )
+                    data_vencimento = nota.get("dataEmissao")
+                    # Converte string para datetime
+                    data_dt = datetime.strptime(data_vencimento, "%d/%m/%Y")
+                    # Soma 30 dias
+                    data_dt_venc = data_dt + timedelta(days=30)
+                    # Converte de volta para string no mesmo formato
+                    data_vencimento = data_dt_venc.strftime("%d/%m/%Y")
+                    # vencimento.set_edit_text(data_vencimento)
                 else:
                     data_vencimento = nota.get("dataVencimento")
-
                 await worker_sleep(2)
                 console.print(f"Removendo registro de parcelamento do pagamento... \n")
                 btn_remove = panel_TabParcelamento.child_window(

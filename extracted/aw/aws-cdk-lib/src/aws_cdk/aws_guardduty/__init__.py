@@ -1947,9 +1947,11 @@ class CfnIPSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_guardduty.CfnIPSet",
 ):
-    '''The ``AWS::GuardDuty::IPSet`` resource specifies a new ``IPSet`` .
+    '''The ``AWS::GuardDuty::IPSet`` resource helps you create a list of trusted IP addresses that you can use for secure communication with AWS infrastructure and applications.
 
-    An ``IPSet`` is a list of trusted IP addresses from which secure communication is allowed with AWS infrastructure and applications.
+    Once you activate this list, GuardDuty will not generate findings when there is an activity associated with these safe IP addresses.
+
+    Only the users of the GuardDuty administrator account can manage this list. These settings are also applied to the member accounts.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html
     :cloudformationResource: AWS::GuardDuty::IPSet
@@ -1993,13 +1995,13 @@ class CfnIPSet(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param format: The format of the file that contains the IPSet.
+        :param format: The format of the file that contains the IPSet. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
         :param location: The URI of the file that contains the IPSet.
-        :param activate: Indicates whether or not GuardDuty uses the ``IPSet`` .
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
         :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create an IPSet. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
         :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: The user-friendly name to identify the IPSet. Allowed characters are alphanumeric, whitespace, dash (-), and underscores (_).
-        :param tags: The tags to be added to a new IP set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param name: The user-friendly name to identify the IPSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0c6fd2cb08b5267e6265af6fae1a30df065b4b25dc1d6d684eec9f9bb50cda0)
@@ -2097,7 +2099,7 @@ class CfnIPSet(
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether or not GuardDuty uses the ``IPSet`` .'''
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
 
     @activate.setter
@@ -2152,7 +2154,7 @@ class CfnIPSet(
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new IP set resource.'''
+        '''The tags to be added to a new threat entity set resource.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
@@ -2190,13 +2192,13 @@ class CfnIPSetProps:
     ) -> None:
         '''Properties for defining a ``CfnIPSet``.
 
-        :param format: The format of the file that contains the IPSet.
+        :param format: The format of the file that contains the IPSet. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
         :param location: The URI of the file that contains the IPSet.
-        :param activate: Indicates whether or not GuardDuty uses the ``IPSet`` .
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
         :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create an IPSet. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
         :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: The user-friendly name to identify the IPSet. Allowed characters are alphanumeric, whitespace, dash (-), and underscores (_).
-        :param tags: The tags to be added to a new IP set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param name: The user-friendly name to identify the IPSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html
         :exampleMetadata: fixture=_generated
@@ -2250,6 +2252,8 @@ class CfnIPSetProps:
     def format(self) -> builtins.str:
         '''The format of the file that contains the IPSet.
 
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-format
         '''
         result = self._values.get("format")
@@ -2270,7 +2274,9 @@ class CfnIPSetProps:
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether or not GuardDuty uses the ``IPSet`` .
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-activate
         '''
@@ -2304,7 +2310,7 @@ class CfnIPSetProps:
     def name(self) -> typing.Optional[builtins.str]:
         '''The user-friendly name to identify the IPSet.
 
-        Allowed characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-name
         '''
@@ -2313,7 +2319,7 @@ class CfnIPSetProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new IP set resource.
+        '''The tags to be added to a new threat entity set resource.
 
         Each tag consists of a key and an optional value, both of which you define.
 
@@ -4110,7 +4116,11 @@ class CfnThreatEntitySet(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySet",
 ):
-    '''Resource Type definition for AWS::GuardDuty::ThreatEntitySet.
+    '''The ``AWS::GuardDuty::ThreatEntitySet`` resource helps you create a list of known malicious IP addresses and domain names in your AWS environment.
+
+    Once you activate this list, GuardDuty will use the entries in this list as an additional source of threat detection and generate findings when there is an activity associated with these known malicious IP addresses and domain names. GuardDuty continues to monitor independently of this custom threat entity set.
+
+    Only the users of the GuardDuty administrator account can manage this list. These settings automatically apply to the member accounts.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
     :cloudformationResource: AWS::GuardDuty::ThreatEntitySet
@@ -4154,13 +4164,13 @@ class CfnThreatEntitySet(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param format: 
-        :param location: 
-        :param activate: 
-        :param detector_id: 
-        :param expected_bucket_owner: 
-        :param name: 
-        :param tags: 
+        :param format: The format of the file that contains the threat entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the threat entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: The user-friendly name to identify the threat entity set. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a633dbf3a335a1c89a81e2b20e0804a2398855b80b7f90aefcab3fcffd594ae2)
@@ -4211,7 +4221,8 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
     def attr_created_at(self) -> builtins.str:
-        '''
+        '''The timestamp when the threat entity set was created.
+
         :cloudformationAttribute: CreatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
@@ -4219,7 +4230,8 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrErrorDetails")
     def attr_error_details(self) -> builtins.str:
-        '''
+        '''The details associated with the *Error* status of your threat entity list.
+
         :cloudformationAttribute: ErrorDetails
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrErrorDetails"))
@@ -4227,7 +4239,8 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''Returns the unique ID associated with the newly created threat entity set.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -4235,7 +4248,10 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The status of your ``ThreatEntitySet`` .
+
+        For information about valid status values, see `Understanding list statuses <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#guardduty-entity-list-statuses>`_ in the *Amazon GuardDuty User Guide* .
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -4243,7 +4259,8 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
     def attr_updated_at(self) -> builtins.str:
-        '''
+        '''The timestamp when the threat entity set was updated.
+
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
@@ -4262,6 +4279,7 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="format")
     def format(self) -> builtins.str:
+        '''The format of the file that contains the threat entity set.'''
         return typing.cast(builtins.str, jsii.get(self, "format"))
 
     @format.setter
@@ -4274,6 +4292,7 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="location")
     def location(self) -> builtins.str:
+        '''The URI of the file that contains the threat entity set.'''
         return typing.cast(builtins.str, jsii.get(self, "location"))
 
     @location.setter
@@ -4288,6 +4307,7 @@ class CfnThreatEntitySet(
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
 
     @activate.setter
@@ -4303,6 +4323,7 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="detectorId")
     def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "detectorId"))
 
     @detector_id.setter
@@ -4315,6 +4336,7 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="expectedBucketOwner")
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expectedBucketOwner"))
 
     @expected_bucket_owner.setter
@@ -4327,6 +4349,7 @@ class CfnThreatEntitySet(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name to identify the threat entity set.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -4341,6 +4364,7 @@ class CfnThreatEntitySet(
     def tags(
         self,
     ) -> typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]]:
+        '''The tags to be added to a new threat entity set resource.'''
         return typing.cast(typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -4360,9 +4384,12 @@ class CfnThreatEntitySet(
     )
     class TagItemProperty:
         def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''
-            :param key: 
-            :param value: 
+            '''Describes a tag.
+
+            For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+            :param key: The tag key.
+            :param value: The tag value. This is optional.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html
             :exampleMetadata: fixture=_generated
@@ -4389,7 +4416,8 @@ class CfnThreatEntitySet(
 
         @builtins.property
         def key(self) -> builtins.str:
-            '''
+            '''The tag key.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html#cfn-guardduty-threatentityset-tagitem-key
             '''
             result = self._values.get("key")
@@ -4398,7 +4426,10 @@ class CfnThreatEntitySet(
 
         @builtins.property
         def value(self) -> builtins.str:
-            '''
+            '''The tag value.
+
+            This is optional.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html#cfn-guardduty-threatentityset-tagitem-value
             '''
             result = self._values.get("value")
@@ -4444,13 +4475,13 @@ class CfnThreatEntitySetProps:
     ) -> None:
         '''Properties for defining a ``CfnThreatEntitySet``.
 
-        :param format: 
-        :param location: 
-        :param activate: 
-        :param detector_id: 
-        :param expected_bucket_owner: 
-        :param name: 
-        :param tags: 
+        :param format: The format of the file that contains the threat entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the threat entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: The user-friendly name to identify the threat entity set. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
         :exampleMetadata: fixture=_generated
@@ -4502,7 +4533,10 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''
+        '''The format of the file that contains the threat entity set.
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-format
         '''
         result = self._values.get("format")
@@ -4511,7 +4545,8 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''
+        '''The URI of the file that contains the threat entity set.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-location
         '''
         result = self._values.get("location")
@@ -4522,7 +4557,10 @@ class CfnThreatEntitySetProps:
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-activate
         '''
         result = self._values.get("activate")
@@ -4530,7 +4568,10 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def detector_id(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set.
+
+        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-detectorid
         '''
         result = self._values.get("detector_id")
@@ -4538,7 +4579,10 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-expectedbucketowner
         '''
         result = self._values.get("expected_bucket_owner")
@@ -4546,7 +4590,10 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The user-friendly name to identify the threat entity set.
+
+        Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-name
         '''
         result = self._values.get("name")
@@ -4554,7 +4601,12 @@ class CfnThreatEntitySetProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]]:
-        '''
+        '''The tags to be added to a new threat entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-tags
         '''
         result = self._values.get("tags")
@@ -4578,9 +4630,11 @@ class CfnThreatIntelSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatIntelSet",
 ):
-    '''The ``AWS::GuardDuty::ThreatIntelSet`` resource specifies a new ``ThreatIntelSet`` .
+    '''The ``AWS::GuardDuty::ThreatIntelSet`` resource helps you create a list of known malicious IP addresses in your AWS environment.
 
-    A ``ThreatIntelSet`` consists of known malicious IP addresses. GuardDuty generates findings based on the ``ThreatIntelSet`` after it is activated.
+    Once you activate this list, GuardDuty will use list the entries in this list as an additional source for threat detection and generate findings when there is an activity associated with these known malicious IP addresses. GuardDuty continues to monitor independently of this custom threat intelligence set.
+
+    Only the users of the GuardDuty administrator account can manage this list. These settings automatically apply to the member accounts.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html
     :cloudformationResource: AWS::GuardDuty::ThreatIntelSet
@@ -4624,13 +4678,13 @@ class CfnThreatIntelSet(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param format: The format of the file that contains the ThreatIntelSet.
+        :param format: The format of the file that contains the ``ThreatIntelSet`` . For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
         :param location: The URI of the file that contains the ThreatIntelSet.
-        :param activate: A Boolean value that indicates whether GuardDuty is to start using the uploaded ThreatIntelSet.
-        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``ThreatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
         :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: A user-friendly ThreatIntelSet name displayed in all findings that are generated by activity that involves IP addresses included in this ThreatIntelSet.
-        :param tags: The tags to be added to a new threat list resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param name: The user-friendly name to identify the ThreatIntelSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e60035c0bc955afb794ee89f0439deae280bfec665014cbbd161f08566de73a7)
@@ -4701,7 +4755,7 @@ class CfnThreatIntelSet(
     @builtins.property
     @jsii.member(jsii_name="format")
     def format(self) -> builtins.str:
-        '''The format of the file that contains the ThreatIntelSet.'''
+        '''The format of the file that contains the ``ThreatIntelSet`` .'''
         return typing.cast(builtins.str, jsii.get(self, "format"))
 
     @format.setter
@@ -4729,7 +4783,7 @@ class CfnThreatIntelSet(
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A Boolean value that indicates whether GuardDuty is to start using the uploaded ThreatIntelSet.'''
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
 
     @activate.setter
@@ -4745,7 +4799,7 @@ class CfnThreatIntelSet(
     @builtins.property
     @jsii.member(jsii_name="detectorId")
     def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``ThreatIntelSet`` .'''
+        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` .'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "detectorId"))
 
     @detector_id.setter
@@ -4771,7 +4825,7 @@ class CfnThreatIntelSet(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly ThreatIntelSet name displayed in all findings that are generated by activity that involves IP addresses included in this ThreatIntelSet.'''
+        '''The user-friendly name to identify the ThreatIntelSet.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -4784,7 +4838,7 @@ class CfnThreatIntelSet(
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new threat list resource.'''
+        '''The tags to be added to a new threat entity set resource.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
@@ -4822,13 +4876,13 @@ class CfnThreatIntelSetProps:
     ) -> None:
         '''Properties for defining a ``CfnThreatIntelSet``.
 
-        :param format: The format of the file that contains the ThreatIntelSet.
+        :param format: The format of the file that contains the ``ThreatIntelSet`` . For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
         :param location: The URI of the file that contains the ThreatIntelSet.
-        :param activate: A Boolean value that indicates whether GuardDuty is to start using the uploaded ThreatIntelSet.
-        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``ThreatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
         :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: A user-friendly ThreatIntelSet name displayed in all findings that are generated by activity that involves IP addresses included in this ThreatIntelSet.
-        :param tags: The tags to be added to a new threat list resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param name: The user-friendly name to identify the ThreatIntelSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html
         :exampleMetadata: fixture=_generated
@@ -4880,7 +4934,9 @@ class CfnThreatIntelSetProps:
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''The format of the file that contains the ThreatIntelSet.
+        '''The format of the file that contains the ``ThreatIntelSet`` .
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-format
         '''
@@ -4902,7 +4958,9 @@ class CfnThreatIntelSetProps:
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A Boolean value that indicates whether GuardDuty is to start using the uploaded ThreatIntelSet.
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-activate
         '''
@@ -4911,7 +4969,7 @@ class CfnThreatIntelSetProps:
 
     @builtins.property
     def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``ThreatIntelSet`` .
+        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` .
 
         To find the ``detectorId`` in the current Region, see the
         Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
@@ -4934,7 +4992,9 @@ class CfnThreatIntelSetProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly ThreatIntelSet name displayed in all findings that are generated by activity that involves IP addresses included in this ThreatIntelSet.
+        '''The user-friendly name to identify the ThreatIntelSet.
+
+        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-name
         '''
@@ -4943,7 +5003,7 @@ class CfnThreatIntelSetProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new threat list resource.
+        '''The tags to be added to a new threat entity set resource.
 
         Each tag consists of a key and an optional value, both of which you define.
 
@@ -4972,7 +5032,11 @@ class CfnTrustedEntitySet(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySet",
 ):
-    '''Resource Type definition for AWS::GuardDuty::TrustedEntitySet.
+    '''The ``AWS::GuardDuty::TrustedEntitySet`` resource helps you create a list of IP addresses and domain names that you can use for secure communication with your AWS infrastructure and applications.
+
+    Once you activate this list, GuardDuty will not generate findings when there is an activity associated with these safe IP addresses and domain names. At any given time, you can have only one trusted entity set.
+
+    Only the users of the GuardDuty administrator account can manage the entity sets. These settings automatically apply member accounts.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
     :cloudformationResource: AWS::GuardDuty::TrustedEntitySet
@@ -5016,13 +5080,13 @@ class CfnTrustedEntitySet(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param format: 
-        :param location: 
-        :param activate: 
-        :param detector_id: 
-        :param expected_bucket_owner: 
-        :param name: 
-        :param tags: 
+        :param format: The format of the file that contains the trusted entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the trusted entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: A user-friendly name to identify the trusted entity set. Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
+        :param tags: The tags to be added to a new trusted entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f97ca040c13911b4ef646900134e880ef92baa555cc7ae3a3f589a5b783d6bdd)
@@ -5073,7 +5137,8 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
     def attr_created_at(self) -> builtins.str:
-        '''
+        '''The timestamp when the trusted entity set was created.
+
         :cloudformationAttribute: CreatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
@@ -5081,7 +5146,8 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrErrorDetails")
     def attr_error_details(self) -> builtins.str:
-        '''
+        '''Specifies the error details when the status of the trusted entity set shows as *Error* .
+
         :cloudformationAttribute: ErrorDetails
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrErrorDetails"))
@@ -5097,7 +5163,10 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The status of your ``TrustedEntitySet`` .
+
+        For information about valid status values, see `Understanding list statuses <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#guardduty-entity-list-statuses>`_ in the *Amazon GuardDuty User Guide* .
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -5105,7 +5174,8 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
     def attr_updated_at(self) -> builtins.str:
-        '''
+        '''The timestamp when the trusted entity set was updated.
+
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
@@ -5124,6 +5194,7 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="format")
     def format(self) -> builtins.str:
+        '''The format of the file that contains the trusted entity set.'''
         return typing.cast(builtins.str, jsii.get(self, "format"))
 
     @format.setter
@@ -5136,6 +5207,7 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="location")
     def location(self) -> builtins.str:
+        '''The URI of the file that contains the trusted entity set.'''
         return typing.cast(builtins.str, jsii.get(self, "location"))
 
     @location.setter
@@ -5150,6 +5222,7 @@ class CfnTrustedEntitySet(
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
 
     @activate.setter
@@ -5165,6 +5238,7 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="detectorId")
     def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "detectorId"))
 
     @detector_id.setter
@@ -5177,6 +5251,7 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="expectedBucketOwner")
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expectedBucketOwner"))
 
     @expected_bucket_owner.setter
@@ -5189,6 +5264,7 @@ class CfnTrustedEntitySet(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name to identify the trusted entity set.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -5203,6 +5279,7 @@ class CfnTrustedEntitySet(
     def tags(
         self,
     ) -> typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]]:
+        '''The tags to be added to a new trusted entity set resource.'''
         return typing.cast(typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -5222,9 +5299,12 @@ class CfnTrustedEntitySet(
     )
     class TagItemProperty:
         def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''
-            :param key: 
-            :param value: 
+            '''Describes a tag.
+
+            For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+            :param key: The tag key.
+            :param value: The tag value. This is optional.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html
             :exampleMetadata: fixture=_generated
@@ -5251,7 +5331,8 @@ class CfnTrustedEntitySet(
 
         @builtins.property
         def key(self) -> builtins.str:
-            '''
+            '''The tag key.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html#cfn-guardduty-trustedentityset-tagitem-key
             '''
             result = self._values.get("key")
@@ -5260,7 +5341,10 @@ class CfnTrustedEntitySet(
 
         @builtins.property
         def value(self) -> builtins.str:
-            '''
+            '''The tag value.
+
+            This is optional.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html#cfn-guardduty-trustedentityset-tagitem-value
             '''
             result = self._values.get("value")
@@ -5306,13 +5390,13 @@ class CfnTrustedEntitySetProps:
     ) -> None:
         '''Properties for defining a ``CfnTrustedEntitySet``.
 
-        :param format: 
-        :param location: 
-        :param activate: 
-        :param detector_id: 
-        :param expected_bucket_owner: 
-        :param name: 
-        :param tags: 
+        :param format: The format of the file that contains the trusted entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the trusted entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: A user-friendly name to identify the trusted entity set. Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
+        :param tags: The tags to be added to a new trusted entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
         :exampleMetadata: fixture=_generated
@@ -5364,7 +5448,10 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''
+        '''The format of the file that contains the trusted entity set.
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-format
         '''
         result = self._values.get("format")
@@ -5373,7 +5460,8 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''
+        '''The URI of the file that contains the trusted entity set.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-location
         '''
         result = self._values.get("location")
@@ -5384,7 +5472,10 @@ class CfnTrustedEntitySetProps:
     def activate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-activate
         '''
         result = self._values.get("activate")
@@ -5392,7 +5483,10 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def detector_id(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set.
+
+        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-detectorid
         '''
         result = self._values.get("detector_id")
@@ -5400,7 +5494,10 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-expectedbucketowner
         '''
         result = self._values.get("expected_bucket_owner")
@@ -5408,7 +5505,10 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''
+        '''A user-friendly name to identify the trusted entity set.
+
+        Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-name
         '''
         result = self._values.get("name")
@@ -5416,7 +5516,12 @@ class CfnTrustedEntitySetProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]]:
-        '''
+        '''The tags to be added to a new trusted entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-tags
         '''
         result = self._values.get("tags")

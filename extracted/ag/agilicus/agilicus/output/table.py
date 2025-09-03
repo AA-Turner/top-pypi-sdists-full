@@ -9,7 +9,7 @@ from agilicus.output.json import convert_to_json
 from dataclasses import dataclass
 from typing import Callable
 
-from prettytable import PrettyTable, MARKDOWN
+from prettytable import PrettyTable, TableStyle
 from . import column_builder
 
 
@@ -318,7 +318,6 @@ def get_table_style(ctx):
     if table_style_str and not output_is_formatted(ctx):
         from prettytable import (
             DEFAULT,
-            MARKDOWN,
             PLAIN_COLUMNS,
             TableStyle,
         )
@@ -326,7 +325,7 @@ def get_table_style(ctx):
         if table_style_str == "default":
             table_style = DEFAULT
         elif table_style_str == "markdown":
-            table_style = MARKDOWN
+            table_style = TableStyle.MARKDOWN
         elif table_style_str == "plain":
             table_style = PLAIN_COLUMNS
         elif table_style_str == "msword":
@@ -396,7 +395,7 @@ def _table_to_console(ctx, table: PrettyTable, nested):
             return table.get_json_string(header=False, indent=None, default=str)
         return table.get_csv_string()
     if context.output_markdown(ctx):
-        table.set_style(MARKDOWN)
+        table.set_style(TableStyle.MARKDOWN)
     return table
 
 

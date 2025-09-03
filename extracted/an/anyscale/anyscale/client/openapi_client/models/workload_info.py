@@ -38,7 +38,8 @@ class WorkloadInfo(object):
         'workload_start_time': 'datetime',
         'workload_cloud': 'str',
         'workload_project': 'str',
-        'workload_creator': 'str'
+        'workload_creator': 'str',
+        'url': 'str'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class WorkloadInfo(object):
         'workload_start_time': 'workload_start_time',
         'workload_cloud': 'workload_cloud',
         'workload_project': 'workload_project',
-        'workload_creator': 'workload_creator'
+        'workload_creator': 'workload_creator',
+        'url': 'url'
     }
 
-    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', url='', local_vars_configuration=None):  # noqa: E501
         """WorkloadInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class WorkloadInfo(object):
         self._workload_cloud = None
         self._workload_project = None
         self._workload_creator = None
+        self._url = None
         self.discriminator = None
 
         self.workload_name = workload_name
@@ -72,6 +75,8 @@ class WorkloadInfo(object):
             self.workload_project = workload_project
         if workload_creator is not None:
             self.workload_creator = workload_creator
+        if url is not None:
+            self.url = url
 
     @property
     def workload_name(self):
@@ -218,6 +223,29 @@ class WorkloadInfo(object):
         """
 
         self._workload_creator = workload_creator
+
+    @property
+    def url(self):
+        """Gets the url of this WorkloadInfo.  # noqa: E501
+
+        Relative URL for deeplink to workload detail page.  # noqa: E501
+
+        :return: The url of this WorkloadInfo.  # noqa: E501
+        :rtype: str
+        """
+        return self._url
+
+    @url.setter
+    def url(self, url):
+        """Sets the url of this WorkloadInfo.
+
+        Relative URL for deeplink to workload detail page.  # noqa: E501
+
+        :param url: The url of this WorkloadInfo.  # noqa: E501
+        :type: str
+        """
+
+        self._url = url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

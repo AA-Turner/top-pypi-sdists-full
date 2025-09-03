@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: itables
-Version: 2.5.1
+Version: 2.5.2
 Summary: Pandas and Polar DataFrames as interactive DataTables
 Project-URL: Homepage, https://mwouts.github.io/itables/
 Project-URL: Documentation, https://mwouts.github.io/itables
@@ -54,6 +54,7 @@ Provides-Extra: all
 Requires-Dist: anywidget; extra == 'all'
 Requires-Dist: dash; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
+Requires-Dist: platformdirs; extra == 'all'
 Requires-Dist: polars; extra == 'all'
 Requires-Dist: pyarrow; extra == 'all'
 Requires-Dist: pytz; extra == 'all'
@@ -67,6 +68,7 @@ Requires-Dist: world-bank-data; extra == 'all'
 Provides-Extra: check-type
 Requires-Dist: typeguard>=4.4.1; extra == 'check-type'
 Provides-Extra: config
+Requires-Dist: platformdirs; extra == 'config'
 Requires-Dist: tomli; (python_version < '3.11') and extra == 'config'
 Provides-Extra: dash
 Requires-Dist: dash; extra == 'dash'
@@ -79,6 +81,7 @@ Requires-Dist: jupytext; extra == 'dev'
 Requires-Dist: marimo; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: nbconvert; extra == 'dev'
+Requires-Dist: platformdirs; extra == 'dev'
 Requires-Dist: polars; extra == 'dev'
 Requires-Dist: pyarrow; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
@@ -114,6 +117,7 @@ Requires-Dist: jupytext; extra == 'test'
 Requires-Dist: marimo; extra == 'test'
 Requires-Dist: matplotlib; extra == 'test'
 Requires-Dist: nbconvert; extra == 'test'
+Requires-Dist: platformdirs; extra == 'test'
 Requires-Dist: polars; extra == 'test'
 Requires-Dist: pyarrow; extra == 'test'
 Requires-Dist: pytest; extra == 'test'

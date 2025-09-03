@@ -22,7 +22,7 @@ from anyscale.commands.list_util import (
 from anyscale.commands.util import (
     AnyscaleCommand,
     convert_kv_strings_to_dict,
-    LegacyAnyscaleCommand,
+    DeprecatedAnyscaleCommand,
     override_env_vars,
 )
 from anyscale.controllers.service_controller import ServiceController
@@ -565,10 +565,11 @@ def controller_logs(
 
 @service_cli.command(
     name="rollout",
-    help="Roll out a service.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale service",
-    new_cli=deploy,
+    help="[DEPRECATED - use 'deploy' instead] Roll out a service.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="`anyscale service rollout` has been deprecated",
+    alternative="use `anyscale service deploy` instead",
 )
 @click.option(
     "-f",
@@ -626,7 +627,11 @@ def rollout(  # noqa: PLR0913
     in_place: bool,
     no_auto_complete_rollout: bool,
 ):
-    """Start or update a service rollout to a new version."""
+    """Start or update a service rollout to a new version.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale service deploy' instead.
+    """
     if in_place:
         if rollout_strategy is not None:
             raise click.ClickException(

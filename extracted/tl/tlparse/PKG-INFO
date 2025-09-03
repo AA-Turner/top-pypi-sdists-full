@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tlparse
-Version: 0.4.0
+Version: 0.4.1
 Classifier: Programming Language :: Rust
 License-File: LICENSE
 Summary: Parse TORCH_LOG logs produced by PyTorch torch.compile

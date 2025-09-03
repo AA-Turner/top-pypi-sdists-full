@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
@@ -53,7 +54,6 @@ use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
-use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
@@ -89,6 +89,7 @@ pub struct Callee {
 pub struct Attribute {
     pub name: String,
     pub kind: Option<String>,
+    pub annotation: String,
 }
 
 fn display_range_for_expr(
@@ -115,6 +116,33 @@ fn display_range_for_expr(
         original_range
     };
     module_info.display_range(expression_range)
+}
+
+fn is_static_method(ty: &Type) -> bool {
+    match ty {
+        Type::Union(tys) => tys.iter().all(is_static_method),
+        Type::BoundMethod(m) => m.func.metadata().flags.is_staticmethod,
+        Type::Function(f) => f.metadata.flags.is_staticmethod,
+        Type::Forall(f) => {
+            if let Forallable::Function(func) = &f.body {
+                func.metadata.flags.is_staticmethod
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+fn type_to_string(ty: &Type) -> String {
+    let mut ctx = TypeDisplayContext::new(&[ty]);
+    ctx.always_display_module_name();
+    let text = ctx.display(ty).to_string();
+    if is_static_method(ty) {
+        format!("typing.StaticMethod[{text}]")
+    } else {
+        text
+    }
 }
 
 impl Query {
@@ -218,6 +246,7 @@ impl Query {
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
+                        annotation: type_to_string(&field_ty),
                     })
                 })
                 .collect_vec();
@@ -273,7 +302,11 @@ impl Query {
                 _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
             }
         }
-        fn callee_from_function(f: &Function) -> Callee {
+        fn callee_from_function(
+            f: &Function,
+            call_target: Option<&Expr>,
+            answers: &Answers,
+        ) -> Callee {
             if f.metadata.flags.is_staticmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_STATICMETHOD),
@@ -288,10 +321,17 @@ impl Query {
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else {
+                let class_name = class_name_from_call_target(call_target, answers);
+                let kind = if class_name.is_some() {
+                    String::from(CALLEE_KIND_METHOD)
+                } else {
+                    String::from(CALLEE_KIND_FUNCTION)
+                };
+
                 Callee {
-                    kind: String::from(CALLEE_KIND_FUNCTION),
+                    kind,
                     target: target_from_def_kind(&f.metadata.kind),
-                    class_name: None,
+                    class_name,
                 }
             }
         }
@@ -326,6 +366,7 @@ impl Query {
         }
         fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
             match ty {
+                Type::SelfType(c) => vec![qname_to_string(c.qname())],
                 Type::Type(t) => class_names_from_bound_obj(t),
                 Type::ClassType(c) => vec![qname_to_string(c.qname())],
                 Type::ClassDef(c) => vec![qname_to_string(c.qname())],
@@ -416,21 +457,50 @@ impl Query {
                 )
             }
         }
+        fn class_name_from_call_target(
+            call_target: Option<&Expr>,
+            answers: &Answers,
+        ) -> Option<String> {
+            if let Some(Expr::Attribute(attr)) = call_target
+                && let Some(ty) = answers.get_type_trace(attr.value.range())
+                && !matches!(ty, Type::Module(_))
+            {
+                // treat calls where targets are attribute access a.b and a is not a module
+                // as method calls
+                Some(type_to_string(&ty))
+            } else {
+                None
+            }
+        }
         fn callee_from_type(
             ty: &Type,
+            call_target: Option<&Expr>,
             callee_range: TextRange,
             module_info: &ModuleInfo,
             transaction: &Transaction<'_>,
             handle: &Handle,
+            answers: &Answers,
         ) -> Vec<Callee> {
             match ty {
-                Type::Type(ty) => {
-                    callee_from_type(ty, callee_range, module_info, transaction, handle)
-                }
+                Type::Type(ty) => callee_from_type(
+                    ty,
+                    call_target,
+                    callee_range,
+                    module_info,
+                    transaction,
+                    handle,
+                    answers,
+                ),
                 Type::Quantified(q) => match &q.restriction {
-                    Restriction::Bound(b) => {
-                        callee_from_type(b, callee_range, module_info, transaction, handle)
-                    }
+                    Restriction::Bound(b) => callee_from_type(
+                        b,
+                        call_target,
+                        callee_range,
+                        module_info,
+                        transaction,
+                        handle,
+                        answers,
+                    ),
                     x => panic!(
                         "unexpected restriction {}: {x:?}",
                         module_info.display_range(callee_range)
@@ -441,7 +511,15 @@ impl Query {
                     // get callee for each type
                     tys.iter()
                         .flat_map(|t| {
-                            callee_from_type(t, callee_range, module_info, transaction, handle)
+                            callee_from_type(
+                                t,
+                                call_target,
+                                callee_range,
+                                module_info,
+                                transaction,
+                                handle,
+                                answers,
+                            )
                         })
                         .unique()
                         // return sorted by target
@@ -460,14 +538,24 @@ impl Query {
                     .sorted_by(|a, b| a.target.cmp(&b.target))
                     .collect_vec(),
 
-                Type::Function(f) => vec![callee_from_function(f)],
-                Type::Overload(f) => vec![Callee {
+                Type::Function(f) => {
+                    vec![callee_from_function(f, call_target, answers)]
+                }
+                Type::Overload(f) => {
+                    let class_name = class_name_from_call_target(call_target, answers);
+                    let kind = if class_name.is_some() {
+                        String::from(CALLEE_KIND_METHOD)
+                    } else {
+                        String::from(CALLEE_KIND_FUNCTION)
+                    };
                     // assuming that overload represents function and method overloads
                     // are handled by BoundMethod case
-                    kind: String::from(CALLEE_KIND_FUNCTION),
-                    target: target_from_def_kind(&f.metadata.kind),
-                    class_name: None,
-                }],
+                    vec![Callee {
+                        kind,
+                        target: target_from_def_kind(&f.metadata.kind),
+                        class_name,
+                    }]
+                }
                 Type::Callable(_) => for_callable(callee_range, module_info, transaction, handle),
                 Type::ClassDef(cls) => {
                     callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
@@ -486,7 +574,9 @@ impl Query {
                     })
                 }
                 Type::Forall(v) => match &v.body {
-                    Forallable::Function(func) => vec![callee_from_function(func)],
+                    Forallable::Function(func) => {
+                        vec![callee_from_function(func, call_target, answers)]
+                    }
                     Forallable::Callable(_) => {
                         for_callable(callee_range, module_info, transaction, handle)
                     }
@@ -506,9 +596,15 @@ impl Query {
                     },
                 ),
                 Type::Any(_) => vec![],
-                Type::TypeAlias(t) => {
-                    callee_from_type(&t.as_type(), callee_range, module_info, transaction, handle)
-                }
+                Type::TypeAlias(t) => callee_from_type(
+                    &t.as_type(),
+                    call_target,
+                    callee_range,
+                    module_info,
+                    transaction,
+                    handle,
+                    answers,
+                ),
                 _ => panic!(
                     "unexpected type at [{}]: {ty:?}",
                     module_info.display_range(callee_range)
@@ -525,19 +621,35 @@ impl Query {
             handle: &Handle,
             res: &mut Vec<(DisplayRange, Callee)>,
         ) {
-            let (callee_ty, callee_range) = if let Expr::Attribute(attr) = x {
-                (answers.try_get_getter_for_range(attr.range()), attr.range())
+            let (callee_ty, callee_range, call_target) = if let Expr::Attribute(attr) = x {
+                (
+                    answers.try_get_getter_for_range(attr.range()),
+                    attr.range(),
+                    None,
+                )
             } else if let Expr::Call(call) = x {
-                (answers.get_type_trace(call.func.range()), call.func.range())
+                (
+                    answers.get_type_trace(call.func.range()),
+                    call.func.range(),
+                    Some(&*call.func),
+                )
             } else {
-                (None, x.range())
+                (None, x.range(), None)
             };
             if let Some(func_ty) = callee_ty {
-                callee_from_type(&func_ty, callee_range, module_info, transaction, handle)
-                    .into_iter()
-                    .for_each(|callee| {
-                        res.push((module_info.display_range(callee_range), callee));
-                    });
+                callee_from_type(
+                    &func_ty,
+                    call_target,
+                    callee_range,
+                    module_info,
+                    transaction,
+                    handle,
+                    answers,
+                )
+                .into_iter()
+                .for_each(|callee| {
+                    res.push((module_info.display_range(callee_range), callee));
+                });
             }
 
             x.recurse(&mut |x| f(x, module_info, answers, transaction, handle, res));
@@ -562,22 +674,6 @@ impl Query {
 
         let mut res = Vec::new();
 
-        fn is_static_method(ty: &Type) -> bool {
-            match ty {
-                Type::Union(tys) => tys.iter().all(is_static_method),
-                Type::BoundMethod(m) => m.func.metadata().flags.is_staticmethod,
-                Type::Function(f) => f.metadata.flags.is_staticmethod,
-                Type::Forall(f) => {
-                    if let Forallable::Function(func) = &f.body {
-                        func.metadata.flags.is_staticmethod
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            }
-        }
-
         fn add_type(
             ty: &Type,
             e: &Expr,
@@ -585,15 +681,10 @@ impl Query {
             module_info: &ModuleInfo,
             res: &mut Vec<(DisplayRange, String)>,
         ) {
-            let mut ctx = TypeDisplayContext::new(&[ty]);
-            ctx.always_display_module_name();
-            let text = ctx.display(ty).to_string();
-            let text = if is_static_method(ty) {
-                format!("typing.StaticMethod[{text}]")
-            } else {
-                text
-            };
-            res.push((display_range_for_expr(module_info, range, e), text));
+            res.push((
+                display_range_for_expr(module_info, range, e),
+                type_to_string(ty),
+            ));
         }
         fn try_find_key_for_name(name: &ExprName, bindings: &Bindings) -> Option<Key> {
             let key = Key::BoundName(ShortIdentifier::expr_name(name));
@@ -752,7 +843,7 @@ impl Query {
             // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
             // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
             // attributes that in practice only exist on typed dicts.
-            let types = format!("type pyrefly_lt = ({lt})");
+            let types = format!("pyrefly_lt = ({lt})");
             let check =
                 "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
             self.check_code_snippet(name, path, lt, gt, types, check)

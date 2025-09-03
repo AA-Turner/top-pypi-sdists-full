@@ -157,7 +157,7 @@ def test_field_expression_unchanged(
     )
 
 
-def _object_exists(index: Index, index_name) -> bool:
+def _object_exists(index: Index, index_name: str) -> bool:
     assert isinstance(
         index, datacube.index.postgres.index.Index | datacube.index.postgis.index.Index
     )
@@ -479,9 +479,8 @@ def test_product_delete_cli(
     assert "is already in the database" not in add.output
 
 
-def _to_yaml(ls5_telem_doc):
-    # Need to explicitly allow unicode in Py2
-    return yaml.safe_dump(ls5_telem_doc, allow_unicode=True)
+def _to_yaml(ls5_telem_doc) -> str | bytes | None:
+    return yaml.safe_dump(ls5_telem_doc)
 
 
 def test_update_metadata_type(

@@ -21,6 +21,7 @@ import time
 import base64
 import cv2
 import numpy as np
+import threading
 from datetime import datetime, timezone
 
 from ..core.base import (
@@ -70,6 +71,7 @@ class FaceRecognitionEmbeddingConfig(BaseConfig):
     enable_unknown_face_processing: bool = (
         True  # TODO: Unable when we will be saving unkown faces # Enable unknown face cropping/uploading (requires frame data)
     )
+    enable_people_activity_logging: bool = True  # Enable logging of known face activities
 
     usecase_categories: List[str] = field(default_factory=lambda: ["face"])
 
@@ -88,7 +90,7 @@ class FaceRecognitionEmbeddingConfig(BaseConfig):
     embedding_config: Optional[Any] = None  # Will be set to EmbeddingConfig instance
     
     # Similarity and confidence thresholds
-    similarity_threshold: float = 0.6
+    similarity_threshold: float = 0.35
     confidence_threshold: float = 0.6
     
     # Track ID cache optimization settings
@@ -137,23 +139,20 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
 
-        # Face recognition specific counters
-        self.current_recognized_count = 0
-        self.current_unknown_count = 0
-        self.total_recognized_count = 0
-        self.total_unknown_count = 0
-        self.recognized_persons = {}
-        self.current_frame_staff_details = {}  # Store staff details for current frame
+        # Global tracking state (thread-safe for totals only)
+        self._total_recognized_count = 0
+        self._total_unknown_count = 0
+        self._unique_recognized_staff = set()
+        self._unique_unknown_faces = set()
+        self._tracking_lock = threading.Lock()
 
         # Person tracking: {person_id: [{"camera_id": str, "timestamp": str}, ...]}
         self.person_tracking: Dict[str, List[Dict[str, str]]] = {}
 
         self.face_client = None
 
-        # COMMENTED OUT: People activity logging functionality removed
         # Initialize PeopleActivityLogging without face client initially
-        # self.people_activity_logging = None
-        self.people_activity_logging = None  # Kept as None - functionality disabled
+        self.people_activity_logging = None
 
         # Initialize EmbeddingManager - will be configured in process method
         self.embedding_manager = None
@@ -185,6 +184,9 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         """
         Main entry point for face recognition with embeddings post-processing.
         Applies all standard processing plus face recognition and auto-enrollment.
+        
+        Thread-safe: Uses local variables for per-request state and locks for global totals.
+        Order-preserving: Processes detections sequentially to maintain input order.
         """
         start_time = time.time()
         # Ensure config is correct type
@@ -201,10 +203,11 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if not self.face_client:
             self.face_client = self._get_facial_recognition_client(config)
 
-        # COMMENTED OUT: People activity logging functionality disabled
-        # if not self.people_activity_logging:
-        #     self.people_activity_logging = PeopleActivityLogging(self.face_client)
-        #     self.people_activity_logging.start_background_processing()
+        # Initialize People activity logging if enabled
+        if config.enable_people_activity_logging and not self.people_activity_logging:
+            self.people_activity_logging = PeopleActivityLogging(self.face_client)
+            self.people_activity_logging.start_background_processing()
+            self.logger.info("People activity logging enabled and started")
 
         # Initialize EmbeddingManager if not already done
         if not self.embedding_manager:
@@ -316,11 +319,18 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         else:
             self.logger.debug("Advanced face tracking disabled in configuration")
 
+        # Initialize local recognition summary variables
+        current_recognized_count = 0
+        current_unknown_count = 0
+        recognized_persons = {}
+        current_frame_staff_details = {}
+
         # Process face recognition for each detection (if enabled)
         if config.enable_face_recognition:
-            processed_data = await self._process_face_recognition(
+            face_recognition_result = await self._process_face_recognition(
                 processed_data, config, stream_info, input_bytes
             )
+            processed_data, current_recognized_count, current_unknown_count, recognized_persons, current_frame_staff_details = face_recognition_result
         else:
             # Just add default face recognition fields without actual recognition
             for detection in processed_data:
@@ -357,7 +367,9 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         counting_summary["total_counts"] = total_counts
 
         # NEW: Add face recognition summary
-        counting_summary.update(self._get_face_recognition_summary())
+        counting_summary.update(self._get_face_recognition_summary(
+            current_recognized_count, current_unknown_count, recognized_persons
+        ))
 
         # Add detections to the counting summary (standard pattern for detection use cases)
         counting_summary["detections"] = processed_data
@@ -370,7 +382,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
             counting_summary, alerts, config, frame_number, stream_info
         )
         tracking_stats_list = self._generate_tracking_stats(
-            counting_summary, alerts, config, frame_number, stream_info
+            counting_summary, alerts, config, frame_number, stream_info, current_frame_staff_details
         )
         business_analytics_list = self._generate_business_analytics(
             counting_summary, alerts, config, stream_info, is_empty=True
@@ -544,12 +556,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                 # No client available, return empty list (no results)
                 return []
 
-        # Reset current frame counters
-        self.current_recognized_count = 0
-        self.current_unknown_count = 0
-        self.recognized_persons = {}
-        self.current_frame_staff_details = {}
-
         # Initialize unknown faces storage if not exists
         if not hasattr(self, "unknown_faces_storage"):
             self.unknown_faces_storage = {}
@@ -558,12 +564,11 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if not hasattr(self, "_frame_warning_logged"):
             self._frame_warning_logged = False
 
-        # Initialize unique staff tracking set if not exists
-        if not hasattr(self, "unique_recognized_staff"):
-            self.unique_recognized_staff = set()
-
-        if not hasattr(self, "unique_unknown_faces"):
-            self.unique_unknown_faces = set()
+        # Initialize per-request tracking (thread-safe)
+        current_recognized_count = 0
+        current_unknown_count = 0
+        recognized_persons = {}
+        current_frame_staff_details = {}  # Store staff details for current frame
 
         # Extract frame from original data for cropping unknown faces
         current_frame = (
@@ -588,6 +593,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         current_timestamp = datetime.now(timezone.utc).isoformat()
 
         final_detections = []
+        # Process detections sequentially to preserve order
         for detection in detections:
             # Filter faces by bbox size - only process faces larger than 5% of image area
             # bbox_area_percentage = self._calculate_bbox_area_percentage(detection, current_frame)
@@ -595,14 +601,26 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
             #     self.logger.debug(f"Skipping face with bbox area {bbox_area_percentage:.1f}% (< 5%)")
             #     continue
             
+            # Process each detection sequentially with await to preserve order
             processed_detection = await self._process_face(
-                detection, current_frame, location, current_timestamp
+                detection, current_frame, location, current_timestamp, config,
+                current_recognized_count, current_unknown_count, 
+                recognized_persons, current_frame_staff_details
             )
-            # Include both known and unknown faces in final detections
+            # Include both known and unknown faces in final detections (maintains original order)
             if processed_detection:
                 final_detections.append(processed_detection)
+                # Update local counters based on processed detection
+                if processed_detection.get("recognition_status") == "known":
+                    staff_id = processed_detection.get("person_id")
+                    if staff_id:
+                        current_frame_staff_details[staff_id] = processed_detection.get("person_name", "Unknown")
+                        current_recognized_count += 1
+                        recognized_persons[staff_id] = recognized_persons.get(staff_id, 0) + 1
+                elif processed_detection.get("recognition_status") == "unknown":
+                    current_unknown_count += 1
 
-        return final_detections
+        return final_detections, current_recognized_count, current_unknown_count, recognized_persons, current_frame_staff_details
 
     async def _process_face(
         self,
@@ -610,6 +628,11 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         current_frame: np.ndarray,
         location: str = "",
         current_timestamp: str = "",
+        config: FaceRecognitionEmbeddingConfig = None,
+        current_recognized_count: int = 0,
+        current_unknown_count: int = 0,
+        recognized_persons: Dict = None,
+        current_frame_staff_details: Dict = None,
     ) -> Dict:
 
         # Extract and validate embedding using EmbeddingManager
@@ -646,39 +669,39 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if not detection:
             return None
 
-        # Update local tracking based on detection type and person name
+        # Update global tracking using thread-safe operations
         # Count as unknown if detection_type is "unknown" OR person_name starts with "Unknown"
         is_truly_unknown = (detection_type == "unknown" or 
                            (person_name and person_name.startswith("Unknown")))
         
         if not is_truly_unknown and detection_type == "known":
-            # This is a recognized person
-            self.current_frame_staff_details[staff_id] = person_name
+            # This is a recognized person - track globally
             self._track_person(staff_id)
-            self.current_recognized_count += 1
-            if staff_id not in self.unique_recognized_staff:
-                self.unique_recognized_staff.add(staff_id)
-                self.total_recognized_count += 1
-            self.recognized_persons[staff_id] = (
-                self.recognized_persons.get(staff_id, 0) + 1
-            )
+            with self._tracking_lock:
+                if staff_id not in self._unique_recognized_staff:
+                    self._unique_recognized_staff.add(staff_id)
+                    self._total_recognized_count += 1
         else:
-            # This is an unknown person
-            self.current_unknown_count += 1
-            if employee_id and employee_id not in self.unique_unknown_faces:
-                self.unique_unknown_faces.add(employee_id)
-                self.total_unknown_count += 1
+            # This is an unknown person - track globally
+            if employee_id:
+                with self._tracking_lock:
+                    if employee_id not in self._unique_unknown_faces:
+                        self._unique_unknown_faces.add(employee_id)
+                        self._total_unknown_count += 1
 
-        # COMMENTED OUT: Background logging functionality removed
         # Enqueue detection for background logging with all required parameters
         try:
-            # TODO: Check if should log the unknown faces if not how to logs their face data
-            if detection["recognition_status"] != "unknown" and self.people_activity_logging:
+            # Log known faces for activity tracking
+            if (detection["recognition_status"] == "known" and 
+                self.people_activity_logging and 
+                config and 
+                getattr(config, 'enable_people_activity_logging', True)):
                 await self.people_activity_logging.enqueue_detection(
                     detection=detection,
                     current_frame=current_frame,
                     location=location,
                 )
+                self.logger.debug(f"Enqueued known face detection for activity logging: {detection.get('person_name', 'Unknown')}")
         except Exception as e:
             self.logger.error(f"Error enqueueing detection for activity logging: {e}")
 
@@ -732,27 +755,31 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if self.people_activity_logging:
             self.people_activity_logging.clear_unknown_faces_storage()
 
-    def _get_face_recognition_summary(self) -> Dict:
+    def _get_face_recognition_summary(self, current_recognized_count: int, current_unknown_count: int, recognized_persons: Dict) -> Dict:
         """Get face recognition summary for current frame"""
         recognition_rate = 0.0
-        total_current = self.current_recognized_count + self.current_unknown_count
+        total_current = current_recognized_count + current_unknown_count
         if total_current > 0:
-            recognition_rate = (self.current_recognized_count / total_current) * 100
+            recognition_rate = (current_recognized_count / total_current) * 100
+
+        # Get thread-safe global totals
+        with self._tracking_lock:
+            total_recognized = self._total_recognized_count
+            total_unknown = self._total_unknown_count
 
         return {
             "face_recognition_summary": {
                 "current_frame": {
-                    "recognized": self.current_recognized_count,
-                    "unknown": self.current_unknown_count,
+                    "recognized": current_recognized_count,
+                    "unknown": current_unknown_count,
                     "total": total_current,
-                    "recognized_persons": dict(self.recognized_persons),
+                    "recognized_persons": dict(recognized_persons),
                     "recognition_rate": round(recognition_rate, 1),
                 },
                 "session_totals": {
-                    "total_recognized": self.total_recognized_count,
-                    "total_unknown": self.total_unknown_count,
-                    "total_processed": self.total_recognized_count
-                    + self.total_unknown_count,
+                    "total_recognized": total_recognized,
+                    "total_unknown": total_unknown,
+                    "total_processed": total_recognized + total_unknown,
                 },
                 "person_tracking": self.get_person_tracking_summary(),
             }
@@ -880,6 +907,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         config: FaceRecognitionEmbeddingConfig,
         frame_number: Optional[int] = None,
         stream_info: Optional[Dict[str, Any]] = None,
+        current_frame_staff_details: Dict = None,
     ) -> List[Dict]:
         """Generate structured tracking stats matching eg.json format with face recognition data."""
         camera_info = self.get_camera_info_from_stream(stream_info)
@@ -1013,7 +1041,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if recognized_persons:
             for person_id in recognized_persons.keys():
                 # Get actual staff name from current frame processing
-                staff_name = self.current_frame_staff_details.get(
+                staff_name = (current_frame_staff_details or {}).get(
                     person_id, f"Staff {person_id}"
                 )
                 human_text_lines.append(f"\t{staff_name} (ID: {person_id})")

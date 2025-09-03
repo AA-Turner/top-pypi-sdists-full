@@ -1536,7 +1536,7 @@ class CfnAssetModel(
         :param asset_model_external_id: The external ID of the asset model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
         :param asset_model_hierarchies: The hierarchy definitions of the asset model. Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
         :param asset_model_properties: The property definitions of the asset model. For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model.
+        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model. - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
         :param enforced_asset_model_interface_relationships: a list of asset model and interface relationships.
         :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
         '''
@@ -2487,11 +2487,11 @@ class CfnAssetModel(
             asset_model_property_external_id: typing.Optional[builtins.str] = None,
             asset_model_property_logical_id: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Contains information about enforced interface property and asset model property.
+            '''Contains information about applied interface property and asset model property.
 
-            :param interface_asset_model_property_external_id: The external ID of the enforced interface property.
-            :param asset_model_property_external_id: The external ID of the enforced asset model property.
-            :param asset_model_property_logical_id: The logical ID of the enforced asset model property.
+            :param interface_asset_model_property_external_id: The external ID of the applied interface property.
+            :param asset_model_property_external_id: The external ID of the linked asset model property.
+            :param asset_model_property_logical_id: The logical ID of the linked asset model property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping.html
             :exampleMetadata: fixture=_generated
@@ -2525,7 +2525,7 @@ class CfnAssetModel(
 
         @builtins.property
         def interface_asset_model_property_external_id(self) -> builtins.str:
-            '''The external ID of the enforced interface property.
+            '''The external ID of the applied interface property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping-interfaceassetmodelpropertyexternalid
             '''
@@ -2535,7 +2535,7 @@ class CfnAssetModel(
 
         @builtins.property
         def asset_model_property_external_id(self) -> typing.Optional[builtins.str]:
-            '''The external ID of the enforced asset model property.
+            '''The external ID of the linked asset model property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping-assetmodelpropertyexternalid
             '''
@@ -2544,7 +2544,7 @@ class CfnAssetModel(
 
         @builtins.property
         def asset_model_property_logical_id(self) -> typing.Optional[builtins.str]:
-            '''The logical ID of the enforced asset model property.
+            '''The logical ID of the linked asset model property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacepropertymapping-assetmodelpropertylogicalid
             '''
@@ -2577,10 +2577,10 @@ class CfnAssetModel(
             interface_asset_model_id: typing.Optional[builtins.str] = None,
             property_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssetModel.EnforcedAssetModelInterfacePropertyMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''Contains information about enforced interface hierarchy and asset model hierarchy.
+            '''Contains information about applied interface hierarchy and asset model hierarchy.
 
-            :param interface_asset_model_id: The ID of the interface that is enforced to the asset model.
-            :param property_mappings: Contains information about enforced interface property and asset model property.
+            :param interface_asset_model_id: The ID of the asset model that has the interface applied to it.
+            :param property_mappings: A list of property mappings between the interface asset model and the asset model where the interface is applied.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationship.html
             :exampleMetadata: fixture=_generated
@@ -2614,7 +2614,7 @@ class CfnAssetModel(
 
         @builtins.property
         def interface_asset_model_id(self) -> typing.Optional[builtins.str]:
-            '''The ID of the interface that is enforced to the asset model.
+            '''The ID of the asset model that has the interface applied to it.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationship.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationship-interfaceassetmodelid
             '''
@@ -2625,7 +2625,7 @@ class CfnAssetModel(
         def property_mappings(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.EnforcedAssetModelInterfacePropertyMappingProperty"]]]]:
-            '''Contains information about enforced interface property and asset model property.
+            '''A list of property mappings between the interface asset model and the asset model where the interface is applied.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationship.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationship-propertymappings
             '''
@@ -3542,7 +3542,7 @@ class CfnAssetModelProps:
         :param asset_model_external_id: The external ID of the asset model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
         :param asset_model_hierarchies: The hierarchy definitions of the asset model. Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
         :param asset_model_properties: The property definitions of the asset model. For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model.
+        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model. - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
         :param enforced_asset_model_interface_relationships: a list of asset model and interface relationships.
         :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
 
@@ -3834,6 +3834,7 @@ class CfnAssetModelProps:
 
         - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model.
         - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model.
+        - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodeltype
         '''
@@ -4068,7 +4069,7 @@ class CfnComputationModel(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotsitewise.CfnComputationModel",
 ):
-    '''Resource schema for AWS::IoTSiteWise::ComputationModel.
+    '''Create a computation model with a configuration and data binding.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html
     :cloudformationResource: AWS::IoTSiteWise::ComputationModel
@@ -4127,11 +4128,11 @@ class CfnComputationModel(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param computation_model_configuration: 
-        :param computation_model_data_binding: 
+        :param computation_model_configuration: The configuration for the computation model.
+        :param computation_model_data_binding: The data binding for the computation model. Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
         :param computation_model_name: The name of the computation model.
-        :param computation_model_description: A description about the computation model.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param computation_model_description: The description of the computation model.
+        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__566bf1711c9dcacb9cb88add46c2c4e157208bdce4a774ccb256a7d21c68de89)
@@ -4180,7 +4181,9 @@ class CfnComputationModel(
     @builtins.property
     @jsii.member(jsii_name="attrComputationModelArn")
     def attr_computation_model_arn(self) -> builtins.str:
-        '''The ARN of the computation model.
+        '''The ARN of the computation model, which has the following format.
+
+        ``arn:${Partition}:iotsitewise:${Region}:${Account}:computation-model/${ComputationModelId}``
 
         :cloudformationAttribute: ComputationModelArn
         '''
@@ -4211,6 +4214,7 @@ class CfnComputationModel(
     def computation_model_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelConfigurationProperty"]:
+        '''The configuration for the computation model.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelConfigurationProperty"], jsii.get(self, "computationModelConfiguration"))
 
     @computation_model_configuration.setter
@@ -4228,6 +4232,7 @@ class CfnComputationModel(
     def computation_model_data_binding(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelDataBindingValueProperty"]]]:
+        '''The data binding for the computation model.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelDataBindingValueProperty"]]], jsii.get(self, "computationModelDataBinding"))
 
     @computation_model_data_binding.setter
@@ -4256,7 +4261,7 @@ class CfnComputationModel(
     @builtins.property
     @jsii.member(jsii_name="computationModelDescription")
     def computation_model_description(self) -> typing.Optional[builtins.str]:
-        '''A description about the computation model.'''
+        '''The description of the computation model.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "computationModelDescription"))
 
     @computation_model_description.setter
@@ -4272,7 +4277,7 @@ class CfnComputationModel(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
+        '''A list of key-value pairs that contain metadata for the asset.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -4297,9 +4302,10 @@ class CfnComputationModel(
             input_properties: builtins.str,
             result_property: builtins.str,
         ) -> None:
-            '''
-            :param input_properties: Input properties for anomaly detection.
-            :param result_property: Result property for anomaly detection.
+            '''Contains the configuration for anomaly detection computation models.
+
+            :param input_properties: The list of input properties for the anomaly detection model.
+            :param result_property: The property where the anomaly detection results will be stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-anomalydetectioncomputationmodelconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4326,7 +4332,7 @@ class CfnComputationModel(
 
         @builtins.property
         def input_properties(self) -> builtins.str:
-            '''Input properties for anomaly detection.
+            '''The list of input properties for the anomaly detection model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-anomalydetectioncomputationmodelconfiguration.html#cfn-iotsitewise-computationmodel-anomalydetectioncomputationmodelconfiguration-inputproperties
             '''
@@ -4336,7 +4342,7 @@ class CfnComputationModel(
 
         @builtins.property
         def result_property(self) -> builtins.str:
-            '''Result property for anomaly detection.
+            '''The property where the anomaly detection results will be stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-anomalydetectioncomputationmodelconfiguration.html#cfn-iotsitewise-computationmodel-anomalydetectioncomputationmodelconfiguration-resultproperty
             '''
@@ -4367,9 +4373,10 @@ class CfnComputationModel(
             asset_model_id: builtins.str,
             property_id: builtins.str,
         ) -> None:
-            '''
-            :param asset_model_id: The ID of the asset model.
-            :param property_id: The ID of the asset model property.
+            '''Contains information about an ``assetModelProperty`` binding value.
+
+            :param asset_model_id: The ID of the asset model, in UUID format.
+            :param property_id: The ID of the asset model property used in data binding value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetmodelpropertybindingvalue.html
             :exampleMetadata: fixture=_generated
@@ -4396,7 +4403,7 @@ class CfnComputationModel(
 
         @builtins.property
         def asset_model_id(self) -> builtins.str:
-            '''The ID of the asset model.
+            '''The ID of the asset model, in UUID format.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetmodelpropertybindingvalue.html#cfn-iotsitewise-computationmodel-assetmodelpropertybindingvalue-assetmodelid
             '''
@@ -4406,7 +4413,7 @@ class CfnComputationModel(
 
         @builtins.property
         def property_id(self) -> builtins.str:
-            '''The ID of the asset model property.
+            '''The ID of the asset model property used in data binding value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetmodelpropertybindingvalue.html#cfn-iotsitewise-computationmodel-assetmodelpropertybindingvalue-propertyid
             '''
@@ -4437,9 +4444,12 @@ class CfnComputationModel(
             asset_id: builtins.str,
             property_id: builtins.str,
         ) -> None:
-            '''
-            :param asset_id: The ID of the asset.
-            :param property_id: The ID of the asset property.
+            '''Represents a data binding value referencing a specific asset property.
+
+            It's used to bind computation model variables to actual asset property values for processing.
+
+            :param asset_id: The ID of the asset containing the property. This identifies the specific asset instance's property value used in the computation model.
+            :param property_id: The ID of the property within the asset. This identifies the specific property's value used in the computation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetpropertybindingvalue.html
             :exampleMetadata: fixture=_generated
@@ -4466,7 +4476,9 @@ class CfnComputationModel(
 
         @builtins.property
         def asset_id(self) -> builtins.str:
-            '''The ID of the asset.
+            '''The ID of the asset containing the property.
+
+            This identifies the specific asset instance's property value used in the computation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetpropertybindingvalue.html#cfn-iotsitewise-computationmodel-assetpropertybindingvalue-assetid
             '''
@@ -4476,7 +4488,9 @@ class CfnComputationModel(
 
         @builtins.property
         def property_id(self) -> builtins.str:
-            '''The ID of the asset property.
+            '''The ID of the property within the asset.
+
+            This identifies the specific property's value used in the computation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-assetpropertybindingvalue.html#cfn-iotsitewise-computationmodel-assetpropertybindingvalue-propertyid
             '''
@@ -4506,8 +4520,9 @@ class CfnComputationModel(
             *,
             anomaly_detection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputationModel.AnomalyDetectionComputationModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param anomaly_detection: 
+            '''The configuration for the computation model.
+
+            :param anomaly_detection: The configuration for the anomaly detection type of computation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodelconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4536,7 +4551,8 @@ class CfnComputationModel(
         def anomaly_detection(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputationModel.AnomalyDetectionComputationModelConfigurationProperty"]]:
-            '''
+            '''The configuration for the anomaly detection type of computation model.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodelconfiguration.html#cfn-iotsitewise-computationmodel-computationmodelconfiguration-anomalydetection
             '''
             result = self._values.get("anomaly_detection")
@@ -4570,10 +4586,11 @@ class CfnComputationModel(
             asset_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputationModel.AssetPropertyBindingValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputationModel.ComputationModelDataBindingValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param asset_model_property: 
-            :param asset_property: 
-            :param list: Defines a list of computation model binding values.
+            '''Contains computation model data binding value information, which can be one of ``assetModelProperty`` , ``list`` .
+
+            :param asset_model_property: Specifies an asset model property data binding value.
+            :param asset_property: The asset property value used for computation model data binding.
+            :param list: Specifies a list of data binding value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodeldatabindingvalue.html
             :exampleMetadata: fixture=_generated
@@ -4615,7 +4632,8 @@ class CfnComputationModel(
         def asset_model_property(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputationModel.AssetModelPropertyBindingValueProperty"]]:
-            '''
+            '''Specifies an asset model property data binding value.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodeldatabindingvalue.html#cfn-iotsitewise-computationmodel-computationmodeldatabindingvalue-assetmodelproperty
             '''
             result = self._values.get("asset_model_property")
@@ -4625,7 +4643,8 @@ class CfnComputationModel(
         def asset_property(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputationModel.AssetPropertyBindingValueProperty"]]:
-            '''
+            '''The asset property value used for computation model data binding.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodeldatabindingvalue.html#cfn-iotsitewise-computationmodel-computationmodeldatabindingvalue-assetproperty
             '''
             result = self._values.get("asset_property")
@@ -4635,7 +4654,7 @@ class CfnComputationModel(
         def list(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelDataBindingValueProperty"]]]]:
-            '''Defines a list of computation model binding values.
+            '''Specifies a list of data binding value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-computationmodel-computationmodeldatabindingvalue.html#cfn-iotsitewise-computationmodel-computationmodeldatabindingvalue-list
             '''
@@ -4677,11 +4696,11 @@ class CfnComputationModelProps:
     ) -> None:
         '''Properties for defining a ``CfnComputationModel``.
 
-        :param computation_model_configuration: 
-        :param computation_model_data_binding: 
+        :param computation_model_configuration: The configuration for the computation model.
+        :param computation_model_data_binding: The data binding for the computation model. Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
         :param computation_model_name: The name of the computation model.
-        :param computation_model_description: A description about the computation model.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param computation_model_description: The description of the computation model.
+        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html
         :exampleMetadata: fixture=_generated
@@ -4745,7 +4764,8 @@ class CfnComputationModelProps:
     def computation_model_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelConfigurationProperty]:
-        '''
+        '''The configuration for the computation model.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodelconfiguration
         '''
         result = self._values.get("computation_model_configuration")
@@ -4756,7 +4776,10 @@ class CfnComputationModelProps:
     def computation_model_data_binding(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelDataBindingValueProperty]]]:
-        '''
+        '''The data binding for the computation model.
+
+        Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldatabinding
         '''
         result = self._values.get("computation_model_data_binding")
@@ -4775,7 +4798,7 @@ class CfnComputationModelProps:
 
     @builtins.property
     def computation_model_description(self) -> typing.Optional[builtins.str]:
-        '''A description about the computation model.
+        '''The description of the computation model.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldescription
         '''
@@ -4784,7 +4807,9 @@ class CfnComputationModelProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
+        '''A list of key-value pairs that contain metadata for the asset.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-tags
         '''
@@ -5137,7 +5162,7 @@ class CfnDataset(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotsitewise.CfnDataset",
 ):
-    '''Resource schema for AWS::IoTSiteWise::Dataset.
+    '''Creates a dataset to connect an external datasource.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html
     :cloudformationResource: AWS::IoTSiteWise::Dataset
@@ -5187,9 +5212,9 @@ class CfnDataset(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param dataset_name: The name of the dataset.
-        :param dataset_source: 
+        :param dataset_source: The data source for the dataset.
         :param dataset_description: A description about the dataset, and its functionality.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param tags: A list of key-value pairs that contain metadata for the access policy. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44369ff07e07f1dbb28102a65eb5a8e6317f5b2e832b326cf3fc0bef13d7e1cc)
@@ -5237,7 +5262,9 @@ class CfnDataset(
     @builtins.property
     @jsii.member(jsii_name="attrDatasetArn")
     def attr_dataset_arn(self) -> builtins.str:
-        '''The ARN of the dataset.
+        '''The ARN of the dataset, which has the following format.
+
+        ``arn:${Partition}:iotsitewise:${Region}:${Account}:dataset/${DatasetId}``
 
         :cloudformationAttribute: DatasetArn
         '''
@@ -5281,6 +5308,7 @@ class CfnDataset(
     def dataset_source(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetSourceProperty"]:
+        '''The data source for the dataset.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetSourceProperty"], jsii.get(self, "datasetSource"))
 
     @dataset_source.setter
@@ -5309,7 +5337,7 @@ class CfnDataset(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
+        '''A list of key-value pairs that contain metadata for the access policy.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -5336,10 +5364,11 @@ class CfnDataset(
             source_type: builtins.str,
             source_detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.SourceDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
+            '''The data source for the dataset.
+
             :param source_format: The format of the dataset source associated with the dataset.
             :param source_type: The type of data source for the dataset.
-            :param source_detail: 
+            :param source_detail: The details of the dataset source associated with the dataset.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-datasetsource.html
             :exampleMetadata: fixture=_generated
@@ -5399,7 +5428,8 @@ class CfnDataset(
         def source_detail(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.SourceDetailProperty"]]:
-            '''
+            '''The details of the dataset source associated with the dataset.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-datasetsource.html#cfn-iotsitewise-dataset-datasetsource-sourcedetail
             '''
             result = self._values.get("source_detail")
@@ -5428,9 +5458,10 @@ class CfnDataset(
             knowledge_base_arn: builtins.str,
             role_arn: builtins.str,
         ) -> None:
-            '''
-            :param knowledge_base_arn: The knowledgeBaseArn details for the Kendra dataset source.
-            :param role_arn: The roleARN details for the Kendra dataset source.
+            '''The source details for the Kendra dataset source.
+
+            :param knowledge_base_arn: The ``knowledgeBaseArn`` details for the Kendra dataset source.
+            :param role_arn: The ``roleARN`` details for the Kendra dataset source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-kendrasourcedetail.html
             :exampleMetadata: fixture=_generated
@@ -5457,7 +5488,7 @@ class CfnDataset(
 
         @builtins.property
         def knowledge_base_arn(self) -> builtins.str:
-            '''The knowledgeBaseArn details for the Kendra dataset source.
+            '''The ``knowledgeBaseArn`` details for the Kendra dataset source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-kendrasourcedetail.html#cfn-iotsitewise-dataset-kendrasourcedetail-knowledgebasearn
             '''
@@ -5467,7 +5498,7 @@ class CfnDataset(
 
         @builtins.property
         def role_arn(self) -> builtins.str:
-            '''The roleARN details for the Kendra dataset source.
+            '''The ``roleARN`` details for the Kendra dataset source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-kendrasourcedetail.html#cfn-iotsitewise-dataset-kendrasourcedetail-rolearn
             '''
@@ -5497,8 +5528,9 @@ class CfnDataset(
             *,
             kendra: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.KendraSourceDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param kendra: 
+            '''The details of the dataset source associated with the dataset.
+
+            :param kendra: Contains details about the Kendra dataset source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-sourcedetail.html
             :exampleMetadata: fixture=_generated
@@ -5527,7 +5559,8 @@ class CfnDataset(
         def kendra(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.KendraSourceDetailProperty"]]:
-            '''
+            '''Contains details about the Kendra dataset source.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-dataset-sourcedetail.html#cfn-iotsitewise-dataset-sourcedetail-kendra
             '''
             result = self._values.get("kendra")
@@ -5567,9 +5600,9 @@ class CfnDatasetProps:
         '''Properties for defining a ``CfnDataset``.
 
         :param dataset_name: The name of the dataset.
-        :param dataset_source: 
+        :param dataset_source: The data source for the dataset.
         :param dataset_description: A description about the dataset, and its functionality.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param tags: A list of key-value pairs that contain metadata for the access policy. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html
         :exampleMetadata: fixture=_generated
@@ -5632,7 +5665,8 @@ class CfnDatasetProps:
     def dataset_source(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetSourceProperty]:
-        '''
+        '''The data source for the dataset.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetsource
         '''
         result = self._values.get("dataset_source")
@@ -5650,7 +5684,9 @@ class CfnDatasetProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
+        '''A list of key-value pairs that contain metadata for the access policy.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-tags
         '''

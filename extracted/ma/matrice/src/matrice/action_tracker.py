@@ -441,6 +441,7 @@ class ActionTracker:
         url = "/v1/actions"
         payload = {
             "_id": self.action_id_str,
+            "_idService": str(self.action_doc["_idService"]),
             "action": self.action_type,
             "serviceName": self.action_doc["serviceName"],
             "stepCode": stepCode,

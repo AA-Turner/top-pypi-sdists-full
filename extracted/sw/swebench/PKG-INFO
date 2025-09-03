@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swebench
-Version: 4.0.4
+Version: 4.0.5
 Summary: The official SWE-bench package - a benchmark for evaluating LMs on software engineering
 Author-email: SWE-bench team <support@swebench.com>
 License: MIT License
@@ -61,7 +61,7 @@ Requires-Dist: openai; extra == "datasets"
 Requires-Dist: anthropic; extra == "datasets"
 Requires-Dist: jedi; extra == "datasets"
 Provides-Extra: inference
-Requires-Dist: torch; extra == "inference"
+Requires-Dist: torch>=2.0.0; extra == "inference"
 Requires-Dist: anthropic; extra == "inference"
 Requires-Dist: jedi; extra == "inference"
 Requires-Dist: openai; extra == "inference"
@@ -71,7 +71,7 @@ Requires-Dist: sentencepiece; extra == "inference"
 Requires-Dist: tiktoken; extra == "inference"
 Requires-Dist: transformers; extra == "inference"
 Requires-Dist: triton; extra == "inference"
-Requires-Dist: flash_attn; extra == "inference"
+Requires-Dist: flash_attn>=2.0.0; extra == "inference"
 Requires-Dist: requests; extra == "inference"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
@@ -255,6 +255,8 @@ If you find our work helpful, please use the following citations.
    &nbsp;&nbsp;
   <a href="https://github.com/SWE-agent/SWE-agent"><img src="docs/assets/sweagent_logo_text_below.svg" alt="SWE-agent" height="120px"></a>
    &nbsp;&nbsp;
+  <a href="https://github.com/SWE-agent/Mini-SWE-Agent"><img src="docs/assets/mini_logo_text_below.svg" alt="Mini-SWE-Agent" height="120px"></a>
+  &nbsp;&nbsp;
   <a href="https://github.com/SWE-agent/SWE-ReX"><img src="docs/assets/swerex_logo_text_below.svg" alt="SWE-ReX" height="120px"></a>
    &nbsp;&nbsp;
   <!-- <a href="https://github.com/SWE-bench/SWE-bench"><img src="docs/assets/swebench_logo_text_below.svg" alt="SWE-bench" height="120px"></a> -->

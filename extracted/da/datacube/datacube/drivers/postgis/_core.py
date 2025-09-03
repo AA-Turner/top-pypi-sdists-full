@@ -212,7 +212,8 @@ def schema_is_latest(engine: Engine) -> bool:
     import warnings
 
     warnings.warn(
-        f"Current Alembic schema revision is {current_rev} expected {latest_rev}"
+        f"Current Alembic schema revision is {current_rev} expected {latest_rev}",
+        stacklevel=2,
     )
     return False
 
@@ -315,7 +316,7 @@ def to_pg_role(role) -> str:
     return pg_role
 
 
-def from_pg_role(pg_role):
+def from_pg_role(pg_role: str) -> str:
     """
     Convert a PostgreSQL role name back to an ODC name.
 

@@ -19,6 +19,7 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
 )
 from rich.console import Console
 import re
+import time
 from pywinauto.keyboard import send_keys
 import warnings
 from pywinauto.application import Application
@@ -119,7 +120,7 @@ async def extracao_saldo_estoque_fiscal(
         campo_data.click_input()
 
         # Limpa e digita
-        keyboard.send_keys("^a{BACKSPACE}07/2025")
+        keyboard.send_keys("^a{BACKSPACE}" + periodo)
 
         # Seleciona inventário
         chk_inventario = main_window.child_window(
@@ -171,10 +172,9 @@ async def extracao_saldo_estoque_fiscal(
         ##### Janela Gerar Registros #####
         app = Application(backend="win32").connect(title="Gerar Registros")
         main_window = app.window(title="Gerar Registros")
-        # Clicar em Sim
-        btn_sim = main_window.child_window(
-            class_name="Button", found_index=1
-        ).click_input()
+
+        # Clicar no botão "Sim"
+        main_window.child_window(title="&Sim", class_name="Button").click_input()
 
         await worker_sleep(2)
 
@@ -185,21 +185,38 @@ async def extracao_saldo_estoque_fiscal(
         slc_01 = main_window.child_window(
             class_name="TDBIComboBoxValues", found_index=0
         ).click_input()
-        await worker_sleep(0.1)
+        await worker_sleep(1)
         keyboard.send_keys("01" + "{ENTER}")
-        await worker_sleep(0.2)
+        await worker_sleep(2)
 
         # Clicar em confirmar
         main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
 
         await worker_sleep(5)
 
-        ##### Conecta à janela Preview Relatorio #####
-        app = Application(backend="win32").connect(class_name="TFrmPreviewRelatorio")
+        CLASS = "TFrmPreviewRelatorio"
 
-        # Espera até a janela aparecer e estar pronta
-        main_window = app.window(class_name="TFrmPreviewRelatorio")
-        main_window.wait("exists enabled visible ready", timeout=180)
+        # 1) Espera a janela aparecer (até 180s)
+        desk = Desktop(backend="win32")
+        deadline = time.time() + 180
+        win = None
+        while time.time() < deadline:
+            try:
+                w = desk.window(class_name=CLASS)
+                if w.exists(timeout=0.5):
+                    w.wait("visible enabled ready", timeout=30)
+                    win = w
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+
+        if win is None:
+            raise TimeoutError(f"Janela '{CLASS}' não apareceu dentro do timeout.")
+
+        # 2) Conecta ao app usando o handle da janela encontrada
+        app = Application(backend="win32").connect(handle=win.handle)
+        main_window = app.window(handle=win.handle)
 
         # Dá o foco na janela
         main_window.set_focus()
@@ -295,7 +312,7 @@ async def extracao_saldo_estoque_fiscal(
 
             # 1) Abrir o picker pelo botão (imagem)
             console.print("Procurando botão de salvar (imagem)...", style="bold cyan")
-            caminho_img = r"assets\\extracao_relatorios\\btn_salvar.png"
+            caminho_img = r"assets\\extracao_relatorios\btn_salvar.png"
             if os.path.isfile(caminho_img):
                 pos = pyautogui.locateCenterOnScreen(caminho_img, confidence=0.9)
                 if pos:

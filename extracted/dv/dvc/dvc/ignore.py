@@ -1,8 +1,9 @@
+import functools
 import os
 import re
-from collections import namedtuple
+from collections.abc import Iterable, Iterator
 from itertools import chain, groupby, takewhile
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, Union, overload
 
 from pathspec.patterns import GitWildMatchPattern
 from pathspec.util import normalize_file
@@ -13,7 +14,9 @@ from dvc.log import logger
 from dvc.pathspec_math import PatternInfo, merge_patterns
 
 if TYPE_CHECKING:
-    from dvc.fs import AnyFSPath, FileSystem
+    from typing_extensions import Self
+
+    from dvc.fs import FileSystem
 
 logger = logger.getChild(__name__)
 
@@ -21,36 +24,79 @@ logger = logger.getChild(__name__)
 class DvcIgnore:
     DVCIGNORE_FILE = ".dvcignore"
 
-    def __call__(self, root, dirs, files):
+    def __call__(
+        self, root: str, dirs: list[str], files: list[str]
+    ) -> tuple[list[str], list[str]]:
         raise NotImplementedError
 
 
 class DvcIgnorePatterns(DvcIgnore):
-    def __init__(self, pattern_list, dirname, sep):
+    def __init__(
+        self, pattern_list: Iterable[Union[PatternInfo, str]], dirname: str, sep: str
+    ) -> None:
         from pathspec.patterns.gitwildmatch import _DIR_MARK
 
-        if pattern_list and isinstance(pattern_list[0], str):
-            pattern_list = [PatternInfo(pattern, "") for pattern in pattern_list]
-
-        self.sep = sep
-        self.pattern_list = pattern_list
-        self.dirname = dirname
-
-        self.regex_pattern_list = []
-        for count, pattern in enumerate(pattern_list):
-            pattern, group = GitWildMatchPattern.pattern_to_regex(pattern.patterns)
-            if pattern:
-                pattern = pattern.replace(f"<{_DIR_MARK}>", f"<{_DIR_MARK}{count}>")
-                self.regex_pattern_list.append((pattern, group))
-
-        self.ignore_spec = [
-            (ignore, re.compile("|".join(item[0] for item in group)))
-            for ignore, group in groupby(self.regex_pattern_list, lambda x: x[1])
-            if ignore is not None
+        pattern_infos = [
+            pattern if isinstance(pattern, PatternInfo) else PatternInfo(pattern, "")
+            for pattern in pattern_list
         ]
 
+        self.sep = sep
+        self.pattern_list: list[PatternInfo] = []
+        self.dirname = dirname
+        self.find_matching_pattern = functools.cache(self._find_matching_pattern)
+
+        regex_pattern_list: list[tuple[str, bool, bool, PatternInfo]] = []
+        for count, pattern_info in enumerate(pattern_infos):
+            regex, ignore = GitWildMatchPattern.pattern_to_regex(pattern_info.patterns)
+            if regex is not None and ignore is not None:
+                self.pattern_list.append(pattern_info)
+                regex = regex.replace(f"<{_DIR_MARK}>", f"<{_DIR_MARK}{count}>")
+                regex_pattern_list.append(
+                    (regex, ignore, pattern_info.patterns.endswith("/"), pattern_info)
+                )
+
+        def keyfunc(item: tuple[str, bool, bool, PatternInfo]) -> tuple[bool, bool]:
+            _, ignore, dir_only_pattern, _ = item
+            return ignore, dir_only_pattern
+
+        self.ignore_spec: list[
+            tuple[
+                re.Pattern[str],
+                bool,
+                bool,
+                dict[Optional[str], tuple[str, PatternInfo]],
+            ]
+        ]
+        self.ignore_spec = []
+        for (ignore, dir_only_pattern), group in groupby(
+            regex_pattern_list, key=keyfunc
+        ):
+            if ignore:
+                # For performance, we combine all exclude patterns.
+                # But we still need to figure out which pattern matched which rule,
+                # (eg: to show in `dvc check-ignore`).
+                # So, we use named groups and keep a map of group name to pattern.
+                pattern_map: dict[Optional[str], tuple[str, PatternInfo]] = {
+                    f"rule_{i}": (regex, pi)
+                    for i, (regex, _, _, pi) in enumerate(group)
+                }
+                combined_regex = "|".join(
+                    f"(?P<{name}>{regex})" for name, (regex, _) in pattern_map.items()
+                )
+                self.ignore_spec.append(
+                    (re.compile(combined_regex), ignore, dir_only_pattern, pattern_map)
+                )
+            else:
+                # unignored patterns are not combined with `|`.
+                for regex, _, _, pi in group:
+                    pattern_map = {None: (regex, pi)}
+                    self.ignore_spec.append(
+                        (re.compile(regex), ignore, dir_only_pattern, pattern_map)
+                    )
+
     @classmethod
-    def from_file(cls, path, fs, name):
+    def from_file(cls, path: str, fs: "FileSystem", name: str) -> "Self":
         assert fs.isabs(path)
         dirname = fs.normpath(fs.dirname(path))
         with fs.open(path, encoding="utf-8") as fobj:
@@ -62,13 +108,15 @@ class DvcIgnorePatterns(DvcIgnore):
 
         return cls(path_spec_lines, dirname, fs.sep)
 
-    def __call__(self, root: list[str], dirs: list[str], files: list[str]):
+    def __call__(
+        self, root: str, dirs: list[str], files: list[str]
+    ) -> tuple[list[str], list[str]]:
         files = [f for f in files if not self.matches(root, f)]
         dirs = [d for d in dirs if not self.matches(root, d, True)]
 
         return dirs, files
 
-    def _get_normalize_path(self, dirname, basename):
+    def _get_normalize_path(self, dirname: str, basename: str) -> Optional[str]:
         # NOTE: `relpath` is too slow, so we have to assume that both
         # `dirname` and `self.dirname` are relative or absolute together.
 
@@ -81,62 +129,105 @@ class DvcIgnorePatterns(DvcIgnore):
             # NOTE: `os.path.join` is ~x5.5 slower
             path = f"{rel}{self.sep}{basename}"
         else:
-            return False
+            return None
 
         if os.name == "nt":
             return normalize_file(path)
         return path
 
-    def matches(self, dirname, basename, is_dir=False, details: bool = False):
+    @overload
+    def matches(
+        self,
+        dirname: str,
+        basename: str,
+        is_dir: bool = False,
+        details: Literal[False] = ...,
+    ) -> bool: ...
+
+    @overload
+    def matches(
+        self,
+        dirname: str,
+        basename: str,
+        is_dir: bool = False,
+        details: Literal[True] = ...,
+    ) -> tuple[bool, list[PatternInfo]]: ...
+
+    @overload
+    def matches(
+        self,
+        dirname: str,
+        basename: str,
+        is_dir: bool = False,
+        details: bool = False,
+    ) -> Union[bool, tuple[bool, list[PatternInfo]]]: ...
+
+    def matches(
+        self,
+        dirname: str,
+        basename: str,
+        is_dir: bool = False,
+        details: bool = False,
+    ) -> Union[bool, tuple[bool, list[PatternInfo]]]:
         path = self._get_normalize_path(dirname, basename)
-        if not path:
-            return False
-
-        if details:
-            return self._ignore_details(path, is_dir)
-        return self.ignore(path, is_dir)
-
-    def ignore(self, path, is_dir):
-        def matches(pattern, path, is_dir) -> bool:
-            matches_ = bool(pattern.match(path))
-
-            if is_dir:
-                matches_ |= bool(pattern.match(f"{path}/"))
-
-            return matches_
-
         result = False
+        _match: list[PatternInfo] = []
+        if path:
+            result, _match = self._ignore(path, is_dir)
+        return (result, _match) if details else result
 
-        for ignore, pattern in self.ignore_spec[::-1]:
-            if matches(pattern, path, is_dir):
-                result = ignore
-                break
-        return result
+    def _find_matching_pattern(
+        self, path: str, is_dir: bool
+    ) -> tuple[bool, list[PatternInfo]]:
+        paths = [path]
+        if is_dir and not path.endswith("/"):
+            paths.append(f"{path}/")
 
-    def _ignore_details(self, path, is_dir: bool):
-        result = []
-        for (regex, _), pattern_info in list(
-            zip(self.regex_pattern_list, self.pattern_list)
+        for pattern, ignore, dir_only_pattern, pattern_map in reversed(
+            self.ignore_spec
         ):
-            # skip system pattern
-            if not pattern_info.file_info:
+            if dir_only_pattern and not is_dir:
                 continue
+            for p in paths:
+                match = pattern.match(p)
+                if not match:
+                    continue
+                if ignore:
+                    group_name, _match = next(
+                        (
+                            (name, _match)
+                            for name, _match in match.groupdict().items()
+                            if name.startswith("rule_") and _match is not None
+                        )
+                    )
+                else:
+                    # unignored patterns are not combined with `|`,
+                    # so there are no groups.
+                    group_name = None
+                _regex, pattern_info = pattern_map[group_name]
+                return ignore, [pattern_info]
+        return False, []
 
-            regex = re.compile(regex)
+    def _ignore(self, path: str, is_dir: bool) -> tuple[bool, list[PatternInfo]]:
+        parts = path.split("/")
+        result = False
+        matches: list[PatternInfo] = []
+        for i in range(1, len(parts) + 1):
+            rel_path = "/".join(parts[:i])
+            result, _matches = self.find_matching_pattern(
+                rel_path, is_dir or i < len(parts)
+            )
+            if i < len(parts) and not result:
+                continue
+            matches.extend(_matches)
+            if result:
+                break
+        return result, matches
 
-            matches = bool(regex.match(path))
-            if is_dir:
-                matches |= bool(regex.match(f"{path}/"))
-
-            if matches:
-                result.append(pattern_info.file_info)
-
-        return result
-
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.dirname + ":" + str(self.pattern_list))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, DvcIgnorePatterns):
             return NotImplemented
         return (self.dirname == other.dirname) & (
@@ -144,21 +235,18 @@ class DvcIgnorePatterns(DvcIgnore):
             == [pattern.patterns for pattern in other.pattern_list]
         )
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.pattern_list)
 
 
-CheckIgnoreResult = namedtuple(  # noqa: PYI024
-    "CheckIgnoreResult", ["file", "match", "patterns"]
-)
-
-
-def _no_match(path):
-    return CheckIgnoreResult(path, False, ["::"])
+class CheckIgnoreResult(NamedTuple):
+    file: str
+    match: bool
+    pattern_infos: list[PatternInfo]
 
 
 class DvcIgnoreFilter:
-    def __init__(self, fs, root_dir):
+    def __init__(self, fs: "FileSystem", root_dir: str) -> None:
         from dvc.repo import Repo
 
         default_ignore_patterns = [
@@ -193,7 +281,7 @@ class DvcIgnoreFilter:
             ignore_subrepos=True,
         )
 
-    def _get_key(self, path):
+    def _get_key(self, path: str) -> tuple[str, ...]:
         parts = self.fs.relparts(path, self.root_dir)
         if parts == (os.curdir,):
             return ()
@@ -241,7 +329,7 @@ class DvcIgnoreFilter:
             for dname in dnames:
                 self._update_sub_repo(self.fs.join(dirname, dname), ignore_trie)
 
-    def _update_sub_repo(self, path, ignore_trie: Trie):
+    def _update_sub_repo(self, path: str, ignore_trie: Trie) -> None:
         from dvc.repo import Repo
 
         if path == self.root_dir:
@@ -268,7 +356,9 @@ class DvcIgnoreFilter:
         else:
             ignore_trie[key] = new_pattern
 
-    def __call__(self, root, dirs, files, ignore_subrepos=True):
+    def __call__(
+        self, root: str, dirs: list[str], files: list[str], ignore_subrepos: bool = True
+    ) -> tuple[list[str], list[str]]:
         abs_root = self.fs.abspath(root)
         ignore_pattern = self._get_trie_pattern(
             abs_root, dnames=dirs, ignore_subrepos=ignore_subrepos
@@ -277,7 +367,24 @@ class DvcIgnoreFilter:
             dirs, files = ignore_pattern(abs_root, dirs, files)
         return dirs, files
 
-    def ls(self, fs, path, detail=True, **kwargs):
+    @overload
+    def ls(
+        self, fs: "FileSystem", path: str, detail: Literal[True], **kwargs: Any
+    ) -> list[dict[str, Any]]: ...
+
+    @overload
+    def ls(
+        self, fs: "FileSystem", path: str, detail: Literal[False], **kwargs
+    ) -> list[str]: ...
+
+    @overload
+    def ls(
+        self, fs: "FileSystem", path: str, detail: bool = True, **kwargs
+    ) -> Union[list[str], list[dict[str, Any]]]: ...
+
+    def ls(
+        self, fs: "FileSystem", path: str, detail: bool = True, **kwargs: Any
+    ) -> Union[list[str], list[dict[str, Any]]]:
         fs_dict = {}
         dirs = []
         nondirs = []
@@ -297,22 +404,29 @@ class DvcIgnoreFilter:
 
         return [fs_dict[name] for name in chain(dirs, nondirs)]
 
-    def walk(self, fs: "FileSystem", path: "AnyFSPath", **kwargs):
+    def walk(
+        self, fs: "FileSystem", path: str, **kwargs: Any
+    ) -> Iterator[
+        Union[
+            tuple[str, list[str], list[str]],
+            tuple[str, dict[str, dict], dict[str, dict]],
+        ]
+    ]:
         detail = kwargs.get("detail", False)
         ignore_subrepos = kwargs.pop("ignore_subrepos", True)
         if fs.protocol == Schemes.LOCAL:
             for root, dirs, files in fs.walk(path, **kwargs):
                 if detail:
-                    all_dnames = set(dirs.keys())
-                    all_fnames = set(files.keys())
+                    assert isinstance(dirs, dict)
+                    assert isinstance(files, dict)
                     dnames, fnames = self(
                         root,
-                        all_dnames,
-                        all_fnames,
+                        list(dirs),
+                        list(files),
                         ignore_subrepos=ignore_subrepos,
                     )
-                    list(map(dirs.pop, all_dnames - set(dnames)))
-                    list(map(files.pop, all_fnames - set(fnames)))
+                    list(map(dirs.pop, dirs.keys() - set(dnames)))
+                    list(map(files.pop, files.keys() - set(fnames)))
                 else:
                     dirs[:], files[:] = self(
                         root, dirs, files, ignore_subrepos=ignore_subrepos
@@ -321,7 +435,7 @@ class DvcIgnoreFilter:
         else:
             yield from fs.walk(path, **kwargs)
 
-    def find(self, fs: "FileSystem", path: "AnyFSPath", **kwargs):
+    def find(self, fs: "FileSystem", path: str, **kwargs: Any) -> Iterator[str]:
         if fs.protocol == Schemes.LOCAL:
             for root, _, files in self.walk(fs, path, **kwargs):
                 for file in files:
@@ -331,7 +445,7 @@ class DvcIgnoreFilter:
             yield from fs.find(path)
 
     def _get_trie_pattern(
-        self, dirname, dnames: Optional["list"] = None, ignore_subrepos=True
+        self, dirname: str, dnames: Optional[list[str]] = None, ignore_subrepos=True
     ) -> Optional["DvcIgnorePatterns"]:
         if ignore_subrepos:
             ignores_trie = self.ignores_trie_fs
@@ -367,7 +481,7 @@ class DvcIgnoreFilter:
 
     def _is_ignored(
         self, path: str, is_dir: bool = False, ignore_subrepos: bool = True
-    ):
+    ) -> bool:
         if self._outside_repo(path):
             return False
         dirname, basename = self.fs.split(self.fs.normpath(path))
@@ -389,24 +503,23 @@ class DvcIgnoreFilter:
         path = self.fs.abspath(path)
         return self._is_ignored(path, False, ignore_subrepos=ignore_subrepos)
 
-    def _outside_repo(self, path):
+    def _outside_repo(self, path: str) -> bool:
         return not self.fs.isin_or_eq(path, self.root_dir)
 
-    def check_ignore(self, target):
+    def check_ignore(self, target: str) -> CheckIgnoreResult:
         # NOTE: can only be used in `dvc check-ignore`, see
         # https://github.com/iterative/dvc/issues/5046
         full_target = self.fs.abspath(target)
+        matched_patterns: list[PatternInfo] = []
+        ignore = False
         if not self._outside_repo(full_target):
             dirname, basename = self.fs.split(self.fs.normpath(full_target))
             pattern = self._get_trie_pattern(dirname)
             if pattern:
-                matches = pattern.matches(
-                    dirname, basename, self.fs.isdir(full_target), True
+                ignore, matched_patterns = pattern.matches(
+                    dirname, basename, self.fs.isdir(full_target), details=True
                 )
-
-                if matches:
-                    return CheckIgnoreResult(target, True, matches)
-        return _no_match(target)
+        return CheckIgnoreResult(target, ignore, matched_patterns)
 
     def is_ignored(
         self, fs: "FileSystem", path: str, ignore_subrepos: bool = True
@@ -424,7 +537,7 @@ class DvcIgnoreFilter:
         )
 
 
-def init(path):
+def init(path: Union[str, os.PathLike[str]]) -> str:
     dvcignore = os.path.join(path, DvcIgnore.DVCIGNORE_FILE)
     if os.path.exists(dvcignore):
         return dvcignore
@@ -439,7 +552,7 @@ def init(path):
     return dvcignore
 
 
-def destroy(path):
+def destroy(path: Union[str, os.PathLike[str]]) -> None:
     from dvc.utils.fs import remove
 
     dvcignore = os.path.join(path, DvcIgnore.DVCIGNORE_FILE)

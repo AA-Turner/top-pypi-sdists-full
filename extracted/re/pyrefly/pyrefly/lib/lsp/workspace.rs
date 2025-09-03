@@ -30,6 +30,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::state::lsp::ImportFormat;
 use crate::state::lsp::InlayHintConfig;
 
 /// Information about the Python environment p
@@ -61,7 +62,7 @@ pub struct Workspace {
     python_info: Option<PythonInfo>,
     search_path: Option<Vec<PathBuf>>,
     pub disable_language_services: bool,
-    pub disable_type_errors: bool,
+    pub disable_type_errors: Option<bool>,
     pub lsp_analysis_config: Option<LspAnalysisConfig>,
 }
 
@@ -150,20 +151,12 @@ pub enum DiagnosticMode {
     OpenFilesOnly,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ImportFormat {
-    Absolute,
-    Relative,
-}
-
 /// https://code.visualstudio.com/docs/python/settings-reference#_pylance-language-server
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LspAnalysisConfig {
     #[expect(unused)]
     pub diagnostic_mode: Option<DiagnosticMode>,
-    #[expect(unused)]
     pub import_format: Option<ImportFormat>,
     pub inlay_hints: Option<InlayHintConfig>,
 }
@@ -296,9 +289,7 @@ impl Workspaces {
             if let Some(disable_language_services) = pyrefly.disable_language_services {
                 self.update_disable_language_services(scope_uri, disable_language_services);
             }
-            if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
-            }
+            self.update_disable_type_errors(modified, scope_uri, pyrefly.disable_type_errors);
         }
         if let Some(analysis) = config.analysis {
             self.update_ide_settings(modified, scope_uri, analysis);
@@ -327,7 +318,7 @@ impl Workspaces {
         &self,
         modified: &mut bool,
         scope_uri: &Option<Url>,
-        disable_type_errors: bool,
+        disable_type_errors: Option<bool>,
     ) {
         let mut workspaces = self.workspaces.write();
         match scope_uri {

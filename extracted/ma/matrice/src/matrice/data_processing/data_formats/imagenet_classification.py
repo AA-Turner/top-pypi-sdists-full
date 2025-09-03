@@ -38,6 +38,7 @@ def add_imagenet_dataset_items_details(
                 "annotations": annotations,
             }
         )
+        logging.debug("Processed dataset item: %s", dataset_item)
         processed_batch.append(
             {
                 "sample_details": dataset_item,

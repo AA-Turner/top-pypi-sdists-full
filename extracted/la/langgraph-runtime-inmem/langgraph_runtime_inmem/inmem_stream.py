@@ -58,6 +58,7 @@ class StreamManager:
         )  # Dict[str, List[asyncio.Queue]]
         self.control_keys = defaultdict(lambda: defaultdict())
         self.control_queues = defaultdict(lambda: defaultdict(list))
+        self.thread_streams = defaultdict(list)
 
         self.message_stores = defaultdict(
             lambda: defaultdict(list[Message])
@@ -95,7 +96,7 @@ class StreamManager:
 
     async def put(
         self,
-        run_id: UUID | str,
+        run_id: UUID | str | None,
         thread_id: UUID | str | None,
         message: Message,
         resumable: bool = False,
@@ -115,6 +116,20 @@ class StreamManager:
             queues = self.control_queues[thread_id][run_id]
         else:
             queues = self.queues[thread_id][run_id]
+        coros = [queue.put(message) for queue in queues]
+        results = await asyncio.gather(*coros, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception):
+                logger.exception(f"Failed to put message in queue: {result}")
+
+    async def put_thread(
+        self,
+        thread_id: UUID | str,
+        message: Message,
+    ) -> None:
+        thread_id = _ensure_uuid(thread_id)
+        message.id = _generate_ms_seq_id().encode()
+        queues = self.thread_streams[thread_id]
         coros = [queue.put(message) for queue in queues]
         results = await asyncio.gather(*coros, return_exceptions=True)
         for result in results:
@@ -143,6 +158,12 @@ class StreamManager:
             thread_id = _ensure_uuid(thread_id)
         queue = ContextQueue()
         self.control_queues[thread_id][run_id].append(queue)
+        return queue
+
+    async def add_thread_stream(self, thread_id: UUID | str) -> asyncio.Queue:
+        thread_id = _ensure_uuid(thread_id)
+        queue = ContextQueue()
+        self.thread_streams[thread_id].append(queue)
         return queue
 
     async def remove_queue(

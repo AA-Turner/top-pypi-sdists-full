@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cerebras_cloud_sdk
-Version: 1.49.0
+Version: 1.50.0
 Summary: The official Python library for the cerebras API
 Project-URL: Homepage, https://github.com/Cerebras/cerebras-cloud-sdk-python
 Project-URL: Repository, https://github.com/Cerebras/cerebras-cloud-sdk-python
@@ -308,7 +308,7 @@ client = Cerebras()
 chat_completion = client.chat.completions.create(
     messages=[
         {
-            "content": "content",
+            "content": "string",
             "role": "system",
         }
     ],

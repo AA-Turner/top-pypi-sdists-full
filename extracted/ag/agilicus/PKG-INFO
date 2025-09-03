@@ -1,27 +1,25 @@
 Metadata-Version: 2.3
 Name: agilicus
-Version: 1.299.5
+Version: 1.299.7
 Summary: Agilicus SDK
 License: MIT
 Author: Agilicus Devs
 Author-email: dev@agilicus.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: billing
-Requires-Dist: PyJWT (>=2.8.0,<3.0.0)
+Requires-Dist: PyJWT (>=2.10.1,<3.0.0)
 Requires-Dist: appdirs (>=1.4.4,<2.0.0)
 Requires-Dist: babel (>=2.13.1,<3.0.0)
-Requires-Dist: certifi (>=14.05.14)
-Requires-Dist: click (>=8.0.0,<9.0.0)
+Requires-Dist: certifi (==2025.8.3)
+Requires-Dist: click (>=8.2.1,<9.0.0)
 Requires-Dist: click-shell (>=2.1,<3.0)
-Requires-Dist: colorama (>=0.4.3,<0.5.0)
+Requires-Dist: colorama (>=0.4.6,<0.5.0)
 Requires-Dist: cryptography (>=39.0.0)
 Requires-Dist: dateparser (==1.2.2)
 Requires-Dist: keyring (>=23.0.0)
@@ -29,15 +27,15 @@ Requires-Dist: keyrings.alt (>=4.2,<6.0)
 Requires-Dist: oauth2client (>=4.1.3,<4.2.0)
 Requires-Dist: paho-mqtt (>=1.6.1,<3.0.0)
 Requires-Dist: pem (>=23.1.0,<24.0.0)
-Requires-Dist: prettytable (>=3.9.0,<4.0.0)
-Requires-Dist: prometheus_client (==0.21.1) ; extra == "billing"
+Requires-Dist: prettytable (==3.16.0)
+Requires-Dist: prometheus_client (==0.22.1) ; extra == "billing"
 Requires-Dist: python_dateutil (>2.5.3)
 Requires-Dist: pyyaml (==6.0.2)
 Requires-Dist: requests (>=2.23.0,<3.0.0)
 Requires-Dist: shortuuid (>=1.0.13,<2.0.0)
-Requires-Dist: six (>=1.14.0,<2.0.0)
+Requires-Dist: six (>=1.17.0,<2.0.0)
 Requires-Dist: stripe (>=2.60,<13.0) ; extra == "billing"
-Requires-Dist: xdg (>=5.1.1,<6.0.0)
+Requires-Dist: xdg (>=6.0.0,<7.0.0)
 Project-URL: Homepage, https://www.agilicus.com/
 Project-URL: Repository, https://github.com/Agilicus
 Description-Content-Type: text/markdown

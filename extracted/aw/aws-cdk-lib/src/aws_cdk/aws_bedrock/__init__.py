@@ -23248,123 +23248,26 @@ class CfnGuardrail(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html
     :cloudformationResource: AWS::Bedrock::Guardrail
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_bedrock as bedrock
+        import aws_cdk.aws_bedrock as bedrockl1
         
-        cfn_guardrail = bedrock.CfnGuardrail(self, "MyCfnGuardrail",
+        # Import a guardrail created through the L1 CDK CfnGuardrail construct
+        l1guardrail = bedrockl1.CfnGuardrail(self, "MyCfnGuardrail",
             blocked_input_messaging="blockedInputMessaging",
             blocked_outputs_messaging="blockedOutputsMessaging",
-            name="name",
-        
-            # the properties below are optional
-            content_policy_config=bedrock.CfnGuardrail.ContentPolicyConfigProperty(
-                filters_config=[bedrock.CfnGuardrail.ContentFilterConfigProperty(
-                    input_strength="inputStrength",
-                    output_strength="outputStrength",
-                    type="type",
-        
-                    # the properties below are optional
-                    input_action="inputAction",
-                    input_enabled=False,
-                    input_modalities=["inputModalities"],
-                    output_action="outputAction",
-                    output_enabled=False,
-                    output_modalities=["outputModalities"]
-                )],
-        
-                # the properties below are optional
-                content_filters_tier_config=bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
-                    tier_name="tierName"
+            name="namemycfnguardrails",
+            word_policy_config=bedrockl1.CfnGuardrail.WordPolicyConfigProperty(
+                words_config=[bedrockl1.CfnGuardrail.WordConfigProperty(
+                    text="drugs"
                 )
-            ),
-            contextual_grounding_policy_config=bedrock.CfnGuardrail.ContextualGroundingPolicyConfigProperty(
-                filters_config=[bedrock.CfnGuardrail.ContextualGroundingFilterConfigProperty(
-                    threshold=123,
-                    type="type",
-        
-                    # the properties below are optional
-                    action="action",
-                    enabled=False
-                )]
-            ),
-            cross_region_config=bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty(
-                guardrail_profile_arn="guardrailProfileArn"
-            ),
-            description="description",
-            kms_key_arn="kmsKeyArn",
-            sensitive_information_policy_config=bedrock.CfnGuardrail.SensitiveInformationPolicyConfigProperty(
-                pii_entities_config=[bedrock.CfnGuardrail.PiiEntityConfigProperty(
-                    action="action",
-                    type="type",
-        
-                    # the properties below are optional
-                    input_action="inputAction",
-                    input_enabled=False,
-                    output_action="outputAction",
-                    output_enabled=False
-                )],
-                regexes_config=[bedrock.CfnGuardrail.RegexConfigProperty(
-                    action="action",
-                    name="name",
-                    pattern="pattern",
-        
-                    # the properties below are optional
-                    description="description",
-                    input_action="inputAction",
-                    input_enabled=False,
-                    output_action="outputAction",
-                    output_enabled=False
-                )]
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            topic_policy_config=bedrock.CfnGuardrail.TopicPolicyConfigProperty(
-                topics_config=[bedrock.CfnGuardrail.TopicConfigProperty(
-                    definition="definition",
-                    name="name",
-                    type="type",
-        
-                    # the properties below are optional
-                    examples=["examples"],
-                    input_action="inputAction",
-                    input_enabled=False,
-                    output_action="outputAction",
-                    output_enabled=False
-                )],
-        
-                # the properties below are optional
-                topics_tier_config=bedrock.CfnGuardrail.TopicsTierConfigProperty(
-                    tier_name="tierName"
-                )
-            ),
-            word_policy_config=bedrock.CfnGuardrail.WordPolicyConfigProperty(
-                managed_word_lists_config=[bedrock.CfnGuardrail.ManagedWordsConfigProperty(
-                    type="type",
-        
-                    # the properties below are optional
-                    input_action="inputAction",
-                    input_enabled=False,
-                    output_action="outputAction",
-                    output_enabled=False
-                )],
-                words_config=[bedrock.CfnGuardrail.WordConfigProperty(
-                    text="text",
-        
-                    # the properties below are optional
-                    input_action="inputAction",
-                    input_enabled=False,
-                    output_action="outputAction",
-                    output_enabled=False
-                )]
+                ]
             )
         )
+        
+        imported_guardrail = bedrock.Guardrail.from_cfn_guardrail(l1guardrail)
     '''
 
     def __init__(
@@ -25672,123 +25575,26 @@ class CfnGuardrailProps:
         :param word_policy_config: The word policy you configure for the guardrail.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
+            import aws_cdk.aws_bedrock as bedrockl1
             
-            cfn_guardrail_props = bedrock.CfnGuardrailProps(
+            # Import a guardrail created through the L1 CDK CfnGuardrail construct
+            l1guardrail = bedrockl1.CfnGuardrail(self, "MyCfnGuardrail",
                 blocked_input_messaging="blockedInputMessaging",
                 blocked_outputs_messaging="blockedOutputsMessaging",
-                name="name",
-            
-                # the properties below are optional
-                content_policy_config=bedrock.CfnGuardrail.ContentPolicyConfigProperty(
-                    filters_config=[bedrock.CfnGuardrail.ContentFilterConfigProperty(
-                        input_strength="inputStrength",
-                        output_strength="outputStrength",
-                        type="type",
-            
-                        # the properties below are optional
-                        input_action="inputAction",
-                        input_enabled=False,
-                        input_modalities=["inputModalities"],
-                        output_action="outputAction",
-                        output_enabled=False,
-                        output_modalities=["outputModalities"]
-                    )],
-            
-                    # the properties below are optional
-                    content_filters_tier_config=bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
-                        tier_name="tierName"
+                name="namemycfnguardrails",
+                word_policy_config=bedrockl1.CfnGuardrail.WordPolicyConfigProperty(
+                    words_config=[bedrockl1.CfnGuardrail.WordConfigProperty(
+                        text="drugs"
                     )
-                ),
-                contextual_grounding_policy_config=bedrock.CfnGuardrail.ContextualGroundingPolicyConfigProperty(
-                    filters_config=[bedrock.CfnGuardrail.ContextualGroundingFilterConfigProperty(
-                        threshold=123,
-                        type="type",
-            
-                        # the properties below are optional
-                        action="action",
-                        enabled=False
-                    )]
-                ),
-                cross_region_config=bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty(
-                    guardrail_profile_arn="guardrailProfileArn"
-                ),
-                description="description",
-                kms_key_arn="kmsKeyArn",
-                sensitive_information_policy_config=bedrock.CfnGuardrail.SensitiveInformationPolicyConfigProperty(
-                    pii_entities_config=[bedrock.CfnGuardrail.PiiEntityConfigProperty(
-                        action="action",
-                        type="type",
-            
-                        # the properties below are optional
-                        input_action="inputAction",
-                        input_enabled=False,
-                        output_action="outputAction",
-                        output_enabled=False
-                    )],
-                    regexes_config=[bedrock.CfnGuardrail.RegexConfigProperty(
-                        action="action",
-                        name="name",
-                        pattern="pattern",
-            
-                        # the properties below are optional
-                        description="description",
-                        input_action="inputAction",
-                        input_enabled=False,
-                        output_action="outputAction",
-                        output_enabled=False
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                topic_policy_config=bedrock.CfnGuardrail.TopicPolicyConfigProperty(
-                    topics_config=[bedrock.CfnGuardrail.TopicConfigProperty(
-                        definition="definition",
-                        name="name",
-                        type="type",
-            
-                        # the properties below are optional
-                        examples=["examples"],
-                        input_action="inputAction",
-                        input_enabled=False,
-                        output_action="outputAction",
-                        output_enabled=False
-                    )],
-            
-                    # the properties below are optional
-                    topics_tier_config=bedrock.CfnGuardrail.TopicsTierConfigProperty(
-                        tier_name="tierName"
-                    )
-                ),
-                word_policy_config=bedrock.CfnGuardrail.WordPolicyConfigProperty(
-                    managed_word_lists_config=[bedrock.CfnGuardrail.ManagedWordsConfigProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        input_action="inputAction",
-                        input_enabled=False,
-                        output_action="outputAction",
-                        output_enabled=False
-                    )],
-                    words_config=[bedrock.CfnGuardrail.WordConfigProperty(
-                        text="text",
-            
-                        # the properties below are optional
-                        input_action="inputAction",
-                        input_enabled=False,
-                        output_action="outputAction",
-                        output_enabled=False
-                    )]
+                    ]
                 )
             )
+            
+            imported_guardrail = bedrock.Guardrail.from_cfn_guardrail(l1guardrail)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d23606a6cea)

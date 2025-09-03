@@ -40181,396 +40181,6 @@ async def test_delete_channel_group_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_set_automated_ga4_configuration_opt_out(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        response = client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-def test_set_automated_ga4_configuration_opt_out_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.set_automated_ga4_configuration_opt_out(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest(
-            property="property_value",
-        )
-
-
-def test_set_automated_ga4_configuration_opt_out_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.set_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-        request = {}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.set_automated_ga4_configuration_opt_out
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        )
-        response = await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async_from_dict():
-    await test_set_automated_ga4_configuration_opt_out_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_fetch_automated_ga4_configuration_opt_out(
-    request_type, transport: str = "grpc"
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-def test_fetch_automated_ga4_configuration_opt_out_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.fetch_automated_ga4_configuration_opt_out(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest(
-            property="property_value",
-        )
-
-
-def test_fetch_automated_ga4_configuration_opt_out_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-        request = {}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        response = await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async_from_dict():
-    await test_fetch_automated_ga4_configuration_opt_out_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
         analytics_admin.CreateBigQueryLinkRequest,
         dict,
     ],
@@ -43362,756 +42972,6 @@ async def test_update_enhanced_measurement_settings_flattened_error_async():
             ),
             update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
         )
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.CreateConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_create_connected_site_tag(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        response = client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-def test_create_connected_site_tag_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.CreateConnectedSiteTagRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.create_connected_site_tag(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.CreateConnectedSiteTagRequest(
-            property="property_value",
-        )
-
-
-def test_create_connected_site_tag_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_connected_site_tag
-        ] = mock_rpc
-        request = {}
-        client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.create_connected_site_tag
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.create_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        await client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        response = await client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async_from_dict():
-    await test_create_connected_site_tag_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.DeleteConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_delete_connected_site_tag(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = None
-        response = client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-def test_delete_connected_site_tag_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.DeleteConnectedSiteTagRequest(
-        property="property_value",
-        tag_id="tag_id_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.delete_connected_site_tag(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.DeleteConnectedSiteTagRequest(
-            property="property_value",
-            tag_id="tag_id_value",
-        )
-
-
-def test_delete_connected_site_tag_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_connected_site_tag
-        ] = mock_rpc
-        request = {}
-        client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.delete_connected_site_tag
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.delete_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        await client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.DeleteConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
-        response = await client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async_from_dict():
-    await test_delete_connected_site_tag_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.ListConnectedSiteTagsRequest,
-        dict,
-    ],
-)
-def test_list_connected_site_tags(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        response = client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-def test_list_connected_site_tags_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.ListConnectedSiteTagsRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.list_connected_site_tags(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.ListConnectedSiteTagsRequest(
-            property="property_value",
-        )
-
-
-def test_list_connected_site_tags_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.list_connected_site_tags
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_connected_site_tags
-        ] = mock_rpc
-        request = {}
-        client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.list_connected_site_tags
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.list_connected_site_tags
-        ] = mock_rpc
-
-        request = {}
-        await client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.ListConnectedSiteTagsRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        response = await client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async_from_dict():
-    await test_list_connected_site_tags_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchConnectedGa4PropertyRequest,
-        dict,
-    ],
-)
-def test_fetch_connected_ga4_property(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.FetchConnectedGa4PropertyResponse(
-            property="property_value",
-        )
-        response = client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-def test_fetch_connected_ga4_property_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.FetchConnectedGa4PropertyRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.fetch_connected_ga4_property(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.FetchConnectedGa4PropertyRequest(
-            property="property_value",
-        )
-
-
-def test_fetch_connected_ga4_property_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_connected_ga4_property
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-        request = {}
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.fetch_connected_ga4_property
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-
-        request = {}
-        await client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchConnectedGa4PropertyResponse(
-                property="property_value",
-            )
-        )
-        response = await client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async_from_dict():
-    await test_fetch_connected_ga4_property_async(request_type=dict)
 
 
 @pytest.mark.parametrize(
@@ -60125,6 +58985,359 @@ async def test_get_subproperty_sync_config_flattened_error_async():
     with pytest.raises(ValueError):
         await client.get_subproperty_sync_config(
             analytics_admin.GetSubpropertySyncConfigRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetReportingIdentitySettingsRequest,
+        dict,
+    ],
+)
+def test_get_reporting_identity_settings(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings(
+            name="name_value",
+            reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+        )
+        response = client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+def test_get_reporting_identity_settings_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.GetReportingIdentitySettingsRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_reporting_identity_settings(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.GetReportingIdentitySettingsRequest(
+            name="name_value",
+        )
+
+
+def test_get_reporting_identity_settings_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_reporting_identity_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+        request = {}
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_reporting_identity_settings
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+
+        request = {}
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings(
+                name="name_value",
+                reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+            )
+        )
+        response = await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async_from_dict():
+    await test_get_reporting_identity_settings_async(request_type=dict)
+
+
+def test_get_reporting_identity_settings_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetReportingIdentitySettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = resources.ReportingIdentitySettings()
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetReportingIdentitySettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings()
+        )
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_reporting_identity_settings_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_reporting_identity_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_reporting_identity_settings_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_reporting_identity_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
             name="name_value",
         )
 
@@ -79957,280 +79170,6 @@ def test_delete_channel_group_rest_flattened_error(transport: str = "rest"):
         )
 
 
-def test_set_automated_ga4_configuration_opt_out_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.set_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_set_automated_ga4_configuration_opt_out_rest_required_fields(
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).set_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).set_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = (
-                analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.pb(
-                    return_value
-                )
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.set_automated_ga4_configuration_opt_out(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_set_automated_ga4_configuration_opt_out_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = (
-        transport.set_automated_ga4_configuration_opt_out._get_unset_required_fields({})
-    )
-    assert set(unset_fields) == (set(()) & set(("property",)))
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_required_fields(
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = (
-                analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.pb(
-                    return_value
-                )
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = (
-        transport.fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-            {}
-        )
-    )
-    assert set(unset_fields) == (set(()) & set(("property",)))
-
-
 def test_create_big_query_link_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -81624,349 +80563,6 @@ def test_update_enhanced_measurement_settings_rest_flattened_error(
             ),
             update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
         )
-
-
-def test_create_connected_site_tag_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_create_connected_site_tag_rest_required_fields(
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_connected_site_tag._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_connected_site_tag._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.CreateConnectedSiteTagResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = analytics_admin.CreateConnectedSiteTagResponse.pb(
-                return_value
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.create_connected_site_tag(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_create_connected_site_tag_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.create_connected_site_tag._get_unset_required_fields({})
-    assert set(unset_fields) == (set(()) & set(("connectedSiteTag",)))
-
-
-def test_delete_connected_site_tag_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_list_connected_site_tags_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.list_connected_site_tags
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_connected_site_tags
-        ] = mock_rpc
-
-        request = {}
-        client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_connected_ga4_property_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_connected_ga4_property
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-
-        request = {}
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_connected_ga4_property_rest_required_fields(
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-    assert "property" not in jsonified_request
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_connected_ga4_property._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == request_init["property"]
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_connected_ga4_property._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(("property",))
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "get",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = analytics_admin.FetchConnectedGa4PropertyResponse.pb(
-                return_value
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.fetch_connected_ga4_property(request)
-
-            expected_params = [
-                (
-                    "property",
-                    "",
-                ),
-                ("$alt", "json;enum-encoding=int"),
-            ]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_fetch_connected_ga4_property_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.fetch_connected_ga4_property._get_unset_required_fields({})
-    assert set(unset_fields) == (set(("property",)) & set(("property",)))
 
 
 def test_get_ad_sense_link_rest_use_cached_wrapped_rpc():
@@ -90345,6 +88941,191 @@ def test_get_subproperty_sync_config_rest_flattened_error(transport: str = "rest
         )
 
 
+def test_get_reporting_identity_settings_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_reporting_identity_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+
+        request = {}
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_reporting_identity_settings_rest_required_fields(
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_reporting_identity_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_reporting_identity_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = resources.ReportingIdentitySettings()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = resources.ReportingIdentitySettings.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_reporting_identity_settings(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert expected_params == actual_params
+
+
+def test_get_reporting_identity_settings_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_reporting_identity_settings._get_unset_required_fields(
+        {}
+    )
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_reporting_identity_settings_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.ReportingIdentitySettings()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "properties/sample1/reportingIdentitySettings"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = resources.ReportingIdentitySettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_reporting_identity_settings(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{name=properties/*/reportingIdentitySettings}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_reporting_identity_settings_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
+            name="name_value",
+        )
+
+
 def test_credentials_transport_error():
     # It is an error to provide credentials and a transport instance.
     transport = transports.AnalyticsAdminServiceGrpcTransport(
@@ -92826,54 +91607,6 @@ def test_delete_channel_group_empty_call_grpc():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
-def test_set_automated_ga4_configuration_opt_out_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_automated_ga4_configuration_opt_out_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-        )
-        client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
 def test_create_big_query_link_empty_call_grpc():
     client = AnalyticsAdminServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -93029,98 +91762,6 @@ def test_update_enhanced_measurement_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_connected_site_tag_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_connected_site_tag_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value = None
-        client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_connected_site_tags_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_connected_ga4_property_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-        client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -94087,6 +92728,29 @@ def test_get_subproperty_sync_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.GetSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_reporting_identity_settings_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = resources.ReportingIdentitySettings()
+        client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
 
         assert args[0] == request_msg
 
@@ -97229,62 +95893,6 @@ async def test_delete_channel_group_empty_call_grpc_asyncio():
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
 @pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        )
-        await client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        await client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
 async def test_create_big_query_link_empty_call_grpc_asyncio():
     client = AnalyticsAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -97521,114 +96129,6 @@ async def test_update_enhanced_measurement_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        await client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
-        await client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        await client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchConnectedGa4PropertyResponse(
-                property="property_value",
-            )
-        )
-        await client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -98877,6 +97377,36 @@ async def test_get_subproperty_sync_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.GetSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings(
+                name="name_value",
+                reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+            )
+        )
+        await client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
 
         assert args[0] == request_msg
 
@@ -115843,287 +114373,6 @@ def test_delete_channel_group_rest_interceptors(null_interceptor):
         pre.assert_called_once()
 
 
-def test_set_automated_ga4_configuration_opt_out_rest_bad_request(
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_set_automated_ga4_configuration_opt_out_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.set_automated_ga4_configuration_opt_out(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_set_automated_ga4_configuration_opt_out_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_set_automated_ga4_configuration_opt_out",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_set_automated_ga4_configuration_opt_out_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_set_automated_ga4_configuration_opt_out",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest.pb(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = (
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.to_json(
-                analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-            )
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse(),
-            metadata,
-        )
-
-        client.set_automated_ga4_configuration_opt_out(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_bad_request(
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_fetch_automated_ga4_configuration_opt_out_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-            opt_out=True,
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_fetch_automated_ga4_configuration_opt_out_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_automated_ga4_configuration_opt_out",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_automated_ga4_configuration_opt_out_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_fetch_automated_ga4_configuration_opt_out",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest.pb(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.to_json(
-                analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-            )
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-        )
-        post_with_metadata.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(),
-            metadata,
-        )
-
-        client.fetch_automated_ga4_configuration_opt_out(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
 def test_create_big_query_link_rest_bad_request(
     request_type=analytics_admin.CreateBigQueryLinkRequest,
 ):
@@ -117358,513 +115607,6 @@ def test_update_enhanced_measurement_settings_rest_interceptors(null_interceptor
         )
 
         client.update_enhanced_measurement_settings(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_create_connected_site_tag_rest_bad_request(
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.create_connected_site_tag(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.CreateConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_create_connected_site_tag_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.CreateConnectedSiteTagResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.CreateConnectedSiteTagResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.create_connected_site_tag(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_create_connected_site_tag_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_connected_site_tag",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_connected_site_tag_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_connected_site_tag"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.CreateConnectedSiteTagRequest.pb(
-            analytics_admin.CreateConnectedSiteTagRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.CreateConnectedSiteTagResponse.to_json(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.CreateConnectedSiteTagResponse(),
-            metadata,
-        )
-
-        client.create_connected_site_tag(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_delete_connected_site_tag_rest_bad_request(
-    request_type=analytics_admin.DeleteConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.delete_connected_site_tag(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.DeleteConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_delete_connected_site_tag_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = None
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-        json_return_value = ""
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.delete_connected_site_tag(request)
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_delete_connected_site_tag_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_connected_site_tag"
-    ) as pre:
-        pre.assert_not_called()
-        pb_message = analytics_admin.DeleteConnectedSiteTagRequest.pb(
-            analytics_admin.DeleteConnectedSiteTagRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-
-        client.delete_connected_site_tag(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-
-
-def test_list_connected_site_tags_rest_bad_request(
-    request_type=analytics_admin.ListConnectedSiteTagsRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.list_connected_site_tags(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.ListConnectedSiteTagsRequest,
-        dict,
-    ],
-)
-def test_list_connected_site_tags_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.ListConnectedSiteTagsResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.ListConnectedSiteTagsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.list_connected_site_tags(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_list_connected_site_tags_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_connected_site_tags"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_connected_site_tags_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_connected_site_tags"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.ListConnectedSiteTagsRequest.pb(
-            analytics_admin.ListConnectedSiteTagsRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.ListConnectedSiteTagsResponse.to_json(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.ListConnectedSiteTagsResponse(),
-            metadata,
-        )
-
-        client.list_connected_site_tags(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_fetch_connected_ga4_property_rest_bad_request(
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.fetch_connected_ga4_property(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchConnectedGa4PropertyRequest,
-        dict,
-    ],
-)
-def test_fetch_connected_ga4_property_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse(
-            property="property_value",
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.fetch_connected_ga4_property(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_fetch_connected_ga4_property_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_connected_ga4_property",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_connected_ga4_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_fetch_connected_ga4_property",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.FetchConnectedGa4PropertyRequest.pb(
-            analytics_admin.FetchConnectedGa4PropertyRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse.to_json(
-            analytics_admin.FetchConnectedGa4PropertyResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.FetchConnectedGa4PropertyResponse(),
-            metadata,
-        )
-
-        client.fetch_connected_ga4_property(
             request,
             metadata=[
                 ("key", "val"),
@@ -124623,6 +122365,146 @@ def test_get_subproperty_sync_config_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_get_reporting_identity_settings_rest_bad_request(
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/reportingIdentitySettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with mock.patch.object(Session, "request") as req, pytest.raises(
+        core_exceptions.BadRequest
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_reporting_identity_settings(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetReportingIdentitySettingsRequest,
+        dict,
+    ],
+)
+def test_get_reporting_identity_settings_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/reportingIdentitySettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.ReportingIdentitySettings(
+            name="name_value",
+            reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = resources.ReportingIdentitySettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_reporting_identity_settings(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_reporting_identity_settings_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with mock.patch.object(
+        type(client.transport._session), "request"
+    ) as req, mock.patch.object(
+        path_template, "transcode"
+    ) as transcode, mock.patch.object(
+        transports.AnalyticsAdminServiceRestInterceptor,
+        "post_get_reporting_identity_settings",
+    ) as post, mock.patch.object(
+        transports.AnalyticsAdminServiceRestInterceptor,
+        "post_get_reporting_identity_settings_with_metadata",
+    ) as post_with_metadata, mock.patch.object(
+        transports.AnalyticsAdminServiceRestInterceptor,
+        "pre_get_reporting_identity_settings",
+    ) as pre:
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.GetReportingIdentitySettingsRequest.pb(
+            analytics_admin.GetReportingIdentitySettingsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = resources.ReportingIdentitySettings.to_json(
+            resources.ReportingIdentitySettings()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = resources.ReportingIdentitySettings()
+        post_with_metadata.return_value = (
+            resources.ReportingIdentitySettings(),
+            metadata,
+        )
+
+        client.get_reporting_identity_settings(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_initialize_client_w_rest():
     client = AnalyticsAdminServiceClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="rest"
@@ -126895,50 +124777,6 @@ def test_delete_channel_group_empty_call_rest():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
-def test_set_automated_ga4_configuration_opt_out_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_automated_ga4_configuration_opt_out_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
 def test_create_big_query_link_empty_call_rest():
     client = AnalyticsAdminServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -127087,94 +124925,6 @@ def test_update_enhanced_measurement_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_connected_site_tag_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_connected_site_tag_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_connected_site_tags_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_connected_ga4_property_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -128103,6 +125853,28 @@ def test_get_subproperty_sync_config_empty_call_rest():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_reporting_identity_settings_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_transport_grpc_default():
     # A client should use the gRPC transport by default.
     client = AnalyticsAdminServiceClient(
@@ -128240,8 +126012,6 @@ def test_analytics_admin_service_base_transport():
         "create_channel_group",
         "update_channel_group",
         "delete_channel_group",
-        "set_automated_ga4_configuration_opt_out",
-        "fetch_automated_ga4_configuration_opt_out",
         "create_big_query_link",
         "get_big_query_link",
         "list_big_query_links",
@@ -128249,10 +126019,6 @@ def test_analytics_admin_service_base_transport():
         "update_big_query_link",
         "get_enhanced_measurement_settings",
         "update_enhanced_measurement_settings",
-        "create_connected_site_tag",
-        "delete_connected_site_tag",
-        "list_connected_site_tags",
-        "fetch_connected_ga4_property",
         "get_ad_sense_link",
         "create_ad_sense_link",
         "delete_ad_sense_link",
@@ -128295,6 +126061,7 @@ def test_analytics_admin_service_base_transport():
         "list_subproperty_sync_configs",
         "update_subproperty_sync_config",
         "get_subproperty_sync_config",
+        "get_reporting_identity_settings",
     )
     for method in methods:
         with pytest.raises(NotImplementedError):
@@ -128909,12 +126676,6 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     session1 = client1.transport.delete_channel_group._session
     session2 = client2.transport.delete_channel_group._session
     assert session1 != session2
-    session1 = client1.transport.set_automated_ga4_configuration_opt_out._session
-    session2 = client2.transport.set_automated_ga4_configuration_opt_out._session
-    assert session1 != session2
-    session1 = client1.transport.fetch_automated_ga4_configuration_opt_out._session
-    session2 = client2.transport.fetch_automated_ga4_configuration_opt_out._session
-    assert session1 != session2
     session1 = client1.transport.create_big_query_link._session
     session2 = client2.transport.create_big_query_link._session
     assert session1 != session2
@@ -128935,18 +126696,6 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     assert session1 != session2
     session1 = client1.transport.update_enhanced_measurement_settings._session
     session2 = client2.transport.update_enhanced_measurement_settings._session
-    assert session1 != session2
-    session1 = client1.transport.create_connected_site_tag._session
-    session2 = client2.transport.create_connected_site_tag._session
-    assert session1 != session2
-    session1 = client1.transport.delete_connected_site_tag._session
-    session2 = client2.transport.delete_connected_site_tag._session
-    assert session1 != session2
-    session1 = client1.transport.list_connected_site_tags._session
-    session2 = client2.transport.list_connected_site_tags._session
-    assert session1 != session2
-    session1 = client1.transport.fetch_connected_ga4_property._session
-    session2 = client2.transport.fetch_connected_ga4_property._session
     assert session1 != session2
     session1 = client1.transport.get_ad_sense_link._session
     session2 = client2.transport.get_ad_sense_link._session
@@ -129073,6 +126822,9 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     assert session1 != session2
     session1 = client1.transport.get_subproperty_sync_config._session
     session2 = client2.transport.get_subproperty_sync_config._session
+    assert session1 != session2
+    session1 = client1.transport.get_reporting_identity_settings._session
+    session2 = client2.transport.get_reporting_identity_settings._session
     assert session1 != session2
 
 
@@ -129932,9 +127684,29 @@ def test_parse_reporting_data_annotation_path():
     assert expected == actual
 
 
-def test_rollup_property_source_link_path():
+def test_reporting_identity_settings_path():
     property = "cuttlefish"
-    rollup_property_source_link = "mussel"
+    expected = "properties/{property}/reportingIdentitySettings".format(
+        property=property,
+    )
+    actual = AnalyticsAdminServiceClient.reporting_identity_settings_path(property)
+    assert expected == actual
+
+
+def test_parse_reporting_identity_settings_path():
+    expected = {
+        "property": "mussel",
+    }
+    path = AnalyticsAdminServiceClient.reporting_identity_settings_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AnalyticsAdminServiceClient.parse_reporting_identity_settings_path(path)
+    assert expected == actual
+
+
+def test_rollup_property_source_link_path():
+    property = "winkle"
+    rollup_property_source_link = "nautilus"
     expected = "properties/{property}/rollupPropertySourceLinks/{rollup_property_source_link}".format(
         property=property,
         rollup_property_source_link=rollup_property_source_link,
@@ -129947,8 +127719,8 @@ def test_rollup_property_source_link_path():
 
 def test_parse_rollup_property_source_link_path():
     expected = {
-        "property": "winkle",
-        "rollup_property_source_link": "nautilus",
+        "property": "scallop",
+        "rollup_property_source_link": "abalone",
     }
     path = AnalyticsAdminServiceClient.rollup_property_source_link_path(**expected)
 
@@ -129958,8 +127730,8 @@ def test_parse_rollup_property_source_link_path():
 
 
 def test_search_ads360_link_path():
-    property = "scallop"
-    search_ads_360_link = "abalone"
+    property = "squid"
+    search_ads_360_link = "clam"
     expected = "properties/{property}/searchAds360Links/{search_ads_360_link}".format(
         property=property,
         search_ads_360_link=search_ads_360_link,
@@ -129972,8 +127744,8 @@ def test_search_ads360_link_path():
 
 def test_parse_search_ads360_link_path():
     expected = {
-        "property": "squid",
-        "search_ads_360_link": "clam",
+        "property": "whelk",
+        "search_ads_360_link": "octopus",
     }
     path = AnalyticsAdminServiceClient.search_ads360_link_path(**expected)
 
@@ -129983,9 +127755,9 @@ def test_parse_search_ads360_link_path():
 
 
 def test_sk_ad_network_conversion_value_schema_path():
-    property = "whelk"
-    data_stream = "octopus"
-    skadnetwork_conversion_value_schema = "oyster"
+    property = "oyster"
+    data_stream = "nudibranch"
+    skadnetwork_conversion_value_schema = "cuttlefish"
     expected = "properties/{property}/dataStreams/{data_stream}/sKAdNetworkConversionValueSchema/{skadnetwork_conversion_value_schema}".format(
         property=property,
         data_stream=data_stream,
@@ -129999,9 +127771,9 @@ def test_sk_ad_network_conversion_value_schema_path():
 
 def test_parse_sk_ad_network_conversion_value_schema_path():
     expected = {
-        "property": "nudibranch",
-        "data_stream": "cuttlefish",
-        "skadnetwork_conversion_value_schema": "mussel",
+        "property": "mussel",
+        "data_stream": "winkle",
+        "skadnetwork_conversion_value_schema": "nautilus",
     }
     path = AnalyticsAdminServiceClient.sk_ad_network_conversion_value_schema_path(
         **expected
@@ -130017,8 +127789,8 @@ def test_parse_sk_ad_network_conversion_value_schema_path():
 
 
 def test_subproperty_event_filter_path():
-    property = "winkle"
-    sub_property_event_filter = "nautilus"
+    property = "scallop"
+    sub_property_event_filter = "abalone"
     expected = "properties/{property}/subpropertyEventFilters/{sub_property_event_filter}".format(
         property=property,
         sub_property_event_filter=sub_property_event_filter,
@@ -130031,8 +127803,8 @@ def test_subproperty_event_filter_path():
 
 def test_parse_subproperty_event_filter_path():
     expected = {
-        "property": "scallop",
-        "sub_property_event_filter": "abalone",
+        "property": "squid",
+        "sub_property_event_filter": "clam",
     }
     path = AnalyticsAdminServiceClient.subproperty_event_filter_path(**expected)
 
@@ -130042,8 +127814,8 @@ def test_parse_subproperty_event_filter_path():
 
 
 def test_subproperty_sync_config_path():
-    property = "squid"
-    subproperty_sync_config = "clam"
+    property = "whelk"
+    subproperty_sync_config = "octopus"
     expected = (
         "properties/{property}/subpropertySyncConfigs/{subproperty_sync_config}".format(
             property=property,
@@ -130058,8 +127830,8 @@ def test_subproperty_sync_config_path():
 
 def test_parse_subproperty_sync_config_path():
     expected = {
-        "property": "whelk",
-        "subproperty_sync_config": "octopus",
+        "property": "oyster",
+        "subproperty_sync_config": "nudibranch",
     }
     path = AnalyticsAdminServiceClient.subproperty_sync_config_path(**expected)
 
@@ -130069,7 +127841,7 @@ def test_parse_subproperty_sync_config_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "oyster"
+    billing_account = "cuttlefish"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -130079,7 +127851,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "nudibranch",
+        "billing_account": "mussel",
     }
     path = AnalyticsAdminServiceClient.common_billing_account_path(**expected)
 
@@ -130089,7 +127861,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "cuttlefish"
+    folder = "winkle"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -130099,7 +127871,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "mussel",
+        "folder": "nautilus",
     }
     path = AnalyticsAdminServiceClient.common_folder_path(**expected)
 
@@ -130109,7 +127881,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "winkle"
+    organization = "scallop"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -130119,7 +127891,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "nautilus",
+        "organization": "abalone",
     }
     path = AnalyticsAdminServiceClient.common_organization_path(**expected)
 
@@ -130129,7 +127901,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "scallop"
+    project = "squid"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -130139,7 +127911,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "abalone",
+        "project": "clam",
     }
     path = AnalyticsAdminServiceClient.common_project_path(**expected)
 
@@ -130149,8 +127921,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "squid"
-    location = "clam"
+    project = "whelk"
+    location = "octopus"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -130161,8 +127933,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "whelk",
-        "location": "octopus",
+        "project": "oyster",
+        "location": "nudibranch",
     }
     path = AnalyticsAdminServiceClient.common_location_path(**expected)
 

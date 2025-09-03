@@ -33,6 +33,7 @@ class CloudDeployment(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'cloud_resource_id': 'str',
         'cloud_deployment_id': 'str',
         'name': 'str',
         'provider': 'CloudProviders',
@@ -43,11 +44,11 @@ class CloudDeployment(object):
         'file_storage': 'FileStorage',
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
-        'kubernetes_config': 'KubernetesConfig',
-        'operator_status': 'OperatorStatus'
+        'kubernetes_config': 'KubernetesConfig'
     }
 
     attribute_map = {
+        'cloud_resource_id': 'cloud_resource_id',
         'cloud_deployment_id': 'cloud_deployment_id',
         'name': 'name',
         'provider': 'provider',
@@ -58,16 +59,16 @@ class CloudDeployment(object):
         'file_storage': 'file_storage',
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
-        'kubernetes_config': 'kubernetes_config',
-        'operator_status': 'operator_status'
+        'kubernetes_config': 'kubernetes_config'
     }
 
-    def __init__(self, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, operator_status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._cloud_resource_id = None
         self._cloud_deployment_id = None
         self._name = None
         self._provider = None
@@ -79,9 +80,10 @@ class CloudDeployment(object):
         self._aws_config = None
         self._gcp_config = None
         self._kubernetes_config = None
-        self._operator_status = None
         self.discriminator = None
 
+        if cloud_resource_id is not None:
+            self.cloud_resource_id = cloud_resource_id
         if cloud_deployment_id is not None:
             self.cloud_deployment_id = cloud_deployment_id
         if name is not None:
@@ -98,13 +100,35 @@ class CloudDeployment(object):
         self.aws_config = aws_config
         self.gcp_config = gcp_config
         self.kubernetes_config = kubernetes_config
-        self.operator_status = operator_status
+
+    @property
+    def cloud_resource_id(self):
+        """Gets the cloud_resource_id of this CloudDeployment.  # noqa: E501
+
+        Unique identifier for this cloud resource.  # noqa: E501
+
+        :return: The cloud_resource_id of this CloudDeployment.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_resource_id
+
+    @cloud_resource_id.setter
+    def cloud_resource_id(self, cloud_resource_id):
+        """Sets the cloud_resource_id of this CloudDeployment.
+
+        Unique identifier for this cloud resource.  # noqa: E501
+
+        :param cloud_resource_id: The cloud_resource_id of this CloudDeployment.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_resource_id = cloud_resource_id
 
     @property
     def cloud_deployment_id(self):
         """Gets the cloud_deployment_id of this CloudDeployment.  # noqa: E501
 
-        Unique identifier for this deployment.  # noqa: E501
+        DEPRECATED. Use cloud_resource_id instead.  # noqa: E501
 
         :return: The cloud_deployment_id of this CloudDeployment.  # noqa: E501
         :rtype: str
@@ -115,7 +139,7 @@ class CloudDeployment(object):
     def cloud_deployment_id(self, cloud_deployment_id):
         """Sets the cloud_deployment_id of this CloudDeployment.
 
-        Unique identifier for this deployment.  # noqa: E501
+        DEPRECATED. Use cloud_resource_id instead.  # noqa: E501
 
         :param cloud_deployment_id: The cloud_deployment_id of this CloudDeployment.  # noqa: E501
         :type: str
@@ -127,7 +151,7 @@ class CloudDeployment(object):
     def name(self):
         """Gets the name of this CloudDeployment.  # noqa: E501
 
-        The name of this deployment.  # noqa: E501
+        The name of this cloud resource.  # noqa: E501
 
         :return: The name of this CloudDeployment.  # noqa: E501
         :rtype: str
@@ -138,7 +162,7 @@ class CloudDeployment(object):
     def name(self, name):
         """Sets the name of this CloudDeployment.
 
-        The name of this deployment.  # noqa: E501
+        The name of this cloud resource.  # noqa: E501
 
         :param name: The name of this CloudDeployment.  # noqa: E501
         :type: str
@@ -198,7 +222,7 @@ class CloudDeployment(object):
     def region(self):
         """Gets the region of this CloudDeployment.  # noqa: E501
 
-        The region for the deployment (e.g., us-west-2).  # noqa: E501
+        The region (e.g., us-west-2).  # noqa: E501
 
         :return: The region of this CloudDeployment.  # noqa: E501
         :rtype: str
@@ -209,7 +233,7 @@ class CloudDeployment(object):
     def region(self, region):
         """Sets the region of this CloudDeployment.
 
-        The region for the deployment (e.g., us-west-2).  # noqa: E501
+        The region (e.g., us-west-2).  # noqa: E501
 
         :param region: The region of this CloudDeployment.  # noqa: E501
         :type: str
@@ -354,29 +378,6 @@ class CloudDeployment(object):
         """
 
         self._kubernetes_config = kubernetes_config
-
-    @property
-    def operator_status(self):
-        """Gets the operator_status of this CloudDeployment.  # noqa: E501
-
-        Status of the Anyscale operator (only for K8s deployments).  # noqa: E501
-
-        :return: The operator_status of this CloudDeployment.  # noqa: E501
-        :rtype: OperatorStatus
-        """
-        return self._operator_status
-
-    @operator_status.setter
-    def operator_status(self, operator_status):
-        """Sets the operator_status of this CloudDeployment.
-
-        Status of the Anyscale operator (only for K8s deployments).  # noqa: E501
-
-        :param operator_status: The operator_status of this CloudDeployment.  # noqa: E501
-        :type: OperatorStatus
-        """
-
-        self._operator_status = operator_status
 
     def to_dict(self):
         """Returns the model properties as a dict"""

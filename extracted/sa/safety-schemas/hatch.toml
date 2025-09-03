@@ -8,7 +8,6 @@ beta-bump = "cz bump -pr beta --check-consistency --yes && cz changelog --merge-
 dev-bump = "cz bump --devrelease {args} --check-consistency --yes"
 local-bump = "cz bump {args} --changelog --files-only --yes"
 
-
 [envs.test]
 description = """
 Main test environment for safety_schenas. Use this environment to run basic tests on the minimum supported python version while developing safety_schemas.
@@ -16,6 +15,7 @@ Main test environment for safety_schenas. Use this environment to run basic test
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "tomli; python_version < '3.11'",
   "pytest-cov",
   "hatch-containers",
   "deepdiff",
@@ -33,9 +33,11 @@ cov = [
 ]
 
 [envs.debug]
-python = "3.9"
+installer = "uv"
+python = "3.8"
 template = "test"
 type = "virtual"
+path = ".venv"
 
 [envs.all]
 skip-install = true

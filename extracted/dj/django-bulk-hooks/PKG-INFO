@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-bulk-hooks
-Version: 0.1.251
+Version: 0.1.262
 Summary: Hook-style hooks for Django bulk operations like bulk_create and bulk_update.
 License: MIT
 Keywords: django,bulk,hooks

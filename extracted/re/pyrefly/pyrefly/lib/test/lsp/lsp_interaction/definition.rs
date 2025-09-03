@@ -197,3 +197,20 @@ fn malformed_missing_position() {
         }),
     });
 }
+
+// we generally want to prefer py. but if it's missing in the py, we should prefer the pyi
+#[test]
+fn prefer_pyi_when_missing_in_py() {
+    let root = get_test_files_root();
+    let test_root = root.path().join("prefer_pyi_when_missing_in_py");
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_root);
+    interaction.initialize(InitializeSettings {
+        ..Default::default()
+    });
+    interaction.server.did_open("main.py");
+    interaction.server.definition("main.py", 5, 18);
+    interaction
+        .client
+        .expect_definition_response_from_root("foo.pyi", 5, 4, 5, 7);
+}

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import uuid
-from typing import Dict, Any, Optional, List, Set
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 from matrice.deploy.server.inference.inference_interface import InferenceInterface
@@ -44,7 +44,6 @@ class PostProcessingWorker:
         self.global_counter = 0
         self._stop_event = asyncio.Event()
         self._processing_task: Optional[asyncio.Task] = None
-        self._active_tasks: Set[asyncio.Task] = set()
         
         # Metrics
         self.messages_processed = 0
@@ -57,7 +56,7 @@ class PostProcessingWorker:
         self.max_concurrent_reached = 0
         
         self.logger = logging.getLogger(f"{__name__}.{worker_id}")
-        self.logger.info(f"Initialized PostProcessingWorker: {worker_id} (concurrent processing, max_tasks={max_concurrent_tasks})")
+        self.logger.info(f"Initialized PostProcessingWorker: {worker_id} (dynamic batch processing up to {max_concurrent_tasks} with gather and order preservation)")
     
     async def start(self) -> None:
         """Start the post-processing worker."""
@@ -85,23 +84,6 @@ class PostProcessingWorker:
         self.is_active = False
         self._stop_event.set()
         
-        # Cancel all active tasks
-        if self._active_tasks:
-            self.logger.info(f"Cancelling {len(self._active_tasks)} active processing tasks...")
-            for task in self._active_tasks:
-                task.cancel()
-            
-            # Wait for active tasks to complete
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*self._active_tasks, return_exceptions=True),
-                    timeout=5.0
-                )
-            except asyncio.TimeoutError:
-                self.logger.warning(f"Some processing tasks did not stop within timeout for worker {self.worker_id}")
-            except Exception as exc:
-                self.logger.error(f"Error stopping active tasks for worker {self.worker_id}: {str(exc)}")
-        
         # Cancel and wait for main processing task
         if self._processing_task and not self._processing_task.done():
             self._processing_task.cancel()
@@ -118,102 +100,66 @@ class PostProcessingWorker:
         self.logger.info(f"Stopped PostProcessingWorker: {self.worker_id}")
     
     async def _processing_loop(self) -> None:
-        """Main processing loop for concurrent post-processing."""
-        retry_delay = 1.0
-        max_retry_delay = 10.0
-        consecutive_errors = 0
-        loop_count = 0
+        """Dynamic batch processing - collect up to max_concurrent_tasks, process with gather, emit in order."""
         
         while self.is_running and not self._stop_event.is_set():
             try:
-                loop_count += 1
-                # Log worker state periodically
-                if loop_count % 100 == 1:
-                    self.logger.debug(
-                        f"Post-processing worker {self.worker_id} active (loop #{loop_count}) - "
-                        f"in_q: {self.input_queue.qsize()}, out_q: {self.output_queue.qsize()}, "
-                        f"processed: {self.messages_processed}, active_tasks: {len(self._active_tasks)}"
-                    )
+                # Collect messages up to max_concurrent_tasks
+                batch = []
+                for _ in range(self.max_concurrent_tasks):
+                    try:
+                        priority, message = await asyncio.wait_for(self.input_queue.get(), timeout=0.1)
+                        batch.append((priority, message))
+                    except asyncio.TimeoutError:
+                        break  # No more messages, process what we have
                 
-                try:
-                    # Clean up completed tasks
-                    await self._cleanup_completed_tasks()
-                    
-                    # Check if we can accept more tasks
-                    if len(self._active_tasks) < self.max_concurrent_tasks:
-                        # Get a message and start processing concurrently
+                if not batch:
+                    await asyncio.sleep(0.01)  # No messages, wait a bit
+                    continue
+                
+                self.logger.debug(f"Processing batch of {len(batch)} messages (max_concurrent={self.max_concurrent_tasks})")
+                
+                # Process all messages in batch concurrently
+                tasks = []
+                results = [None] * len(batch)
+                
+                for i, (priority, message) in enumerate(batch):
+                    task = asyncio.create_task(self._process_message_for_batch(i, message, priority, results))
+                    tasks.append(task)
+                
+                # Update max concurrent reached metric
+                if len(tasks) > self.max_concurrent_reached:
+                    self.max_concurrent_reached = len(tasks)
+                
+                # Wait for all to complete using gather
+                await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Add all results to output queue in order
+                for result in results:
+                    if result is not None:
                         try:
-                            priority, message = await asyncio.wait_for(self.input_queue.get(), timeout=1.0)
-                            # Start concurrent processing task
-                            task = asyncio.create_task(self._process_single_message(message, priority))
-                            self._active_tasks.add(task)
-                            self.concurrent_tasks_count += 1
-                            
-                            # Update max concurrent reached metric
-                            if len(self._active_tasks) > self.max_concurrent_reached:
-                                self.max_concurrent_reached = len(self._active_tasks)
-                            
-                            retry_delay = 1.0
-                            consecutive_errors = 0
-                            
-                        except asyncio.TimeoutError:
-                            # No message available, continue loop
-                            pass
-                    else:
-                        # Wait a bit when at max capacity
-                        await asyncio.sleep(0.1)
-                    
-                except Exception as exc:
-                    self.logger.error(
-                        f"Error in post-processing worker {self.worker_id}: {str(exc)}"
-                    )
-                    consecutive_errors += 1
-            
+                            priority, final_message = result
+                            await self.output_queue.put((priority, final_message))
+                            self.messages_output += 1
+                        except Exception as exc:
+                            self.messages_dropped_output += 1
+                            self.logger.error(f"Failed to add result to queue: {str(exc)}")
+                
+                self.logger.debug(f"Added batch of {len([r for r in results if r is not None])} results to queue in order")
+                
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                consecutive_errors += 1
-                self.logger.error(
-                    f"Error in post-processing loop for worker {self.worker_id} (error #{consecutive_errors}): {str(exc)}"
-                )
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 1.5, max_retry_delay)
-                
-                # If too many consecutive errors, pause longer
-                if consecutive_errors >= 5:
-                    self.logger.error(f"Too many consecutive errors in post-processing worker {self.worker_id}, pausing...")
-                    await asyncio.sleep(max_retry_delay)
-                    consecutive_errors = 0
+                self.logger.error(f"Error in processing loop: {str(exc)}")
+                await asyncio.sleep(1.0)
         
         self.logger.debug(f"Processing loop ended for post-processing worker {self.worker_id}")
     
-    async def _cleanup_completed_tasks(self) -> None:
-        """Clean up completed processing tasks."""
-        if not self._active_tasks:
-            return
-        
-        # Get completed tasks
-        completed_tasks = [task for task in self._active_tasks if task.done()]
-        
-        # Remove completed tasks
-        for task in completed_tasks:
-            self._active_tasks.discard(task)
-            
-            # Check for exceptions in completed tasks
-            if not task.cancelled():
-                try:
-                    task.result()  # This will raise any exception that occurred
-                except Exception as exc:
-                    self.logger.error(f"Exception in completed post-processing task: {str(exc)}")
+
     
-    async def _process_single_message(self, message: Dict[str, Any], priority: int) -> None:
-        """Process a single inference result message."""
+    async def _process_message_for_batch(self, index: int, message: Dict[str, Any], priority: int, results: list) -> None:
+        """Process a single message and store result in the correct position."""
         try:
-            task_id = f"task_{uuid.uuid4().hex[:8]}"
-            self.logger.debug(
-                f"Processing single message key={message.get('message_key')} in task {task_id}"
-            )
-            
             start_time = asyncio.get_event_loop().time()
             
             # Extract necessary data from the inference result message
@@ -224,8 +170,9 @@ class PostProcessingWorker:
             camera_info = message.get("camera_info")
             
             if model_result is None:
-                self.logger.warning(f"No model result found in message for key={stream_key}")
+                self.logger.warning(f"No model result found for key={stream_key}")
                 self.messages_failed += 1
+                results[index] = None
                 return
             
             # Apply post-processing
@@ -249,35 +196,22 @@ class PostProcessingWorker:
                 message, processed_result, post_processing_result, processing_time
             )
             
-            # Add to output queue
-            try:
-                await self.output_queue.put((priority, final_message))
-                self.messages_output += 1
-                self.logger.debug(
-                    f"Emitted post-processed result for key={stream_key} task={task_id} out_q={self.output_queue.qsize()}"
-                )
-            except asyncio.QueueFull:
-                self.messages_dropped_output += 1
-                self.logger.warning(f"Dropped post-processed result from worker {self.worker_id} - output queue full")
-            except Exception as put_exc:
-                self.messages_dropped_output += 1
-                self.logger.error(f"Failed to put post-processed result to output queue in worker {self.worker_id}: {str(put_exc)}")
+            # Store result in correct position
+            results[index] = (priority, final_message)
             
             # Update metrics
             self.total_processing_time += processing_time
             self.messages_processed += 1
             self.last_processing_time = datetime.now(timezone.utc)
             
-            self.logger.debug(
-                f"Post-processing done key={stream_key} task={task_id} time_ms={int(processing_time*1000)}"
-            )
-            
         except asyncio.TimeoutError:
-            self.logger.error(f"Post-processing timeout in task {task_id}")
+            self.logger.error(f"Post-processing timeout for key={message.get('message_key')}")
             self.messages_failed += 1
+            results[index] = None
         except Exception as exc:
-            self.logger.error(f"Post-processing error in task {task_id}: {str(exc)}")
+            self.logger.error(f"Post-processing error for key={message.get('message_key')}: {str(exc)}")
             self.messages_failed += 1
+            results[index] = None
     
     def _create_final_result_message(
         self,
@@ -321,6 +255,7 @@ class PostProcessingWorker:
             "input_stream": inference_message.get("input_stream"),
             "input_hash": inference_message.get("input_hash"),
             "camera_info": inference_message.get("camera_info"),
+            "stream_info": inference_message.get("stream_info"),
             "model_result": processed_result,
             "post_processing_result": post_processing_result,
             "inference_timestamp": inference_message.get("inference_timestamp"),
@@ -330,6 +265,7 @@ class PostProcessingWorker:
             "original_timestamp": inference_message.get("original_timestamp"),
             "consumer_worker_id": inference_message.get("consumer_worker_id"),
             "video_chunk_info": inference_message.get("video_chunk_info"),
+            "global_counter": self.global_counter,
             # Add timing data for latency tracking
             "inference_timing": inference_timing,
             "post_processing_timing": post_processing_timing,
@@ -354,11 +290,10 @@ class PostProcessingWorker:
             "last_processing_time": self.last_processing_time.isoformat() if self.last_processing_time else None,
             "input_queue_size": self.input_queue.qsize(),
             "output_queue_size": self.output_queue.qsize(),
-            "active_tasks": len(self._active_tasks),
             "max_concurrent_tasks": self.max_concurrent_tasks,
             "max_concurrent_reached": self.max_concurrent_reached,
             "concurrent_tasks_count": self.concurrent_tasks_count,
-            "processing_mode": "concurrent",
+            "processing_mode": "dynamic_batch_gather",
         }
     
     def reset_metrics(self) -> None:

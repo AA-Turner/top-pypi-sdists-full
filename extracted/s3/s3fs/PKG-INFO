@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: s3fs
-Version: 2025.7.0
+Version: 2025.9.0
 Summary: Convenient Filesystem interface over S3
 Home-page: http://github.com/fsspec/s3fs/
 Maintainer: Martin Durant
@@ -20,7 +20,7 @@ Requires-Python: >= 3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: aiobotocore<3.0.0,>=2.5.4
-Requires-Dist: fsspec==2025.7.0
+Requires-Dist: fsspec==2025.9.0
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1
 Provides-Extra: awscli
 Requires-Dist: aiobotocore[awscli]<3.0.0,>=2.5.4; extra == "awscli"

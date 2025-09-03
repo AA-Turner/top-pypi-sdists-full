@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyDOE3
-Version: 1.2.0
+Version: 1.3.0
 Summary: Design of experiments for Python
 Project-URL: source, https://github.com/relf/pyDOE3
 Author-email: Rémi Lafage <remi.lafage@onera.fr>
@@ -13,10 +13,10 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Education
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
@@ -37,12 +37,8 @@ pyDOE3: An experimental design package for python
 [![DOI](https://zenodo.org/badge/709347557.svg)](https://zenodo.org/doi/10.5281/zenodo.10958492)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-`pyDOE3` is a fork of the [`pyDOE2`](https://github.com/clicumu/pyDOE2) package
-that is designed to help the scientist, engineer, statistician, etc., to
+This package is designed to help the scientist, engineer, statistician, etc., to
 construct appropriate experimental designs.
-
-This fork came to life to solve bugs and issues that remained unsolved in the
-original package.
 
 Capabilities
 ------------
@@ -50,21 +46,32 @@ Capabilities
 The package currently includes functions for creating designs for any
 number of factors:
 
-- Factorial Designs
+- **Factorial Designs**
   - General Full-Factorial (``fullfact``)
   - 2-level Full-Factorial (``ff2n``)
   - 2-level Fractional Factorial (``fracfact``)
   - Plackett-Burman (``pbdesign``)
   - Generalized Subset Designs (``gsd``)
-- Response-Surface Designs
+
+- **Response-Surface Designs**
   - Box-Behnken (``bbdesign``)
   - Central-Composite (``ccdesign``)
   - Doehlert Design (``doehlert_shell_design``, ``doehlert_simplex_design``)
-- Randomized Designs
+
+- **Randomized Designs**
   - Latin-Hypercube (``lhs``)
-- Taguchi Designs
+
+- **Low-Discrepancy Sequences**
+  - Sukharev Grid (``sukharev_grid``)
+
+- **Taguchi Designs**
   - Orthogonal arrays and robust design utilities (``taguchi_design``, ``compute_snr``)
-  
+
+- **Optimal Designs**
+  - Advanced optimal design algorithms (``optimal_design``)
+  - Optimality criteria (``A``, ``C``, ``D``, ``E``, ``G``, ``I``, ``S``, ``T``, ``V``)
+  - Search algorithms (``Sequential (Dykstra)``, ``Simple Exchange (Wynn-Mitchell)``, ``Fedorov``, ``Modified Fedorov``, ``DETMAX``)
+
 See [Documentation](https://pydoe3.readthedocs.io).
 
 Installation
@@ -94,6 +101,10 @@ The following individuals forked `pyDOE` and worked on `pyDOE2`:
 
 - Copyright (C) 2018, Rickard Sjögren and Daniel Svensson
 
+`pyDOE3` is a fork of the [`pyDOE2`](https://github.com/clicumu/pyDOE2). 
+It came to life to solve bugs and issues that remained unsolved in the
+`pyDOE2` package.
+
 License
 -------
 
@@ -110,3 +121,4 @@ References
 - [Latin-Hypercube designs](http://en.wikipedia.org/wiki/Latin_hypercube_sampling)
 - [Taguchi designs](http://en.wikipedia.org/wiki/Taguchi_methods)
 - [Generalized Subset Designs](https://doi.org/10.1021/acs.analchem.7b00506)
+- [Optimal experimental design](https://en.wikipedia.org/wiki/Optimal_experimental_design)

@@ -301,7 +301,7 @@ def _values_to_search(**kwargs) -> dict:
     return search
 
 
-def _time_to_search_dims(time_range):
+def _time_to_search_dims(time_range) -> Range:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         tr_start, tr_end = time_range, time_range
@@ -427,6 +427,7 @@ def _normalise_geobox(
         "and support will be removed in a future release.\n"
         "Now converting to an odc.geo GeoBox.",
         ODC2DeprecationWarning,
+        stacklevel=3,
     )
     crs = None if gbox.crs is None else gbox.crs._str
     return GeoBox(shape=gbox.shape, affine=gbox.affine, crs=crs)

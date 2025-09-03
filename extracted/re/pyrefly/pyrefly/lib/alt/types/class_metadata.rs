@@ -25,6 +25,7 @@ use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::class::class_field::ClassField;
+use crate::alt::types::pydantic::PydanticModelKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -55,7 +56,7 @@ pub struct ClassMetadata {
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
     dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-    is_pydantic_model: bool,
+    pydantic_model_kind: Option<PydanticModelKind>,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -87,7 +88,7 @@ impl ClassMetadata {
         is_final: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-        is_pydantic_model: bool,
+        pydantic_model_kind: Option<PydanticModelKind>,
     ) -> ClassMetadata {
         ClassMetadata {
             metaclass: Metaclass(metaclass),
@@ -104,7 +105,7 @@ impl ClassMetadata {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            is_pydantic_model,
+            pydantic_model_kind,
         }
     }
 
@@ -124,7 +125,7 @@ impl ClassMetadata {
             is_final: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
-            is_pydantic_model: false,
+            pydantic_model_kind: None,
         }
     }
 
@@ -141,8 +142,12 @@ impl ClassMetadata {
         self.typed_dict_metadata.is_some()
     }
 
-    pub fn is_pydantic_model(&self) -> bool {
-        self.is_pydantic_model
+    pub fn is_pydantic_base_model(&self) -> bool {
+        self.pydantic_model_kind.is_some()
+    }
+
+    pub fn pydantic_model_kind(&self) -> Option<PydanticModelKind> {
+        self.pydantic_model_kind.clone()
     }
 
     pub fn is_final(&self) -> bool {

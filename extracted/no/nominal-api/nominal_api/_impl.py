@@ -28475,10 +28475,17 @@ class scout_chartdefinition_api_FrequencyPlotTypeFft(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow])
         }
 
-    __slots__: List[str] = []
+    __slots__: List[str] = ['_window']
 
+    def __init__(self, window: Optional["scout_compute_api_FftWindow"] = None) -> None:
+        self._window = window
+
+    @builtins.property
+    def window(self) -> Optional["scout_compute_api_FftWindow"]:
+        return self._window
 
 
 scout_chartdefinition_api_FrequencyPlotTypeFft.__name__ = "FrequencyPlotTypeFft"
@@ -40400,6 +40407,46 @@ scout_compute_api_AggregateNumericSeries.__qualname__ = "AggregateNumericSeries"
 scout_compute_api_AggregateNumericSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_AggregateUnderRangesSeries(ConjureBeanType):
+    """Aggregates the input series under the ranges in the provided ranges series, and outputs a new series with one 
+point at the start of each range, where the value is the aggregation result. If a range has no points, no 
+point will be produced for it. If a range has no start, the point produced for it will be at the
+start of the compute request range.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'ranges': ConjureFieldDefinition('ranges', scout_compute_api_RangeSeries),
+            'operation': ConjureFieldDefinition('operation', scout_compute_api_NumericAggregationFunction)
+        }
+
+    __slots__: List[str] = ['_input', '_ranges', '_operation']
+
+    def __init__(self, input: "scout_compute_api_NumericSeries", operation: "scout_compute_api_NumericAggregationFunction", ranges: "scout_compute_api_RangeSeries") -> None:
+        self._input = input
+        self._ranges = ranges
+        self._operation = operation
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def ranges(self) -> "scout_compute_api_RangeSeries":
+        return self._ranges
+
+    @builtins.property
+    def operation(self) -> "scout_compute_api_NumericAggregationFunction":
+        return self._operation
+
+
+scout_compute_api_AggregateUnderRangesSeries.__name__ = "AggregateUnderRangesSeries"
+scout_compute_api_AggregateUnderRangesSeries.__qualname__ = "AggregateUnderRangesSeries"
+scout_compute_api_AggregateUnderRangesSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_AllowNegativeValues(ConjureBeanType):
 
     @builtins.classmethod
@@ -44460,7 +44507,7 @@ scout_compute_api_Context.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Count(ConjureBeanType):
-    """The number of points inside the time window
+    """The number of points inside the time window.
     """
 
     @builtins.classmethod
@@ -49478,6 +49525,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _approximate_filter: Optional["scout_compute_api_NumericApproximateFilterSeries"] = None
     _select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None
     _select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None
+    _aggregate_under_ranges: Optional["scout_compute_api_AggregateUnderRangesSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -49515,7 +49563,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'threshold_filter': ConjureFieldDefinition('thresholdFilter', scout_compute_api_NumericThresholdFilterSeries),
             'approximate_filter': ConjureFieldDefinition('approximateFilter', scout_compute_api_NumericApproximateFilterSeries),
             'select1d_array_index': ConjureFieldDefinition('select1dArrayIndex', scout_compute_api_SelectIndexFrom1dNumericArraySeries),
-            'select_newest_points': ConjureFieldDefinition('selectNewestPoints', scout_compute_api_SelectNewestPointsSeries)
+            'select_newest_points': ConjureFieldDefinition('selectNewestPoints', scout_compute_api_SelectNewestPointsSeries),
+            'aggregate_under_ranges': ConjureFieldDefinition('aggregateUnderRanges', scout_compute_api_AggregateUnderRangesSeries)
         }
 
     def __init__(
@@ -49554,10 +49603,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             approximate_filter: Optional["scout_compute_api_NumericApproximateFilterSeries"] = None,
             select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None,
             select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None,
+            aggregate_under_ranges: Optional["scout_compute_api_AggregateUnderRangesSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -49662,6 +49712,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if select_newest_points is not None:
                 self._select_newest_points = select_newest_points
                 self._type = 'selectNewestPoints'
+            if aggregate_under_ranges is not None:
+                self._aggregate_under_ranges = aggregate_under_ranges
+                self._type = 'aggregateUnderRanges'
 
         elif type_of_union == 'aggregate':
             if aggregate is None:
@@ -49833,6 +49886,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._select_newest_points = select_newest_points
             self._type = 'selectNewestPoints'
+        elif type_of_union == 'aggregateUnderRanges':
+            if aggregate_under_ranges is None:
+                raise ValueError('a union value must not be None')
+            self._aggregate_under_ranges = aggregate_under_ranges
+            self._type = 'aggregateUnderRanges'
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
@@ -49970,6 +50028,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     def select_newest_points(self) -> Optional["scout_compute_api_SelectNewestPointsSeries"]:
         return self._select_newest_points
 
+    @builtins.property
+    def aggregate_under_ranges(self) -> Optional["scout_compute_api_AggregateUnderRangesSeries"]:
+        return self._aggregate_under_ranges
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_NumericSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_NumericSeriesVisitor'.format(visitor.__class__.__name__))
@@ -50041,6 +50103,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._select1d_array_index(self.select1d_array_index)
         if self._type == 'selectNewestPoints' and self.select_newest_points is not None:
             return visitor._select_newest_points(self.select_newest_points)
+        if self._type == 'aggregateUnderRanges' and self.aggregate_under_ranges is not None:
+            return visitor._aggregate_under_ranges(self.aggregate_under_ranges)
 
 
 scout_compute_api_NumericSeries.__name__ = "NumericSeries"
@@ -50184,6 +50248,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _select_newest_points(self, select_newest_points: "scout_compute_api_SelectNewestPointsSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _aggregate_under_ranges(self, aggregate_under_ranges: "scout_compute_api_AggregateUnderRangesSeries") -> Any:
         pass
 
 
@@ -51391,6 +51459,8 @@ scout_compute_api_Range.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RangeAggregation(ConjureBeanType):
+    """An aggregation value representing combined aggregation metrics for data over a range.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -51399,17 +51469,19 @@ class scout_compute_api_RangeAggregation(ConjureBeanType):
             'min': ConjureFieldDefinition('min', float),
             'max': ConjureFieldDefinition('max', float),
             'standard_deviation': ConjureFieldDefinition('standardDeviation', float),
-            'count': ConjureFieldDefinition('count', float)
+            'count': ConjureFieldDefinition('count', float),
+            'sum': ConjureFieldDefinition('sum', float)
         }
 
-    __slots__: List[str] = ['_average', '_min', '_max', '_standard_deviation', '_count']
+    __slots__: List[str] = ['_average', '_min', '_max', '_standard_deviation', '_count', '_sum']
 
-    def __init__(self, average: float, count: float, max: float, min: float, standard_deviation: float) -> None:
+    def __init__(self, average: float, count: float, max: float, min: float, standard_deviation: float, sum: float) -> None:
         self._average = average
         self._min = min
         self._max = max
         self._standard_deviation = standard_deviation
         self._count = count
+        self._sum = sum
 
     @builtins.property
     def average(self) -> float:
@@ -51431,6 +51503,10 @@ class scout_compute_api_RangeAggregation(ConjureBeanType):
     def count(self) -> float:
         return self._count
 
+    @builtins.property
+    def sum(self) -> float:
+        return self._sum
+
 
 scout_compute_api_RangeAggregation.__name__ = "RangeAggregation"
 scout_compute_api_RangeAggregation.__qualname__ = "RangeAggregation"
@@ -51438,6 +51514,7 @@ scout_compute_api_RangeAggregation.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
+    _sum: Optional["scout_compute_api_Summation"] = None
     _average: Optional["scout_compute_api_Average"] = None
     _min: Optional["scout_compute_api_Minimum"] = None
     _max: Optional["scout_compute_api_Maximum"] = None
@@ -51448,6 +51525,7 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'sum': ConjureFieldDefinition('sum', scout_compute_api_Summation),
             'average': ConjureFieldDefinition('average', scout_compute_api_Average),
             'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
             'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
@@ -51458,6 +51536,7 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
 
     def __init__(
             self,
+            sum: Optional["scout_compute_api_Summation"] = None,
             average: Optional["scout_compute_api_Average"] = None,
             min: Optional["scout_compute_api_Minimum"] = None,
             max: Optional["scout_compute_api_Maximum"] = None,
@@ -51467,9 +51546,12 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (average is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (count is not None) + (all is not None) != 1:
+            if (sum is not None) + (average is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (count is not None) + (all is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if sum is not None:
+                self._sum = sum
+                self._type = 'sum'
             if average is not None:
                 self._average = average
                 self._type = 'average'
@@ -51489,6 +51571,11 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
                 self._all = all
                 self._type = 'all'
 
+        elif type_of_union == 'sum':
+            if sum is None:
+                raise ValueError('a union value must not be None')
+            self._sum = sum
+            self._type = 'sum'
         elif type_of_union == 'average':
             if average is None:
                 raise ValueError('a union value must not be None')
@@ -51521,6 +51608,10 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             self._type = 'all'
 
     @builtins.property
+    def sum(self) -> Optional["scout_compute_api_Summation"]:
+        return self._sum
+
+    @builtins.property
     def average(self) -> Optional["scout_compute_api_Average"]:
         return self._average
 
@@ -51547,6 +51638,8 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_RangeAggregationOperationVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_RangeAggregationOperationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'sum' and self.sum is not None:
+            return visitor._sum(self.sum)
         if self._type == 'average' and self.average is not None:
             return visitor._average(self.average)
         if self._type == 'min' and self.min is not None:
@@ -51567,6 +51660,10 @@ scout_compute_api_RangeAggregationOperation.__module__ = "nominal_api.scout_comp
 
 
 class scout_compute_api_RangeAggregationOperationVisitor:
+
+    @abstractmethod
+    def _sum(self, sum: "scout_compute_api_Summation") -> Any:
+        pass
 
     @abstractmethod
     def _average(self, average: "scout_compute_api_Average") -> Any:
@@ -52134,6 +52231,11 @@ scout_compute_api_RangeSummary.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RangeValue(ConjureUnionType):
+    """A value attached to a range. If there are no relevant data points in the range, this will be noPointsInRange
+for the range; otherwise, an Aggregation will be returned if this is produced by getting multiple aggregation
+values over a range (i.e. aggregating for all metrics over a range), and will be a double otherwise for
+singular values (i.e. aggregating for just the sum of data values over a range).
+    """
     _double: Optional[float] = None
     _aggregation: Optional["scout_compute_api_RangeAggregation"] = None
     _no_points_in_range: Optional["api_Empty"] = None
@@ -54265,6 +54367,24 @@ Picoseconds for picosecond-granularity dataset, nanoseconds otherwise.
 scout_compute_api_SummarizeSeries.__name__ = "SummarizeSeries"
 scout_compute_api_SummarizeSeries.__qualname__ = "SummarizeSeries"
 scout_compute_api_SummarizeSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Summation(ConjureBeanType):
+    """The sum of points inside the time window.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_compute_api_Summation.__name__ = "Summation"
+scout_compute_api_Summation.__qualname__ = "Summation"
+scout_compute_api_Summation.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_TagFilter(ConjureBeanType):
@@ -60563,6 +60683,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None
     _absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None
     _newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None
+    _ranges_numeric_aggregation_to_numeric: Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -60597,7 +60718,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'threshold_filter': ConjureFieldDefinition('thresholdFilter', scout_compute_resolved_api_NumericThresholdFilterSeriesNode),
             'array_select': ConjureFieldDefinition('arraySelect', scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode),
             'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_resolved_api_AbsoluteTimestampSeriesNode),
-            'newest_points': ConjureFieldDefinition('newestPoints', scout_compute_resolved_api_SelectNewestPointsSeriesNode)
+            'newest_points': ConjureFieldDefinition('newestPoints', scout_compute_resolved_api_SelectNewestPointsSeriesNode),
+            'ranges_numeric_aggregation_to_numeric': ConjureFieldDefinition('rangesNumericAggregationToNumeric', scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode)
         }
 
     def __init__(
@@ -60633,10 +60755,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None,
             absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None,
             newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None,
+            ranges_numeric_aggregation_to_numeric: Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) != 1:
+            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if arithmetic is not None:
@@ -60732,6 +60855,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if newest_points is not None:
                 self._newest_points = newest_points
                 self._type = 'newestPoints'
+            if ranges_numeric_aggregation_to_numeric is not None:
+                self._ranges_numeric_aggregation_to_numeric = ranges_numeric_aggregation_to_numeric
+                self._type = 'rangesNumericAggregationToNumeric'
 
         elif type_of_union == 'arithmetic':
             if arithmetic is None:
@@ -60888,6 +61014,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._newest_points = newest_points
             self._type = 'newestPoints'
+        elif type_of_union == 'rangesNumericAggregationToNumeric':
+            if ranges_numeric_aggregation_to_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._ranges_numeric_aggregation_to_numeric = ranges_numeric_aggregation_to_numeric
+            self._type = 'rangesNumericAggregationToNumeric'
 
     @builtins.property
     def arithmetic(self) -> Optional["scout_compute_resolved_api_ArithmeticSeriesNode"]:
@@ -61013,6 +61144,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def newest_points(self) -> Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"]:
         return self._newest_points
 
+    @builtins.property
+    def ranges_numeric_aggregation_to_numeric(self) -> Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"]:
+        return self._ranges_numeric_aggregation_to_numeric
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -61078,6 +61213,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._absolute_timestamp(self.absolute_timestamp)
         if self._type == 'newestPoints' and self.newest_points is not None:
             return visitor._newest_points(self.newest_points)
+        if self._type == 'rangesNumericAggregationToNumeric' and self.ranges_numeric_aggregation_to_numeric is not None:
+            return visitor._ranges_numeric_aggregation_to_numeric(self.ranges_numeric_aggregation_to_numeric)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -61209,6 +61346,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _newest_points(self, newest_points: "scout_compute_resolved_api_SelectNewestPointsSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _ranges_numeric_aggregation_to_numeric(self, ranges_numeric_aggregation_to_numeric: "scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode") -> Any:
         pass
 
 
@@ -62000,6 +62141,29 @@ class scout_compute_resolved_api_RangesNumericAggregationNode(ConjureBeanType):
 scout_compute_resolved_api_RangesNumericAggregationNode.__name__ = "RangesNumericAggregationNode"
 scout_compute_resolved_api_RangesNumericAggregationNode.__qualname__ = "RangesNumericAggregationNode"
 scout_compute_resolved_api_RangesNumericAggregationNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_RangesNumericAggregationNode)
+        }
+
+    __slots__: List[str] = ['_input']
+
+    def __init__(self, input: "scout_compute_resolved_api_RangesNumericAggregationNode") -> None:
+        self._input = input
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_RangesNumericAggregationNode":
+        return self._input
+
+
+scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode.__name__ = "RangesNumericAggregationToNumericSeriesNode"
+scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode.__qualname__ = "RangesNumericAggregationToNumericSeriesNode"
+scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_RawEnumSeriesNode(ConjureBeanType):

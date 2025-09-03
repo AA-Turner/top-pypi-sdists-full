@@ -17,6 +17,7 @@ Currently supported are:
   * [Start a StepFunctions state machine](#start-a-stepfunctions-state-machine)
   * [Queue a Batch job](#queue-a-batch-job)
   * [Invoke an API Gateway REST API](#invoke-an-api-gateway-rest-api)
+  * [Invoke an AWS API](#invoke-an-aws-api)
   * [Invoke an API Destination](#invoke-an-api-destination)
   * [Invoke an AppSync GraphQL API](#invoke-an-appsync-graphql-api)
   * [Put an event on an EventBridge bus](#put-an-event-on-an-eventbridge-bus)
@@ -337,6 +338,68 @@ import aws_cdk.aws_apigatewayv2 as apigwv2
 
 
 rule.add_target(targets.ApiGatewayV2(http_api))
+```
+
+## Invoke an AWS API
+
+Use the `AwsApi` target to make direct AWS API calls from EventBridge rules. This is useful for invoking AWS services that don't have a dedicated EventBridge target.
+
+### Basic Usage
+
+The following example shows how to update an ECS service when a rule is triggered:
+
+```python
+rule = events.Rule(self, "Rule",
+    schedule=events.Schedule.rate(Duration.hours(1))
+)
+
+rule.add_target(targets.AwsApi(
+    service="ECS",
+    action="updateService",
+    parameters={
+        "service": "my-service",
+        "force_new_deployment": True
+    }
+))
+```
+
+### IAM Permissions
+
+By default, the AwsApi target automatically creates the necessary IAM permissions based on the service and action you specify. The permission format follows the pattern: `service:Action`.
+
+For example:
+
+* `ECS` service with `updateService` action → `ecs:UpdateService` permission
+* `RDS` service with `createDBSnapshot` action → `rds:CreateDBSnapshot` permission
+
+### Custom IAM Policy
+
+In some cases, you may need to provide a custom IAM policy statement, especially when:
+
+* You need to restrict permissions to specific resources (instead of `*`)
+* The service requires additional permissions beyond the main action
+* You want more granular control over the permissions
+
+```python
+import aws_cdk.aws_iam as iam
+import aws_cdk.aws_s3 as s3
+
+# rule: events.Rule
+# bucket: s3.Bucket
+
+
+rule.add_target(targets.AwsApi(
+    service="s3",
+    action="GetBucketEncryption",
+    parameters={
+        "Bucket": bucket.bucket_name
+    },
+    policy_statement=iam.PolicyStatement(
+        effect=iam.Effect.ALLOW,
+        actions=["s3:GetEncryptionConfiguration"],
+        resources=[bucket.bucket_arn]
+    )
+))
 ```
 
 ## Invoke an API Destination
@@ -1143,28 +1206,22 @@ class AwsApi(
 ):
     '''Use an AWS Lambda function that makes API calls as an event rule target.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_events_targets as events_targets
-        from aws_cdk import aws_iam as iam
-        
-        # parameters: Any
-        # policy_statement: iam.PolicyStatement
-        
-        aws_api = events_targets.AwsApi(
-            action="action",
-            service="service",
-        
-            # the properties below are optional
-            api_version="apiVersion",
-            catch_error_pattern="catchErrorPattern",
-            parameters=parameters,
-            policy_statement=policy_statement
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.rate(Duration.hours(1))
         )
+        
+        rule.add_target(targets.AwsApi(
+            service="ECS",
+            action="updateService",
+            parameters={
+                "service": "my-service",
+                "force_new_deployment": True
+            }
+        ))
     '''
 
     def __init__(
@@ -1380,28 +1437,22 @@ class AwsApiProps(AwsApiInput):
         :param parameters: The parameters for the service action. Default: - no parameters
         :param policy_statement: The IAM policy statement to allow the API call. Use only if resource restriction is needed. Default: - extract the permission from the API call
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events_targets as events_targets
-            from aws_cdk import aws_iam as iam
-            
-            # parameters: Any
-            # policy_statement: iam.PolicyStatement
-            
-            aws_api_props = events_targets.AwsApiProps(
-                action="action",
-                service="service",
-            
-                # the properties below are optional
-                api_version="apiVersion",
-                catch_error_pattern="catchErrorPattern",
-                parameters=parameters,
-                policy_statement=policy_statement
+            rule = events.Rule(self, "Rule",
+                schedule=events.Schedule.rate(Duration.hours(1))
             )
+            
+            rule.add_target(targets.AwsApi(
+                service="ECS",
+                action="updateService",
+                parameters={
+                    "service": "my-service",
+                    "force_new_deployment": True
+                }
+            ))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0959cf5a09d52d03f2591de3b911528bd507126b7e2027cd7c4585de25301ad)

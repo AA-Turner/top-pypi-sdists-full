@@ -34,6 +34,7 @@ use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -101,7 +102,6 @@ use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
-use crate::state::handle::Handle;
 use crate::state::load::Load;
 use crate::state::loader::FindError;
 use crate::state::loader::LoaderFindCache;
@@ -370,6 +370,10 @@ impl<'a> Transaction<'a> {
         Errors::new(res)
     }
 
+    pub fn config_finder(&self) -> &ConfigFinder {
+        &self.data.state.config_finder
+    }
+
     pub fn search_exports_exact(&self, name: &str) -> Vec<Handle> {
         self.search_exports_helper(|handle, exports| {
             if let Some(export) = exports.get(&Name::new(name)) {
@@ -380,7 +384,7 @@ impl<'a> Transaction<'a> {
                     // because the original export in from_module will show it.
                     // The current strategy will prevent intended re-exports from showing up in
                     // result list, but it's better than showing thousands of likely bad results.
-                    ExportLocation::OtherModule(_) => Vec::new(),
+                    ExportLocation::OtherModule(..) => Vec::new(),
                 }
             } else {
                 Vec::new()
@@ -396,7 +400,7 @@ impl<'a> Transaction<'a> {
                 let name = name.as_str();
                 if let Some(score) = matcher.fuzzy_match(name, pattern) {
                     match location {
-                        ExportLocation::OtherModule(_) => {}
+                        ExportLocation::OtherModule(..) => {}
                         ExportLocation::ThisModule(export) => {
                             results.push((score, handle.dupe(), name.to_owned(), export.clone()));
                         }

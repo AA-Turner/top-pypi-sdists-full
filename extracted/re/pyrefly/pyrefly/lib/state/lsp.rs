@@ -20,6 +20,7 @@ use lsp_types::SemanticToken;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use lsp_types::TextEdit;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::keywords::get_keywords;
@@ -67,7 +68,6 @@ use crate::config::error_kind::ErrorKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
-use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
@@ -120,6 +120,14 @@ impl Default for InlayHintConfig {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportFormat {
+    #[default]
+    Absolute,
+    Relative,
+}
+
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
@@ -170,6 +178,7 @@ struct NamedBinding {
     key: Key,
 }
 
+#[derive(Debug)]
 enum CalleeKind {
     // Function name
     Function(Identifier),
@@ -178,6 +187,7 @@ enum CalleeKind {
     Unknown,
 }
 
+#[derive(Debug)]
 enum PatternMatchParameterKind {
     // Name defined using `as`
     // ex: `x` in `case ... as x: ...`, or `x` in `case x: ...`
@@ -193,6 +203,7 @@ enum PatternMatchParameterKind {
     RestName,
 }
 
+#[derive(Debug)]
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr(ExprContext),
@@ -256,6 +267,7 @@ enum IdentifierContext {
     PatternMatch(PatternMatchParameterKind),
 }
 
+#[derive(Debug)]
 struct IdentifierWithContext {
     identifier: Identifier,
     context: IdentifierContext,
@@ -442,6 +454,7 @@ pub struct FindDefinitionItemWithDocstring {
     pub docstring_range: Option<TextRange>,
 }
 
+#[derive(Debug)]
 pub struct FindDefinitionItem {
     pub metadata: DefinitionMetadata,
     pub definition_range: TextRange,
@@ -764,12 +777,20 @@ impl<'a> Transaction<'a> {
                 None
             }
             Some(IdentifierWithContext {
-                identifier: _,
-                context: IdentifierContext::KeywordArgument(_),
-            }) => {
-                // Keyword argument doesn't have a type by itself
-                None
-            }
+                identifier,
+                context: IdentifierContext::KeywordArgument(callee_kind),
+            }) => self
+                .find_definition_for_keyword_argument(
+                    handle,
+                    &identifier,
+                    &callee_kind,
+                    &FindPreference::default(),
+                )
+                .first()
+                .and_then(|item| {
+                    self.definition_at(handle, item.definition_range.start())
+                        .and_then(|key| self.get_type(handle, &key))
+                }),
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::Attribute { range, .. },
@@ -919,6 +940,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
         let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
+        let mut name = name;
         while !gas.stop() {
             let handle = match preference.prefer_pyi {
                 true => self.import_handle(handle, m, None).ok()?,
@@ -928,7 +950,12 @@ impl<'a> Transaction<'a> {
                 Some(ExportLocation::ThisModule(export)) => {
                     return Some((handle.clone(), export.clone()));
                 }
-                Some(ExportLocation::OtherModule(module)) => m = *module,
+                Some(ExportLocation::OtherModule(module, aliased_name)) => {
+                    if let Some(aliased_name) = aliased_name {
+                        name = aliased_name.clone();
+                    }
+                    m = *module;
+                }
                 None => return None,
             }
         }
@@ -1404,15 +1431,24 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn goto_definition(&self, handle: &Handle, position: TextSize) -> Vec<TextRangeWithModule> {
-        self.find_definition(
+        let mut definitions = self.find_definition(
             handle,
             position,
             &FindPreference {
                 prefer_pyi: false,
                 ..Default::default()
             },
-        )
-        .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+        );
+        // Add pyi definitions if we haven't found any py definition
+        if definitions.is_empty() {
+            definitions.append(&mut self.find_definition(
+                handle,
+                position,
+                &FindPreference::default(),
+            ));
+        }
+
+        definitions.into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
     pub fn goto_type_definition(
@@ -1450,6 +1486,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         range: TextRange,
+        import_format: ImportFormat,
     ) -> Option<Vec<(String, Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
@@ -1462,8 +1499,14 @@ impl<'a> Transaction<'a> {
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
                         for handle_to_import_from in self.search_exports_exact(unknown_name) {
-                            let (position, insert_text) =
-                                insert_import_edit(&ast, handle_to_import_from, unknown_name);
+                            let (position, insert_text) = insert_import_edit(
+                                &ast,
+                                self.config_finder(),
+                                handle.dupe(),
+                                handle_to_import_from,
+                                unknown_name,
+                                import_format,
+                            );
                             let range = TextRange::at(position, TextSize::new(0));
                             let title = format!("Insert import: `{}`", insert_text.trim());
                             code_actions.push((title, module_info.dupe(), range, insert_text));
@@ -1741,7 +1784,7 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let kind = match location {
-                    ExportLocation::OtherModule(_) => continue,
+                    ExportLocation::OtherModule(..) => continue,
                     ExportLocation::ThisModule(export) => export
                         .symbol_kind
                         .map_or(Some(CompletionItemKind::VARIABLE), |k| {
@@ -1763,6 +1806,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         identifier: &Identifier,
         completions: &mut Vec<CompletionItem>,
+        import_format: ImportFormat,
     ) {
         // Auto-import can be slow. Let's only return results if there are no local
         // results for now. TODO: re-enable it once we no longer have perf issues.
@@ -1782,8 +1826,14 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let (insert_text, additional_text_edits) = {
-                    let (position, insert_text) =
-                        insert_import_edit(&ast, handle_to_import_from, &name);
+                    let (position, insert_text) = insert_import_edit(
+                        &ast,
+                        self.config_finder(),
+                        handle.dupe(),
+                        handle_to_import_from,
+                        &name,
+                        import_format,
+                    );
                     let import_text_edit = TextEdit {
                         range: module_info
                             .lined_buffer()
@@ -1864,8 +1914,13 @@ impl<'a> Transaction<'a> {
             });
     }
 
-    pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
-        let mut results = self.completion_unsorted_opt(handle, position);
+    pub fn completion(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        import_format: ImportFormat,
+    ) -> Vec<CompletionItem> {
+        let mut results = self.completion_unsorted_opt(handle, position, import_format);
         for item in &mut results {
             let sort_text = if item.additional_text_edits.is_some() {
                 "3"
@@ -1890,16 +1945,29 @@ impl<'a> Transaction<'a> {
         results
     }
 
-    fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
+    fn completion_unsorted_opt(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        import_format: ImportFormat,
+    ) -> Vec<CompletionItem> {
         let mut result = Vec::new();
-
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
-                identifier: _,
+                identifier,
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 if let Ok(handle) = self.import_handle(handle, module_name, None) {
+                    // Because of parser error recovery, `from x impo...` looks like `from x import impo...`
+                    // If the user might be typing the `import` keyword, add that as an autocomplete option.
+                    if "import".starts_with(identifier.as_str()) {
+                        result.push(CompletionItem {
+                            label: "import".to_owned(),
+                            kind: Some(CompletionItemKind::KEYWORD),
+                            ..Default::default()
+                        })
+                    }
                     let exports = self.get_exports(&handle);
                     for name in exports.keys() {
                         result.push(CompletionItem {
@@ -1965,7 +2033,12 @@ impl<'a> Transaction<'a> {
                     position,
                     &mut result,
                 ) {
-                    self.add_autoimport_completions(handle, &identifier, &mut result);
+                    self.add_autoimport_completions(
+                        handle,
+                        &identifier,
+                        &mut result,
+                        import_format,
+                    );
                 }
                 self.add_builtins_autoimport_completions(handle, Some(&identifier), &mut result);
             }
@@ -2226,9 +2299,28 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         inlay_hint_config: InlayHintConfig,
     ) -> Option<Vec<(TextSize, String)>> {
-        let is_interesting_type = |x: &Type| !x.is_error();
-        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
-
+        let is_interesting = |e: &Expr, ty: &Type, class_name: Option<&Name>| {
+            !ty.is_error()
+                && match e {
+                    Expr::Tuple(tuple) => {
+                        !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
+                    }
+                    Expr::Call(ExprCall { func, .. }) => {
+                        if let Expr::Name(name) = &**func
+                            && let Some(class_name) = class_name
+                        {
+                            *name.id() != *class_name
+                        } else if let Expr::Attribute(attr) = &**func
+                            && let Some(class_name) = class_name
+                        {
+                            *attr.attr.id() != *class_name
+                        } else {
+                            true
+                        }
+                    }
+                    _ => !Ast::is_literal(e),
+                }
+        };
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
         for idx in bindings.keys::<Key>() {
@@ -2238,10 +2330,18 @@ impl<'a> Transaction<'a> {
                         match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
                             Binding::Function(x, _pred, _class_meta) => {
                                 if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
-                                    && let Some(ty) = self.get_type(handle, key)
-                                    && is_interesting_type(&ty)
+                                    && let Some(mut ty) = self.get_type(handle, key)
+                                    && !ty.is_error()
                                 {
                                     let fun = bindings.get(bindings.get(*x).undecorated_idx);
+                                    if fun.def.is_async
+                                        && let Some(Some((_, _, return_ty))) = self
+                                            .ad_hoc_solve(handle, |solver| {
+                                                solver.unwrap_coroutine(&ty)
+                                            })
+                                    {
+                                        ty = return_ty;
+                                    }
                                     res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
                                 }
                             }
@@ -2258,9 +2358,18 @@ impl<'a> Transaction<'a> {
                         Binding::Expr(None, e) => Some(e),
                         _ => None,
                     };
+                    // If the inferred type is a class type w/ no type arguments and the
+                    // RHS is a call to a function that's the same name as the inferred class,
+                    // we assume it's a constructor and do not display an inlay hint
+                    let class_name = if let Type::ClassType(cls) = &ty
+                        && cls.targs().is_empty()
+                    {
+                        Some(cls.name())
+                    } else {
+                        None
+                    };
                     if let Some(e) = e
-                        && is_interesting_expr(e)
-                        && is_interesting_type(&ty)
+                        && is_interesting(e, &ty, class_name)
                     {
                         let ty = format!(": {ty}");
                         res.push((key.range().end(), ty));

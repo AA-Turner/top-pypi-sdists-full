@@ -29,6 +29,7 @@ from langgraph_runtime_inmem.checkpoint import Checkpointer
 from langgraph_runtime_inmem.database import InMemConnectionProto, connect
 from langgraph_runtime_inmem.inmem_stream import (
     THREADLESS_KEY,
+    ContextQueue,
     Message,
     get_stream_manager,
 )
@@ -58,6 +59,7 @@ if typing.TYPE_CHECKING:
         Thread,
         ThreadSelectField,
         ThreadStatus,
+        ThreadStreamMode,
         ThreadUpdateResponse,
     )
     from langgraph_api.schema import Interrupt as InterruptSchema
@@ -738,6 +740,7 @@ class Threads(Authenticated):
     async def search(
         conn: InMemConnectionProto,
         *,
+        ids: list[str] | list[UUID] | None = None,
         metadata: MetadataInput,
         values: MetadataInput,
         status: ThreadStatus | None,
@@ -765,7 +768,19 @@ class Threads(Authenticated):
         )
 
         # Apply filters
+        id_set: set[UUID] | None = None
+        if ids:
+            id_set = set()
+            for i in ids:
+                try:
+                    id_set.add(_ensure_uuid(i))
+                except Exception:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid thread ID " + str(i)
+                    ) from None
         for thread in threads:
+            if id_set is not None and thread.get("thread_id") not in id_set:
+                continue
             if filters and not _check_filter_match(thread["metadata"], filters):
                 continue
 
@@ -1327,7 +1342,14 @@ class Threads(Authenticated):
                 )
 
             metadata = thread.get("metadata", {})
-            thread_config = thread.get("config", {})
+            thread_config = cast(dict[str, Any], thread.get("config", {}))
+            thread_config = {
+                **thread_config,
+                "configurable": {
+                    **thread_config.get("configurable", {}),
+                    **config.get("configurable", {}),
+                },
+            }
 
             # Fallback to graph_id from run if not in thread metadata
             graph_id = metadata.get("graph_id")
@@ -1414,6 +1436,13 @@ class Threads(Authenticated):
                     status_code=409,
                     detail=f"Thread {thread_id} has in-flight runs: {pending_runs}",
                 )
+            thread_config = {
+                **thread_config,
+                "configurable": {
+                    **thread_config.get("configurable", {}),
+                    **config.get("configurable", {}),
+                },
+            }
 
             # Fallback to graph_id from run if not in thread metadata
             graph_id = metadata.get("graph_id")
@@ -1453,6 +1482,19 @@ class Threads(Authenticated):
                         if thread["thread_id"] == thread_id:
                             thread["values"] = state.values
                             break
+
+                    # Publish state update event
+                    from langgraph_api.serde import json_dumpb
+
+                    event_data = {
+                        "state": state,
+                        "thread_id": str(thread_id),
+                    }
+                    await Threads.Stream.publish(
+                        thread_id,
+                        "state_update",
+                        json_dumpb(event_data),
+                    )
 
                     return ThreadUpdateResponse(
                         checkpoint=next_config["configurable"],
@@ -1496,7 +1538,14 @@ class Threads(Authenticated):
                 thread_iter, not_found_detail=f"Thread {thread_id} not found."
             )
 
-            thread_config = thread["config"]
+            thread_config = cast(dict[str, Any], thread["config"])
+            thread_config = {
+                **thread_config,
+                "configurable": {
+                    **thread_config.get("configurable", {}),
+                    **config.get("configurable", {}),
+                },
+            }
             metadata = thread["metadata"]
 
             if not thread:
@@ -1543,6 +1592,19 @@ class Threads(Authenticated):
                             thread["values"] = state.values
                             break
 
+                    # Publish state update event
+                    from langgraph_api.serde import json_dumpb
+
+                    event_data = {
+                        "state": state,
+                        "thread_id": str(thread_id),
+                    }
+                    await Threads.Stream.publish(
+                        thread_id,
+                        "state_update",
+                        json_dumpb(event_data),
+                    )
+
                     return ThreadUpdateResponse(
                         checkpoint=next_config["configurable"],
                     )
@@ -1584,7 +1646,14 @@ class Threads(Authenticated):
             if not _check_filter_match(thread_metadata, filters):
                 return []
 
-            thread_config = thread["config"]
+            thread_config = cast(dict[str, Any], thread["config"])
+            thread_config = {
+                **thread_config,
+                "configurable": {
+                    **thread_config.get("configurable", {}),
+                    **config.get("configurable", {}),
+                },
+            }
             # If graph_id exists, get state history
             if graph_id := thread_metadata.get("graph_id"):
                 async with get_graph(
@@ -1626,6 +1695,13 @@ class Threads(Authenticated):
 
             # Create new queues only for runs not yet seen
             thread_id = _ensure_uuid(thread_id)
+
+            # Add thread stream queue
+            if thread_id not in seen_runs:
+                queue = await stream_manager.add_thread_stream(thread_id)
+                queues.append((thread_id, queue))
+                seen_runs.add(thread_id)
+
             for run in conn.store["runs"]:
                 if run["thread_id"] == thread_id:
                     run_id = run["run_id"]
@@ -1641,8 +1717,27 @@ class Threads(Authenticated):
             thread_id: UUID,
             *,
             last_event_id: str | None = None,
+            stream_modes: list[ThreadStreamMode],
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the thread output."""
+
+            def should_filter_event(event_name: str, message_bytes: bytes) -> bool:
+                """Check if an event should be filtered out based on stream_modes."""
+                if "run_modes" in stream_modes and event_name != "state_update":
+                    return False
+                if "state_update" in stream_modes and event_name == "state_update":
+                    return False
+                if "lifecycle" in stream_modes and event_name == "metadata":
+                    try:
+                        message_data = orjson.loads(message_bytes)
+                        if message_data.get("status") == "run_done":
+                            return False
+                        if "attempt" in message_data and "run_id" in message_data:
+                            return False
+                    except (orjson.JSONDecodeError, TypeError):
+                        pass
+                return True
+
             from langgraph_api.serde import json_loads
 
             stream_manager = get_stream_manager()
@@ -1679,19 +1774,29 @@ class Threads(Authenticated):
 
                             if event_name == "control":
                                 if message_content == b"done":
+                                    event_bytes = b"metadata"
+                                    message_bytes = orjson.dumps(
+                                        {"status": "run_done", "run_id": run_id}
+                                    )
+                                    # Filter events based on stream_modes
+                                    if not should_filter_event(
+                                        "metadata", message_bytes
+                                    ):
+                                        yield (
+                                            event_bytes,
+                                            message_bytes,
+                                            message.id,
+                                        )
+                            else:
+                                event_bytes = event_name.encode()
+                                message_bytes = base64.b64decode(message_content)
+                                # Filter events based on stream_modes
+                                if not should_filter_event(event_name, message_bytes):
                                     yield (
-                                        b"metadata",
-                                        orjson.dumps(
-                                            {"status": "run_done", "run_id": run_id}
-                                        ),
+                                        event_bytes,
+                                        message_bytes,
                                         message.id,
                                     )
-                            else:
-                                yield (
-                                    event_name.encode(),
-                                    base64.b64decode(message_content),
-                                    message.id,
-                                )
 
                     # Listen for live messages from all queues
                     while True:
@@ -1717,19 +1822,31 @@ class Threads(Authenticated):
                                         # Extract run_id from topic
                                         topic = message.topic.decode()
                                         run_id = topic.split("run:")[1].split(":")[0]
+                                        event_bytes = b"metadata"
+                                        message_bytes = orjson.dumps(
+                                            {"status": "run_done", "run_id": run_id}
+                                        )
+                                        # Filter events based on stream_modes
+                                        if not should_filter_event(
+                                            "metadata", message_bytes
+                                        ):
+                                            yield (
+                                                event_bytes,
+                                                message_bytes,
+                                                message.id,
+                                            )
+                                else:
+                                    event_bytes = event_name.encode()
+                                    message_bytes = base64.b64decode(message_content)
+                                    # Filter events based on stream_modes
+                                    if not should_filter_event(
+                                        event_name, message_bytes
+                                    ):
                                         yield (
-                                            b"metadata",
-                                            orjson.dumps(
-                                                {"status": "run_done", "run_id": run_id}
-                                            ),
+                                            event_bytes,
+                                            message_bytes,
                                             message.id,
                                         )
-                                else:
-                                    yield (
-                                        event_name.encode(),
-                                        base64.b64decode(message_content),
-                                        message.id,
-                                    )
 
                             except TimeoutError:
                                 continue
@@ -1757,6 +1874,29 @@ class Threads(Authenticated):
                     except Exception:
                         # Ignore cleanup errors
                         pass
+
+        @staticmethod
+        async def publish(
+            thread_id: UUID | str,
+            event: str,
+            message: bytes,
+        ) -> None:
+            """Publish a thread-level event to the thread stream."""
+            from langgraph_api.serde import json_dumpb
+
+            topic = f"thread:{thread_id}:stream".encode()
+
+            stream_manager = get_stream_manager()
+            # Send to thread stream topic
+            payload = json_dumpb(
+                {
+                    "event": event,
+                    "message": message,
+                }
+            )
+            await stream_manager.put_thread(
+                str(thread_id), Message(topic=topic, data=payload)
+            )
 
     @staticmethod
     async def count(
@@ -2004,6 +2144,7 @@ class Runs(Authenticated):
         run_id = _ensure_uuid(run_id) if run_id else None
         metadata = metadata if metadata is not None else {}
         config = kwargs.get("config", {})
+        temporary = kwargs.get("temporary", False)
 
         # Handle thread creation/update
         existing_thread = next(
@@ -2013,7 +2154,7 @@ class Runs(Authenticated):
             ctx,
             "create_run",
             Auth.types.RunsCreate(
-                thread_id=thread_id,
+                thread_id=None if temporary else thread_id,
                 assistant_id=assistant_id,
                 run_id=run_id,
                 status=status,
@@ -2538,7 +2679,7 @@ class Runs(Authenticated):
         async def subscribe(
             run_id: UUID,
             thread_id: UUID | None = None,
-        ) -> asyncio.Queue:
+        ) -> ContextQueue:
             """Subscribe to the run stream, returning a queue."""
             stream_manager = get_stream_manager()
             queue = await stream_manager.add_queue(_ensure_uuid(run_id), thread_id)

@@ -133,6 +133,9 @@ class Sequence(object):
         >>> x[::-3]
         >chr1
         AC
+        >>> x[-2]
+        >chr1
+        T
         """
         if self.start is None or self.end is None or len(self.seq) == 0:
             correction_factor = 0
@@ -233,8 +236,8 @@ class Sequence(object):
     def long_name(self):
         """ DEPRECATED: Use fancy_name instead.
         Return the fancy name for the sequence, including start, end, and complementation.
-        >>> x = Sequence(name='chr1', seq='ATCGTA', start=1, end=6, comp=True)
-        >>> x.long_name
+        #>>> x = Sequence(name='chr1', seq='ATCGTA', start=1, end=6, comp=True)
+        #>>> x.long_name
         'chr1:1-6 (complement)'
         """
         msg = "The `Sequence.long_name` property is deprecated, and will be removed in future versions. Please use `Sequence.fancy_name` instead."
@@ -303,7 +306,7 @@ class Sequence(object):
     def gc_strict(self):
         """ Return the GC content of seq as a float, ignoring non ACGT characters
         >>> x = Sequence(name='chr1', seq='NMRATCGTA')
-        >>> y = round(x.gc, 2)
+        >>> y = round(x.gc_strict, 2)
         >>> y == 0.33
         True
         """
@@ -315,7 +318,7 @@ class Sequence(object):
     def gc_iupac(self):
         """ Return the GC content of seq as a float, accounting for IUPAC ambiguity 
         >>> x = Sequence(name='chr1', seq='NMRATCGTA')
-        >>> y = round(x.gc, 2)
+        >>> y = round(x.gc_iupac, 2)
         >>> y == 0.36
         True
         """
@@ -334,11 +337,33 @@ class IndexRecord(
     __slots__ = ()
 
     def __getitem__(self, key):
+        """ Get an attribute by name or index 
+        >>> x = IndexRecord(rlen=100, offset=0, lenc=50, lenb=50, bend=100, prev_bend=None)
+        >>> x['rlen']
+        100
+        >>> x[0]
+        100
+        >>> x[1]
+        0
+        >>> x[2]
+        50
+        >>> x[3]
+        50
+        >>> x[4]
+        100
+        >>> x[5]
+        
+        """
         if type(key) == str:
             return getattr(self, key)
         return tuple.__getitem__(self, key)
 
     def __str__(self):
+        """ Returns a string representation of the index record
+        >>> x = IndexRecord(rlen=100, offset=0, lenc=50, lenb=50, bend=100, prev_bend=None)
+        >>> str(x)
+        '100\\t0\\t50\\t50'
+        """
         return "{rlen:d}\t{offset:d}\t{lenc:d}\t{lenb:d}".format(
             **self._asdict())
 
@@ -921,14 +946,13 @@ class Faidx(object):
 
         with self.lock:
             if self._bgzf: 
-                from Bio import bgzf
                 insertion_i = bisect.bisect_left(self.gzi_index, bstart)
                 if insertion_i == 0:  # bisect_left already returns index to the left if values are the same
                     start_block = self.gzi_index[insertion_i]
                 else:
                     start_block = self.gzi_index[insertion_i - 1]
                 within_block_offset = bstart - start_block.ustart
-                self.file.seek(bgzf.make_virtual_offset(start_block.cstart, within_block_offset))
+                self.file.seek(make_virtual_offset(start_block.cstart, within_block_offset))
             else:
                 self.file.seek(bstart)
 
@@ -1025,21 +1049,25 @@ class Faidx(object):
         return self.file.read(defline_end - prev_bend).decode()[1:-1]
 
     def _long_name_from_bgzf(self, index_record):
-        """ Return the full sequence defline and description. Internal method passing IndexRecord
-        This method is present for compatibility with BGZF files, since we cannot subtract their offsets.
-        It may be possible to implement a more efficient method. """
-        raise NotImplementedError(
-            "FastaRecord.long_name and Fasta(read_long_names=True) "
-            "are not supported currently for BGZF compressed files.")
-        prev_bend = index_record.prev_bend
-        self.file.seek(prev_bend)
-        defline = []
-        while True:
-            chunk = self.file.read(4096).decode()
-            defline.append(chunk)
-            if '\n' in chunk or '\r' in chunk:
-                break
-        return ''.join(defline)[1:].split('\n\r')[0]
+        """ Return the full sequence defline and description for BGZF compressed files.
+        Uses information from the .fai file to efficiently access the sequence defline. """
+
+        offset_to_seq = index_record.offset
+        prev_bend = index_record.prev_bend        
+        insertion_i = bisect.bisect_left(self.gzi_index, prev_bend)
+        if insertion_i == 0:
+            start_block = self.gzi_index[insertion_i]
+        else:
+            start_block = self.gzi_index[insertion_i - 1]
+        
+        within_block_offset = prev_bend - start_block.ustart
+        
+        self.file.seek(make_virtual_offset(start_block.cstart, within_block_offset))
+        
+        defline_length = offset_to_seq - prev_bend
+        
+        defline = self.file.read(defline_length).decode()        
+        return defline[1:].rstrip('\r\n')
 
     def close(self):
         self.__exit__()
@@ -1286,7 +1314,14 @@ class Fasta(object):
     def __getitem__(self, rname):
         """Return a chromosome by its name, or its numerical index."""
         if isinstance(rname, int):
-            rname = next(islice(self.records.keys(), rname, None))
+            try:
+                rname = next(islice(self.records.keys(), rname, None))
+            except StopIteration:
+                raise IndexError("Index {0} out of range for {1}.".format(
+                    rname, self.filename))
+        if not isinstance(rname, str):
+            raise TypeError("Record name must be a string, not {0}.".format(
+                type(rname).__name__))
         try:
             return self.records[rname]
         except KeyError:
@@ -1534,15 +1569,6 @@ def complement(seq):
     return result
 
 
-def translate_chr_name(from_name, to_name):
-    chr_name_map = dict(zip(from_name, to_name))
-
-    def map_to_function(rname):
-        return chr_name_map[rname]
-
-    return map_to_function
-
-
 def bed_split(bed_entry):
     if bed_entry[0] == "#":
         return (None, None, None)
@@ -1615,6 +1641,29 @@ def get_valid_filename(s):
     """
     s = str(s).strip().replace(' ', '_')
     return re.sub(r'(?u)[^-\w.]', '', s)              
+
+def make_virtual_offset(block_start_offset, within_block_offset):
+    """Compute a BGZF virtual offset from block start and within block offsets.
+
+    The BAM indexing scheme records read positions using a 64 bit
+    'virtual offset', comprising in C terms:
+
+    block_start_offset << 16 | within_block_offset
+
+    Here block_start_offset is the file offset of the BGZF block
+    start (unsigned integer using up to 64-16 = 48 bits), and
+    within_block_offset within the (decompressed) block (unsigned
+    16 bit integer).
+    """
+    if within_block_offset < 0 or within_block_offset >= 65536:
+        raise ValueError(
+            "Require 0 <= within_block_offset < 2**16, got %i" % within_block_offset
+        )
+    if block_start_offset < 0 or block_start_offset >= 281474976710656:
+        raise ValueError(
+            "Require 0 <= block_start_offset < 2**48, got %i" % block_start_offset
+        )
+    return (block_start_offset << 16) | within_block_offset
 
 if __name__ == "__main__":
     import doctest

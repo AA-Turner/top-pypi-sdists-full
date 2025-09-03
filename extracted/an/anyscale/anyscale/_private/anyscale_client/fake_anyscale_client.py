@@ -1019,12 +1019,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         cloud_id: str,
         excludes: Optional[List[str]] = None,  # noqa: ARG002
         overwrite_existing_file: bool = False,  # noqa: ARG002
-        cloud_deployment: Optional[str] = None,
+        cloud_resource_name: Optional[str] = None,
     ) -> str:
         # Ensure that URIs are consistent for the same passed directory.
         bucket = self.CLOUD_BUCKET.format(cloud_id=cloud_id)
-        if cloud_deployment is not None:
-            bucket += f"_{cloud_deployment}"
+        if cloud_resource_name is not None:
+            bucket += f"_{cloud_resource_name}"
         if local_dir not in self._upload_uri_mapping:
             self._upload_uri_mapping[
                 local_dir
@@ -1032,19 +1032,19 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         return self._upload_uri_mapping[local_dir]
 
-    def upload_local_dir_to_cloud_storage_multi_deployment(
+    def upload_local_dir_to_cloud_storage_multi_cloud_resource(
         self,
         local_dir: str,
         *,
         cloud_id: str,
-        cloud_deployments: List[Optional[str]],
+        cloud_resource_names: List[Optional[str]],
         excludes: Optional[List[str]] = None,  # noqa: ARG002
         overwrite_existing_file: bool = False,  # noqa: ARG002
     ) -> str:
         bucket = self.CLOUD_BUCKET.format(cloud_id=cloud_id)
         if local_dir not in self._upload_bucket_path_mapping:
             self._upload_bucket_path_mapping[local_dir] = (
-                cloud_deployments,
+                cloud_resource_names,
                 f"{bucket}/fake_pkg_{str(uuid.uuid4())}.zip",
             )
         return self._upload_bucket_path_mapping[local_dir][1]

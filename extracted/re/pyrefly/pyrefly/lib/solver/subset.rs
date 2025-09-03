@@ -854,36 +854,49 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // Allow substituting a TypedDict for Self when we call methods
                 true
             }
-            (Type::TypedDict(_), _) => {
+            (Type::TypedDict(td), _) => {
                 let stdlib = self.type_order.stdlib();
-                self.is_subset_eq(
-                    &stdlib
-                        .mapping(
-                            stdlib.str().clone().to_type(),
-                            stdlib.object().clone().to_type(),
-                        )
-                        .to_type(),
-                    want,
-                )
+                if let Some(value_type) = self
+                    .type_order
+                    .get_typed_dict_value_type_as_builtins_dict(td)
+                {
+                    self.is_subset_eq(
+                        &stdlib
+                            .dict(stdlib.str().clone().to_type(), value_type)
+                            .to_type(),
+                        want,
+                    )
+                } else {
+                    self.is_subset_eq(
+                        &stdlib
+                            .mapping(
+                                stdlib.str().clone().to_type(),
+                                self.type_order.get_typed_dict_value_type(td),
+                            )
+                            .to_type(),
+                        want,
+                    )
+                }
             }
             (Type::Kwargs(_), _) => {
                 // We know kwargs will always be a dict w/ str keys
-                let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
-                    &stdlib
-                        .dict(
-                            stdlib.str().clone().to_type(),
-                            stdlib.object().clone().to_type(),
-                        )
+                    &self
+                        .type_order
+                        .stdlib()
+                        .param_spec_kwargs_as_dict()
                         .to_type(),
                     want,
                 )
             }
             (Type::Args(_), _) => {
                 // We know args will always be a tuple
-                let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
-                    &stdlib.tuple(stdlib.object().clone().to_type()).to_type(),
+                    &self
+                        .type_order
+                        .stdlib()
+                        .param_spec_args_as_tuple()
+                        .to_type(),
                     want,
                 )
             }

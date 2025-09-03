@@ -1,19 +1,15 @@
 from swarms.structs.agent import Agent
 from swarms.structs.agent_builder import AgentsBuilder
+from swarms.structs.agent_loader import AgentLoader
 from swarms.structs.agent_rearrange import AgentRearrange, rearrange
 from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
 from swarms.structs.base_structure import BaseStructure
 from swarms.structs.base_swarm import BaseSwarm
 from swarms.structs.batch_agent_execution import batch_agent_execution
-from swarms.structs.board_of_directors_swarm import (
-    BoardOfDirectorsSwarm,
-)
 from swarms.structs.concurrent_workflow import ConcurrentWorkflow
 from swarms.structs.conversation import Conversation
 from swarms.structs.council_as_judge import CouncilAsAJudge
 from swarms.structs.cron_job import CronJob
-from swarms.structs.de_hallucination_swarm import DeHallucinationSwarm
-from swarms.structs.deep_research_swarm import DeepResearchSwarm
 from swarms.structs.graph_workflow import (
     Edge,
     GraphWorkflow,
@@ -43,9 +39,6 @@ from swarms.structs.ma_blocks import (
 )
 from swarms.structs.majority_voting import (
     MajorityVoting,
-    majority_voting,
-    most_frequent,
-    parse_code_completion,
 )
 from swarms.structs.malt import MALT
 from swarms.structs.meme_agent_persona_generator import (
@@ -70,6 +63,18 @@ from swarms.structs.multi_agent_router import MultiAgentRouter
 from swarms.structs.round_robin import RoundRobinSwarm
 from swarms.structs.sequential_workflow import SequentialWorkflow
 from swarms.structs.spreadsheet_swarm import SpreadSheetSwarm
+from swarms.structs.stopping_conditions import (
+    check_cancelled,
+    check_complete,
+    check_done,
+    check_end,
+    check_error,
+    check_exit,
+    check_failure,
+    check_finished,
+    check_stopped,
+    check_success,
+)
 from swarms.structs.swarm_rearrange import SwarmRearrange
 from swarms.structs.swarm_router import (
     SwarmRouter,
@@ -100,14 +105,10 @@ __all__ = [
     "Agent",
     "BaseStructure",
     "BaseSwarm",
-    "BoardOfDirectorsSwarm",
     "ConcurrentWorkflow",
     "Conversation",
     "GroupChat",
     "MajorityVoting",
-    "majority_voting",
-    "most_frequent",
-    "parse_code_completion",
     "AgentRearrange",
     "rearrange",
     "RoundRobinSwarm",
@@ -155,8 +156,6 @@ __all__ = [
     "ModelRouter",
     "AgentsBuilder",
     "MALT",
-    "DeHallucinationSwarm",
-    "DeepResearchSwarm",
     "HybridHierarchicalClusterSwarm",
     "get_agents_info",
     "get_swarms_info",
@@ -174,4 +173,15 @@ __all__ = [
     "HierarchicalSwarm",
     "HeavySwarm",
     "CronJob",
+    "check_done",
+    "check_finished",
+    "check_complete",
+    "check_success",
+    "check_failure",
+    "check_error",
+    "check_stopped",
+    "check_cancelled",
+    "check_exit",
+    "check_end",
+    "AgentLoader",
 ]

@@ -1,13 +1,11 @@
 import asyncio
 import contextlib
 import time
-import urllib.parse
 import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any, NamedTuple, cast
 from uuid import UUID
 
-import orjson
 import structlog
 from starlette.authentication import BaseUser
 from starlette.exceptions import HTTPException
@@ -27,7 +25,7 @@ from langgraph_api.schema import (
     StreamMode,
 )
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx
-from langgraph_api.utils.headers import should_include_header
+from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
 from langgraph_runtime.ops import Runs
 
@@ -180,69 +178,6 @@ def get_user_id(user: BaseUser | None) -> str | None:
             pass
 
 
-LANGSMITH_METADATA = "langsmith-metadata"
-LANGSMITH_TAGS = "langsmith-tags"
-LANGSMITH_PROJECT = "langsmith-project"
-
-
-# Default headers to exclude from run configuration for security
-DEFAULT_RUN_HEADERS_EXCLUDE = {"x-api-key", "x-tenant-id", "x-service-key"}
-
-
-def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
-    """Extract headers that should be added to run configuration.
-
-    This function handles special cases like langsmith-trace and baggage headers,
-    while respecting the configurable header patterns.
-    """
-    configurable = {}
-
-    for key, value in headers.items():
-        # First handle tracing stuff - always included regardless of patterns
-        if key == "langsmith-trace":
-            configurable[key] = value
-            if baggage := headers.get("baggage"):
-                for item in baggage.split(","):
-                    baggage_key, baggage_value = item.split("=")
-                    if (
-                        baggage_key == LANGSMITH_METADATA
-                        and baggage_key not in configurable
-                    ):
-                        configurable[baggage_key] = orjson.loads(
-                            urllib.parse.unquote(baggage_value)
-                        )
-                    elif baggage_key == LANGSMITH_TAGS:
-                        configurable[baggage_key] = urllib.parse.unquote(
-                            baggage_value
-                        ).split(",")
-                    elif baggage_key == LANGSMITH_PROJECT:
-                        configurable[baggage_key] = urllib.parse.unquote(baggage_value)
-            continue
-
-        # Check if header should be included based on patterns
-        # For run configuration, we have specific default behavior for x-* headers
-        if key.startswith("x-"):
-            # Check against default excludes for x-* headers
-            if key in DEFAULT_RUN_HEADERS_EXCLUDE:
-                # Check if explicitly included via patterns
-                if should_include_header(key):
-                    configurable[key] = value
-                continue
-            # Other x-* headers are included by default unless patterns exclude them
-            if should_include_header(key):
-                configurable[key] = value
-        elif key == "user-agent":
-            # user-agent is included by default unless excluded by patterns
-            if should_include_header(key):
-                configurable[key] = value
-        else:
-            # All other headers only included if patterns allow
-            if should_include_header(key):
-                configurable[key] = value
-
-    return configurable
-
-
 async def create_valid_run(
     conn: AsyncConnectionProto,
     thread_id: str | None,
@@ -319,7 +254,7 @@ async def create_valid_run(
         configurable["__langsmith_example_id__"] = ls_tracing.get("example_id")
     if request_start_time:
         configurable["__request_start_time_ms__"] = request_start_time
-    after_seconds = payload.get("after_seconds", 0)
+    after_seconds = cast(int, payload.get("after_seconds", 0))
     configurable["__after_seconds__"] = after_seconds
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")

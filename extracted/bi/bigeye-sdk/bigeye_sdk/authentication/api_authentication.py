@@ -9,6 +9,7 @@ import http.cookiejar
 import json
 import os
 import sqlite3
+
 import yaml
 import sys
 import tempfile
@@ -22,7 +23,6 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Protocol.KDF import PBKDF2
 from pydantic.v1 import BaseModel
 from pydantic.v1.dataclasses import dataclass
-from requests.auth import HTTPBasicAuth
 
 from bigeye_sdk.functions.aws import get_secret
 from bigeye_sdk.authentication.enums import BrowserType, OperatingSystem
@@ -31,7 +31,7 @@ from bigeye_sdk.exceptions import BrowserAuthException
 from bigeye_sdk.log import get_logger
 from bigeye_sdk.serializable import YamlSerializable
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 HOME_DIR = str(Path.home())
 DEFAULT_CRED_FILE = os.path.join(HOME_DIR, '.bigeye', 'credentials.ini')
@@ -138,7 +138,6 @@ class ApiAuth(YamlSerializable):
 
         raise ex
 
-
 @dataclass
 class BasicAPIAuth(ApiAuth):
     """
@@ -157,8 +156,11 @@ class BasicAPIAuth(ApiAuth):
     """Basic Auth password for this host."""
 
     def get_auth_headers(self) -> dict:
-        return {'auth': HTTPBasicAuth(self.user.lower(), self.password)}
+        auth_header_key = os.environ.get('BIGEYE_AUTH_HEADER_KEY', 'Authorization')
+        credentials: str = f"{self.user.lower()}:{self.password}"
+        encoded_credentials: bytes = base64.b64encode(credentials.encode()).decode()
 
+        return {auth_header_key: f"Basic {encoded_credentials}"}
 
 @dataclass
 class APIKeyAuth(ApiAuth):
@@ -175,8 +177,8 @@ class APIKeyAuth(ApiAuth):
     """The full API Key provided by Bigeye"""
 
     def get_auth_headers(self) -> dict:
-        auth_key: str = os.environ.get('BIGEYE_APIKEYAUTH_AUTH_HEADER_KEY', 'Authorization')
-        return {auth_key: f'apikey {self.api_key}'}
+        auth_header_key = os.environ.get('BIGEYE_AUTH_HEADER_KEY', 'Authorization')
+        return {auth_header_key: f'apikey {self.api_key}'}
 
 
 @dataclass

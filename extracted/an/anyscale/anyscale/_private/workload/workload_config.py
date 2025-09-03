@@ -6,7 +6,7 @@ from anyscale.compute_config.models import (
     compute_config_type_from_dict,
     ComputeConfig,
     ComputeConfigType,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
 )
 
 
@@ -48,7 +48,7 @@ class WorkloadConfig(ModelBase):
     compute_config: Union[ComputeConfigType, Dict, str, None] = field(
         default=None,
         metadata={
-            "docstring": "The name of an existing registered compute config or an inlined ComputeConfig or MultiDeploymentComputeConfig object."
+            "docstring": "The name of an existing registered compute config or an inlined ComputeConfig or MultiResourceComputeConfig object."
         },
     )
 
@@ -61,11 +61,9 @@ class WorkloadConfig(ModelBase):
         if isinstance(compute_config, dict):
             compute_config = compute_config_type_from_dict(compute_config)
 
-        if not isinstance(
-            compute_config, (ComputeConfig, MultiDeploymentComputeConfig)
-        ):
+        if not isinstance(compute_config, (ComputeConfig, MultiResourceComputeConfig)):
             raise TypeError(
-                "'compute_config' must be a string, ComputeConfig, MultiDeploymentComputeConfig, or corresponding dict"
+                "'compute_config' must be a string, ComputeConfig, MultiResourceComputeConfig, or corresponding dict"
             )
 
         return compute_config

@@ -277,7 +277,7 @@ Coord = TypedDict("Coord", { "x": Required[int], " illegal ": int, "y": NotRequi
 c: Coord = {"x": 1, " illegal ": 2}
 def test(c: Coord):
     x: int = c[" illegal "]
-Invalid = TypedDict()  # E: Expected a callable, got type[TypedDict]
+Invalid = TypedDict()  # E: Expected a callable, got `type[TypedDict]`
     "#,
 );
 
@@ -322,7 +322,7 @@ v2 = td_r.pop("a", 3.14) # E:
 assert_type(v2, object)
 
 v3 = td_o.pop("x")
-assert_type(v3, int | None)
+assert_type(v3, int)
 
 v4 = td_o.pop("x", -1)
 assert_type(v4, int)
@@ -334,7 +334,7 @@ v6 = td_m.pop("a") # E:
 assert_type(v6, Any)
 
 v7 = td_m.pop("x")
-assert_type(v7, int | None)
+assert_type(v7, int)
 
 v8 = td_m.pop("x", 0)
 assert_type(v8, int)
@@ -394,16 +394,23 @@ del td_m[unknown_key]  # E:
 td_r: TDRequired = {"a": 10, "b": "hi"}
 td_o: TDOptional = {"x": 42}
 td_m: TDMixed = {"a": 1, "x": 99}
+    "#,
+);
 
-td_r.__delitem__("a") # E: Argument `Literal['a']` is not assignable to parameter `k` with type `Never`
-td_o.__delitem__("x")
-td_o.__delitem__("y")
-td_m.__delitem__("x")
-td_m.__delitem__("a") # E: No matching overload found for function `TDMixed.__delitem__`
+testcase!(
+    bug = "These don't work because we special-case some operations on TypedDict rather than going through a magic method call",
+    test_typed_dict_dunder_methods,
+    r#"
+from typing import assert_type, TypedDict, NotRequired
 
-td_r.__delitem__("nonexistent") # E: Argument `Literal['nonexistent']` is not assignable to parameter `k` with type `Never`
-td_r.__delitem__("unknown") # E:  Argument `Literal['unknown']` is not assignable to parameter `k` with type `Never
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
 
+td_o: TDOptional = {"x": 42}
+assert_type(td_o.__getitem__("x"), int)  # E: assert_type(object, int)
+td_o.__setitem__("x", 42)  # E: no attribute `__setitem__`
+td_o.__delitem__("x")  # E: not assignable to parameter `k` with type `Never`
     "#,
 );
 
@@ -708,8 +715,8 @@ from typing import TypedDict, Unpack, assert_type
 class Coord(TypedDict):
     x: int
     y: int
-def foo(x: Coord, **kwargs: Unpack[Coord]):
-    assert_type(x, Coord)
+def foo(c: Coord, **kwargs: Unpack[Coord]):
+    assert_type(c, Coord)
     assert_type(kwargs, Coord)
     "#,
 );
@@ -777,8 +784,8 @@ class C(TypedDict):
     y: str
 def f(c: C, k1: str, k2: int):
     assert_type(c.get("x"), int)
-    assert_type(c.get(k1), object)
-    assert_type(c.get(k1, 0), object)
+    assert_type(c.get(k1), object | None)
+    assert_type(c.get(k1, 0), int | object)
     c.get(k2)  # E: No matching overload
     "#,
 );
@@ -1185,7 +1192,7 @@ from typing import TypedDict
 class Movie(TypedDict, extra_items=int):
     name: str
 good_movie: Movie = {'name': 'Toy Story', 'year': 1995}
-bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict `extra_items` type `int`
+bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict key with type `int`
     "#,
 );
 
@@ -1454,6 +1461,8 @@ class C(TypedDict, extra_items=int):
 def f(a: A, b: B, c: C):
     a.update(b)
     a.update(c)  # E: No matching overload
+    a.update(x='ok')
+    a.update([('x', 'ok')])
     "#,
 );
 
@@ -1489,7 +1498,7 @@ testcase!(
 from typing import TypedDict
 X = TypedDict('X', {}, extra_items=int)
 x: X = {'x': 1}
-y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict `extra_items` type `int`
+y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict key with type `int`
     "#,
 );
 
@@ -1504,7 +1513,7 @@ def f(x: X):
 );
 
 testcase!(
-    test_get_extra_item,
+    test_getitem_extra_items,
     r#"
 from typing import assert_type, TypedDict
 class A(TypedDict, extra_items=bool):
@@ -1527,14 +1536,197 @@ def f(a: A, k: str):
 );
 
 testcase!(
+    test_typed_dict_kwargs_overlap_pos_arg,
+    r#"
+from typing import *
+from functools import cache
+
+class Kwargs(TypedDict):
+    x: int
+
+# this is OK because the first x is positional-only
+def test(x: int, /, **kwargs: Unpack[Kwargs]): ...
+
+# this should not be OK
+def test(x: int, **kwargs: Unpack[Kwargs]): ... # E:  TypedDict key 'x' in **kwargs overlaps with parameter 'x'
+@cache
+def test(x: int, **kwargs: Unpack[Kwargs]): ... # E:  TypedDict key 'x' in **kwargs overlaps with parameter 'x'
+    "#,
+);
+
+testcase!(
     test_set_extra_item,
     r#"
-from typing import TypedDict
+from typing import NotRequired, TypedDict
+
 class A(TypedDict, extra_items=bool):
-    pass
+    a: NotRequired[bool]
 def f(a: A, k: str):
     a['x'] = True
     a['y'] = 'oops'  # E: `Literal['oops']` is not assignable to TypedDict key `y` with type `bool`
+    # This is allowed because `A` is assignable to `dict[str, bool]`.
     a[k] = False
+
+class B(TypedDict, extra_items=bool):
+    a: NotRequired[str]
+def f(b: B, k: str):
+    # This is not allowed because `B` is not assignable to a `dict` type: the `extra_items` type
+    # `bool` is not consistent with type `str` of field `a`.
+    b[k] = False  # E: Cannot set item
+    "#,
+);
+
+testcase!(
+    test_set_closed,
+    r#"
+from typing import TypedDict
+class A(TypedDict, closed=True):
+    x: str
+def f(a: A, k: str):
+    # This is not allowed because a closed TypedDict is not assignable to a `dict` type.
+    a[k] = 'oops'  # E: Cannot set item
+    "#,
+);
+
+testcase!(
+    test_del_extra_items,
+    r#"
+from typing import NotRequired, TypedDict
+
+class A(TypedDict, closed=True):
+    x: NotRequired[str]
+def f(a: A, k: str):
+    del a['x']
+    del a['y']  # E: `A` does not have key `y`
+    # This is not allowed because a closed TypedDict is not assignable to a `dict` type.
+    del a[k]  # E: Cannot delete item
+
+class B(TypedDict, extra_items=int):
+    x: NotRequired[str]
+def f(b: B, k: str):
+    del b['x']
+    del b['y']
+    # This is not allowed because `B` is not assignable to a `dict` type: `extra_items` type `int`
+    # is not consistent with type `str` of field `x`.
+    del b[k]  # E: Cannot delete item
+
+class C(TypedDict, extra_items=int):
+    x: NotRequired[int]
+def f(c: C, k: str):
+    del c['x']
+    del c['y']
+    del c[k]
+    "#,
+);
+
+testcase!(
+    test_unpack_with_extra_items,
+    r#"
+from typing import TypedDict, Unpack
+class A(TypedDict, extra_items=int):
+    x: str
+def f(**kwargs: Unpack[A]):
+    pass
+f(x='ok', y=42)
+f(x='no', y='oops')  # E: `Literal['oops']` is not assignable to parameter `**kwargs` with type `int`
+    "#,
+);
+
+testcase!(
+    test_mapping_assignability,
+    r#"
+from typing import Mapping, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+m1: Mapping[str, str | int] = A(x='')
+m2: Mapping[str, int] = A(x='')  # E: `TypedDict[A]` is not assignable to `Mapping[str, int]`
+    "#,
+);
+
+testcase!(
+    test_typed_dict_contains_itself,
+    r#"
+from typing import Mapping, TypedDict
+class A(TypedDict, extra_items=int):
+    x: "A"
+def f(m: Mapping[str, A | int]):
+    pass
+def g(a: A):
+    f(a)
+    "#,
+);
+
+testcase!(
+    test_dict_assignability,
+    r#"
+from typing import NotRequired, TypedDict
+class A(TypedDict, extra_items=bool):
+    x: NotRequired[bool]
+d1: dict[str, bool] = A(x=True)
+d2: dict[str, int] = A(x=False)  # E: `TypedDict[A]` is not assignable to `dict[str, int]`
+    "#,
+);
+
+testcase!(
+    test_pop_readonly,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class A(TypedDict):
+    x: NotRequired[ReadOnly[int]]
+def f(a: A):
+    a.pop('x')  # E: `Literal['x']` is not assignable to parameter `k` with type `Never`
+    "#,
+);
+
+testcase!(
+    test_pop_extra_items,
+    r#"
+from typing import assert_type, NotRequired, TypedDict
+class A(TypedDict, extra_items=int):
+    x: NotRequired[str]
+def f(a: A, k: str):
+    assert_type(a.pop('x'), str)
+    assert_type(a.pop(k), str | int)
+    assert_type(a.pop(k, b'default'), str | int | bytes)
+    "#,
+);
+
+testcase!(
+    test_setdefault_extra_items,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+def f(a: A, k: str):
+    assert_type(a.setdefault('x', ''), str)
+    assert_type(a.setdefault(k, 0), int | str)
+    "#,
+);
+
+testcase!(
+    test_get_extra_items,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+def f(a: A, k: str):
+    assert_type(a.get(k), str | int | None)
+    assert_type(a.get(k, b'hello world'), str | int | bytes)
+    "#,
+);
+
+testcase!(
+    test_remove_arbitrary_items,
+    r#"
+from typing import assert_type, NotRequired, TypedDict
+class A(TypedDict, extra_items=int):
+    x: NotRequired[str]
+class B(TypedDict, extra_items=int):
+    x: str
+def f(a: A, b: B):
+    assert_type(a.popitem(), tuple[str, int | str])
+    a.clear()
+    b.popitem()  # E: `B` has no attribute `popitem`
+    b.clear()  # E: `B` has no attribute `clear`
     "#,
 );

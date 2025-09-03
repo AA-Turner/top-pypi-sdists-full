@@ -437,6 +437,12 @@ class ApplicationCodeConfig:
                         ),
                         code_content_type="codeContentType"
                     ),
+                    application_encryption_configuration=ApplicationEncryptionConfigurationProperty(
+                        key_type="keyType",
+            
+                        # the properties below are optional
+                        key_id="keyId"
+                    ),
                     application_snapshot_configuration=ApplicationSnapshotConfigurationProperty(
                         snapshots_enabled=False
                     ),

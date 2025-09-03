@@ -7,10 +7,10 @@
 
 use itertools::Itertools as _;
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module::TextRangeWithModule;
 use ruff_text_size::TextSize;
 
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::code_frame_of_source_at_range;
 use crate::test::util::get_batched_lsp_operations_report;
@@ -1335,6 +1335,98 @@ Definition Result:
 
 
 # foo.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn renamed_reexport() {
+    let lib2 = r#"
+def foo() -> None: ...
+"#;
+    let lib = r#"
+from lib2 import foo as foo_renamed
+"#;
+    let code = r#"
+from lib import foo_renamed
+#                    ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("lib", lib), ("lib2", lib2)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import foo_renamed
+                         ^
+Definition Result:
+2 | def foo() -> None: ...
+        ^^^
+
+
+# lib.py
+
+# lib2.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn renamed_assignment_reexport() {
+    let lib2 = r#"
+def foo() -> None: ...
+"#;
+    let lib = r#"
+from lib2 import foo
+foo_renamed = foo
+"#;
+    let code = r#"
+from lib import foo_renamed
+#                    ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("lib", lib), ("lib2", lib2)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import foo_renamed
+                         ^
+Definition Result:
+3 | foo_renamed = foo
+    ^^^^^^^^^^^
+
+
+# lib.py
+
+# lib2.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(kylei): go-to definition on __eq__ should go to stdlib
+#[test]
+fn dunder_equal_itself() {
+    let code = r#"
+3 == 5
+#  ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | 3 == 5
+       ^
+Definition Result: None
+
 "#
         .trim(),
         report.trim(),

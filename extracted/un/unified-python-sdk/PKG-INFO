@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: Unified-python-sdk
-Version: 0.49.1
+Version: 0.49.2
 Summary: Python Client SDK for Unified.to
 Author: Unified API Inc.
 Requires-Python: >=3.9.2
@@ -431,11 +431,17 @@ asyncio.run(main())
 ### [category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md)
 
 * [create_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#create_accounting_category) - Create a category
+* [create_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#create_ticketing_category) - Create a category
 * [get_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#get_accounting_category) - Retrieve a category
+* [get_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#get_ticketing_category) - Retrieve a category
 * [list_accounting_categories](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#list_accounting_categories) - List all categories
+* [list_ticketing_categories](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#list_ticketing_categories) - List all categories
 * [patch_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#patch_accounting_category) - Update a category
+* [patch_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#patch_ticketing_category) - Update a category
 * [remove_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#remove_accounting_category) - Remove a category
+* [remove_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#remove_ticketing_category) - Remove a category
 * [update_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#update_accounting_category) - Update a category
+* [update_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#update_ticketing_category) - Update a category
 
 ### [change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md)
 
@@ -673,6 +679,10 @@ asyncio.run(main())
 * [remove_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#remove_ats_document) - Remove a document
 * [update_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#update_ats_document) - Update a document
 
+### [embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/embedding/README.md)
+
+* [create_genai_embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/embedding/README.md#create_genai_embedding) - Create an embedding
+
 ### [employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md)
 
 * [create_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md#create_hris_employee) - Create an employee
@@ -713,7 +723,9 @@ asyncio.run(main())
 
 ### [genai](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md)
 
+* [create_genai_embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#create_genai_embedding) - Create an embedding
 * [create_genai_prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#create_genai_prompt) - Create a prompt
+* [get_genai_model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#get_genai_model) - Retrieve a model
 * [list_genai_models](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#list_genai_models) - List all models
 
 ### [group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md)
@@ -1002,6 +1014,7 @@ asyncio.run(main())
 
 ### [model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md)
 
+* [get_genai_model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md#get_genai_model) - Retrieve a model
 * [list_genai_models](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md#list_genai_models) - List all models
 
 ### [note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md)
@@ -1335,21 +1348,27 @@ asyncio.run(main())
 
 ### [ticketing](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md)
 
+* [create_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_category) - Create a category
 * [create_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_customer) - Create a customer
 * [create_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_note) - Create a note
 * [create_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_ticket) - Create a ticket
+* [get_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#get_ticketing_category) - Retrieve a category
 * [get_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#get_ticketing_customer) - Retrieve a customer
 * [get_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#get_ticketing_note) - Retrieve a note
 * [get_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#get_ticketing_ticket) - Retrieve a ticket
+* [list_ticketing_categories](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#list_ticketing_categories) - List all categories
 * [list_ticketing_customers](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#list_ticketing_customers) - List all customers
 * [list_ticketing_notes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#list_ticketing_notes) - List all notes
 * [list_ticketing_tickets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#list_ticketing_tickets) - List all tickets
+* [patch_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#patch_ticketing_category) - Update a category
 * [patch_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#patch_ticketing_customer) - Update a customer
 * [patch_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#patch_ticketing_note) - Update a note
 * [patch_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#patch_ticketing_ticket) - Update a ticket
+* [remove_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#remove_ticketing_category) - Remove a category
 * [remove_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#remove_ticketing_customer) - Remove a customer
 * [remove_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#remove_ticketing_note) - Remove a note
 * [remove_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#remove_ticketing_ticket) - Remove a ticket
+* [update_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_category) - Update a category
 * [update_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_customer) - Update a customer
 * [update_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_note) - Update a note
 * [update_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_ticket) - Update a ticket

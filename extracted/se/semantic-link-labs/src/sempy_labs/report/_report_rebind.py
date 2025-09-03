@@ -1,7 +1,6 @@
-from .._helper_functions import (
-    resolve_dataset_id,
+from sempy_labs._helper_functions import (
     resolve_workspace_name_and_id,
-    resolve_report_id,
+    resolve_item_name_and_id,
     _base_api,
     resolve_dataset_name_and_id,
 )
@@ -23,12 +22,14 @@ def report_rebind(
 
     This is a wrapper function for the following API: `Reports - Rebind Report In Group <https://learn.microsoft.com/rest/api/power-bi/reports/rebind-report-in-group>`_.
 
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
+
     Parameters
     ----------
-    report : str | List[str]
-        Name(s) of the Power BI report(s).
-    dataset : str
-        Name of the semantic model.
+    report : str | uuid.UUID | List[str | uuid.UUID]
+        Name(s) or ID(s) of the Power BI report(s).
+    dataset : str | uuid.UUID
+        Name or ID of the semantic model.
     report_workspace : str | uuid.UUID, default=None
         The name or ID of the Fabric workspace in which the report resides.
         Defaults to None which resolves to the workspace of the attached lakehouse
@@ -46,12 +47,19 @@ def report_rebind(
     if dataset_workspace is None:
         dataset_workspace = report_workspace_name
 
+    (dataset_workspace_name, dataset_workspace_id) = resolve_workspace_name_and_id(
+        dataset_workspace
+    )
     if isinstance(report, str):
         report = [report]
 
     for rpt in report:
-        report_id = resolve_report_id(report=rpt, workspace=report_workspace_id)
-        dataset_id = resolve_dataset_id(dataset=dataset, workspace=dataset_workspace)
+        (report_name, report_id) = resolve_item_name_and_id(
+            item=rpt, type="Report", workspace=report_workspace_id
+        )
+        (dataset_name, dataset_id) = resolve_item_name_and_id(
+            item=dataset, type="SemanticModel", workspace=dataset_workspace
+        )
 
         payload = {"datasetId": dataset_id}
 
@@ -59,10 +67,11 @@ def report_rebind(
             request=f"v1.0/myorg/groups/{report_workspace_id}/reports/{report_id}/Rebind",
             method="post",
             payload=payload,
+            client="fabric_sp",
         )
 
         print(
-            f"{icons.green_dot} The '{rpt}' report has been successfully rebinded to the '{dataset}' semantic model."
+            f"{icons.green_dot} The '{report_name}' report within the '{report_workspace_name}' workspace has been successfully rebinded to the '{dataset_name}' semantic model within the '{dataset_workspace_name}' workspace."
         )
 
 
@@ -76,6 +85,8 @@ def report_rebind_all(
 ):
     """
     Rebinds all reports across all workspaces which are bound to a specific semantic model to a new semantic model.
+
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
 
     Parameters
     ----------

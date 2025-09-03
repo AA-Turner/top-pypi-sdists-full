@@ -14,7 +14,7 @@ import json
 import logging
 import math
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from io import TextIOWrapper
@@ -29,6 +29,8 @@ import numpy
 import toolz
 import yaml
 from typing_extensions import override
+
+from datacube.utils.changes import Offset
 
 # Compatibility-imports to preserve the API.
 from datacube.utils.json_types import JsonAtom, JsonDict, JsonLike  # noqa: F401
@@ -76,7 +78,7 @@ def load_from_yaml(handle: TextIOWrapper, parse_dates: bool = False) -> Generato
     yield from yaml.load_all(handle, Loader=loader)
 
 
-def parse_yaml(doc: str) -> Mapping[str, Any]:
+def parse_yaml(doc: str | bytes) -> Mapping[str, Any]:
     """Convert a single document yaml string into a parsed document"""
     return yaml.load(doc, Loader=SafeLoader)
 
@@ -178,6 +180,37 @@ def read_documents(*paths, uri: bool = False) -> Generator[tuple[str, dict]]:
             raise InvalidDocException(f"Failed to load {p}: {e}") from None
         except Exception as e:
             raise InvalidDocException(f"Failed to load {p}: {e}") from None
+
+
+def parse_doc_stream(
+    doc_stream: Sequence[tuple[str, str | bytes]],
+    on_error: Callable[[str, str | bytes], None] | None = None,
+    transform: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+) -> Generator[tuple[str, Mapping[str, Any] | None]]:
+    """
+    Parse a stream of (filename, document body) tuples
+
+    The document bodies are interpreted as either YAML or JSON depending on the filename suffix
+    and turned into dictionary structures.
+
+    If any error occurs while parsing, the ``on_error`` callback is run, and None is returned
+    instead of a dictionary.
+
+    :param doc_stream: sequence of tuples consisting of uri and document body
+    :param on_error: error callback that gets the uri and doc as parameters
+    :param transform: if given, transforms the parsed document
+
+    """
+    for uri, doc in doc_stream:
+        try:
+            metadata = json.loads(doc) if uri.endswith(".json") else parse_yaml(doc)
+            if transform is not None:
+                metadata = transform(metadata)
+        except Exception:  # pylint: disable=broad-except
+            if on_error is not None:
+                on_error(uri, doc)
+            metadata = None
+        yield uri, metadata
 
 
 def netcdf_extract_string(chars) -> str:
@@ -298,7 +331,7 @@ class UnknownMetadataType(InvalidDocException):
     pass
 
 
-def get_doc_offset(offset: list[str | int], document: dict, default=None):
+def get_doc_offset(offset: Sequence[str | int], document: dict, default=None):
     return toolz.get_in(offset, document, default=default)
 
 
@@ -412,9 +445,11 @@ class SimpleDocNav:
     dataset dictionary.
     """
 
-    def __init__(self, doc: dict[str, Any], sources_path=None) -> None:
+    def __init__(
+        self, doc: dict[str, Any], sources_path: Sequence[str] | None = None
+    ) -> None:
         if not isinstance(doc, collections.abc.Mapping):
-            raise ValueError("")
+            raise ValueError("SimpleDocNav requires a Mapping")
 
         self._doc = doc
         self._doc_without = None
@@ -424,6 +459,7 @@ class SimpleDocNav:
         self._sources = None
         self._doc_uuid: UUID | None = None
 
+    # FIXME: despite the type signature, this returns a Mapping.
     @property
     def doc(self) -> dict[str, Any]:
         return self._doc
@@ -454,7 +490,7 @@ class SimpleDocNav:
         return self._sources
 
     @property
-    def sources_path(self):
+    def sources_path(self) -> Sequence[str]:
         return self._sources_path
 
     @property
@@ -476,7 +512,7 @@ def _set_doc_offset(offset: list[str | int], document: dict, value) -> None:
 class DocReader:
     def __init__(
         self,
-        type_definition: dict[str, list[str]],
+        type_definition: Mapping[str, list[str]],
         search_fields: Mapping[str, Field],
         doc: Mapping[str, Field],
     ) -> None:
@@ -515,7 +551,7 @@ class DocReader:
         return _set_doc_offset(offset, self._doc, val)
 
     @override
-    def __dir__(self):
+    def __dir__(self) -> list:
         return list(self.fields)
 
     @property
@@ -538,7 +574,7 @@ class DocReader:
         }
 
     @property
-    def fields(self):
+    def fields(self) -> dict[str, Any]:
         return {**self.system_fields, **self.search_fields}
 
 
@@ -590,5 +626,5 @@ def schema_validated(schema: Path):
     return decorate
 
 
-def _readable_offset(offset) -> str:
+def _readable_offset(offset: Offset) -> str:
     return ".".join(map(str, offset))

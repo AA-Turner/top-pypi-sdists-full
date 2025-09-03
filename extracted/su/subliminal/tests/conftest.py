@@ -507,6 +507,15 @@ def episodes() -> dict[str, Episode]:
             2,
             year=1914,
         ),
+        'adam-12_s01e02': Episode(
+            'Adam-12 1968 Season 1 Complete x264 [i_c]/Adam-12 S01E02 Log 141 The Color TV Bandit.mkv',
+            'Adam 12',
+            1,
+            2,
+            year=1968,
+            release_group='[i_c]',
+            video_codec='H.264',
+        ),
     }
 
 
@@ -590,7 +599,6 @@ def provider_manager(monkeypatch: pytest.MonkeyPatch) -> Generator[RegistrableEx
     # Replace the provider_manager in all the module were it is imported
     subliminal.extensions.provider_manager = patched_provider_manager
     subliminal.core.provider_manager = patched_provider_manager
-    subliminal.cli.provider_manager = patched_provider_manager
     subliminal.refiners.hash.provider_manager = patched_provider_manager
 
     movie_name = os.path.join('Man of Steel (2013)', 'man.of.steel.2013.720p.bluray.x264-felony.mkv')
@@ -860,7 +868,6 @@ def provider_manager(monkeypatch: pytest.MonkeyPatch) -> Generator[RegistrableEx
     # Recover the original provider_manager in all the modules
     subliminal.extensions.provider_manager = original_provider_manager
     subliminal.core.provider_manager = original_provider_manager
-    subliminal.cli.provider_manager = original_provider_manager
     subliminal.refiners.hash.provider_manager = original_provider_manager
 
 

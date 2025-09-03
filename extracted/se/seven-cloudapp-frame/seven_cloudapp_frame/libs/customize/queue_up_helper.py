@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-30 09:22:51
-@LastEditTime: 2025-08-14 13:00:10
+@LastEditTime: 2025-09-02 15:20:51
 @LastEditors: HuangJianYi
 @Description: 排队系统帮助类
 """
@@ -444,7 +444,8 @@ class QueueUpHelper:
                             pipeline.zincrby(self._get_user_zset_name(app_id), -1, data)
                             pipeline.execute()
                             if share_config.get_value("queue_is_log", False):
-                                self.add_log(app_id=app_id, queue_name=queue_name, user_id=data, operate_type=QueueupOperateType.auto_exit.value, remain_time=0, info_json=hash_value['info_json'])
+                                info_json = hash_value['info_json'] if hash_value else {}
+                                self.add_log(app_id=app_id, queue_name=queue_name, user_id=data, operate_type=QueueupOperateType.auto_exit.value, remain_time=0, info_json=info_json)
             except Exception as ex:
                 self.logger_error.error("【删除未操作的排队信息】" + traceback.format_exc())
 

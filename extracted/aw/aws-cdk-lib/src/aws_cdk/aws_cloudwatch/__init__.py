@@ -609,6 +609,20 @@ dashboard.add_widgets(cloudwatch.GraphWidget(
 ))
 ```
 
+The `displayLabelsOnChart` property can be set to `true` to show labels on the chart. Note that this only has an effect when the `view` property is set to `cloudwatch.GraphWidgetView.PIE`.
+
+```python
+# dashboard: cloudwatch.Dashboard
+
+
+dashboard.add_widgets(cloudwatch.GraphWidget(
+    # ...
+
+    view=cloudwatch.GraphWidgetView.PIE,
+    display_labels_on_chart=True
+))
+```
+
 The `start` and `end` properties can be used to specify the time range for each graph widget independently from those of the dashboard.
 The parameters can be specified at `GraphWidget`, `GaugeWidget`, and `SingleValueWidget`.
 
@@ -13755,8 +13769,8 @@ class YAxisProps:
         '''Properties for a Y-Axis.
 
         :param label: The label. Default: - No label
-        :param max: The max value. Default: - No maximum value
-        :param min: The min value. Default: 0
+        :param max: The max value. Default: - Auto
+        :param min: The min value. Default: - Auto
         :param show_units: Whether to show units. Default: true
 
         :exampleMetadata: infused
@@ -13805,7 +13819,7 @@ class YAxisProps:
     def max(self) -> typing.Optional[jsii.Number]:
         '''The max value.
 
-        :default: - No maximum value
+        :default: - Auto
         '''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13814,7 +13828,7 @@ class YAxisProps:
     def min(self) -> typing.Optional[jsii.Number]:
         '''The min value.
 
-        :default: 0
+        :default: - Auto
         '''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13888,31 +13902,29 @@ class AlarmProps(CreateAlarmOptions):
 
         Example::
 
-            import aws_cdk.aws_cloudwatch as cloudwatch
+            # log_group: logs.LogGroup
             
-            # alias: lambda.Alias
-            
-            # or add alarms to an existing group
-            # blue_green_alias: lambda.Alias
-            
-            alarm = cloudwatch.Alarm(self, "Errors",
-                comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-                threshold=1,
-                evaluation_periods=1,
-                metric=alias.metric_errors()
+            mf = logs.MetricFilter(self, "MetricFilter",
+                log_group=log_group,
+                metric_namespace="MyApp",
+                metric_name="Latency",
+                filter_pattern=logs.FilterPattern.exists("$.latency"),
+                metric_value="$.latency",
+                dimensions={
+                    "ErrorCode": "$.errorCode"
+                },
+                unit=cloudwatch.Unit.MILLISECONDS
             )
-            deployment_group = codedeploy.LambdaDeploymentGroup(self, "BlueGreenDeployment",
-                alias=alias,
-                deployment_config=codedeploy.LambdaDeploymentConfig.LINEAR_10PERCENT_EVERY_1MINUTE,
-                alarms=[alarm
-                ]
+            
+            # expose a metric from the metric filter
+            metric = mf.metric()
+            
+            # you can use the metric to create a new alarm
+            cloudwatch.Alarm(self, "alarm from metric filter",
+                metric=metric,
+                threshold=100,
+                evaluation_periods=2
             )
-            deployment_group.add_alarm(cloudwatch.Alarm(self, "BlueGreenErrors",
-                comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-                threshold=1,
-                evaluation_periods=1,
-                metric=blue_green_alias.metric_errors()
-            ))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2e7c873c118fbc1f6cf26e1bb5bd3d8549040c626a6450f2d686bb07b87266b)
@@ -14778,7 +14790,7 @@ class GaugeWidget(
         '''
         :param annotations: Annotations for the left Y axis. Default: - No annotations
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
-        :param left_y_axis: Left Y axis. Default: - None
+        :param left_y_axis: Left Y axis. Default: {min:0,max:100}
         :param legend_position: Position of the legend. Default: - bottom
         :param live_data: Whether the graph should show live data. Default: false
         :param metrics: Metrics to display on left Y axis. Default: - No metrics
@@ -14879,7 +14891,7 @@ class GaugeWidgetProps(MetricWidgetProps):
         :param width: Width of the widget, in a grid of 24 units wide. Default: 6
         :param annotations: Annotations for the left Y axis. Default: - No annotations
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
-        :param left_y_axis: Left Y axis. Default: - None
+        :param left_y_axis: Left Y axis. Default: {min:0,max:100}
         :param legend_position: Position of the legend. Default: - bottom
         :param live_data: Whether the graph should show live data. Default: false
         :param metrics: Metrics to display on left Y axis. Default: - No metrics
@@ -15036,7 +15048,7 @@ class GaugeWidgetProps(MetricWidgetProps):
     def left_y_axis(self) -> typing.Optional[YAxisProps]:
         '''Left Y axis.
 
-        :default: - None
+        :default: {min:0,max:100}
         '''
         result = self._values.get("left_y_axis")
         return typing.cast(typing.Optional[YAxisProps], result)
@@ -15161,6 +15173,7 @@ class GraphWidget(
     def __init__(
         self,
         *,
+        display_labels_on_chart: typing.Optional[builtins.bool] = None,
         end: typing.Optional[builtins.str] = None,
         left: typing.Optional[typing.Sequence[IMetric]] = None,
         left_annotations: typing.Optional[typing.Sequence[typing.Union[HorizontalAnnotation, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15184,6 +15197,7 @@ class GraphWidget(
         width: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
+        :param display_labels_on_chart: Whether the graph should show labels on the chart. Currently only applicable for Pie charts. Default: false
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param left: Metrics to display on left Y axis. Default: - No metrics
         :param left_annotations: Annotations for the left Y axis. Default: - No annotations
@@ -15207,6 +15221,7 @@ class GraphWidget(
         :param width: Width of the widget, in a grid of 24 units wide. Default: 6
         '''
         props = GraphWidgetProps(
+            display_labels_on_chart=display_labels_on_chart,
             end=end,
             left=left,
             left_annotations=left_annotations,
@@ -15269,6 +15284,7 @@ class GraphWidget(
         "region": "region",
         "title": "title",
         "width": "width",
+        "display_labels_on_chart": "displayLabelsOnChart",
         "end": "end",
         "left": "left",
         "left_annotations": "leftAnnotations",
@@ -15296,6 +15312,7 @@ class GraphWidgetProps(MetricWidgetProps):
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
         width: typing.Optional[jsii.Number] = None,
+        display_labels_on_chart: typing.Optional[builtins.bool] = None,
         end: typing.Optional[builtins.str] = None,
         left: typing.Optional[typing.Sequence[IMetric]] = None,
         left_annotations: typing.Optional[typing.Sequence[typing.Union[HorizontalAnnotation, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15320,6 +15337,7 @@ class GraphWidgetProps(MetricWidgetProps):
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
         :param width: Width of the widget, in a grid of 24 units wide. Default: 6
+        :param display_labels_on_chart: Whether the graph should show labels on the chart. Currently only applicable for Pie charts. Default: false
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param left: Metrics to display on left Y axis. Default: - No metrics
         :param left_annotations: Annotations for the left Y axis. Default: - No annotations
@@ -15368,6 +15386,7 @@ class GraphWidgetProps(MetricWidgetProps):
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
             check_type(argname="argument width", value=width, expected_type=type_hints["width"])
+            check_type(argname="argument display_labels_on_chart", value=display_labels_on_chart, expected_type=type_hints["display_labels_on_chart"])
             check_type(argname="argument end", value=end, expected_type=type_hints["end"])
             check_type(argname="argument left", value=left, expected_type=type_hints["left"])
             check_type(argname="argument left_annotations", value=left_annotations, expected_type=type_hints["left_annotations"])
@@ -15395,6 +15414,8 @@ class GraphWidgetProps(MetricWidgetProps):
             self._values["title"] = title
         if width is not None:
             self._values["width"] = width
+        if display_labels_on_chart is not None:
+            self._values["display_labels_on_chart"] = display_labels_on_chart
         if end is not None:
             self._values["end"] = end
         if left is not None:
@@ -15482,6 +15503,17 @@ class GraphWidgetProps(MetricWidgetProps):
         '''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def display_labels_on_chart(self) -> typing.Optional[builtins.bool]:
+        '''Whether the graph should show labels on the chart.
+
+        Currently only applicable for Pie charts.
+
+        :default: false
+        '''
+        result = self._values.get("display_labels_on_chart")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
@@ -16457,31 +16489,29 @@ class Alarm(
 
     Example::
 
-        import aws_cdk.aws_cloudwatch as cloudwatch
+        # log_group: logs.LogGroup
         
-        # alias: lambda.Alias
-        
-        # or add alarms to an existing group
-        # blue_green_alias: lambda.Alias
-        
-        alarm = cloudwatch.Alarm(self, "Errors",
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-            threshold=1,
-            evaluation_periods=1,
-            metric=alias.metric_errors()
+        mf = logs.MetricFilter(self, "MetricFilter",
+            log_group=log_group,
+            metric_namespace="MyApp",
+            metric_name="Latency",
+            filter_pattern=logs.FilterPattern.exists("$.latency"),
+            metric_value="$.latency",
+            dimensions={
+                "ErrorCode": "$.errorCode"
+            },
+            unit=cloudwatch.Unit.MILLISECONDS
         )
-        deployment_group = codedeploy.LambdaDeploymentGroup(self, "BlueGreenDeployment",
-            alias=alias,
-            deployment_config=codedeploy.LambdaDeploymentConfig.LINEAR_10PERCENT_EVERY_1MINUTE,
-            alarms=[alarm
-            ]
+        
+        # expose a metric from the metric filter
+        metric = mf.metric()
+        
+        # you can use the metric to create a new alarm
+        cloudwatch.Alarm(self, "alarm from metric filter",
+            metric=metric,
+            threshold=100,
+            evaluation_periods=2
         )
-        deployment_group.add_alarm(cloudwatch.Alarm(self, "BlueGreenErrors",
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-            threshold=1,
-            evaluation_periods=1,
-            metric=blue_green_alias.metric_errors()
-        ))
     '''
 
     def __init__(
@@ -18422,6 +18452,7 @@ def _typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
     width: typing.Optional[jsii.Number] = None,
+    display_labels_on_chart: typing.Optional[builtins.bool] = None,
     end: typing.Optional[builtins.str] = None,
     left: typing.Optional[typing.Sequence[IMetric]] = None,
     left_annotations: typing.Optional[typing.Sequence[typing.Union[HorizontalAnnotation, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
-from anyscale._private.sdk import sdk_command
+from anyscale._private.sdk import deprecated_sdk_command
 from anyscale.workspace._private.workspace_sdk import PrivateWorkspaceSDK
 from anyscale.workspace.models import (
     UpdateWorkspaceConfig,
@@ -28,18 +28,26 @@ _CREATE_ARG_DOCSTRINGS = {"config": "The config for defining the workspace."}
 _WAIT_TIMEOUT_SECONDS = 1800.0
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_CREATE_EXAMPLE,
     arg_docstrings=_CREATE_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.create() instead",
 )
 def create(
     config: WorkspaceConfig, *, _private_sdk: Optional[PrivateWorkspaceSDK] = None
 ) -> str:
     """Create a workspace.
 
-    Returns the id of the created workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.create instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        str: The id of the created workspace.
     """
     return _private_sdk.create(config)  # type: ignore
 
@@ -60,11 +68,14 @@ _START_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_START_EXAMPLE,
     arg_docstrings=_START_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.start() instead",
 )
 def start(
     *,
@@ -76,7 +87,12 @@ def start(
 ) -> str:
     """Start a workspace.
 
-    Returns the id of the started workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.start instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        str: The id of the started workspace.
     """
     return _private_sdk.start(name=name, id=id, cloud=cloud, project=project)  # type: ignore
 
@@ -97,11 +113,14 @@ _TERMINATE_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_TERMINATE_EXAMPLE,
     arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.terminate() instead",
 )
 def terminate(
     *,
@@ -113,7 +132,12 @@ def terminate(
 ) -> str:
     """Terminate a workspace.
 
-    Returns the id of the terminated workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.terminate instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        str: The id of the terminated workspace.
     """
     return _private_sdk.terminate(name=name, id=id, cloud=cloud, project=project)  # type: ignore
 
@@ -134,11 +158,14 @@ _STATUS_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_STATUS_EXAMPLE,
     arg_docstrings=_STATUS_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.status() instead",
 )
 def status(
     *,
@@ -150,7 +177,12 @@ def status(
 ) -> str:
     """Get the status of a workspace.
 
-    Returns the status of the workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.status instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        WorkspaceState: The status of the workspace.
     """
     return _private_sdk.status(name=name, id=id, cloud=cloud, project=project)  # type: ignore
 
@@ -173,11 +205,14 @@ _WAIT_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_WAIT_EXAMPLE,
     arg_docstrings=_WAIT_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.wait() instead",
 )
 def wait(
     *,
@@ -191,7 +226,12 @@ def wait(
 ) -> str:
     """Wait for a workspace to reach a terminal state.
 
-    Returns the status of the workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.wait instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        WorkspaceState: The status of the workspace.
     """
     return _private_sdk.wait(  # type: ignore
         name=name,
@@ -224,11 +264,14 @@ _GENERATE_SSH_CONFIG_FILE_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_GENERATE_SSH_CONFIG_FILE_EXAMPLE,
     arg_docstrings=_GENERATE_SSH_CONFIG_FILE_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.generate_ssh_config_file() instead",
 )
 def generate_ssh_config_file(
     *,
@@ -241,7 +284,12 @@ def generate_ssh_config_file(
 ) -> Tuple[str, str]:
     """Generate an SSH config file for a workspace.
 
-    Returns the hostname and path to the generated config file.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.generate_ssh_config_file instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        Tuple[str, str]: The hostname and path to the generated config file.
     """
     return _private_sdk.generate_ssh_config_file(  # type: ignore
         name=name, id=id, cloud=cloud, project=project, ssh_config_path=ssh_config_path,
@@ -270,11 +318,14 @@ _RUN_COMMAND_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_RUN_COMMAND_EXAMPLE,
     arg_docstrings=_RUN_COMMAND_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.run_command() instead",
 )
 def run_command(
     *,
@@ -288,7 +339,12 @@ def run_command(
 ):
     """Run a command in a workspace.
 
-    Returns a subprocess.CompletedProcess object.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.run_command instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        subprocess.CompletedProcess: The result of the command execution.
     """
     return _private_sdk.run_command(  # type: ignore
         name=name, id=id, cloud=cloud, project=project, command=command, **kwargs,
@@ -314,11 +370,14 @@ _PULL_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_PULL_EXAMPLE,
     arg_docstrings=_PULL_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.pull() instead",
 )
 def pull(
     *,
@@ -334,7 +393,12 @@ def pull(
 ) -> None:
     """Pull a workspace to a local directory.
 
-    Returns the path to the pulled workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.pull instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        str: The path to the pulled workspace.
     """
     _private_sdk.pull(  # type: ignore
         name=name,
@@ -369,11 +433,14 @@ _PUSH_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_PUSH_EXAMPLE,
     arg_docstrings=_PUSH_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.push() instead",
 )
 def push(
     *,
@@ -389,7 +456,12 @@ def push(
 ) -> None:
     """Push a local directory to a workspace.
 
-    Returns the path to the pushed workspace.
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.push instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        str: The path to the pushed workspace.
     """
     _private_sdk.push(  # type: ignore
         name=name,
@@ -421,11 +493,14 @@ _UPDATE_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_UPDATE_EXAMPLE,
     arg_docstrings=_UPDATE_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.update() instead",
 )
 def update(
     *,
@@ -433,7 +508,12 @@ def update(
     config: UpdateWorkspaceConfig,
     _private_sdk: Optional[PrivateWorkspaceSDK] = None,
 ) -> None:
-    """Update a workspace."""
+    """Update a workspace.
+
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.update instead.
+    Legacy v1 workspaces are no longer supported.
+    """
     _private_sdk.update(  # type: ignore
         id=id, config=config,
     )
@@ -456,11 +536,14 @@ _GET_ARG_DOCSTRINGS = {
 }
 
 
-@sdk_command(
+@deprecated_sdk_command(
     _WORKSPACE_SDK_SINGLETON_KEY,
     PrivateWorkspaceSDK,
     doc_py_example=_GET_EXAMPLE,
     arg_docstrings=_GET_ARG_DOCSTRINGS,
+    removal_date="2025-10-01",
+    deprecation_message="Legacy v1 workspaces are no longer supported",
+    alternative="use anyscale.workspace_v2.get() instead",
 )
 def get(
     *,
@@ -470,5 +553,13 @@ def get(
     project: Optional[str] = None,
     _private_sdk: Optional[PrivateWorkspaceSDK] = None,
 ) -> Workspace:
-    """Get a workspace."""
+    """Get a workspace.
+
+    DEPRECATED: This function will be removed on 2025-10-01.
+    Use anyscale.workspace_v2.get instead.
+    Legacy v1 workspaces are no longer supported.
+
+    Returns:
+        Workspace: The workspace object.
+    """
     return _private_sdk.get(name=name, id=id, cloud=cloud, project=project)  # type: ignore

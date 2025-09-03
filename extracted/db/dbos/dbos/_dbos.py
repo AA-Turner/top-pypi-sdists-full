@@ -32,7 +32,7 @@ from opentelemetry.trace import Span
 from rich import print
 
 from dbos._conductor.conductor import ConductorWebsocket
-from dbos._sys_db import WorkflowStatus
+from dbos._sys_db import SystemDatabase, WorkflowStatus
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
 from dbos._workflow_commands import fork_workflow, list_queued_workflows, list_workflows
 
@@ -70,7 +70,6 @@ from ._sys_db import (
     SystemDatabase,
     WorkflowStatus,
     _dbos_stream_closed_sentinel,
-    reset_system_database,
     workflow_is_active,
 )
 from ._tracer import DBOSTracer, dbos_tracer
@@ -80,7 +79,6 @@ if TYPE_CHECKING:
     from ._kafka import _KafkaConsumerWorkflow
     from flask import Flask
 
-from sqlalchemy import make_url
 from sqlalchemy.orm import Session
 
 if sys.version_info < (3, 10):
@@ -293,16 +291,24 @@ class DBOS:
         return _dbos_global_instance
 
     @classmethod
-    def destroy(cls, *, destroy_registry: bool = False) -> None:
+    def destroy(
+        cls,
+        *,
+        destroy_registry: bool = False,
+        workflow_completion_timeout_sec: int = 0,
+    ) -> None:
         global _dbos_global_instance
         if _dbos_global_instance is not None:
-            _dbos_global_instance._destroy()
+            _dbos_global_instance._destroy(
+                workflow_completion_timeout_sec=workflow_completion_timeout_sec,
+            )
         _dbos_global_instance = None
         if destroy_registry:
             global _dbos_global_registry
             _dbos_global_registry = None
         GlobalParams.app_version = os.environ.get("DBOS__APPVERSION", "")
         GlobalParams.executor_id = os.environ.get("DBOS__VMID", "local")
+        dbos_logger.info("DBOS successfully shut down")
 
     def __init__(
         self,
@@ -337,6 +343,7 @@ class DBOS:
         self.conductor_key: Optional[str] = conductor_key
         self.conductor_websocket: Optional[ConductorWebsocket] = None
         self._background_event_loop: BackgroundEventLoop = BackgroundEventLoop()
+        self._active_workflows_set: set[str] = set()
 
         # Globally set the application version and executor ID.
         # In DBOS Cloud, instead use the values supplied through environment variables.
@@ -448,13 +455,13 @@ class DBOS:
             self._background_event_loop.start()
             assert self._config["database_url"] is not None
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
-            self._sys_db_field = SystemDatabase(
+            self._sys_db_field = SystemDatabase.create(
                 system_database_url=get_system_database_url(self._config),
                 engine_kwargs=self._config["database"]["sys_db_engine_kwargs"],
                 debug_mode=debug_mode,
             )
             assert self._config["database"]["db_engine_kwargs"] is not None
-            self._app_db_field = ApplicationDatabase(
+            self._app_db_field = ApplicationDatabase.create(
                 database_url=self._config["database_url"],
                 engine_kwargs=self._config["database"]["db_engine_kwargs"],
                 debug_mode=debug_mode,
@@ -580,20 +587,25 @@ class DBOS:
             not self._launched
         ), "The system database cannot be reset after DBOS is launched. Resetting the system database is a destructive operation that should only be used in a test environment."
 
-        sysdb_name = self._config["database"]["sys_db_name"]
-        assert sysdb_name is not None
+        SystemDatabase.reset_system_database(get_system_database_url(self._config))
 
-        assert self._config["database_url"] is not None
-        pg_db_url = make_url(self._config["database_url"]).set(database="postgres")
-
-        reset_system_database(pg_db_url, sysdb_name)
-
-    def _destroy(self) -> None:
+    def _destroy(self, *, workflow_completion_timeout_sec: int) -> None:
         self._initialized = False
         for event in self.poller_stop_events:
             event.set()
         for event in self.background_thread_stop_events:
             event.set()
+        if workflow_completion_timeout_sec > 0:
+            deadline = time.time() + workflow_completion_timeout_sec
+            while time.time() < deadline:
+                time.sleep(1)
+                active_workflows = len(self._active_workflows_set)
+                if active_workflows > 0:
+                    dbos_logger.info(
+                        f"Attempting to shut down DBOS. {active_workflows} workflows remain active. IDs: {self._active_workflows_set}"
+                    )
+                else:
+                    break
         self._background_event_loop.stop()
         if self._sys_db_field is not None:
             self._sys_db_field.destroy()
@@ -609,10 +621,8 @@ class DBOS:
             and self.conductor_websocket.websocket is not None
         ):
             self.conductor_websocket.websocket.close()
-        # CB - This needs work, some things ought to stop before DBs are tossed out,
-        #  on the other hand it hangs to move it
         if self._executor_field is not None:
-            self._executor_field.shutdown(cancel_futures=True)
+            self._executor_field.shutdown(wait=False, cancel_futures=True)
             self._executor_field = None
         for bg_thread in self._background_threads:
             bg_thread.join()

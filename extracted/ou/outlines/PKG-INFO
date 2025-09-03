@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: outlines
-Version: 1.2.3
+Version: 1.2.4
 Summary: Probabilistic Generative Model Programming
 Author: Outlines Developers
 License: Apache-2.0
@@ -22,13 +22,9 @@ Requires-Dist: jinja2
 Requires-Dist: cloudpickle
 Requires-Dist: diskcache
 Requires-Dist: pydantic>=2.0
-Requires-Dist: referencing
 Requires-Dist: jsonschema
-Requires-Dist: requests
 Requires-Dist: pillow
 Requires-Dist: typing_extensions
-Requires-Dist: iso3166
-Requires-Dist: airportsdata
 Requires-Dist: outlines_core==0.2.11
 Requires-Dist: genson
 Requires-Dist: jsonpath_ng
@@ -58,12 +54,17 @@ Provides-Extra: transformers
 Requires-Dist: accelerate; extra == "transformers"
 Requires-Dist: datasets; extra == "transformers"
 Requires-Dist: transformers; extra == "transformers"
+Requires-Dist: setuptools; extra == "transformers"
 Provides-Extra: vllm
 Requires-Dist: openai; extra == "vllm"
 Provides-Extra: xgrammar
 Requires-Dist: xgrammar; extra == "xgrammar"
 Provides-Extra: llguidance
 Requires-Dist: llguidance; extra == "llguidance"
+Provides-Extra: airports
+Requires-Dist: airportsdata; extra == "airports"
+Provides-Extra: countries
+Requires-Dist: iso3166; extra == "countries"
 Provides-Extra: test
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -83,13 +84,13 @@ Requires-Dist: openai>=1.0.0; extra == "test"
 Requires-Dist: datasets; extra == "test"
 Requires-Dist: anthropic; extra == "test"
 Requires-Dist: google-genai; extra == "test"
-Requires-Dist: transformers<=4.52.1; extra == "test"
+Requires-Dist: transformers; extra == "test"
 Requires-Dist: pillow; extra == "test"
 Requires-Dist: jax; extra == "test"
 Requires-Dist: flax; extra == "test"
 Requires-Dist: numpy<2.2.0,>=2.0.0; extra == "test"
 Requires-Dist: numba; extra == "test"
-Requires-Dist: torch; extra == "test"
+Requires-Dist: torch>2.3.0; extra == "test"
 Requires-Dist: tensorflow; extra == "test"
 Requires-Dist: tf-keras; extra == "test"
 Requires-Dist: ollama; extra == "test"
@@ -98,6 +99,9 @@ Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: mkdocs_gen_files; extra == "test"
 Requires-Dist: llguidance; extra == "test"
 Requires-Dist: xgrammar; extra == "test"
+Requires-Dist: airportsdata; extra == "test"
+Requires-Dist: iso3166; extra == "test"
+Requires-Dist: requests; extra == "test"
 Provides-Extra: test-gpu
 Requires-Dist: outlines[test]; extra == "test-gpu"
 Requires-Dist: vllm; sys_platform == "linux" and extra == "test-gpu"

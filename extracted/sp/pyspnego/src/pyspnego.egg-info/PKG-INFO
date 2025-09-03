@@ -1,51 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyspnego
-Version: 0.11.2
+Version: 0.12.0
 Summary: Windows Negotiate Authentication Client and Server
 Author-email: Jordan Borean <jborean93@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2020 Jordan Borean, Red Hat
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: homepage, https://github.com/jborean93/pyspnego
 Keywords: windows,spnego,negotiate,ntlm,kerberos,sspi,gssapi,auth
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
-Requires-Dist: sspilib>=0.1.0; sys_platform == "win32"
+Requires-Dist: sspilib>=0.3.0; sys_platform == "win32"
 Provides-Extra: kerberos
 Requires-Dist: gssapi>=1.6.0; sys_platform != "win32" and extra == "kerberos"
 Requires-Dist: krb5>=0.3.0; sys_platform != "win32" and extra == "kerberos"
 Provides-Extra: yaml
 Requires-Dist: ruamel.yaml; extra == "yaml"
+Dynamic: license-file
 
 # Python SPNEGO Library
 
@@ -62,7 +41,7 @@ be used to decode raw NTLM/SPNEGO/Kerberos tokens into a human readable format.
 
 See [How to Install](#how-to-install) for more details
 
-* CPython 3.8+
+* CPython 3.9+
 * [cryptography](https://github.com/pyca/cryptography)
 * [sspilib](https://github.com/jborean93/sspilib) - Windows only
 
@@ -93,10 +72,7 @@ To install these packages, run the below
 # Debian/Ubuntu
 apt-get install gcc python3-dev libkrb5-dev
 
-# Centos/RHEL
-yum install gcc python-devel krb5-devel
-
-# Fedora
+# Centos/RHEL/Fedora
 dnf install gcc python-devel krb5-devel
 
 # Arch Linux

@@ -15,7 +15,7 @@ from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType
 from bigeye_sdk.serializable import File
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 LINEAGE_CONFIGURATION_FILE = TypeVar(
     "LINEAGE_CONFIGURATION_FILE", bound="LineageConfigurationFile"

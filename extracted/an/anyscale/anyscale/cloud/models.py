@@ -222,15 +222,6 @@ cloud = Cloud(
         return is_aggregated_logs_enabled
 
 
-################################################################################
-# NOTE: The models below are copied from the OpenAPI CloudDeployment model, which
-# is what is used in the CLI. They are only defined here so that they appear in
-# the generated docs, to provide users with examples of the expected
-# CloudDeployment YAML format. There is no SDK support for Cloud Deployments,
-# nor is there SDK support for creating/updating/deleting Clouds.
-################################################################################
-
-
 class NetworkingMode(ModelEnum):
     PUBLIC = "PUBLIC"
     PRIVATE = "PRIVATE"
@@ -281,7 +272,7 @@ object_storage:
     region: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "The region for the cloud storage bucket. Defaults to the region of the deployment."
+            "docstring": "The region for the cloud storage bucket. Defaults to the region of the cloud resource."
         },
     )
     endpoint: Optional[str] = field(
@@ -321,13 +312,13 @@ file_storage:
     persistent_volume_claim: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods."
+            "docstring": "For Kubernetes resources, the name of the persistent volume claim used to mount shared storage into pods."
         },
     )
     csi_ephemeral_volume_driver: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods."
+            "docstring": "For Kubernetes resources, the CSI ephemeral volume driver used to mount shared storage into pods."
         },
     )
 
@@ -390,7 +381,7 @@ aws_config:
     cloudformation_id: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "The CloudFormation stack ID, for deployments with Anyscale-managed resources."
+            "docstring": "The CloudFormation stack ID, for Anyscale-managed resources."
         },
     )
 
@@ -452,7 +443,7 @@ gcp_config:
     deployment_manager_id: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "The deployment manager deployment ID, for deployments with Anyscale-managed resources."
+            "docstring": "The deployment manager deployment ID, for Anyscale-managed resources."
         },
     )
 
@@ -483,41 +474,48 @@ kubernetes_config:
     )
 
 
+################################################################################
+# NOTE: The CloudResource model below is copied from the OpenAPI CloudDeployment
+# model, which is what is actually used in the CLI. It is only defined here so
+# that it appears in the generated docs, to provide users with examples of the
+# expected YAML format. There is no CloudResource SDK support, so the name of
+# this model should not actually matter. (There is also no Cloud SDK support.)
+################################################################################
 @dataclass(frozen=True)
-class CloudDeployment(ModelBase):
-    """Cloud deployment configuration."""
+class CloudResource(ModelBase):
+    """Cloud resource configuration."""
 
     __skip_py_example__ = True
 
     __doc_yaml_example__ = """\
-cloud_deployment:
-  cloud_deployment_id: cldrsrc_12345678901234567890123456
-  name: my-cloud-deployment
-  provider: AWS
-  compute_stack: VM
-  region: us-west-2
-  networking_mode: PUBLIC
-  object_storage:
-    bucket_name: s3://my-bucket
-  file_storage:
-    file_storage_id: fs-12345678901234567
-  aws_config:
-    vpc_id: vpc-12345678901234567
-    subnet_ids:
-      - subnet-11111111111111111
-      - subnet-22222222222222222
-    security_group_ids:
-      - sg-12345678901234567
-    anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
-    cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
-    memorydb_cluster_name: my-memorydb-cluster
+cloud_resource_id: cldrsrc_12345678901234567890123456
+name: my-cloud-resource
+provider: AWS
+compute_stack: VM
+region: us-west-2
+networking_mode: PUBLIC
+object_storage:
+bucket_name: s3://my-bucket
+file_storage:
+file_storage_id: fs-12345678901234567
+aws_config:
+vpc_id: vpc-12345678901234567
+subnet_ids:
+    - subnet-11111111111111111
+    - subnet-22222222222222222
+security_group_ids:
+    - sg-12345678901234567
+anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
+cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+memorydb_cluster_name: my-memorydb-cluster
 """
 
-    cloud_deployment_id: Optional[str] = field(
-        default=None, metadata={"docstring": "Unique identifier for this deployment."},
+    cloud_resource_id: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Unique identifier for this cloud resource."},
     )
     name: Optional[str] = field(
-        default=None, metadata={"docstring": "The name of this deployment."},
+        default=None, metadata={"docstring": "The name of this cloud resource."},
     )
     provider: Union[CloudProvider, str] = field(
         default=CloudProvider.UNKNOWN,
@@ -528,8 +526,7 @@ cloud_deployment:
         metadata={"docstring": "The compute stack (VM or K8S)."},
     )
     region: Optional[str] = field(
-        default=None,
-        metadata={"docstring": "The region for the deployment (e.g., us-west-2)."},
+        default=None, metadata={"docstring": "The region (e.g., us-west-2)."},
     )
     networking_mode: Optional[NetworkingMode] = field(
         default=None,

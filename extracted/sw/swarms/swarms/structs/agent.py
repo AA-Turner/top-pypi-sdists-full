@@ -52,6 +52,7 @@ from swarms.schemas.base_schemas import (
 from swarms.schemas.conversation_schema import ConversationSchema
 from swarms.schemas.mcp_schemas import (
     MCPConnection,
+    MultipleMCPConnections,
 )
 from swarms.structs.agent_roles import agent_roles
 from swarms.structs.conversation import Conversation
@@ -62,7 +63,7 @@ from swarms.structs.safe_loading import (
 )
 from swarms.telemetry.main import log_agent_data
 from swarms.tools.base_tool import BaseTool
-from swarms.tools.mcp_client_call import (
+from swarms.tools.mcp_client_tools import (
     execute_multiple_tools_on_multiple_mcp_servers_sync,
     execute_tool_call_simple,
     get_mcp_tools_sync,
@@ -419,6 +420,7 @@ class Agent:
         safety_prompt_on: bool = False,
         random_models_on: bool = False,
         mcp_config: Optional[MCPConnection] = None,
+        mcp_configs: Optional[MultipleMCPConnections] = None,
         top_p: Optional[float] = 0.90,
         conversation_schema: Optional[ConversationSchema] = None,
         llm_base_url: Optional[str] = None,
@@ -430,6 +432,10 @@ class Agent:
         reasoning_prompt_on: bool = True,
         dynamic_context_window: bool = True,
         show_tool_execution_output: bool = True,
+        reasoning_effort: str = None,
+        drop_params: bool = True,
+        thinking_tokens: int = None,
+        reasoning_enabled: bool = False,
         *args,
         **kwargs,
     ):
@@ -571,6 +577,11 @@ class Agent:
         self.reasoning_prompt_on = reasoning_prompt_on
         self.dynamic_context_window = dynamic_context_window
         self.show_tool_execution_output = show_tool_execution_output
+        self.mcp_configs = mcp_configs
+        self.reasoning_effort = reasoning_effort
+        self.drop_params = drop_params
+        self.thinking_tokens = thinking_tokens
+        self.reasoning_enabled = reasoning_enabled
 
         # self.init_handling()
         self.setup_config()
@@ -714,6 +725,10 @@ class Agent:
                 "system_prompt": self.system_prompt,
                 "stream": self.streaming_on,
                 "top_p": self.top_p,
+                "retries": self.retry_attempts,
+                "reasoning_effort": self.reasoning_effort,
+                "thinking_tokens": self.thinking_tokens,
+                "reasoning_enabled": self.reasoning_enabled,
             }
 
             # Initialize tools_list_dictionary, if applicable
@@ -970,33 +985,37 @@ class Agent:
             )
 
     def print_dashboard(self):
+        """
+        Print a dashboard displaying the agent's current status and configuration.
+        Uses square brackets instead of emojis for section headers and bullet points.
+        """
         tools_activated = True if self.tools is not None else False
         mcp_activated = True if self.mcp_url is not None else False
         formatter.print_panel(
             f"""
             
-            🤖 Agent {self.agent_name} Dashboard 🚀
-            ════════════════════════════════════════════════════════════
+            [Agent {self.agent_name} Dashboard]
+            ===========================================================
             
-            🎯 Agent {self.agent_name} Status: ONLINE & OPERATIONAL
-            ────────────────────────────────────────────────────────────
+            [Agent {self.agent_name} Status]: ONLINE & OPERATIONAL
+            -----------------------------------------------------------
             
-            📋 Agent Identity:
-            • 🏷️  Name: {self.agent_name}
-            • 📝 Description: {self.agent_description}
+            [Agent Identity]
+            - [Name]: {self.agent_name}
+            - [Description]: {self.agent_description}
             
-            ⚙️  Technical Specifications:
-            • 🤖 Model: {self.model_name}
-            • 🔄 Internal Loops: {self.max_loops}
-            • 🎯 Max Tokens: {self.max_tokens}
-            • 🌡️  Dynamic Temperature: {self.dynamic_temperature_enabled}
+            [Technical Specifications]
+            - [Model]: {self.model_name}
+            - [Internal Loops]: {self.max_loops}
+            - [Max Tokens]: {self.max_tokens}
+            - [Dynamic Temperature]: {self.dynamic_temperature_enabled}
             
-            🔧 System Modules:
-            • 🛠️  Tools Activated: {tools_activated}
-            • 🔗 MCP Activated: {mcp_activated}
+            [System Modules]
+            - [Tools Activated]: {tools_activated}
+            - [MCP Activated]: {mcp_activated}
             
-            ════════════════════════════════════════════════════════════
-            🚀 Ready for Tasks 🚀
+            ===========================================================
+            [Ready for Tasks]
                               
             """,
             title=f"Agent {self.agent_name} Dashboard",
@@ -1023,16 +1042,16 @@ class Agent:
             self.short_memory.add(
                 role="system",
                 content=(
-                    f"🔍 [RAG Query Initiated]\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📝 Query:\n{query}\n\n"
-                    f"📚 Retrieved Knowledge (RAG Output):\n{output}\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"💡 The above information was retrieved from the agent's long-term memory using Retrieval-Augmented Generation (RAG). "
-                    f"Use this context to inform your next response or reasoning step."
+                    "[RAG Query Initiated]\n"
+                    "----------------------------------\n"
+                    f"Query:\n{query}\n\n"
+                    f"Retrieved Knowledge (RAG Output):\n{output}\n"
+                    "----------------------------------\n"
+                    "The above information was retrieved from the agent's long-term memory using Retrieval-Augmented Generation (RAG). "
+                    "Use this context to inform your next response or reasoning step."
                 ),
             )
-        except Exception as e:
+        except AgentMemoryError as e:
             logger.error(
                 f"Agent: {self.agent_name} Error handling RAG query: {e} Traceback: {traceback.format_exc()}"
             )

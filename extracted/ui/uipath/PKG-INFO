@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath
-Version: 2.1.27
+Version: 2.1.31
 Summary: Python SDK and CLI for UiPath Platform, enabling programmatic interaction with automation services, process management, and deployment tools.
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-python
@@ -17,12 +17,14 @@ Requires-Python: >=3.10
 Requires-Dist: azure-monitor-opentelemetry>=1.6.8
 Requires-Dist: click>=8.1.8
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: opentelemetry-instrumentation>=0.52b1
 Requires-Dist: opentelemetry-sdk>=1.31.1
 Requires-Dist: pathlib>=1.0.1
 Requires-Dist: pydantic>=2.11.1
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: rich>=13.0.0
 Requires-Dist: tenacity>=9.0.0
+Requires-Dist: textual>=5.3.0
 Requires-Dist: tomli>=2.2.1
 Requires-Dist: truststore>=0.10.1
 Description-Content-Type: text/markdown

@@ -1,13 +1,13 @@
-import base64
 import json
 import re
+import traceback
+import jwt
 import requests
 from urllib.parse import urlparse, parse_qs
 
 from adam.log import Log
 from adam.sso.authenticator import Authenticator
 from adam.sso.id_token import IdToken
-
 from .idp_login import IdpLogin
 from adam.config import Config
 
@@ -134,16 +134,47 @@ class AdAuthenticator(Authenticator):
         return []
 
     def parse_id_token(self, id_token: str) -> IdToken:
-        def decode_jwt_part(encoded_part):
-            missing_padding = len(encoded_part) % 4
-            if missing_padding:
-                encoded_part += '=' * (4 - missing_padding)
-            decoded_bytes = base64.urlsafe_b64decode(encoded_part)
-            return json.loads(decoded_bytes.decode('utf-8'))
+        jwks_url = Config().get('idps.ad.jwks-uri', 'https://login.microsoftonline.com/common/discovery/keys')
+        try:
+            jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=360)
+            signing_key = jwks_client.get_signing_key_from_jwt(id_token)
+            data = jwt.decode(
+                id_token,
+                signing_key.key,
+                algorithms=["RS256"],
+                options={
+                    "verify_signature": True,
+                    "verify_exp": False,
+                    "verify_nbf": True,
+                    "verify_iat": True,
+                    "verify_aud": False,
+                    "verify_iss": False,
+                },
+            )
+            return IdToken(
+                data,
+                data['email'],
+                data['name'],
+                groups=data['groups'] if 'groups' in data else [],
+                iat=data['iat'] if 'iat' in data else 0,
+                nbf=data['nbf'] if 'nbf' in data else 0,
+                exp=data['exp'] if 'exp' in data else 0
+            )
+        except:
+            Config().debug(traceback.format_exc())
 
-        parts = id_token.split('.')
-        # header = decode_jwt_part(parts[0])
-        data = decode_jwt_part(parts[1])
+        return None
+
+        #     def decode_jwt_part(encoded_part):
+        #         missing_padding = len(encoded_part) % 4
+        #         if missing_padding:
+        #             encoded_part += '=' * (4 - missing_padding)
+        #         decoded_bytes = base64.urlsafe_b64decode(encoded_part)
+        #         return json.loads(decoded_bytes.decode('utf-8'))
+
+        # parts = id_token.split('.')
+        # # header = decode_jwt_part(parts[0])
+        # data = decode_jwt_part(parts[1])
         # print('SEAN', payload)
         # {
         #     'aud': '00ff94a8-6b0a-4715-98e0-95490012d818',
@@ -178,12 +209,12 @@ class AdAuthenticator(Authenticator):
         #     'ver': '2.0'
         # }
 
-        return IdToken(
-            data,
-            data['email'],
-            data['name'],
-            groups=data['groups'] if 'groups' in data else [],
-            iat=data['iat'] if 'iat' in data else 0,
-            nbf=data['nbf'] if 'nbf' in data else 0,
-            exp=data['exp'] if 'exp' in data else 0
-        )
+        # return IdToken(
+        #     data,
+        #     data['email'],
+        #     data['name'],
+        #     groups=data['groups'] if 'groups' in data else [],
+        #     iat=data['iat'] if 'iat' in data else 0,
+        #     nbf=data['nbf'] if 'nbf' in data else 0,
+        #     exp=data['exp'] if 'exp' in data else 0
+        # )

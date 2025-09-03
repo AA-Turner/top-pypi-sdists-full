@@ -1,7 +1,7 @@
 from typing import Optional, Literal
 from uuid import UUID
 import pandas as pd
-from ._helper_functions import (
+from sempy_labs._helper_functions import (
     _base_api,
     _create_dataframe,
     resolve_workspace_name_and_id,
@@ -73,6 +73,8 @@ def refresh_sql_endpoint_metadata(
 
     This is a wrapper function for the following API: `Items - Refresh Sql Endpoint Metadata <https://learn.microsoft.com/rest/api/fabric/sqlendpoint/items/refresh-sql-endpoint-metadata>`_.
 
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
+
     Parameters
     ----------
     item : str | uuid.UUID
@@ -140,7 +142,7 @@ def refresh_sql_endpoint_metadata(
         }
 
     result = _base_api(
-        request=f"v1/workspaces/{workspace_id}/sqlEndpoints/{sql_endpoint_id}/refreshMetadata?preview=true",
+        request=f"v1/workspaces/{workspace_id}/sqlEndpoints/{sql_endpoint_id}/refreshMetadata",
         method="post",
         client="fabric_sp",
         status_codes=[200, 202],
@@ -159,7 +161,7 @@ def refresh_sql_endpoint_metadata(
     }
 
     if result:
-        df = pd.json_normalize(result)
+        df = pd.json_normalize(result.get("value"))
 
         # Extract error code and message, set to None if no error
         df["Error Code"] = df.get("error.errorCode", None)

@@ -2,6 +2,7 @@
 from typing import Any, Dict, List, Optional, Tuple, NamedTuple
 import time
 import logging
+import threading
 import numpy as np
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
@@ -34,7 +35,7 @@ class EmbeddingConfig:
     """Configuration for embedding processing and search."""
     
     # Similarity and confidence thresholds
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.35
     confidence_threshold: float = 0.6
     
     # Track ID cache optimization settings
@@ -70,6 +71,10 @@ class EmbeddingManager:
         
         # Unknown faces cache - storing unknown embeddings locally
         self.unknown_faces_counter = 0
+        
+        # Thread safety
+        self._cache_lock = threading.Lock()
+        self._embeddings_lock = threading.Lock()
         
     def set_face_client(self, face_client: FacialRecognitionClient):
         """Set the face recognition client."""
@@ -112,21 +117,22 @@ class EmbeddingManager:
                     self.staff_embeddings.append(staff_embedding)
                     embeddings_list.append(staff_embedding.embedding)
             
-            # Create numpy matrix for fast similarity computation
-            if embeddings_list:
-                self.embeddings_matrix = np.array(embeddings_list, dtype=np.float32)
-                # Normalize embeddings for cosine similarity
-                norms = np.linalg.norm(self.embeddings_matrix, axis=1, keepdims=True)
-                norms[norms == 0] = 1  # Avoid division by zero
-                self.embeddings_matrix = self.embeddings_matrix / norms
-                
-                self.embedding_metadata = self.staff_embeddings.copy()
-                self.staff_embeddings_last_update = time.time()
-                self.logger.info(f"Loaded {len(self.staff_embeddings)} staff embeddings")
-                return True
-            else:
-                self.logger.warning("No active staff embeddings found")
-                return False
+            # Create numpy matrix for fast similarity computation (thread-safe)
+            with self._embeddings_lock:
+                if embeddings_list:
+                    self.embeddings_matrix = np.array(embeddings_list, dtype=np.float32)
+                    # Normalize embeddings for cosine similarity
+                    norms = np.linalg.norm(self.embeddings_matrix, axis=1, keepdims=True)
+                    norms[norms == 0] = 1  # Avoid division by zero
+                    self.embeddings_matrix = self.embeddings_matrix / norms
+                    
+                    self.embedding_metadata = self.staff_embeddings.copy()
+                    self.staff_embeddings_last_update = time.time()
+                    self.logger.info(f"Loaded {len(self.staff_embeddings)} staff embeddings")
+                    return True
+                else:
+                    self.logger.warning("No active staff embeddings found")
+                    return False
                 
         except Exception as e:
             self.logger.error(f"Error loading staff embeddings: {e}", exc_info=True)
@@ -165,8 +171,16 @@ class EmbeddingManager:
             self.logger.error(f"Error adding embedding to local cache: {e}", exc_info=True)
     
     def _find_best_local_match(self, query_embedding: List[float]) -> Optional[Tuple[StaffEmbedding, float]]:
-        """Find best matching staff member using optimized matrix operations."""
-        if self.embeddings_matrix is None or len(self.embedding_metadata) == 0:
+        """Find best matching staff member using optimized matrix operations (thread-safe)."""
+        with self._embeddings_lock:
+            if self.embeddings_matrix is None or len(self.embedding_metadata) == 0:
+                return None
+                
+            # Create local copies to avoid issues with concurrent modifications
+            embeddings_matrix = self.embeddings_matrix.copy() if self.embeddings_matrix is not None else None
+            embedding_metadata = self.embedding_metadata.copy()
+            
+        if embeddings_matrix is None:
             return None
             
         try:
@@ -179,7 +193,7 @@ class EmbeddingManager:
             query_array = query_array / query_norm
             
             # Compute cosine similarities using matrix multiplication (much faster)
-            similarities = np.dot(self.embeddings_matrix, query_array.T).flatten()
+            similarities = np.dot(embeddings_matrix, query_array.T).flatten()
             
             # Find the best match
             best_idx = np.argmax(similarities)
@@ -187,7 +201,7 @@ class EmbeddingManager:
             
             # Check if similarity meets threshold
             if best_similarity >= self.config.similarity_threshold:
-                best_staff_embedding = self.embedding_metadata[best_idx]
+                best_staff_embedding = embedding_metadata[best_idx]
                 return best_staff_embedding, float(best_similarity)
                     
             return None
@@ -274,23 +288,24 @@ class EmbeddingManager:
             return None
             
         try:
-            current_time = time.time()
-            
-            # Clean expired entries
-            expired_keys = [
-                key for key, data in self.track_id_cache.items()
-                if current_time - data["timestamp"] > self.config.cache_ttl
-            ]
-            for key in expired_keys:
-                del self.track_id_cache[key]
-            
-            # Check for existing track_id
-            if track_id in self.track_id_cache:
-                cached_data = self.track_id_cache[track_id]
-                self.logger.debug(f"Found cached result for track_id: {track_id} with similarity: {cached_data['similarity_score']:.3f}")
-                return cached_data["result"]
-            
-            return None
+            with self._cache_lock:
+                current_time = time.time()
+                
+                # Clean expired entries
+                expired_keys = [
+                    key for key, data in self.track_id_cache.items()
+                    if current_time - data["timestamp"] > self.config.cache_ttl
+                ]
+                for key in expired_keys:
+                    del self.track_id_cache[key]
+                
+                # Check for existing track_id
+                if track_id in self.track_id_cache:
+                    cached_data = self.track_id_cache[track_id]
+                    self.logger.debug(f"Found cached result for track_id: {track_id} with similarity: {cached_data['similarity_score']:.3f}")
+                    return cached_data["result"]
+                
+                return None
         except Exception as e:
             self.logger.warning(f"Error checking track_id cache: {e}")
             return None
@@ -328,26 +343,27 @@ class EmbeddingManager:
             return
             
         try:
-            current_time = time.time()
-            similarity_score = search_result.similarity_score
-            
-            # Manage cache size
-            if len(self.track_id_cache) >= self.config.cache_max_size:
-                # Remove oldest entries (simple FIFO)
-                oldest_key = min(
-                    self.track_id_cache.keys(),
-                    key=lambda k: self.track_id_cache[k]["timestamp"]
-                )
-                del self.track_id_cache[oldest_key]
-            
-            # Update cache entry
-            self.track_id_cache[track_id] = {
-                "result": search_result,
-                "similarity_score": similarity_score,
-                "timestamp": current_time
-            }
-            
-            self.logger.debug(f"Updated cache for track_id {track_id} with similarity {similarity_score:.3f}")
+            with self._cache_lock:
+                current_time = time.time()
+                similarity_score = search_result.similarity_score
+                
+                # Manage cache size
+                if len(self.track_id_cache) >= self.config.cache_max_size:
+                    # Remove oldest entries (simple FIFO)
+                    oldest_key = min(
+                        self.track_id_cache.keys(),
+                        key=lambda k: self.track_id_cache[k]["timestamp"]
+                    )
+                    del self.track_id_cache[oldest_key]
+                
+                # Update cache entry
+                self.track_id_cache[track_id] = {
+                    "result": search_result,
+                    "similarity_score": similarity_score,
+                    "timestamp": current_time
+                }
+                
+                self.logger.debug(f"Updated cache for track_id {track_id} with similarity {similarity_score:.3f}")
                 
         except Exception as e:
             self.logger.warning(f"Error updating track_id cache: {e}")
@@ -443,10 +459,12 @@ class EmbeddingManager:
                 similarity_score=similarity_score
             )
         else:
-            # Create unknown face entry
-            self.unknown_faces_counter += 1
-            employee_id = f"unknown_{int(time.time())}_{self.unknown_faces_counter}"
-            staff_id = track_id if track_id else f"unknown_{self.unknown_faces_counter}"
+            # Create unknown face entry (thread-safe counter)
+            with self._cache_lock:
+                self.unknown_faces_counter += 1
+                counter_value = self.unknown_faces_counter
+            employee_id = f"unknown_{int(time.time())}_{counter_value}"
+            staff_id = track_id if track_id else f"unknown_{counter_value}"
             
             current_search_result = SearchResult(
                 employee_id=employee_id,
@@ -457,15 +475,32 @@ class EmbeddingManager:
                 similarity_score=0.0
             )
         
-        # Now check cache and compare similarities (if caching enabled and track_id available)
+        # Check cache and compare similarities (if caching enabled and track_id available)
+        # BUT: For unknown faces, always re-check to allow for potential identification
         if self.config.enable_track_id_cache and track_id:
             cached_result = self._check_track_id_cache(track_id)
+            
+            # If current result is unknown, always continue checking even if cached
+            if current_search_result.detection_type == "unknown":
+                self.logger.debug(f"Unknown face with track_id: {track_id} - continuing to re-check for potential identification")
+                # Still update cache if new result is better, but don't return cached result for unknowns
+                if cached_result and current_search_result.similarity_score > cached_result.similarity_score:
+                    self._update_track_id_cache(track_id, current_search_result)
+                elif not cached_result:
+                    # Don't cache unknown results - let them be rechecked every time
+                    self.logger.debug(f"Not caching unknown face result for track_id: {track_id}")
+                return current_search_result
             
             if cached_result:
                 cached_similarity = cached_result.similarity_score
                 current_similarity = current_search_result.similarity_score
                 
-                if current_similarity > cached_similarity:
+                # If cached result was unknown but current is known, always use current (upgrade)
+                if cached_result.detection_type == "unknown" and current_search_result.detection_type == "known":
+                    self.logger.info(f"Upgrading unknown face to known for track_id: {track_id} - similarity: {current_similarity:.3f}")
+                    self._update_track_id_cache(track_id, current_search_result)
+                    return current_search_result
+                elif current_similarity > cached_similarity:
                     # New result is better - update cache and return new result
                     self.logger.debug(f"New similarity {current_similarity:.3f} > cached {cached_similarity:.3f} for track_id: {track_id} - updating cache")
                     self._update_track_id_cache(track_id, current_search_result)
@@ -475,9 +510,10 @@ class EmbeddingManager:
                     self.logger.debug(f"Cached similarity {cached_similarity:.3f} >= new {current_similarity:.3f} for track_id: {track_id} - using cached result")
                     return cached_result
             else:
-                # No cached result - add to cache and return current result
-                self.logger.debug(f"No cached result for track_id: {track_id} - adding to cache")
-                self._update_track_id_cache(track_id, current_search_result)
+                # No cached result - add to cache and return current result (only for known faces)
+                if current_search_result.detection_type == "known":
+                    self.logger.debug(f"No cached result for track_id: {track_id} - adding known face to cache")
+                    self._update_track_id_cache(track_id, current_search_result)
                 return current_search_result
         
         # If caching is disabled, just return the current result

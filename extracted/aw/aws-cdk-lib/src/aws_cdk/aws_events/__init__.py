@@ -335,8 +335,31 @@ events.EventBus(self, "Bus",
 )
 ```
 
-**Note**: Archives and schema discovery are not supported for event buses encrypted using a customer managed key.
-To enable archives or schema discovery on an event bus, choose to use an AWS owned key.
+To use a customer managed key for an archive, use the `kmsKey` attribute.
+
+Note: When you attach a customer managed key to either an EventBus or an Archive, a policy that allows EventBridge to interact with your resource will be added.
+
+```python
+import aws_cdk.aws_kms as kms
+from aws_cdk.aws_events import Archive, EventBus
+
+# kms_key: kms.IKey
+
+
+stack = Stack()
+
+event_bus = EventBus(stack, "Bus")
+
+archive = Archive(stack, "Archive",
+    kms_key=kms_key,
+    source_event_bus=event_bus,
+    event_pattern=events.EventPattern(
+        source=["aws.ec2"]
+    )
+)
+```
+
+To enable archives or schema discovery on an event bus, customers has the choice of using either an AWS owned key or a customer managed key.
 For more information, see [KMS key options for event bus encryption](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-at-rest-key-options.html).
 '''
 from pkgutil import extend_path
@@ -630,38 +653,26 @@ class Archive(
     '''Define an EventBridge Archive.
 
     :resource: AWS::Events::Archive
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk as cdk
-        from aws_cdk import aws_events as events
+        import aws_cdk.aws_kms as kms
+        from aws_cdk.aws_events import Archive, EventBus
         
-        # detail: Any
-        # event_bus: events.EventBus
+        # kms_key: kms.IKey
         
-        archive = events.Archive(self, "MyArchive",
-            event_pattern=events.EventPattern(
-                account=["account"],
-                detail={
-                    "detail_key": detail
-                },
-                detail_type=["detailType"],
-                id=["id"],
-                region=["region"],
-                resources=["resources"],
-                source=["source"],
-                time=["time"],
-                version=["version"]
-            ),
+        
+        stack = Stack()
+        
+        event_bus = EventBus(stack, "Bus")
+        
+        archive = Archive(stack, "Archive",
+            kms_key=kms_key,
             source_event_bus=event_bus,
-        
-            # the properties below are optional
-            archive_name="archiveName",
-            description="description",
-            retention=cdk.Duration.minutes(30)
+            event_pattern=events.EventPattern(
+                source=["aws.ec2"]
+            )
         )
     '''
 
@@ -674,6 +685,7 @@ class Archive(
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''
@@ -683,6 +695,7 @@ class Archive(
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
@@ -694,6 +707,7 @@ class Archive(
             event_pattern=event_pattern,
             archive_name=archive_name,
             description=description,
+            kms_key=kms_key,
             retention=retention,
         )
 
@@ -843,6 +857,7 @@ typing.cast(typing.Any, Authorization).__jsii_proxy_class__ = lambda : _Authoriz
         "event_pattern": "eventPattern",
         "archive_name": "archiveName",
         "description": "description",
+        "kms_key": "kmsKey",
         "retention": "retention",
     },
 )
@@ -853,6 +868,7 @@ class BaseArchiveProps:
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''The event archive base properties.
@@ -860,6 +876,7 @@ class BaseArchiveProps:
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
 
         :exampleMetadata: infused
@@ -887,6 +904,7 @@ class BaseArchiveProps:
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_pattern": event_pattern,
@@ -895,6 +913,8 @@ class BaseArchiveProps:
             self._values["archive_name"] = archive_name
         if description is not None:
             self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
         if retention is not None:
             self._values["retention"] = retention
 
@@ -922,6 +942,15 @@ class BaseArchiveProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed key that encrypts this archive.
+
+        :default: - Use an AWS managed key
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
 
     @builtins.property
     def retention(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -5065,7 +5094,7 @@ class CfnEventBusProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5114,6 +5143,10 @@ class CfnRule(
             role_arn="roleArn",
             schedule_expression="scheduleExpression",
             state="state",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             targets=[events.CfnRule.TargetProperty(
                 arn="arn",
                 id="id",
@@ -5247,6 +5280,7 @@ class CfnRule(
         role_arn: typing.Optional[builtins.str] = None,
         schedule_expression: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''
@@ -5259,6 +5293,7 @@ class CfnRule(
         :param role_arn: The Amazon Resource Name (ARN) of the role that is used for target invocation. If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
         :param schedule_expression: The scheduling expression. For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
         :param state: The state of the rule. Valid values include: - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule. - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail. - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail. Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** . This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
+        :param tags: Any tags assigned to the event rule.
         :param targets: Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule. Targets are the resources that are invoked when a rule is triggered. The maximum number of entries per request is 10. .. epigraph:: Each rule can have up to five (5) targets associated with it at one time. For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** . Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are: - ``Amazon EBS CreateSnapshot API call`` - ``Amazon EC2 RebootInstances API call`` - ``Amazon EC2 StopInstances API call`` - ``Amazon EC2 TerminateInstances API call`` For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field. To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions: - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies. - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` . For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** . If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ . .. epigraph:: ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account. If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* . .. epigraph:: If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role. For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ . *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event: - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target). - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant. - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed). - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target. When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation. When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect. This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
         '''
         if __debug__:
@@ -5273,6 +5308,7 @@ class CfnRule(
             role_arn=role_arn,
             schedule_expression=schedule_expression,
             state=state,
+            tags=tags,
             targets=targets,
         )
 
@@ -5316,6 +5352,12 @@ class CfnRule(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5412,6 +5454,19 @@ class CfnRule(
             type_hints = typing.get_type_hints(_typecheckingstub__08542b68c4470a8f44e4a04ee382bb40e94dc161aad2f92bfa79298da9d13832)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Any tags assigned to the event rule.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4daedf0bf9c9ce5671a843d87568d852259b36183898da9f395d6fb1b1a1e974)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targets")
@@ -7912,6 +7967,7 @@ class CfnRule(
         "role_arn": "roleArn",
         "schedule_expression": "scheduleExpression",
         "state": "state",
+        "tags": "tags",
         "targets": "targets",
     },
 )
@@ -7926,6 +7982,7 @@ class CfnRuleProps:
         role_arn: typing.Optional[builtins.str] = None,
         schedule_expression: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRule``.
@@ -7937,6 +7994,7 @@ class CfnRuleProps:
         :param role_arn: The Amazon Resource Name (ARN) of the role that is used for target invocation. If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
         :param schedule_expression: The scheduling expression. For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
         :param state: The state of the rule. Valid values include: - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule. - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail. - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail. Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** . This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
+        :param tags: Any tags assigned to the event rule.
         :param targets: Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule. Targets are the resources that are invoked when a rule is triggered. The maximum number of entries per request is 10. .. epigraph:: Each rule can have up to five (5) targets associated with it at one time. For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** . Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are: - ``Amazon EBS CreateSnapshot API call`` - ``Amazon EC2 RebootInstances API call`` - ``Amazon EC2 StopInstances API call`` - ``Amazon EC2 TerminateInstances API call`` For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field. To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions: - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies. - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` . For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** . If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ . .. epigraph:: ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account. If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* . .. epigraph:: If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role. For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ . *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event: - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target). - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant. - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed). - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target. When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation. When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect. This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html
@@ -7958,6 +8016,10 @@ class CfnRuleProps:
                 role_arn="roleArn",
                 schedule_expression="scheduleExpression",
                 state="state",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 targets=[events.CfnRule.TargetProperty(
                     arn="arn",
                     id="id",
@@ -8087,6 +8149,7 @@ class CfnRuleProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
@@ -8103,6 +8166,8 @@ class CfnRuleProps:
             self._values["schedule_expression"] = schedule_expression
         if state is not None:
             self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
         if targets is not None:
             self._values["targets"] = targets
 
@@ -8186,6 +8251,15 @@ class CfnRuleProps:
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Any tags assigned to the event rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     @builtins.property
     def targets(
@@ -9794,6 +9868,7 @@ class IEventBus(_IResource_c80c4260, typing_extensions.Protocol):
         event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
     ) -> Archive:
         '''Create an EventBridge archive to send events to.
@@ -9805,6 +9880,7 @@ class IEventBus(_IResource_c80c4260, typing_extensions.Protocol):
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         ...
@@ -9877,6 +9953,7 @@ class _IEventBusProxy(
         event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
     ) -> Archive:
         '''Create an EventBridge archive to send events to.
@@ -9888,6 +9965,7 @@ class _IEventBusProxy(
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
@@ -9897,6 +9975,7 @@ class _IEventBusProxy(
             event_pattern=event_pattern,
             archive_name=archive_name,
             description=description,
+            kms_key=kms_key,
             retention=retention,
         )
 
@@ -11993,6 +12072,7 @@ class ApiDestination(
         "event_pattern": "eventPattern",
         "archive_name": "archiveName",
         "description": "description",
+        "kms_key": "kmsKey",
         "retention": "retention",
         "source_event_bus": "sourceEventBus",
     },
@@ -12004,6 +12084,7 @@ class ArchiveProps(BaseArchiveProps):
         event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
         source_event_bus: IEventBus,
     ) -> None:
@@ -12012,41 +12093,30 @@ class ArchiveProps(BaseArchiveProps):
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         :param source_event_bus: The event source associated with the archive.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_events as events
+            import aws_cdk.aws_kms as kms
+            from aws_cdk.aws_events import Archive, EventBus
             
-            # detail: Any
-            # event_bus: events.EventBus
+            # kms_key: kms.IKey
             
-            archive_props = events.ArchiveProps(
-                event_pattern=events.EventPattern(
-                    account=["account"],
-                    detail={
-                        "detail_key": detail
-                    },
-                    detail_type=["detailType"],
-                    id=["id"],
-                    region=["region"],
-                    resources=["resources"],
-                    source=["source"],
-                    time=["time"],
-                    version=["version"]
-                ),
+            
+            stack = Stack()
+            
+            event_bus = EventBus(stack, "Bus")
+            
+            archive = Archive(stack, "Archive",
+                kms_key=kms_key,
                 source_event_bus=event_bus,
-            
-                # the properties below are optional
-                archive_name="archiveName",
-                description="description",
-                retention=cdk.Duration.minutes(30)
+                event_pattern=events.EventPattern(
+                    source=["aws.ec2"]
+                )
             )
         '''
         if isinstance(event_pattern, dict):
@@ -12056,6 +12126,7 @@ class ArchiveProps(BaseArchiveProps):
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
             check_type(argname="argument source_event_bus", value=source_event_bus, expected_type=type_hints["source_event_bus"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12066,6 +12137,8 @@ class ArchiveProps(BaseArchiveProps):
             self._values["archive_name"] = archive_name
         if description is not None:
             self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
         if retention is not None:
             self._values["retention"] = retention
 
@@ -12093,6 +12166,15 @@ class ArchiveProps(BaseArchiveProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed key that encrypts this archive.
+
+        :default: - Use an AWS managed key
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
 
     @builtins.property
     def retention(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -12449,6 +12531,7 @@ class EventBus(
         event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         retention: typing.Optional[_Duration_4839e8c3] = None,
     ) -> Archive:
         '''Create an EventBridge archive to send events to.
@@ -12460,6 +12543,7 @@ class EventBus(
         :param event_pattern: An event pattern to use to filter events sent to the archive.
         :param archive_name: The name of the archive. Default: - Automatically generated
         :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
@@ -12469,6 +12553,7 @@ class EventBus(
             event_pattern=event_pattern,
             archive_name=archive_name,
             description=description,
+            kms_key=kms_key,
             retention=retention,
         )
 
@@ -12605,6 +12690,7 @@ def _typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996b
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12629,6 +12715,7 @@ def _typecheckingstub__74aa160eedb5cb0d834ff82193fc6747b652d04f044891f2ad16f69e1
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13257,6 +13344,7 @@ def _typecheckingstub__e06314755e55e41a2976ff974daa36bbbb473330c92c9fef111b716f2
     role_arn: typing.Optional[builtins.str] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13312,6 +13400,12 @@ def _typecheckingstub__899750a6d5aa9b18ef60c565a105a9e226927b6acd37aa5e51339248a
 
 def _typecheckingstub__08542b68c4470a8f44e4a04ee382bb40e94dc161aad2f92bfa79298da9d13832(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4daedf0bf9c9ce5671a843d87568d852259b36183898da9f395d6fb1b1a1e974(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13543,6 +13637,7 @@ def _typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b
     role_arn: typing.Optional[builtins.str] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13677,6 +13772,7 @@ def _typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14007,6 +14103,7 @@ def _typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421a
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
     source_event_bus: IEventBus,
 ) -> None:
@@ -14106,6 +14203,7 @@ def _typecheckingstub__7330918630167c372966fe4a86452f34a261c80460ae944bcce168d6b
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""

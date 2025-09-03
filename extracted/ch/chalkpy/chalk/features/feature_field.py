@@ -2086,10 +2086,10 @@ def has_one(f: Callable[[], Any]) -> Any:
 
     >>> from chalk.features import features
     >>> @features
-    ... class User
+    ... class User:
     ...     id: str
     >>> @features
-    ... class Card
+    ... class Card:
     ...     id: str
     ...     user_id: User.id
     ...     user: User
@@ -2112,12 +2112,12 @@ def has_one(f: Callable[[], Any]) -> Any:
     --------
     >>> from chalk.features import features, has_one
     >>> @features
-    ... class Card
+    ... class Card:
     ...     id: str
     ...     user_id: str
     ...     balance: float
     >>> @features
-    ... class User
+    ... class User:
     ...     id: str
     ...     card: Card = has_one(
     ...         lambda: User.id == Card.user_id
@@ -2152,12 +2152,12 @@ def has_many(
     --------
     >>> from chalk.features import DataFrame, features, has_many
     >>> @features
-    ... class Card
+    ... class Card:
     ...     id: str
     ...     user_id: str
     ...     balance: float
     >>> @features
-    ... class User
+    ... class User:
     ...     id: str
     ...     cards: DataFrame[Card] = has_many(
     ...         lambda: User.id == Card.user_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: itemadapter
-Version: 0.12.1
+Version: 0.12.2
 Summary: Common interface for data container classes
 Project-URL: Homepage, https://github.com/scrapy/itemadapter
 Project-URL: Source, https://github.com/scrapy/itemadapter

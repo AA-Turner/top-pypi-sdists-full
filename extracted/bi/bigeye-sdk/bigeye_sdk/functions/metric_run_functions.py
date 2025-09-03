@@ -6,7 +6,7 @@ from typing import Optional
 from bigeye_sdk.generated.com.bigeye.models.generated import MetricInfo, MetricRun, SimpleBoundType
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 @dataclass

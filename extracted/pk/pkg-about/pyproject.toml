@@ -3,11 +3,11 @@
 
 [build-system]
 build-backend = 'setuptools.build_meta'
-requires = ['setuptools>=80.9.0', 'packaging>=25.0.0', 'tox>=4.28.4']
+requires = ['setuptools>=80.9.0', 'packaging>=25.0.0', 'tox>=4.29.0']
 
 [project]
 name        = 'pkg_about'
-version     = '1.4.0'
+version     = '1.5.0'
 description = 'Shares Python package metadata at runtime.'
 authors = [
     { name  = 'Adam Karpierz' },
@@ -108,7 +108,7 @@ run.source = [
     'tests',
 ]
 run.omit = [
-    'tests/tman_*.py',
+    '**/tests/tman_*.py',
 ]
 run.branch = true
 run.data_file = '.tox/coverage/.coverage'
@@ -164,7 +164,7 @@ pretty = true
 check_untyped_defs = true
 #ignore_missing_imports = true
 files = ['src']
-#exclude = ["docs/", "tests/"]
+#exclude = ['docs/', 'tests/']
 
 #
 # Configuration(s) for tox
@@ -173,7 +173,7 @@ files = ['src']
 [tool.tox]
 env_list = [{replace='ref',of=['tool','tox','labels','py'],extend=true},
             'coverage', 'typing', 'lint', 'docs']
-min_version = '4.28.4'
+min_version = '4.29.0'
 skip_missing_interpreters = true
 requires = [
     {replace='ref',of=['tool','tox','_','base','deps'],extend=true},
@@ -232,7 +232,7 @@ commands = [
 ]
 deps = [
     {replace='ref',of=['tool','tox','env_run_base','deps'],extend=true},
-    'coverage>=7.10.4',
+    'coverage>=7.10.6',
     'covdefaults>=2.3.0',
     'diff-cover>=9.6.0',
 ]
@@ -286,9 +286,10 @@ commands = [
 ]
 extras = []
 deps = [
+    {replace='ref',of=['tool','tox','_','base','deps'],extend=true},
     'mypy>=1.17.1',
     'mypy_extensions>=1.1.0',
-    'types-setuptools>=80.9.0.20250809',
+    'types-setuptools>=80.9.0.20250822',
 ]
 
 [tool.tox.env.'lint']

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: getschema
-Version: 0.2.10
+Version: 0.2.11
 Summary: Get jsonschema from sample records
 Home-page: https://github.com/anelendata/getschema
 Author: Daigo Tanaka, Anelen Co., LLC

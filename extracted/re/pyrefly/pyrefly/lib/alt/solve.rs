@@ -13,6 +13,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -207,7 +208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         binding: &BindingLegacyTypeParam,
     ) -> Arc<LegacyTypeParameterLookup> {
         match self.get_idx(binding.0).ty() {
-            Type::Type(box Type::TypeVar(x)) => {
+            Type::TypeVar(x) => {
                 let q = Quantified::type_var(
                     x.qname().id().clone(),
                     self.uniques,
@@ -219,7 +220,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     variance: x.variance(),
                 }))
             }
-            Type::Type(box Type::TypeVarTuple(x)) => {
+            Type::TypeVarTuple(x) => {
                 let q = Quantified::type_var_tuple(
                     x.qname().id().clone(),
                     self.uniques,
@@ -230,7 +231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     variance: PreInferenceVariance::PInvariant,
                 }))
             }
-            Type::Type(box Type::ParamSpec(x)) => {
+            Type::ParamSpec(x) => {
                 let q = Quantified::param_spec(
                     x.qname().id().clone(),
                     self.uniques,
@@ -1055,7 +1056,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
                     match t {
-                        Type::Type(box Type::Quantified(q)) => (**q).clone(),
+                        Type::QuantifiedValue(q) => (**q).clone(),
                         _ => unreachable!(),
                     }
                 }
@@ -1195,6 +1196,67 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().expand_mut(ty);
     }
 
+    fn check_del_typed_dict_field(
+        &self,
+        typed_dict: &Name,
+        field_name: Option<&Name>,
+        read_only: bool,
+        required: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if read_only || required {
+            let maybe_field_name = if let Some(field_name) = field_name {
+                format!(" `{field_name}`")
+            } else {
+                "".to_owned()
+            };
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::DeleteError),
+                format!("Key{maybe_field_name} in TypedDict `{typed_dict}` may not be deleted"),
+            );
+        }
+    }
+
+    fn check_del_typed_dict_literal_key(
+        &self,
+        typed_dict: &TypedDict,
+        field_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        let (read_only, required) =
+            if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
+                (field.is_read_only(), field.required)
+            } else if let ExtraItems::Extra(extra) =
+                self.typed_dict_extra_items(typed_dict.class_object())
+            {
+                (extra.read_only, false)
+            } else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    format!(
+                        "TypedDict `{}` does not have key `{}`",
+                        typed_dict.name(),
+                        field_name
+                    ),
+                );
+                return;
+            };
+        self.check_del_typed_dict_field(
+            typed_dict.name(),
+            Some(field_name),
+            read_only,
+            required,
+            range,
+            errors,
+        )
+    }
+
     pub fn solve_expectation(
         &self,
         binding: &BindingExpect,
@@ -1232,33 +1294,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let slice_ty = self.expr_infer(&x.slice, errors);
                     match (&base, &slice_ty) {
                         (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                            if let Some(field) =
-                                self.typed_dict_field(typed_dict, &Name::new(field_name))
-                            {
-                                if field.is_read_only() || field.required {
-                                    self.error(
-                                        errors,
-                                        x.slice.range(),
-                                        ErrorInfo::Kind(ErrorKind::DeleteError),
-                                        format!(
-                                            "Key `{}` in TypedDict `{}` may not be deleted",
-                                            field_name,
-                                            typed_dict.name(),
-                                        ),
-                                    );
-                                }
-                            } else {
-                                self.error(
-                                    errors,
-                                    x.slice.range(),
-                                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                                    format!(
-                                        "TypedDict `{}` does not have key `{}`",
-                                        typed_dict.name(),
-                                        field_name
-                                    ),
-                                );
-                            }
+                            let field_name = Name::new(field_name);
+                            self.check_del_typed_dict_literal_key(
+                                typed_dict,
+                                &field_name,
+                                x.slice.range(),
+                                errors,
+                            );
+                        }
+                        (Type::TypedDict(typed_dict), Type::ClassType(cls))
+                            if cls.is_builtin("str")
+                                && self
+                                    .get_typed_dict_value_type_as_builtins_dict(typed_dict)
+                                    .is_some() =>
+                        {
+                            self.check_del_typed_dict_field(
+                                typed_dict.name(),
+                                None,
+                                false,
+                                false,
+                                x.slice.range(),
+                                errors,
+                            )
                         }
                         (_, _) => {
                             self.call_method_or_error(
@@ -1824,14 +1881,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn check_assign_to_typed_dict_subscript(
+    fn check_assign_to_typed_dict_field(
         &self,
         typed_dict: &Name,
         field_name: Option<&Name>,
         field_ty: &Type,
         read_only: bool,
         value: &ExprOrBinding,
-        range: TextRange,
+        key_range: TextRange,
+        assign_range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         if read_only {
@@ -1842,26 +1900,62 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             self.error(
                 errors,
-                range,
+                key_range,
                 ErrorInfo::Kind(ErrorKind::ReadOnly),
                 format!("{key} in TypedDict `{typed_dict}` is read-only"),
             )
         } else {
-            let context = &|| {
-                TypeCheckContext::of_kind(if let Some(field_name) = field_name {
-                    TypeCheckKind::TypedDictKey(field_name.clone())
-                } else {
-                    TypeCheckKind::TypedDictExtra
-                })
-            };
+            let context =
+                &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(field_name.cloned()));
             match value {
                 ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
                 ExprOrBinding::Binding(b) => {
                     let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                    self.check_and_return_type(binding_ty, field_ty, range, errors, context)
+                    self.check_and_return_type(binding_ty, field_ty, assign_range, errors, context)
                 }
             }
         }
+    }
+
+    fn check_assign_to_typed_dict_literal_subscript(
+        &self,
+        typed_dict: &TypedDict,
+        field_name: &Name,
+        value: &ExprOrBinding,
+        key_range: TextRange,
+        assign_range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let (field_ty, read_only) =
+            if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
+                let read_only = field.is_read_only();
+                (field.ty, read_only)
+            } else if let ExtraItems::Extra(extra) =
+                self.typed_dict_extra_items(typed_dict.class_object())
+            {
+                (extra.ty, extra.read_only)
+            } else {
+                return self.error(
+                    errors,
+                    key_range,
+                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    format!(
+                        "TypedDict `{}` does not have key `{}`",
+                        typed_dict.name(),
+                        field_name
+                    ),
+                );
+            };
+        self.check_assign_to_typed_dict_field(
+            typed_dict.name(),
+            Some(field_name),
+            &field_ty,
+            read_only,
+            value,
+            key_range,
+            assign_range,
+            errors,
+        )
     }
 
     fn check_assign_to_subscript(
@@ -1876,47 +1970,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match (base, &slice_ty) {
                 (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                     let field_name = Name::new(field_name);
-                    let (field_ty, read_only) =
-                        if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                            let read_only = field.is_read_only();
-                            (field.ty, read_only)
-                        } else if let ExtraItems::Extra(extra) =
-                            self.typed_dict_extra_items(typed_dict.class_object())
-                        {
-                            (extra.ty, extra.read_only)
-                        } else {
-                            return self.error(
-                                errors,
-                                subscript.slice.range(),
-                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                                format!(
-                                    "TypedDict `{}` does not have key `{}`",
-                                    typed_dict.name(),
-                                    field_name
-                                ),
-                            );
-                        };
-                    self.check_assign_to_typed_dict_subscript(
-                        typed_dict.name(),
-                        Some(&field_name),
-                        &field_ty,
-                        read_only,
+                    self.check_assign_to_typed_dict_literal_subscript(
+                        typed_dict,
+                        &field_name,
                         value,
+                        subscript.slice.range(),
                         subscript.range(),
                         errors,
                     )
                 }
                 (Type::TypedDict(typed_dict), Type::ClassType(cls))
                     if cls.is_builtin("str")
-                        && let ExtraItems::Extra(extra) =
-                            self.typed_dict_extra_items(typed_dict.class_object()) =>
+                        && let Some(field_ty) =
+                            self.get_typed_dict_value_type_as_builtins_dict(typed_dict) =>
                 {
-                    self.check_assign_to_typed_dict_subscript(
+                    self.check_assign_to_typed_dict_field(
                         typed_dict.name(),
                         None,
-                        &extra.ty,
-                        extra.read_only,
+                        &field_ty,
+                        false,
                         value,
+                        subscript.slice.range(),
                         subscript.range(),
                         errors,
                     )
@@ -2003,7 +2077,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // when there is no annotation, so that `mylist = list` is treated
             // like a value assignment rather than a type alias?
             match ty {
-                Type::Type(_) => true,
+                Type::Type(_) | Type::TypeVar(_) | Type::ParamSpec(_) | Type::TypeVarTuple(_) => {
+                    true
+                }
                 Type::None if allow_none => true,
                 Type::Union(members) => {
                     for member in members {
@@ -2318,7 +2394,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::TypeVar(ann, name, x) => {
-                let ty = Type::type_form(self.typevar_from_call(name.clone(), x, errors).to_type());
+                let ty = self.typevar_from_call(name.clone(), x, errors).to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -2337,8 +2413,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ParamSpec(ann, name, x) => {
-                let ty =
-                    Type::type_form(self.paramspec_from_call(name.clone(), x, errors).to_type());
+                let ty = self.paramspec_from_call(name.clone(), x, errors).to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -2357,10 +2432,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::TypeVarTuple(ann, name, x) => {
-                let ty = Type::type_form(
-                    self.typevartuple_from_call(name.clone(), x, errors)
-                        .to_type(),
-                );
+                let ty = self
+                    .typevartuple_from_call(name.clone(), x, errors)
+                    .to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -2816,10 +2890,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     ));
                 }
-                Type::type_form(
-                    Quantified::new(*unique, name.clone(), *kind, default_ty, restriction)
-                        .to_type(),
-                )
+                Quantified::new(*unique, name.clone(), *kind, default_ty, restriction).to_value()
             }
             Binding::Module(m, path, prev) => {
                 let prev = prev
@@ -2855,7 +2926,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ),
                             );
                         }
-                        Type::type_form(p.quantified.clone().to_type())
+                        p.quantified.clone().to_value()
                     }
                     LegacyTypeParameterLookup::NotParameter(ty) => ty.clone(),
                 }
@@ -3123,6 +3194,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(self.solver().force_var(v), range)
             }
+            ty @ (Type::TypeVar(_)
+            | Type::ParamSpec(_)
+            | Type::TypeVarTuple(_)
+            | Type::Args(_)
+            | Type::Kwargs(_)) => Some(ty),
             Type::Type(t) => Some(*t),
             Type::None => Some(Type::None), // Both a value and a type
             Type::Ellipsis => Some(Type::Ellipsis), // A bit weird because of tuples, so just promote it
@@ -3134,6 +3210,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Unpack(box Type::Var(v)) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(Type::Unpack(Box::new(self.solver().force_var(v))), range)
             }
+            Type::QuantifiedValue(q) => Some(q.to_type()),
+            Type::ArgsValue(q) => Some(Type::Args(q)),
+            Type::KwargsValue(q) => Some(Type::Kwargs(q)),
             _ => None,
         }
     }

@@ -6,7 +6,7 @@ from bigeye_sdk.log import get_logger
 from bigeye_sdk.functions.file_functs import FileType, WriteDataResult
 
 # create logger
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def object_exists(bucket_name: str, object: str) -> bool:

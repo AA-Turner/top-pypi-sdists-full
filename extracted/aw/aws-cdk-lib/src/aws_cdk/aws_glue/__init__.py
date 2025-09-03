@@ -1438,7 +1438,7 @@ class CfnConnection(
         ) -> None:
             '''A structure that is used to specify a connection to create or update.
 
-            :param connection_type: The type of the connection. Currently, these types are supported:. - ``JDBC`` - Designates a connection to a database through Java Database Connectivity (JDBC). ``JDBC`` Connections use the following ConnectionParameters. - Required: All of ( ``HOST`` , ``PORT`` , ``JDBC_ENGINE`` ) or ``JDBC_CONNECTION_URL`` . - Required: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - Optional: ``JDBC_ENFORCE_SSL`` , ``CUSTOM_JDBC_CERT`` , ``CUSTOM_JDBC_CERT_STRING`` , ``SKIP_CUSTOM_JDBC_CERT_VALIDATION`` . These parameters are used to configure SSL with JDBC. - ``KAFKA`` - Designates a connection to an Apache Kafka streaming platform. ``KAFKA`` Connections use the following ConnectionParameters. - Required: ``KAFKA_BOOTSTRAP_SERVERS`` . - Optional: ``KAFKA_SSL_ENABLED`` , ``KAFKA_CUSTOM_CERT`` , ``KAFKA_SKIP_CUSTOM_CERT_VALIDATION`` . These parameters are used to configure SSL with ``KAFKA`` . - Optional: ``KAFKA_CLIENT_KEYSTORE`` , ``KAFKA_CLIENT_KEYSTORE_PASSWORD`` , ``KAFKA_CLIENT_KEY_PASSWORD`` , ``ENCRYPTED_KAFKA_CLIENT_KEYSTORE_PASSWORD`` , ``ENCRYPTED_KAFKA_CLIENT_KEY_PASSWORD`` . These parameters are used to configure TLS client configuration with SSL in ``KAFKA`` . - Optional: ``KAFKA_SASL_MECHANISM`` . Can be specified as ``SCRAM-SHA-512`` , ``GSSAPI`` , or ``AWS_MSK_IAM`` . - Optional: ``KAFKA_SASL_SCRAM_USERNAME`` , ``KAFKA_SASL_SCRAM_PASSWORD`` , ``ENCRYPTED_KAFKA_SASL_SCRAM_PASSWORD`` . These parameters are used to configure SASL/SCRAM-SHA-512 authentication with ``KAFKA`` . - Optional: ``KAFKA_SASL_GSSAPI_KEYTAB`` , ``KAFKA_SASL_GSSAPI_KRB5_CONF`` , ``KAFKA_SASL_GSSAPI_SERVICE`` , ``KAFKA_SASL_GSSAPI_PRINCIPAL`` . These parameters are used to configure SASL/GSSAPI authentication with ``KAFKA`` . - ``MONGODB`` - Designates a connection to a MongoDB document database. ``MONGODB`` Connections use the following ConnectionParameters. - Required: ``CONNECTION_URL`` . - Required: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - ``VIEW_VALIDATION_REDSHIFT`` - Designates a connection used for view validation by Amazon Redshift. - ``VIEW_VALIDATION_ATHENA`` - Designates a connection used for view validation by Amazon Athena. - ``NETWORK`` - Designates a network connection to a data source within an Amazon Virtual Private Cloud environment (Amazon VPC). ``NETWORK`` Connections do not require ConnectionParameters. Instead, provide a PhysicalConnectionRequirements. - ``MARKETPLACE`` - Uses configuration settings contained in a connector purchased from AWS Marketplace to read from and write to data stores that are not natively supported by AWS Glue . ``MARKETPLACE`` Connections use the following ConnectionParameters. - Required: ``CONNECTOR_TYPE`` , ``CONNECTOR_URL`` , ``CONNECTOR_CLASS_NAME`` , ``CONNECTION_URL`` . - Required for ``JDBC`` ``CONNECTOR_TYPE`` connections: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - ``CUSTOM`` - Uses configuration settings contained in a custom connector to read from and write to data stores that are not natively supported by AWS Glue . Additionally, a ``ConnectionType`` for the following SaaS connectors is supported: - ``FACEBOOKADS`` - Designates a connection to Facebook Ads. - ``GOOGLEADS`` - Designates a connection to Google Ads. - ``GOOGLESHEETS`` - Designates a connection to Google Sheets. - ``GOOGLEANALYTICS4`` - Designates a connection to Google Analytics 4. - ``HUBSPOT`` - Designates a connection to HubSpot. - ``INSTAGRAMADS`` - Designates a connection to Instagram Ads. - ``INTERCOM`` - Designates a connection to Intercom. - ``JIRACLOUD`` - Designates a connection to Jira Cloud. - ``MARKETO`` - Designates a connection to Adobe Marketo Engage. - ``NETSUITEERP`` - Designates a connection to Oracle NetSuite. - ``SALESFORCE`` - Designates a connection to Salesforce using OAuth authentication. - ``SALESFORCEMARKETINGCLOUD`` - Designates a connection to Salesforce Marketing Cloud. - ``SALESFORCEPARDOT`` - Designates a connection to Salesforce Marketing Cloud Account Engagement (MCAE). - ``SAPODATA`` - Designates a connection to SAP OData. - ``SERVICENOW`` - Designates a connection to ServiceNow. - ``SLACK`` - Designates a connection to Slack. - ``SNAPCHATADS`` - Designates a connection to Snapchat Ads. - ``STRIPE`` - Designates a connection to Stripe. - ``ZENDESK`` - Designates a connection to Zendesk. - ``ZOHOCRM`` - Designates a connection to Zoho CRM. For more information on the connection parameters needed for a particular connector, see the documentation for the connector in `Adding an AWS Glue connection <https://docs.aws.amazon.com/glue/latest/dg/console-connections.html>`_ in the AWS Glue User Guide. ``SFTP`` is not supported. For more information about how optional ConnectionProperties are used to configure features in AWS Glue , consult `AWS Glue connection properties <https://docs.aws.amazon.com/glue/latest/dg/connection-defining.html>`_ . For more information about how optional ConnectionProperties are used to configure features in AWS Glue Studio, consult `Using connectors and connections <https://docs.aws.amazon.com/glue/latest/ug/connectors-chapter.html>`_ .
+            :param connection_type: The type of the connection. Currently, these types are supported:. - ``JDBC`` - Designates a connection to a database through Java Database Connectivity (JDBC). ``JDBC`` Connections use the following ConnectionParameters. - Required: All of ( ``HOST`` , ``PORT`` , ``JDBC_ENGINE`` ) or ``JDBC_CONNECTION_URL`` . - Required: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - Optional: ``JDBC_ENFORCE_SSL`` , ``CUSTOM_JDBC_CERT`` , ``CUSTOM_JDBC_CERT_STRING`` , ``SKIP_CUSTOM_JDBC_CERT_VALIDATION`` . These parameters are used to configure SSL with JDBC. - ``KAFKA`` - Designates a connection to an Apache Kafka streaming platform. ``KAFKA`` Connections use the following ConnectionParameters. - Required: ``KAFKA_BOOTSTRAP_SERVERS`` . - Optional: ``KAFKA_SSL_ENABLED`` , ``KAFKA_CUSTOM_CERT`` , ``KAFKA_SKIP_CUSTOM_CERT_VALIDATION`` . These parameters are used to configure SSL with ``KAFKA`` . - Optional: ``KAFKA_CLIENT_KEYSTORE`` , ``KAFKA_CLIENT_KEYSTORE_PASSWORD`` , ``KAFKA_CLIENT_KEY_PASSWORD`` , ``ENCRYPTED_KAFKA_CLIENT_KEYSTORE_PASSWORD`` , ``ENCRYPTED_KAFKA_CLIENT_KEY_PASSWORD`` . These parameters are used to configure TLS client configuration with SSL in ``KAFKA`` . - Optional: ``KAFKA_SASL_MECHANISM`` . Can be specified as ``SCRAM-SHA-512`` , ``GSSAPI`` , or ``AWS_MSK_IAM`` . - Optional: ``KAFKA_SASL_SCRAM_USERNAME`` , ``KAFKA_SASL_SCRAM_PASSWORD`` , ``ENCRYPTED_KAFKA_SASL_SCRAM_PASSWORD`` . These parameters are used to configure SASL/SCRAM-SHA-512 authentication with ``KAFKA`` . - Optional: ``KAFKA_SASL_GSSAPI_KEYTAB`` , ``KAFKA_SASL_GSSAPI_KRB5_CONF`` , ``KAFKA_SASL_GSSAPI_SERVICE`` , ``KAFKA_SASL_GSSAPI_PRINCIPAL`` . These parameters are used to configure SASL/GSSAPI authentication with ``KAFKA`` . - ``MONGODB`` - Designates a connection to a MongoDB document database. ``MONGODB`` Connections use the following ConnectionParameters. - Required: ``CONNECTION_URL`` . - Required: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - ``VIEW_VALIDATION_REDSHIFT`` - Designates a connection used for view validation by Amazon Redshift. - ``VIEW_VALIDATION_ATHENA`` - Designates a connection used for view validation by Amazon Athena. - ``NETWORK`` - Designates a network connection to a data source within an Amazon Virtual Private Cloud environment (Amazon VPC). ``NETWORK`` Connections do not require ConnectionParameters. Instead, provide a PhysicalConnectionRequirements. - ``MARKETPLACE`` - Uses configuration settings contained in a connector purchased from AWS Marketplace to read from and write to data stores that are not natively supported by AWS Glue . ``MARKETPLACE`` Connections use the following ConnectionParameters. - Required: ``CONNECTOR_TYPE`` , ``CONNECTOR_URL`` , ``CONNECTOR_CLASS_NAME`` , ``CONNECTION_URL`` . - Required for ``JDBC`` ``CONNECTOR_TYPE`` connections: All of ( ``USERNAME`` , ``PASSWORD`` ) or ``SECRET_ID`` . - ``CUSTOM`` - Uses configuration settings contained in a custom connector to read from and write to data stores that are not natively supported by AWS Glue . Additionally, a ``ConnectionType`` for the following SaaS connectors is supported: - ``FACEBOOKADS`` - Designates a connection to Facebook Ads. - ``GOOGLEADS`` - Designates a connection to Google Ads. - ``GOOGLESHEETS`` - Designates a connection to Google Sheets. - ``GOOGLEANALYTICS4`` - Designates a connection to Google Analytics 4. - ``HUBSPOT`` - Designates a connection to HubSpot. - ``INSTAGRAMADS`` - Designates a connection to Instagram Ads. - ``INTERCOM`` - Designates a connection to Intercom. - ``JIRACLOUD`` - Designates a connection to Jira Cloud. - ``MARKETO`` - Designates a connection to Adobe Marketo Engage. - ``NETSUITEERP`` - Designates a connection to Oracle NetSuite. - ``SALESFORCE`` - Designates a connection to Salesforce using OAuth authentication. - ``SALESFORCEMARKETINGCLOUD`` - Designates a connection to Salesforce Marketing Cloud. - ``SALESFORCEPARDOT`` - Designates a connection to Salesforce Marketing Cloud Account Engagement (MCAE). - ``SAPODATA`` - Designates a connection to SAP OData. - ``SERVICENOW`` - Designates a connection to ServiceNow. - ``SLACK`` - Designates a connection to Slack. - ``SNOWFLAKE`` - Designates a connection to Snowflake. - ``SNAPCHATADS`` - Designates a connection to Snapchat Ads. - ``STRIPE`` - Designates a connection to Stripe. - ``ZENDESK`` - Designates a connection to Zendesk. - ``ZOHOCRM`` - Designates a connection to Zoho CRM. - ``ADOBEANALYTICS`` - Designates a connection to Adobe Analytics. - ``LINKEDIN`` - Designates a connection to LinkedIn. - ``MIXPANEL`` - Designates a connection to Mixpanel. - ``ASANA`` - Designates a connection to Asana. - ``SMARTSHEET`` - Designates a connection to Smartsheet. - ``DATADOG`` - Designates a connection to Datadog. - ``WOOCOMMERCE`` - Designates a connection to WooCommerce. - ``PAYPAL`` - Designates a connection to PayPal. - ``QUICKBOOKS`` - Designates a connection to QuickBooks. - ``FACEBOOKPAGEINSIGHTS`` - Designates a connection to Facebook Page Insights. - ``FRESHDESK`` - Designates a connection to Freshdesk. - ``TWILIO`` - Designates a connection to Twilio. - ``DOCUSIGNMONITOR`` - Designates a connection to DocuSign Monitor. - ``FRESHSALES`` - Designates a connection to Freshsales. - ``ZOOM`` - Designates a connection to Zoom. - ``GOOGLESEARCHCONSOLE`` - Designates a connection to Google Search Console. - ``SALESFORCECOMMERCECLOUD`` - Designates a connection to Salesforce Commerce Cloud. - ``SAPCONCUR`` - Designates a connection to SAP Concur. - ``DYNATRACE`` - Designates a connection to Dynatrace. - ``MICROSOFTDYNAMIC365FINANCEANDOPS`` - Designates a connection to Microsoft Dynamics 365 Finance and Operations. - ``MICROSOFTTEAMS`` - Designates a connection to Microsoft Teams. - ``BLACKBAUDRAISEREDGENXT`` - Designates a connection to Blackbaud Raiser's Edge NXT. - ``MAILCHIMP`` - Designates a connection to Mailchimp. - ``GITLAB`` - Designates a connection to GitLab. - ``PENDO`` - Designates a connection to Pendo. - ``PRODUCTBOARD`` - Designates a connection to Productboard. - ``CIRCLECI`` - Designates a connection to CircleCI. - ``PIPEDIVE`` - Designates a connection to Pipedrive. - ``SENDGRID`` - Designates a connection to SendGrid. For more information on the connection parameters needed for a particular connector, see the documentation for the connector in `Adding an AWS Glue connection <https://docs.aws.amazon.com/glue/latest/dg/console-connections.html>`_ in the AWS Glue User Guide. ``SFTP`` is not supported. For more information about how optional ConnectionProperties are used to configure features in AWS Glue , consult `AWS Glue connection properties <https://docs.aws.amazon.com/glue/latest/dg/connection-defining.html>`_ . For more information about how optional ConnectionProperties are used to configure features in AWS Glue Studio, consult `Using connectors and connections <https://docs.aws.amazon.com/glue/latest/ug/connectors-chapter.html>`_ .
             :param athena_properties: Connection properties specific to the Athena compute environment.
             :param authentication_configuration: The authentication properties of the connection.
             :param connection_properties: These key-value pairs define parameters for the connection.
@@ -1617,10 +1617,40 @@ class CfnConnection(
             - ``SAPODATA`` - Designates a connection to SAP OData.
             - ``SERVICENOW`` - Designates a connection to ServiceNow.
             - ``SLACK`` - Designates a connection to Slack.
+            - ``SNOWFLAKE`` - Designates a connection to Snowflake.
             - ``SNAPCHATADS`` - Designates a connection to Snapchat Ads.
             - ``STRIPE`` - Designates a connection to Stripe.
             - ``ZENDESK`` - Designates a connection to Zendesk.
             - ``ZOHOCRM`` - Designates a connection to Zoho CRM.
+            - ``ADOBEANALYTICS`` - Designates a connection to Adobe Analytics.
+            - ``LINKEDIN`` - Designates a connection to LinkedIn.
+            - ``MIXPANEL`` - Designates a connection to Mixpanel.
+            - ``ASANA`` - Designates a connection to Asana.
+            - ``SMARTSHEET`` - Designates a connection to Smartsheet.
+            - ``DATADOG`` - Designates a connection to Datadog.
+            - ``WOOCOMMERCE`` - Designates a connection to WooCommerce.
+            - ``PAYPAL`` - Designates a connection to PayPal.
+            - ``QUICKBOOKS`` - Designates a connection to QuickBooks.
+            - ``FACEBOOKPAGEINSIGHTS`` - Designates a connection to Facebook Page Insights.
+            - ``FRESHDESK`` - Designates a connection to Freshdesk.
+            - ``TWILIO`` - Designates a connection to Twilio.
+            - ``DOCUSIGNMONITOR`` - Designates a connection to DocuSign Monitor.
+            - ``FRESHSALES`` - Designates a connection to Freshsales.
+            - ``ZOOM`` - Designates a connection to Zoom.
+            - ``GOOGLESEARCHCONSOLE`` - Designates a connection to Google Search Console.
+            - ``SALESFORCECOMMERCECLOUD`` - Designates a connection to Salesforce Commerce Cloud.
+            - ``SAPCONCUR`` - Designates a connection to SAP Concur.
+            - ``DYNATRACE`` - Designates a connection to Dynatrace.
+            - ``MICROSOFTDYNAMIC365FINANCEANDOPS`` - Designates a connection to Microsoft Dynamics 365 Finance and Operations.
+            - ``MICROSOFTTEAMS`` - Designates a connection to Microsoft Teams.
+            - ``BLACKBAUDRAISEREDGENXT`` - Designates a connection to Blackbaud Raiser's Edge NXT.
+            - ``MAILCHIMP`` - Designates a connection to Mailchimp.
+            - ``GITLAB`` - Designates a connection to GitLab.
+            - ``PENDO`` - Designates a connection to Pendo.
+            - ``PRODUCTBOARD`` - Designates a connection to Productboard.
+            - ``CIRCLECI`` - Designates a connection to CircleCI.
+            - ``PIPEDIVE`` - Designates a connection to Pipedrive.
+            - ``SENDGRID`` - Designates a connection to SendGrid.
 
             For more information on the connection parameters needed for a particular connector, see the documentation for the connector in `Adding an AWS Glue connection <https://docs.aws.amazon.com/glue/latest/dg/console-connections.html>`_ in the AWS Glue User Guide.
 
@@ -2364,7 +2394,9 @@ class CfnCrawler(
                     write_manifest=False
                 )],
                 dynamo_db_targets=[glue.CfnCrawler.DynamoDBTargetProperty(
-                    path="path"
+                    path="path",
+                    scan_all=False,
+                    scan_rate=123
                 )],
                 hudi_targets=[glue.CfnCrawler.HudiTargetProperty(
                     connection_name="connectionName",
@@ -2973,13 +3005,21 @@ class CfnCrawler(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnCrawler.DynamoDBTargetProperty",
         jsii_struct_bases=[],
-        name_mapping={"path": "path"},
+        name_mapping={"path": "path", "scan_all": "scanAll", "scan_rate": "scanRate"},
     )
     class DynamoDBTargetProperty:
-        def __init__(self, *, path: typing.Optional[builtins.str] = None) -> None:
+        def __init__(
+            self,
+            *,
+            path: typing.Optional[builtins.str] = None,
+            scan_all: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            scan_rate: typing.Optional[jsii.Number] = None,
+        ) -> None:
             '''Specifies an Amazon DynamoDB table to crawl.
 
             :param path: The name of the DynamoDB table to crawl.
+            :param scan_all: Indicates whether to scan all the records, or to sample rows from the table. Scanning all the records can take a long time when the table is not a high throughput table. A value of ``true`` means to scan all records, while a value of ``false`` means to sample the records. If no value is specified, the value defaults to ``true`` .
+            :param scan_rate: The percentage of the configured read capacity units to use by the AWS Glue crawler. Read capacity units is a term defined by DynamoDB, and is a numeric value that acts as rate limiter for the number of reads that can be performed on that table per second. The valid values are null or a value between 0.1 to 1.5. A null value is used when user does not provide a value, and defaults to 0.5 of the configured Read Capacity Unit (for provisioned tables), or 0.25 of the max configured Read Capacity Unit (for tables using on-demand mode).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-crawler-dynamodbtarget.html
             :exampleMetadata: fixture=_generated
@@ -2991,15 +3031,23 @@ class CfnCrawler(
                 from aws_cdk import aws_glue as glue
                 
                 dynamo_dBTarget_property = glue.CfnCrawler.DynamoDBTargetProperty(
-                    path="path"
+                    path="path",
+                    scan_all=False,
+                    scan_rate=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4c03ffc3d1fa17ed9770b2c448e87c012b6d363001f06ce8b95bdb9c62711274)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument scan_all", value=scan_all, expected_type=type_hints["scan_all"])
+                check_type(argname="argument scan_rate", value=scan_rate, expected_type=type_hints["scan_rate"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if path is not None:
                 self._values["path"] = path
+            if scan_all is not None:
+                self._values["scan_all"] = scan_all
+            if scan_rate is not None:
+                self._values["scan_rate"] = scan_rate
 
         @builtins.property
         def path(self) -> typing.Optional[builtins.str]:
@@ -3009,6 +3057,34 @@ class CfnCrawler(
             '''
             result = self._values.get("path")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scan_all(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether to scan all the records, or to sample rows from the table.
+
+            Scanning all the records can take a long time when the table is not a high throughput table.
+
+            A value of ``true`` means to scan all records, while a value of ``false`` means to sample the records. If no value is specified, the value defaults to ``true`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-crawler-dynamodbtarget.html#cfn-glue-crawler-dynamodbtarget-scanall
+            '''
+            result = self._values.get("scan_all")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def scan_rate(self) -> typing.Optional[jsii.Number]:
+            '''The percentage of the configured read capacity units to use by the AWS Glue crawler.
+
+            Read capacity units is a term defined by DynamoDB, and is a numeric value that acts as rate limiter for the number of reads that can be performed on that table per second.
+
+            The valid values are null or a value between 0.1 to 1.5. A null value is used when user does not provide a value, and defaults to 0.5 of the configured Read Capacity Unit (for provisioned tables), or 0.25 of the max configured Read Capacity Unit (for tables using on-demand mode).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-crawler-dynamodbtarget.html#cfn-glue-crawler-dynamodbtarget-scanrate
+            '''
+            result = self._values.get("scan_rate")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3917,7 +3993,9 @@ class CfnCrawler(
                         write_manifest=False
                     )],
                     dynamo_db_targets=[glue.CfnCrawler.DynamoDBTargetProperty(
-                        path="path"
+                        path="path",
+                        scan_all=False,
+                        scan_rate=123
                     )],
                     hudi_targets=[glue.CfnCrawler.HudiTargetProperty(
                         connection_name="connectionName",
@@ -4163,7 +4241,9 @@ class CfnCrawlerProps:
                         write_manifest=False
                     )],
                     dynamo_db_targets=[glue.CfnCrawler.DynamoDBTargetProperty(
-                        path="path"
+                        path="path",
+                        scan_all=False,
+                        scan_rate=123
                     )],
                     hudi_targets=[glue.CfnCrawler.HudiTargetProperty(
                         connection_name="connectionName",
@@ -14513,9 +14593,10 @@ class CfnTableOptimizer(
                     )
                 ),
                 retention_configuration=glue.CfnTableOptimizer.RetentionConfigurationProperty(
-                    iceberg_configuration=glue.CfnTableOptimizer.IcebergConfigurationProperty(
-                        location="location",
-                        orphan_file_retention_period_in_days=123
+                    iceberg_configuration=glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty(
+                        clean_expired_files=False,
+                        number_of_snapshots_to_retain=123,
+                        snapshot_retention_period_in_days=123
                     )
                 ),
                 vpc_configuration=glue.CfnTableOptimizer.VpcConfigurationProperty(
@@ -14754,6 +14835,93 @@ class CfnTableOptimizer(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "clean_expired_files": "cleanExpiredFiles",
+            "number_of_snapshots_to_retain": "numberOfSnapshotsToRetain",
+            "snapshot_retention_period_in_days": "snapshotRetentionPeriodInDays",
+        },
+    )
+    class IcebergRetentionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            clean_expired_files: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            number_of_snapshots_to_retain: typing.Optional[jsii.Number] = None,
+            snapshot_retention_period_in_days: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param clean_expired_files: 
+            :param number_of_snapshots_to_retain: 
+            :param snapshot_retention_period_in_days: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergretentionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_retention_configuration_property = glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty(
+                    clean_expired_files=False,
+                    number_of_snapshots_to_retain=123,
+                    snapshot_retention_period_in_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b4f8e1a2489f73394a6c790dbe1b5ccb03d98f5bcab84019c0dd305f8d0e643e)
+                check_type(argname="argument clean_expired_files", value=clean_expired_files, expected_type=type_hints["clean_expired_files"])
+                check_type(argname="argument number_of_snapshots_to_retain", value=number_of_snapshots_to_retain, expected_type=type_hints["number_of_snapshots_to_retain"])
+                check_type(argname="argument snapshot_retention_period_in_days", value=snapshot_retention_period_in_days, expected_type=type_hints["snapshot_retention_period_in_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if clean_expired_files is not None:
+                self._values["clean_expired_files"] = clean_expired_files
+            if number_of_snapshots_to_retain is not None:
+                self._values["number_of_snapshots_to_retain"] = number_of_snapshots_to_retain
+            if snapshot_retention_period_in_days is not None:
+                self._values["snapshot_retention_period_in_days"] = snapshot_retention_period_in_days
+
+        @builtins.property
+        def clean_expired_files(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergretentionconfiguration.html#cfn-glue-tableoptimizer-icebergretentionconfiguration-cleanexpiredfiles
+            '''
+            result = self._values.get("clean_expired_files")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def number_of_snapshots_to_retain(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergretentionconfiguration.html#cfn-glue-tableoptimizer-icebergretentionconfiguration-numberofsnapshotstoretain
+            '''
+            result = self._values.get("number_of_snapshots_to_retain")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def snapshot_retention_period_in_days(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergretentionconfiguration.html#cfn-glue-tableoptimizer-icebergretentionconfiguration-snapshotretentionperiodindays
+            '''
+            result = self._values.get("snapshot_retention_period_in_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergRetentionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnTableOptimizer.OrphanFileDeletionConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"iceberg_configuration": "icebergConfiguration"},
@@ -14824,7 +14992,7 @@ class CfnTableOptimizer(
         def __init__(
             self,
             *,
-            iceberg_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTableOptimizer.IcebergConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTableOptimizer.IcebergRetentionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for a snapshot retention optimizer for Apache Iceberg tables.
 
@@ -14840,9 +15008,10 @@ class CfnTableOptimizer(
                 from aws_cdk import aws_glue as glue
                 
                 retention_configuration_property = glue.CfnTableOptimizer.RetentionConfigurationProperty(
-                    iceberg_configuration=glue.CfnTableOptimizer.IcebergConfigurationProperty(
-                        location="location",
-                        orphan_file_retention_period_in_days=123
+                    iceberg_configuration=glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty(
+                        clean_expired_files=False,
+                        number_of_snapshots_to_retain=123,
+                        snapshot_retention_period_in_days=123
                     )
                 )
             '''
@@ -14856,13 +15025,13 @@ class CfnTableOptimizer(
         @builtins.property
         def iceberg_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTableOptimizer.IcebergConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTableOptimizer.IcebergRetentionConfigurationProperty"]]:
             '''The configuration for an Iceberg snapshot retention optimizer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-retentionconfiguration.html#cfn-glue-tableoptimizer-retentionconfiguration-icebergconfiguration
             '''
             result = self._values.get("iceberg_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTableOptimizer.IcebergConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTableOptimizer.IcebergRetentionConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14925,9 +15094,10 @@ class CfnTableOptimizer(
                         )
                     ),
                     retention_configuration=glue.CfnTableOptimizer.RetentionConfigurationProperty(
-                        iceberg_configuration=glue.CfnTableOptimizer.IcebergConfigurationProperty(
-                            location="location",
-                            orphan_file_retention_period_in_days=123
+                        iceberg_configuration=glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty(
+                            clean_expired_files=False,
+                            number_of_snapshots_to_retain=123,
+                            snapshot_retention_period_in_days=123
                         )
                     ),
                     vpc_configuration=glue.CfnTableOptimizer.VpcConfigurationProperty(
@@ -15133,9 +15303,10 @@ class CfnTableOptimizerProps:
                         )
                     ),
                     retention_configuration=glue.CfnTableOptimizer.RetentionConfigurationProperty(
-                        iceberg_configuration=glue.CfnTableOptimizer.IcebergConfigurationProperty(
-                            location="location",
-                            orphan_file_retention_period_in_days=123
+                        iceberg_configuration=glue.CfnTableOptimizer.IcebergRetentionConfigurationProperty(
+                            clean_expired_files=False,
+                            number_of_snapshots_to_retain=123,
+                            snapshot_retention_period_in_days=123
                         )
                     ),
                     vpc_configuration=glue.CfnTableOptimizer.VpcConfigurationProperty(
@@ -17682,6 +17853,8 @@ def _typecheckingstub__a7510699883f74759e475bf2ece2842156b441164d538264f93242ebd
 def _typecheckingstub__4c03ffc3d1fa17ed9770b2c448e87c012b6d363001f06ce8b95bdb9c62711274(
     *,
     path: typing.Optional[builtins.str] = None,
+    scan_all: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    scan_rate: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19366,6 +19539,15 @@ def _typecheckingstub__5e7a911f626ca723b7f0b1c35deb71291cb06af5a64d75f3dcb432988
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b4f8e1a2489f73394a6c790dbe1b5ccb03d98f5bcab84019c0dd305f8d0e643e(
+    *,
+    clean_expired_files: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    number_of_snapshots_to_retain: typing.Optional[jsii.Number] = None,
+    snapshot_retention_period_in_days: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fd6b7e3a46937a5c19f35e6c499494a7bff00c3eb67dd21cf60217c60a49b95b(
     *,
     iceberg_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableOptimizer.IcebergConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19375,7 +19557,7 @@ def _typecheckingstub__fd6b7e3a46937a5c19f35e6c499494a7bff00c3eb67dd21cf60217c60
 
 def _typecheckingstub__c5ba28f1de672bfecf327282ce4e55b72b9a4850e73f7c390aa55e0c015e2ce8(
     *,
-    iceberg_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableOptimizer.IcebergConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableOptimizer.IcebergRetentionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

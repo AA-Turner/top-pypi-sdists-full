@@ -503,11 +503,11 @@ class CfnHttpNamespace(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnHttpNamespace",
 ):
-    '''The ``HttpNamespace`` resource is an AWS Cloud Map resource type that contains information about an HTTP namespace.
+    '''Creates an HTTP namespace.
 
-    Service instances that you register using an HTTP namespace can be discovered using a ``DiscoverInstances`` request but can't be discovered using DNS.
+    Service instances registered using an HTTP namespace can be discovered using a ``DiscoverInstances`` request but can't be discovered using DNS.
 
-    For the current quota on the number of namespaces that you can create using the same AWS account, see `AWS Cloud Map quotas <https://docs.aws.amazon.com/cloud-map/latest/dg/cloud-map-limits.html>`_ in the ** .
+    For the current quota on the number of namespaces that you can create using the same AWS account , see `AWS Cloud Map quotas <https://docs.aws.amazon.com/cloud-map/latest/dg/cloud-map-limits.html>`_ in the *AWS Cloud Map Developer Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-httpnamespace.html
     :cloudformationResource: AWS::ServiceDiscovery::HttpNamespace
@@ -790,7 +790,7 @@ class CfnInstance(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_attributes: A string map that contains the following information for the service that you specify in ``ServiceId`` :. - The attributes that apply to the records that are defined in the service. - For each attribute, the applicable value. Supported attribute keys include the following: - **AWS_ALIAS_DNS_NAME** - If you want AWS Cloud Map to create a Route 53 alias record that routes traffic to an Elastic Load Balancing load balancer, specify the DNS name that is associated with the load balancer. For information about how to get the DNS name, see `AliasTarget->DNSName <https://docs.aws.amazon.com/Route53/latest/APIReference/API_AliasTarget.html#Route53-Type-AliasTarget-DNSName>`_ in the *Route 53 API Reference* . Note the following: - The configuration for the service that is specified by ``ServiceId`` must include settings for an ``A`` record, an ``AAAA`` record, or both. - In the service that is specified by ``ServiceId`` , the value of ``RoutingPolicy`` must be ``WEIGHTED`` . - If the service that is specified by ``ServiceId`` includes ``HealthCheckConfig`` settings, AWS Cloud Map will create the health check, but it won't associate the health check with the alias record. - Auto naming currently doesn't support creating alias records that route traffic to AWS resources other than ELB load balancers. - If you specify a value for ``AWS_ALIAS_DNS_NAME`` , don't specify values for any of the ``AWS_INSTANCE`` attributes. - **AWS_EC2_INSTANCE_ID** - *HTTP namespaces only.* The Amazon EC2 instance ID for the instance. The ``AWS_INSTANCE_IPV4`` attribute contains the primary private IPv4 address. When creating resources with a type of `AWS::ServiceDiscovery::Instance <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html>`_ , if the ``AWS_EC2_INSTANCE_ID`` attribute is specified, the only other attribute that can be specified is ``AWS_INIT_HEALTH_STATUS`` . After the resource has been created, the ``AWS_INSTANCE_IPV4`` attribute contains the primary private IPv4 address. - **AWS_INIT_HEALTH_STATUS** - If the service configuration includes ``HealthCheckCustomConfig`` , when creating resources with a type of `AWS::ServiceDiscovery::Instance <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html>`_ you can optionally use ``AWS_INIT_HEALTH_STATUS`` to specify the initial status of the custom health check, ``HEALTHY`` or ``UNHEALTHY`` . If you don't specify a value for ``AWS_INIT_HEALTH_STATUS`` , the initial status is ``HEALTHY`` . This attribute can only be used when creating resources and will not be seen on existing resources. - **AWS_INSTANCE_CNAME** - If the service configuration includes a ``CNAME`` record, the domain name that you want Route 53 to return in response to DNS queries, for example, ``example.com`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``CNAME`` record. - **AWS_INSTANCE_IPV4** - If the service configuration includes an ``A`` record, the IPv4 address that you want Route 53 to return in response to DNS queries, for example, ``192.0.2.44`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``A`` record. If the service includes settings for an ``SRV`` record, you must specify a value for ``AWS_INSTANCE_IPV4`` , ``AWS_INSTANCE_IPV6`` , or both. - **AWS_INSTANCE_IPV6** - If the service configuration includes an ``AAAA`` record, the IPv6 address that you want Route 53 to return in response to DNS queries, for example, ``2001:0db8:85a3:0000:0000:abcd:0001:2345`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``AAAA`` record. If the service includes settings for an ``SRV`` record, you must specify a value for ``AWS_INSTANCE_IPV4`` , ``AWS_INSTANCE_IPV6`` , or both. - **AWS_INSTANCE_PORT** - If the service includes an ``SRV`` record, the value that you want Route 53 to return for the port. If the service includes ``HealthCheckConfig`` , the port on the endpoint that you want Route 53 to send requests to. This value is required if you specified settings for an ``SRV`` record or a Route 53 health check when you created the service.
-        :param service_id: The ID of the service that you want to use for settings for the instance.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to use for settings for the instance. For services created in a shared namespace, specify the service ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
         :param instance_id: An identifier that you want to associate with the instance. Note the following:. - If the service that's specified by ``ServiceId`` includes settings for an ``SRV`` record, the value of ``InstanceId`` is automatically included as part of the value for the ``SRV`` record. For more information, see `DnsRecord > Type <https://docs.aws.amazon.com/cloud-map/latest/api/API_DnsRecord.html#cloudmap-Type-DnsRecord-Type>`_ . - You can use this value to update an existing instance. - To register a new instance, you must specify a value that's unique among instances that you register by using the same service. - If you specify an existing ``InstanceId`` and ``ServiceId`` , AWS Cloud Map updates the existing DNS records, if any. If there's also an existing health check, AWS Cloud Map deletes the old health check and creates a new one. .. epigraph:: The health check isn't deleted immediately, so it will still appear for a while if you submit a ``ListHealthChecks`` request, for example. .. epigraph:: Do not include sensitive information in ``InstanceId`` if the namespace is discoverable by public DNS queries and any ``Type`` member of ``DnsRecord`` for the service contains ``SRV`` because the ``InstanceId`` is discoverable by public DNS queries.
         '''
         if __debug__:
@@ -856,7 +856,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="serviceId")
     def service_id(self) -> builtins.str:
-        '''The ID of the service that you want to use for settings for the instance.'''
+        '''The ID or Amazon Resource Name (ARN) of the service that you want to use for settings for the instance.'''
         return typing.cast(builtins.str, jsii.get(self, "serviceId"))
 
     @service_id.setter
@@ -903,7 +903,7 @@ class CfnInstanceProps:
         '''Properties for defining a ``CfnInstance``.
 
         :param instance_attributes: A string map that contains the following information for the service that you specify in ``ServiceId`` :. - The attributes that apply to the records that are defined in the service. - For each attribute, the applicable value. Supported attribute keys include the following: - **AWS_ALIAS_DNS_NAME** - If you want AWS Cloud Map to create a Route 53 alias record that routes traffic to an Elastic Load Balancing load balancer, specify the DNS name that is associated with the load balancer. For information about how to get the DNS name, see `AliasTarget->DNSName <https://docs.aws.amazon.com/Route53/latest/APIReference/API_AliasTarget.html#Route53-Type-AliasTarget-DNSName>`_ in the *Route 53 API Reference* . Note the following: - The configuration for the service that is specified by ``ServiceId`` must include settings for an ``A`` record, an ``AAAA`` record, or both. - In the service that is specified by ``ServiceId`` , the value of ``RoutingPolicy`` must be ``WEIGHTED`` . - If the service that is specified by ``ServiceId`` includes ``HealthCheckConfig`` settings, AWS Cloud Map will create the health check, but it won't associate the health check with the alias record. - Auto naming currently doesn't support creating alias records that route traffic to AWS resources other than ELB load balancers. - If you specify a value for ``AWS_ALIAS_DNS_NAME`` , don't specify values for any of the ``AWS_INSTANCE`` attributes. - **AWS_EC2_INSTANCE_ID** - *HTTP namespaces only.* The Amazon EC2 instance ID for the instance. The ``AWS_INSTANCE_IPV4`` attribute contains the primary private IPv4 address. When creating resources with a type of `AWS::ServiceDiscovery::Instance <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html>`_ , if the ``AWS_EC2_INSTANCE_ID`` attribute is specified, the only other attribute that can be specified is ``AWS_INIT_HEALTH_STATUS`` . After the resource has been created, the ``AWS_INSTANCE_IPV4`` attribute contains the primary private IPv4 address. - **AWS_INIT_HEALTH_STATUS** - If the service configuration includes ``HealthCheckCustomConfig`` , when creating resources with a type of `AWS::ServiceDiscovery::Instance <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html>`_ you can optionally use ``AWS_INIT_HEALTH_STATUS`` to specify the initial status of the custom health check, ``HEALTHY`` or ``UNHEALTHY`` . If you don't specify a value for ``AWS_INIT_HEALTH_STATUS`` , the initial status is ``HEALTHY`` . This attribute can only be used when creating resources and will not be seen on existing resources. - **AWS_INSTANCE_CNAME** - If the service configuration includes a ``CNAME`` record, the domain name that you want Route 53 to return in response to DNS queries, for example, ``example.com`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``CNAME`` record. - **AWS_INSTANCE_IPV4** - If the service configuration includes an ``A`` record, the IPv4 address that you want Route 53 to return in response to DNS queries, for example, ``192.0.2.44`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``A`` record. If the service includes settings for an ``SRV`` record, you must specify a value for ``AWS_INSTANCE_IPV4`` , ``AWS_INSTANCE_IPV6`` , or both. - **AWS_INSTANCE_IPV6** - If the service configuration includes an ``AAAA`` record, the IPv6 address that you want Route 53 to return in response to DNS queries, for example, ``2001:0db8:85a3:0000:0000:abcd:0001:2345`` . This value is required if the service specified by ``ServiceId`` includes settings for an ``AAAA`` record. If the service includes settings for an ``SRV`` record, you must specify a value for ``AWS_INSTANCE_IPV4`` , ``AWS_INSTANCE_IPV6`` , or both. - **AWS_INSTANCE_PORT** - If the service includes an ``SRV`` record, the value that you want Route 53 to return for the port. If the service includes ``HealthCheckConfig`` , the port on the endpoint that you want Route 53 to send requests to. This value is required if you specified settings for an ``SRV`` record or a Route 53 health check when you created the service.
-        :param service_id: The ID of the service that you want to use for settings for the instance.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to use for settings for the instance. For services created in a shared namespace, specify the service ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
         :param instance_id: An identifier that you want to associate with the instance. Note the following:. - If the service that's specified by ``ServiceId`` includes settings for an ``SRV`` record, the value of ``InstanceId`` is automatically included as part of the value for the ``SRV`` record. For more information, see `DnsRecord > Type <https://docs.aws.amazon.com/cloud-map/latest/api/API_DnsRecord.html#cloudmap-Type-DnsRecord-Type>`_ . - You can use this value to update an existing instance. - To register a new instance, you must specify a value that's unique among instances that you register by using the same service. - If you specify an existing ``InstanceId`` and ``ServiceId`` , AWS Cloud Map updates the existing DNS records, if any. If there's also an existing health check, AWS Cloud Map deletes the old health check and creates a new one. .. epigraph:: The health check isn't deleted immediately, so it will still appear for a while if you submit a ``ListHealthChecks`` request, for example. .. epigraph:: Do not include sensitive information in ``InstanceId`` if the namespace is discoverable by public DNS queries and any ``Type`` member of ``DnsRecord`` for the service contains ``SRV`` because the ``InstanceId`` is discoverable by public DNS queries.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html
@@ -983,7 +983,9 @@ class CfnInstanceProps:
 
     @builtins.property
     def service_id(self) -> builtins.str:
-        '''The ID of the service that you want to use for settings for the instance.
+        '''The ID or Amazon Resource Name (ARN) of the service that you want to use for settings for the instance.
+
+        For services created in a shared namespace, specify the service ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-instance.html#cfn-servicediscovery-instance-serviceid
         '''
@@ -2047,15 +2049,7 @@ class CfnService(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnService",
 ):
-    '''A complex type that contains information about a service, which defines the configuration of the following entities:.
-
-    - For public and private DNS namespaces, one of the following combinations of DNS records in Amazon Route 53:
-    - A
-    - AAAA
-    - A and AAAA
-    - SRV
-    - CNAME
-    - Optionally, a health check
+    '''A complex type that contains information about the specified service.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html
     :cloudformationResource: AWS::ServiceDiscovery::Service
@@ -2125,8 +2119,8 @@ class CfnService(
         :param health_check_config: *Public DNS and HTTP namespaces only.* A complex type that contains settings for an optional health check. If you specify settings for a health check, AWS Cloud Map associates the health check with the records that you specify in ``DnsConfig`` . For information about the charges for health checks, see `Amazon Route 53 Pricing <https://docs.aws.amazon.com/route53/pricing/>`_ .
         :param health_check_custom_config: A complex type that contains information about an optional custom health check. .. epigraph:: If you specify a health check configuration, you can specify either ``HealthCheckCustomConfig`` or ``HealthCheckConfig`` but not both.
         :param name: The name of the service.
-        :param namespace_id: The ID of the namespace that was used to create the service. .. epigraph:: You must specify a value for ``NamespaceId`` either for the service properties or for `DnsConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-service-dnsconfig.html>`_ . Don't specify a value in both places.
-        :param service_attributes: A string map that contains the following information for the service:. - The attributes that apply to the service - For each attribute, the applicable value. You can specify a total of 30 attributes.
+        :param namespace_id: The ID or Amazon Resource Name (ARN) of the namespace that you want to use to create the service. For namespaces shared with your AWS account, specify the namespace ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
+        :param service_attributes: A complex type that contains information about attributes associated with a specific service.
         :param tags: The tags for the service. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         :param type: If present, specifies that the service instances are only discoverable using the ``DiscoverInstances`` API operation. No DNS records is registered for the service instances. The only valid value is ``HTTP`` .
         '''
@@ -2299,7 +2293,7 @@ class CfnService(
     @builtins.property
     @jsii.member(jsii_name="namespaceId")
     def namespace_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the namespace that was used to create the service.'''
+        '''The ID or Amazon Resource Name (ARN) of the namespace that you want to use to create the service.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespaceId"))
 
     @namespace_id.setter
@@ -2312,7 +2306,7 @@ class CfnService(
     @builtins.property
     @jsii.member(jsii_name="serviceAttributes")
     def service_attributes(self) -> typing.Any:
-        '''A string map that contains the following information for the service:.'''
+        '''A complex type that contains information about attributes associated with a specific service.'''
         return typing.cast(typing.Any, jsii.get(self, "serviceAttributes"))
 
     @service_attributes.setter
@@ -2368,7 +2362,7 @@ class CfnService(
             '''A complex type that contains information about the Amazon Route 53 DNS records that you want AWS Cloud Map to create when you register an instance.
 
             :param dns_records: An array that contains one ``DnsRecord`` object for each Route 53 DNS record that you want AWS Cloud Map to create when you register an instance. .. epigraph:: The record type of a service can't be updated directly and can only be changed by deleting the service and recreating it with a new ``DnsConfig`` .
-            :param namespace_id: The ID of the namespace to use for DNS configuration. .. epigraph:: You must specify a value for ``NamespaceId`` either for ``DnsConfig`` or for the `service properties <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html>`_ . Don't specify a value in both places.
+            :param namespace_id: *Use NamespaceId in `Service <https://docs.aws.amazon.com/cloud-map/latest/api/API_Service.html>`_ instead.*. The ID of the namespace to use for DNS configuration.
             :param routing_policy: The routing policy that you want to apply to all Route 53 DNS records that AWS Cloud Map creates when you register an instance and specify this service. .. epigraph:: If you want to use this service to register instances that create alias records, specify ``WEIGHTED`` for the routing policy. You can specify the following values: - **MULTIVALUE** - If you define a health check for the service and the health check is healthy, Route 53 returns the applicable value for up to eight instances. For example, suppose that the service includes configurations for one ``A`` record and a health check. You use the service to register 10 instances. Route 53 responds to DNS queries with IP addresses for up to eight healthy instances. If fewer than eight instances are healthy, Route 53 responds to every DNS query with the IP addresses for all of the healthy instances. If you don't define a health check for the service, Route 53 assumes that all instances are healthy and returns the values for up to eight instances. For more information about the multivalue routing policy, see `Multivalue Answer Routing <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-multivalue>`_ in the *Route 53 Developer Guide* . - **WEIGHTED** - Route 53 returns the applicable value from one randomly selected instance from among the instances that you registered using the same service. Currently, all records have the same weight, so you can't route more or less traffic to any instances. For example, suppose that the service includes configurations for one ``A`` record and a health check. You use the service to register 10 instances. Route 53 responds to DNS queries with the IP address for one randomly selected instance from among the healthy instances. If no instances are healthy, Route 53 responds to DNS queries as if all of the instances were healthy. If you don't define a health check for the service, Route 53 assumes that all instances are healthy and returns the applicable value for one randomly selected instance. For more information about the weighted routing policy, see `Weighted Routing <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-weighted>`_ in the *Route 53 Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-service-dnsconfig.html
@@ -2422,11 +2416,9 @@ class CfnService(
 
         @builtins.property
         def namespace_id(self) -> typing.Optional[builtins.str]:
-            '''The ID of the namespace to use for DNS configuration.
+            '''*Use NamespaceId in `Service <https://docs.aws.amazon.com/cloud-map/latest/api/API_Service.html>`_ instead.*.
 
-            .. epigraph::
-
-               You must specify a value for ``NamespaceId`` either for ``DnsConfig`` or for the `service properties <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html>`_ . Don't specify a value in both places.
+            The ID of the namespace to use for DNS configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-service-dnsconfig.html#cfn-servicediscovery-service-dnsconfig-namespaceid
             '''
@@ -2844,8 +2836,8 @@ class CfnServiceProps:
         :param health_check_config: *Public DNS and HTTP namespaces only.* A complex type that contains settings for an optional health check. If you specify settings for a health check, AWS Cloud Map associates the health check with the records that you specify in ``DnsConfig`` . For information about the charges for health checks, see `Amazon Route 53 Pricing <https://docs.aws.amazon.com/route53/pricing/>`_ .
         :param health_check_custom_config: A complex type that contains information about an optional custom health check. .. epigraph:: If you specify a health check configuration, you can specify either ``HealthCheckCustomConfig`` or ``HealthCheckConfig`` but not both.
         :param name: The name of the service.
-        :param namespace_id: The ID of the namespace that was used to create the service. .. epigraph:: You must specify a value for ``NamespaceId`` either for the service properties or for `DnsConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-service-dnsconfig.html>`_ . Don't specify a value in both places.
-        :param service_attributes: A string map that contains the following information for the service:. - The attributes that apply to the service - For each attribute, the applicable value. You can specify a total of 30 attributes.
+        :param namespace_id: The ID or Amazon Resource Name (ARN) of the namespace that you want to use to create the service. For namespaces shared with your AWS account, specify the namespace ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
+        :param service_attributes: A complex type that contains information about attributes associated with a specific service.
         :param tags: The tags for the service. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         :param type: If present, specifies that the service instances are only discoverable using the ``DiscoverInstances`` API operation. No DNS records is registered for the service instances. The only valid value is ``HTTP`` .
 
@@ -2986,11 +2978,9 @@ class CfnServiceProps:
 
     @builtins.property
     def namespace_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the namespace that was used to create the service.
+        '''The ID or Amazon Resource Name (ARN) of the namespace that you want to use to create the service.
 
-        .. epigraph::
-
-           You must specify a value for ``NamespaceId`` either for the service properties or for `DnsConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-service-dnsconfig.html>`_ . Don't specify a value in both places.
+        For namespaces shared with your AWS account, specify the namespace ARN. For more information about shared namespaces, see `Cross-account AWS Cloud Map namespace sharing <https://docs.aws.amazon.com/cloud-map/latest/dg/sharing-namespaces.html>`_ in the *AWS Cloud Map Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-namespaceid
         '''
@@ -2999,12 +2989,7 @@ class CfnServiceProps:
 
     @builtins.property
     def service_attributes(self) -> typing.Any:
-        '''A string map that contains the following information for the service:.
-
-        - The attributes that apply to the service
-        - For each attribute, the applicable value.
-
-        You can specify a total of 30 attributes.
+        '''A complex type that contains information about attributes associated with a specific service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-serviceattributes
         '''

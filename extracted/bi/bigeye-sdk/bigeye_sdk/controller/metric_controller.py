@@ -7,7 +7,7 @@ from bigeye_sdk.generated.com.bigeye.models.generated import MetricConfiguration
 from bigeye_sdk.model.big_config import TagDeployment, RowCreationTimes, BigConfig, ColumnSelector
 from bigeye_sdk.model.protobuf_message_facade import SimpleCollection, SimpleMetricDefinition
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class MetricController:

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "deepeval"
-version = "3.4.2"
+version = "3.4.3"
 description = "The LLM Evaluation Framework"
 authors = ["Jeffrey Ip <jeffreyip@confident-ai.com>"]
 license = "Apache-2.0"
@@ -57,6 +57,7 @@ langchain_text_splitters = "*"
 tiktoken = "*"
 pypdf = "*"
 docx2txt = "*"
+pandas = "*"
 
 [tool.black]
 line-length = 80

@@ -20,6 +20,9 @@ class Settings(SimpleSettings):
         if self.prod_mode:
             raise ValueError(f"self.prod_mode")
 
+    def raise_if_mode_prod(self):
+        self.raise_if_prod_mode()
+
     def raise_if_not_prod_mode(self):
         if not self.prod_mode:
             raise ValueError(f"not self.prod_mode")

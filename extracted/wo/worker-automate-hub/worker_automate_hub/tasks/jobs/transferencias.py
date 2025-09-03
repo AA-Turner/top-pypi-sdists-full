@@ -18,6 +18,7 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
     RpaProcessoEntradaDTO,
 )
 from worker_automate_hub.utils.logger import logger
+from pywinauto.keyboard import send_keys
 from worker_automate_hub.utils.toast import show_toast
 from worker_automate_hub.utils.util import (
     send_to_webhook,
@@ -122,17 +123,22 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         
 
         # Preenche o campo do cliente com o número da filial
-        cliente_field_position = await find_element_center(
-            ASSETS_BASE_PATH + "field_cliente.png", (795, 354, 128, 50), 10
-        )
-        if cliente_field_position == None:
-            cliente_field_position = (884, 384)
+        console.print("Preenchendo o campo do cliente com o número da filial...\n")   
+        campo = pre_venda.child_window(class_name="TDBIEditNumber", found_index=2)
+        campo.set_focus()
+        send_keys(task.configEntrada["filialEmpresaOrigem"])
+        send_keys("{TAB}")
+        # cliente_field_position = await find_element_center(
+        #     ASSETS_BASE_PATH + "field_cliente.png", (795, 354, 128, 50), 10
+        # )
+        # if cliente_field_position == None:
+        #     cliente_field_position = (884, 384)
 
-        pyautogui.click(cliente_field_position)
-        pyautogui.hotkey("ctrl", "a")
-        pyautogui.hotkey("del")
-        pyautogui.write(task.configEntrada.get("filialEmpresaDestino"))
-        pyautogui.hotkey("tab")
+        # pyautogui.click(cliente_field_position)
+        # pyautogui.hotkey("ctrl", "a")
+        # pyautogui.hotkey("del")
+        # pyautogui.write(task.configEntrada.get("filialEmpresaDestino"))
+        # pyautogui.hotkey("tab")
         await worker_sleep(10)
 
         try:
@@ -223,33 +229,38 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             console.print(log_msg, style="bold yellow")
 
         # Define representante para "1"
-        screenshot_path = take_screenshot()
-        field_representante_position = find_target_position(
-            screenshot_path, "Representante", 0, 50, attempts=15
-        )
+        console.print("Definindo representante para '1'\n")
+        campo_representate = pre_venda.child_window(class_name="TDBIEditCode", found_index=3)
+        campo_representate.set_focus()
+        send_keys("1")
+        send_keys("{TAB}")
+        # screenshot_path = take_screenshot()
+        # field_representante_position = find_target_position(
+        #     screenshot_path, "Representante", 0, 50, attempts=15
+        # )
 
-        if field_representante_position == None:
-            field_representante_position = await find_element_center(
-                ASSETS_BASE_PATH + "field_representante.png", (679, 416, 214, 72), 15
-            )
-            if field_representante_position is not None:
-                lista = list(field_representante_position)
-                lista[0] += 50
-                lista[1] += 1
-                field_representante_position = tuple(lista)
+        # if field_representante_position == None:
+        #     field_representante_position = await find_element_center(
+        #         ASSETS_BASE_PATH + "field_representante.png", (679, 416, 214, 72), 15
+        #     )
+        #     if field_representante_position is not None:
+        #         lista = list(field_representante_position)
+        #         lista[0] += 50
+        #         lista[1] += 1
+        #         field_representante_position = tuple(lista)
 
-        if field_representante_position is not None:
-            pyautogui.doubleClick(field_representante_position)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.hotkey("del")
-            pyautogui.write("1")
-            pyautogui.hotkey("tab")
-        else:
-            pyautogui.doubleClick(800, 457)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.hotkey("del")
-            pyautogui.write("1")
-            pyautogui.hotkey("tab")
+        # if field_representante_position is not None:
+        #     pyautogui.doubleClick(field_representante_position)
+        #     pyautogui.hotkey("ctrl", "a")
+        #     pyautogui.hotkey("del")
+        #     pyautogui.write("1")
+        #     pyautogui.hotkey("tab")
+        # else:
+        #     pyautogui.doubleClick(800, 457)
+        #     pyautogui.hotkey("ctrl", "a")
+        #     pyautogui.hotkey("del")
+        #     pyautogui.write("1")
+        #     pyautogui.hotkey("tab")
 
         await worker_sleep(5)
 
@@ -259,7 +270,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         )
 
         if menu_itens == None:
-            menu_itens = (570, 317)
+            menu_itens = (570, 296)
 
         if menu_itens is not None:
             pyautogui.click(menu_itens)
@@ -288,7 +299,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             console.print("Clicando em Incluir...\n")
             button_incluir = (
                 905,
-                573,
+                546,
             )  # find_target_position(screenshot_path, "Incluir", 0, 0, attempts=15)
             if button_incluir is not None:
                 pyautogui.click(button_incluir)
@@ -432,7 +443,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     task.configEntrada["urlRetorno"],
                     "ERRO",
                     error,
-                   task.configEntrada.get("uuidSimplifica") if transferencia else task.configEntrada.get("identificador"),
+                    task.configEntrada.get("uuidSimplifica") if transferencia else task.configEntrada.get("identificador"),
                     nota_fiscal,
                     valor_nota,
                     transferencia

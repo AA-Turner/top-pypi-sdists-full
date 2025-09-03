@@ -7,7 +7,7 @@ from rapidfuzz import process
 from bigeye_sdk.generated.com.bigeye.models.generated import Table, TableColumn
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def table_has_column(table: Table, column_name: str) -> bool:

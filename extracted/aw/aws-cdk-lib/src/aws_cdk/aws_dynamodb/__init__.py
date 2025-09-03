@@ -2398,7 +2398,7 @@ class CfnGlobalTable(
             '''Configures contributor insights settings for a replica or one of its indexes.
 
             :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-            :param mode: 
+            :param mode: Specifies the CloudWatch Contributor Insights mode for a global table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html
             :exampleMetadata: fixture=_generated
@@ -2438,7 +2438,10 @@ class CfnGlobalTable(
 
         @builtins.property
         def mode(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the CloudWatch Contributor Insights mode for a global table.
+
+            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-mode
             '''
             result = self._values.get("mode")
@@ -5264,7 +5267,7 @@ class CfnTable(
         :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param attribute_definitions: A list of attributes that describe the key schema for the table and indexes. This property is required to create a DynamoDB table. Update requires: `Some interruptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-some-interrupt>`_ . Replacement if you edit an existing AttributeDefinition.
         :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Valid values include: - ``PAY_PER_REQUEST`` - We recommend using ``PAY_PER_REQUEST`` for most DynamoDB workloads. ``PAY_PER_REQUEST`` sets the billing mode to `On-demand capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html>`_ . - ``PROVISIONED`` - We recommend using ``PROVISIONED`` for steady workloads with predictable growth where capacity requirements can be reliably forecasted. ``PROVISIONED`` sets the billing mode to `Provisioned capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html>`_ . If not specified, the default is ``PROVISIONED`` .
-        :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified table.
+        :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
         :param deletion_protection_enabled: Determines if a table is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
         :param global_secondary_indexes: Global secondary indexes to be created on the table. You can create up to 20 global secondary indexes. .. epigraph:: If you update a table to include a new global secondary index, AWS CloudFormation initiates the index creation and then proceeds with the stack update. AWS CloudFormation doesn't wait for the index to complete creation because the backfilling phase can take a long time, depending on the size of the table. You can't use the index or update the table until the index's status is ``ACTIVE`` . You can track its status by using the DynamoDB `DescribeTable <https://docs.aws.amazon.com/cli/latest/reference/dynamodb/describe-table.html>`_ command. If you add or delete an index during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new index, you must manually delete the index. Updates are not supported. The following are exceptions: - If you update either the contributor insights specification or the provisioned throughput values of global secondary indexes, you can update the table without interruption. - You can delete or add one global secondary index without interruption. If you do both in the same update (for example, by changing the index's logical ID), the update fails.
         :param import_source_specification: Specifies the properties of data being imported from the S3 bucket source to the" table. .. epigraph:: If you specify the ``ImportSourceSpecification`` property, and also specify either the ``StreamSpecification`` , the ``TableClass`` property, the ``DeletionProtectionEnabled`` property, or the ``WarmThroughput`` property, the IAM entity creating/updating stack must have ``UpdateTable`` permission.
@@ -5275,7 +5278,7 @@ class CfnTable(
         :param provisioned_throughput: Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` . For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ . If you set ``BillingMode`` as ``PROVISIONED`` , you must specify this property. If you set ``BillingMode`` as ``PAY_PER_REQUEST`` , you cannot specify this property.
         :param resource_policy: An AWS resource-based policy document in JSON format that will be attached to the table. When you attach a resource-based policy while creating a table, the policy application is *strongly consistent* . The maximum size supported for a resource-based policy document is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit. For a full list of all considerations that apply for resource-based policies, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ . .. epigraph:: You need to specify the ``CreateTable`` and ``PutResourcePolicy`` IAM actions for authorizing a user to create a table with a resource-based policy.
         :param sse_specification: Specifies the settings to enable server-side encryption.
-        :param stream_specification: The settings for the DynamoDB table stream, which capture changes to items stored in the table.
+        :param stream_specification: The settings for the DynamoDB table stream, which captures changes to items stored in the table. Including this property in your AWS CloudFormation template automatically enables streaming.
         :param table_class: The table class of the new table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
         :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -5428,7 +5431,7 @@ class CfnTable(
     def contributor_insights_specification(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
-        '''The settings used to enable or disable CloudWatch Contributor Insights for the specified table.'''
+        '''The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], jsii.get(self, "contributorInsightsSpecification"))
 
     @contributor_insights_specification.setter
@@ -5629,7 +5632,7 @@ class CfnTable(
     def stream_specification(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]]:
-        '''The settings for the DynamoDB table stream, which capture changes to items stored in the table.'''
+        '''The settings for the DynamoDB table stream, which captures changes to items stored in the table.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]], jsii.get(self, "streamSpecification"))
 
     @stream_specification.setter
@@ -5807,10 +5810,10 @@ class CfnTable(
             enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
             mode: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The settings used to enable or disable CloudWatch Contributor Insights.
+            '''Configures contributor insights settings for a table or one of its indexes.
 
             :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-            :param mode: 
+            :param mode: Specifies the CloudWatch Contributor Insights mode for a table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html
             :exampleMetadata: fixture=_generated
@@ -5850,7 +5853,10 @@ class CfnTable(
 
         @builtins.property
         def mode(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the CloudWatch Contributor Insights mode for a table.
+
+            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-mode
             '''
             result = self._values.get("mode")
@@ -5971,7 +5977,7 @@ class CfnTable(
             :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
             :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
             :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-            :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified global secondary index.
+            :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
             :param on_demand_throughput: The maximum number of read and write units for the specified global secondary index. If you use this parameter, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
             :param provisioned_throughput: Represents the provisioned throughput settings for the specified global secondary index. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode. For current minimum and maximum provisioned throughput values, see `Service, Account, and Table Quotas <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the *Amazon DynamoDB Developer Guide* .
             :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
@@ -6087,7 +6093,7 @@ class CfnTable(
         def contributor_insights_specification(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
-            '''The settings used to enable or disable CloudWatch Contributor Insights for the specified global secondary index.
+            '''The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-contributorinsightsspecification
             '''
@@ -7217,7 +7223,7 @@ class CfnTable(
             '''Represents the DynamoDB Streams configuration for a table in DynamoDB.
 
             :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
-            :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+            :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. .. epigraph:: When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html
             :exampleMetadata: fixture=_generated
@@ -7273,6 +7279,9 @@ class CfnTable(
             '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams.
 
             Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+            .. epigraph::
+
+               When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period.
 
             In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
 
@@ -7502,7 +7511,7 @@ class CfnTableProps:
         :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param attribute_definitions: A list of attributes that describe the key schema for the table and indexes. This property is required to create a DynamoDB table. Update requires: `Some interruptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-some-interrupt>`_ . Replacement if you edit an existing AttributeDefinition.
         :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Valid values include: - ``PAY_PER_REQUEST`` - We recommend using ``PAY_PER_REQUEST`` for most DynamoDB workloads. ``PAY_PER_REQUEST`` sets the billing mode to `On-demand capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html>`_ . - ``PROVISIONED`` - We recommend using ``PROVISIONED`` for steady workloads with predictable growth where capacity requirements can be reliably forecasted. ``PROVISIONED`` sets the billing mode to `Provisioned capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html>`_ . If not specified, the default is ``PROVISIONED`` .
-        :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified table.
+        :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
         :param deletion_protection_enabled: Determines if a table is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
         :param global_secondary_indexes: Global secondary indexes to be created on the table. You can create up to 20 global secondary indexes. .. epigraph:: If you update a table to include a new global secondary index, AWS CloudFormation initiates the index creation and then proceeds with the stack update. AWS CloudFormation doesn't wait for the index to complete creation because the backfilling phase can take a long time, depending on the size of the table. You can't use the index or update the table until the index's status is ``ACTIVE`` . You can track its status by using the DynamoDB `DescribeTable <https://docs.aws.amazon.com/cli/latest/reference/dynamodb/describe-table.html>`_ command. If you add or delete an index during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new index, you must manually delete the index. Updates are not supported. The following are exceptions: - If you update either the contributor insights specification or the provisioned throughput values of global secondary indexes, you can update the table without interruption. - You can delete or add one global secondary index without interruption. If you do both in the same update (for example, by changing the index's logical ID), the update fails.
         :param import_source_specification: Specifies the properties of data being imported from the S3 bucket source to the" table. .. epigraph:: If you specify the ``ImportSourceSpecification`` property, and also specify either the ``StreamSpecification`` , the ``TableClass`` property, the ``DeletionProtectionEnabled`` property, or the ``WarmThroughput`` property, the IAM entity creating/updating stack must have ``UpdateTable`` permission.
@@ -7513,7 +7522,7 @@ class CfnTableProps:
         :param provisioned_throughput: Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` . For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ . If you set ``BillingMode`` as ``PROVISIONED`` , you must specify this property. If you set ``BillingMode`` as ``PAY_PER_REQUEST`` , you cannot specify this property.
         :param resource_policy: An AWS resource-based policy document in JSON format that will be attached to the table. When you attach a resource-based policy while creating a table, the policy application is *strongly consistent* . The maximum size supported for a resource-based policy document is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit. For a full list of all considerations that apply for resource-based policies, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ . .. epigraph:: You need to specify the ``CreateTable`` and ``PutResourcePolicy`` IAM actions for authorizing a user to create a table with a resource-based policy.
         :param sse_specification: Specifies the settings to enable server-side encryption.
-        :param stream_specification: The settings for the DynamoDB table stream, which capture changes to items stored in the table.
+        :param stream_specification: The settings for the DynamoDB table stream, which captures changes to items stored in the table. Including this property in your AWS CloudFormation template automatically enables streaming.
         :param table_class: The table class of the new table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
         :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -7778,7 +7787,7 @@ class CfnTableProps:
     def contributor_insights_specification(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ContributorInsightsSpecificationProperty]]:
-        '''The settings used to enable or disable CloudWatch Contributor Insights for the specified table.
+        '''The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-contributorinsightsspecification
         '''
@@ -7931,7 +7940,9 @@ class CfnTableProps:
     def stream_specification(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StreamSpecificationProperty]]:
-        '''The settings for the DynamoDB table stream, which capture changes to items stored in the table.
+        '''The settings for the DynamoDB table stream, which captures changes to items stored in the table.
+
+        Including this property in your AWS CloudFormation template automatically enables streaming.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-streamspecification
         '''

@@ -116,7 +116,7 @@ def main():
         template_dir= variables['template']
     
     # If both are directories, copy contents then render in the destination
-    if os.path.isdir(args.jinja_file) and os.path.isdir(args.output):
+    if args.output is not None and os.path.isdir(args.jinja_file) and os.path.isdir(args.output):
         # If template_dir is set, find its full path under args.jinja_file
         source_dir = args.jinja_file
         if template_dir:

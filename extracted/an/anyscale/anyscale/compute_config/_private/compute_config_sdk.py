@@ -20,7 +20,7 @@ from anyscale.compute_config.models import (
     ComputeConfigVersion,
     HeadNodeConfig,
     MarketType,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
     WorkerNodeGroupConfig,
 )
 from anyscale.sdk.anyscale_client.models import ClusterComputeConfig
@@ -148,7 +148,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             flags["max_resources"] = compute_config.max_resources
 
         return CloudDeploymentComputeConfig(
-            cloud_deployment=compute_config.cloud_deployment,
+            cloud_deployment=compute_config.cloud_resource,
             allowed_azs=compute_config.zones,
             head_node_type=self._convert_head_node_config_to_api_model(
                 compute_config.head_node,
@@ -180,7 +180,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                     "The latest version tag will be generated and returned."
                 )
 
-        if isinstance(compute_config, MultiDeploymentComputeConfig):
+        if isinstance(compute_config, MultiResourceComputeConfig):
             return self.create_multi_deployment_compute_config(
                 compute_config, name=name
             )
@@ -226,10 +226,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         return full_name, compute_config_id
 
     def create_multi_deployment_compute_config(
-        self,
-        compute_config: MultiDeploymentComputeConfig,
-        *,
-        name: Optional[str] = None,
+        self, compute_config: MultiResourceComputeConfig, *, name: Optional[str] = None,
     ) -> Tuple[str, str]:
         """Register the provided multi-deployment compute config and return its internal ID."""
         # Returns the default cloud if user-provided cloud is not specified (`None`).
@@ -381,7 +378,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return configs
 
-    def _convert_cloud_deployment_compute_config_api_model_to_single_deployment_compute_config(
+    def _convert_cloud_deployment_compute_config_api_model_to_single_resource_compute_config(
         self, cloud_name: str, api_model: CloudDeploymentComputeConfig,
     ) -> ComputeConfig:
         worker_nodes = None
@@ -416,7 +413,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return ComputeConfig(
             cloud=cloud_name,
-            cloud_deployment=api_model.cloud_deployment,
+            cloud_resource=api_model.cloud_deployment,
             zones=zones,
             advanced_instance_config=api_model.advanced_configurations_json or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
@@ -443,7 +440,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         configs = None
         if api_model_config.deployment_configs:
             configs = [
-                self._convert_cloud_deployment_compute_config_api_model_to_single_deployment_compute_config(
+                self._convert_cloud_deployment_compute_config_api_model_to_single_resource_compute_config(
                     cloud.name, config
                 )
                 for config in api_model_config.deployment_configs
@@ -458,7 +455,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             return ComputeConfigVersion(
                 name=f"{api_model.name}:{api_model.version}",
                 id=api_model.id,
-                config=MultiDeploymentComputeConfig(cloud=cloud.name, configs=configs),
+                config=MultiResourceComputeConfig(cloud=cloud.name, configs=configs),
             )
 
         # If there are no deployment configs, this is a compute config for a single cloud deployment - parse the top-level fields.

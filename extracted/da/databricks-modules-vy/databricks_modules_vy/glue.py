@@ -27,7 +27,7 @@ def _wait_for_glue_crawler_to_finish(client, crawler_name):
     return response["Crawler"]["LastCrawl"]["Status"]
 
 
-def execute_glue_crawler_task(crawler_name, region_name, aws_access_key_id, aws_secret_access_key):
+def execute_glue_crawler_task(client, crawler_name):
     """
     The function starts a crawler and then waits for it to finish. The API calls are from the boto3 AWS SDK.
     The crawler is started using https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.start_crawler
@@ -36,12 +36,6 @@ def execute_glue_crawler_task(crawler_name, region_name, aws_access_key_id, aws_
     Parameters:
         crawler_name (string):  Name of the crawler to be polled
     """
-    session = boto3.session.Session(region_name)
-    client = session.client(
-        "glue",
-        aws_access_key_id,
-        aws_secret_access_key,
-    )
     n_tries = 1
     status = ""
     while n_tries <= 3 and status != "SUCCEEDED":
@@ -55,6 +49,14 @@ def execute_glue_crawler_task(crawler_name, region_name, aws_access_key_id, aws_
 
 
 if __name__ == "__main__":
+    session = boto3.session.Session(region_name)
+
+    client = session.client(
+        "glue",
+        region_name,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+    )
     crawler_name = sys.argv[1]
     lp(f"Running crawler with name: {crawler_name}")
-    execute_glue_crawler_task(crawler_name, region_name, aws_access_key_id, aws_secret_access_key)
+    execute_glue_crawler_task(client, crawler_name)

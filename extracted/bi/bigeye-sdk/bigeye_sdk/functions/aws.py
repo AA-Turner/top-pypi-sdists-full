@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def run_glue_crawler(region_name: str, crawler_name: str):

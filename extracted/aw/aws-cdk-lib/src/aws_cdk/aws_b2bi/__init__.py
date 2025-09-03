@@ -688,7 +688,13 @@ class CfnCapability(
             transaction_set: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
+            '''A structure that contains the X12 transaction set and version.
+
+            The X12 structure is used when the system transforms an EDI (electronic data interchange) file.
+            .. epigraph::
+
+               If an EDI input file contains more than one transaction, each transaction must have the same transaction set and version, for example 214/4010. If not, the transformer cannot parse the file.
+
             :param transaction_set: Returns an enumerated type where each value identifies an X12 transaction set. Transaction sets are maintained by the X12 Accredited Standards Committee.
             :param version: Returns the version to use for the specified X12 transaction set.
 
@@ -1504,10 +1510,13 @@ class CfnPartnership(
             line_terminator: typing.Optional[builtins.str] = None,
             wrap_by: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param line_length: 
-            :param line_terminator: 
-            :param wrap_by: 
+            '''Contains options for wrapping (line folding) in X12 EDI files.
+
+            Wrapping controls how long lines are handled in the EDI output.
+
+            :param line_length: Specifies the maximum length of a line before wrapping occurs. This value is used when ``wrapBy`` is set to ``LINE_LENGTH`` .
+            :param line_terminator: Specifies the character sequence used to terminate lines when wrapping. Valid values:. - ``CRLF`` : carriage return and line feed - ``LF`` : line feed) - ``CR`` : carriage return
+            :param wrap_by: Specifies the method used for wrapping lines in the EDI output. Valid values:. - ``SEGMENT`` : Wraps by segment. - ``ONE_LINE`` : Indicates that the entire content is on a single line. .. epigraph:: When you specify ``ONE_LINE`` , do not provide either the line length nor the line terminator value. - ``LINE_LENGTH`` : Wraps by character count, as specified by ``lineLength`` value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html
             :exampleMetadata: fixture=_generated
@@ -1539,7 +1548,10 @@ class CfnPartnership(
 
         @builtins.property
         def line_length(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Specifies the maximum length of a line before wrapping occurs.
+
+            This value is used when ``wrapBy`` is set to ``LINE_LENGTH`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-linelength
             '''
             result = self._values.get("line_length")
@@ -1547,7 +1559,12 @@ class CfnPartnership(
 
         @builtins.property
         def line_terminator(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the character sequence used to terminate lines when wrapping. Valid values:.
+
+            - ``CRLF`` : carriage return and line feed
+            - ``LF`` : line feed)
+            - ``CR`` : carriage return
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-lineterminator
             '''
             result = self._values.get("line_terminator")
@@ -1555,7 +1572,17 @@ class CfnPartnership(
 
         @builtins.property
         def wrap_by(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the method used for wrapping lines in the EDI output. Valid values:.
+
+            - ``SEGMENT`` : Wraps by segment.
+            - ``ONE_LINE`` : Indicates that the entire content is on a single line.
+
+            .. epigraph::
+
+               When you specify ``ONE_LINE`` , do not provide either the line length nor the line terminator value.
+
+            - ``LINE_LENGTH`` : Wraps by character count, as specified by ``lineLength`` value.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-wrapby
             '''
             result = self._values.get("wrap_by")
@@ -1587,9 +1614,12 @@ class CfnPartnership(
             functional_acknowledgment: builtins.str,
             technical_acknowledgment: builtins.str,
         ) -> None:
-            '''
-            :param functional_acknowledgment: 
-            :param technical_acknowledgment: 
+            '''Contains options for configuring X12 acknowledgments.
+
+            These options control how functional and technical acknowledgments are handled.
+
+            :param functional_acknowledgment: Specifies whether functional acknowledgments (997/999) should be generated for incoming X12 transactions. Valid values are ``DO_NOT_GENERATE`` , ``GENERATE_ALL_SEGMENTS`` and ``GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP`` . If you choose ``GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP`` , AWS B2B Data Interchange skips the AK2_Loop when generating an acknowledgment document.
+            :param technical_acknowledgment: Specifies whether technical acknowledgments (TA1) should be generated for incoming X12 interchanges. Valid values are ``DO_NOT_GENERATE`` and ``GENERATE_ALL_SEGMENTS`` and.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html
             :exampleMetadata: fixture=_generated
@@ -1616,7 +1646,12 @@ class CfnPartnership(
 
         @builtins.property
         def functional_acknowledgment(self) -> builtins.str:
-            '''
+            '''Specifies whether functional acknowledgments (997/999) should be generated for incoming X12 transactions.
+
+            Valid values are ``DO_NOT_GENERATE`` , ``GENERATE_ALL_SEGMENTS`` and ``GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP`` .
+
+            If you choose ``GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP`` , AWS B2B Data Interchange skips the AK2_Loop when generating an acknowledgment document.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html#cfn-b2bi-partnership-x12acknowledgmentoptions-functionalacknowledgment
             '''
             result = self._values.get("functional_acknowledgment")
@@ -1625,7 +1660,10 @@ class CfnPartnership(
 
         @builtins.property
         def technical_acknowledgment(self) -> builtins.str:
-            '''
+            '''Specifies whether technical acknowledgments (TA1) should be generated for incoming X12 interchanges.
+
+            Valid values are ``DO_NOT_GENERATE`` and ``GENERATE_ALL_SEGMENTS`` and.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html#cfn-b2bi-partnership-x12acknowledgmentoptions-technicalacknowledgment
             '''
             result = self._values.get("technical_acknowledgment")
@@ -1660,10 +1698,13 @@ class CfnPartnership(
             starting_interchange_control_number: typing.Optional[jsii.Number] = None,
             starting_transaction_set_control_number: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param starting_functional_group_control_number: 
-            :param starting_interchange_control_number: 
-            :param starting_transaction_set_control_number: 
+            '''Contains configuration for X12 control numbers used in X12 EDI generation.
+
+            Control numbers are used to uniquely identify interchanges, functional groups, and transaction sets.
+
+            :param starting_functional_group_control_number: Specifies the starting functional group control number (GS06) to use for X12 EDI generation. This number is incremented for each new functional group. For the GS (functional group) envelope, AWS B2B Data Interchange generates a functional group control number that is unique to the sender ID, receiver ID, and functional identifier code combination.
+            :param starting_interchange_control_number: Specifies the starting interchange control number (ISA13) to use for X12 EDI generation. This number is incremented for each new interchange. For the ISA (interchange) envelope, AWS B2B Data Interchange generates an interchange control number that is unique for the ISA05 and ISA06 (sender) & ISA07 and ISA08 (receiver) combination.
+            :param starting_transaction_set_control_number: Specifies the starting transaction set control number (ST02) to use for X12 EDI generation. This number is incremented for each new transaction set.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html
             :exampleMetadata: fixture=_generated
@@ -1697,7 +1738,10 @@ class CfnPartnership(
         def starting_functional_group_control_number(
             self,
         ) -> typing.Optional[jsii.Number]:
-            '''
+            '''Specifies the starting functional group control number (GS06) to use for X12 EDI generation.
+
+            This number is incremented for each new functional group. For the GS (functional group) envelope, AWS B2B Data Interchange generates a functional group control number that is unique to the sender ID, receiver ID, and functional identifier code combination.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startingfunctionalgroupcontrolnumber
             '''
             result = self._values.get("starting_functional_group_control_number")
@@ -1705,7 +1749,10 @@ class CfnPartnership(
 
         @builtins.property
         def starting_interchange_control_number(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Specifies the starting interchange control number (ISA13) to use for X12 EDI generation.
+
+            This number is incremented for each new interchange. For the ISA (interchange) envelope, AWS B2B Data Interchange generates an interchange control number that is unique for the ISA05 and ISA06 (sender) & ISA07 and ISA08 (receiver) combination.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startinginterchangecontrolnumber
             '''
             result = self._values.get("starting_interchange_control_number")
@@ -1715,7 +1762,10 @@ class CfnPartnership(
         def starting_transaction_set_control_number(
             self,
         ) -> typing.Optional[jsii.Number]:
-            '''
+            '''Specifies the starting transaction set control number (ST02) to use for X12 EDI generation.
+
+            This number is incremented for each new transaction set.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startingtransactionsetcontrolnumber
             '''
             result = self._values.get("starting_transaction_set_control_number")
@@ -1749,10 +1799,13 @@ class CfnPartnership(
             data_element_separator: typing.Optional[builtins.str] = None,
             segment_terminator: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param component_separator: 
-            :param data_element_separator: 
-            :param segment_terminator: 
+            '''In X12 EDI messages, delimiters are used to mark the end of segments or elements, and are defined in the interchange control header.
+
+            The delimiters are part of the message's syntax and divide up its different elements.
+
+            :param component_separator: The component, or sub-element, separator. The default value is ``:`` (colon).
+            :param data_element_separator: The data element separator. The default value is ``*`` (asterisk).
+            :param segment_terminator: The segment terminator. The default value is ``~`` (tilde).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12delimiters.html
             :exampleMetadata: fixture=_generated
@@ -1784,7 +1837,10 @@ class CfnPartnership(
 
         @builtins.property
         def component_separator(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The component, or sub-element, separator.
+
+            The default value is ``:`` (colon).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12delimiters.html#cfn-b2bi-partnership-x12delimiters-componentseparator
             '''
             result = self._values.get("component_separator")
@@ -1792,7 +1848,10 @@ class CfnPartnership(
 
         @builtins.property
         def data_element_separator(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The data element separator.
+
+            The default value is ``*`` (asterisk).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12delimiters.html#cfn-b2bi-partnership-x12delimiters-dataelementseparator
             '''
             result = self._values.get("data_element_separator")
@@ -1800,7 +1859,10 @@ class CfnPartnership(
 
         @builtins.property
         def segment_terminator(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The segment terminator.
+
+            The default value is ``~`` (tilde).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12delimiters.html#cfn-b2bi-partnership-x12delimiters-segmentterminator
             '''
             result = self._values.get("segment_terminator")
@@ -1944,10 +2006,13 @@ class CfnPartnership(
             application_sender_code: typing.Optional[builtins.str] = None,
             responsible_agency_code: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param application_receiver_code: 
-            :param application_sender_code: 
-            :param responsible_agency_code: 
+            '''Part of the X12 message structure.
+
+            These are the functional group headers for the X12 EDI object.
+
+            :param application_receiver_code: A value representing the code used to identify the party receiving a message, at position GS-03.
+            :param application_sender_code: A value representing the code used to identify the party transmitting a message, at position GS-02.
+            :param responsible_agency_code: A code that identifies the issuer of the standard, at position GS-07.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12functionalgroupheaders.html
             :exampleMetadata: fixture=_generated
@@ -1979,7 +2044,8 @@ class CfnPartnership(
 
         @builtins.property
         def application_receiver_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''A value representing the code used to identify the party receiving a message, at position GS-03.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12functionalgroupheaders.html#cfn-b2bi-partnership-x12functionalgroupheaders-applicationreceivercode
             '''
             result = self._values.get("application_receiver_code")
@@ -1987,7 +2053,8 @@ class CfnPartnership(
 
         @builtins.property
         def application_sender_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''A value representing the code used to identify the party transmitting a message, at position GS-02.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12functionalgroupheaders.html#cfn-b2bi-partnership-x12functionalgroupheaders-applicationsendercode
             '''
             result = self._values.get("application_sender_code")
@@ -1995,7 +2062,8 @@ class CfnPartnership(
 
         @builtins.property
         def responsible_agency_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''A code that identifies the issuer of the standard, at position GS-07.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12functionalgroupheaders.html#cfn-b2bi-partnership-x12functionalgroupheaders-responsibleagencycode
             '''
             result = self._values.get("responsible_agency_code")
@@ -2099,14 +2167,17 @@ class CfnPartnership(
             sender_id_qualifier: typing.Optional[builtins.str] = None,
             usage_indicator_code: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param acknowledgment_requested_code: 
-            :param receiver_id: 
-            :param receiver_id_qualifier: 
-            :param repetition_separator: 
-            :param sender_id: 
-            :param sender_id_qualifier: 
-            :param usage_indicator_code: 
+            '''In X12, the Interchange Control Header is the first segment of an EDI document and is part of the Interchange Envelope.
+
+            It contains information about the sender and receiver, the date and time of transmission, and the X12 version being used. It also includes delivery information, such as the sender and receiver IDs.
+
+            :param acknowledgment_requested_code: Located at position ISA-14 in the header. The value "1" indicates that the sender is requesting an interchange acknowledgment at receipt of the interchange. The value "0" is used otherwise.
+            :param receiver_id: Located at position ISA-08 in the header. This value (along with the ``receiverIdQualifier`` ) identifies the intended recipient of the interchange.
+            :param receiver_id_qualifier: Located at position ISA-07 in the header. Qualifier for the receiver ID. Together, the ID and qualifier uniquely identify the receiving trading partner.
+            :param repetition_separator: Located at position ISA-11 in the header. This string makes it easier when you need to group similar adjacent element values together without using extra segments. .. epigraph:: This parameter is only honored for version greater than 401 ( ``VERSION_4010`` and higher). For versions less than 401, this field is called `StandardsId <https://docs.aws.amazon.com/https://www.stedi.com/edi/x12-004010/segment/ISA#ISA-11>`_ , in which case our service sets the value to ``U`` .
+            :param sender_id: Located at position ISA-06 in the header. This value (along with the ``senderIdQualifier`` ) identifies the sender of the interchange.
+            :param sender_id_qualifier: Located at position ISA-05 in the header. Qualifier for the sender ID. Together, the ID and qualifier uniquely identify the sending trading partner.
+            :param usage_indicator_code: Located at position ISA-15 in the header. Specifies how this interchange is being used:. - ``T`` indicates this interchange is for testing. - ``P`` indicates this interchange is for production. - ``I`` indicates this interchange is informational.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html
             :exampleMetadata: fixture=_generated
@@ -2154,7 +2225,10 @@ class CfnPartnership(
 
         @builtins.property
         def acknowledgment_requested_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-14 in the header.
+
+            The value "1" indicates that the sender is requesting an interchange acknowledgment at receipt of the interchange. The value "0" is used otherwise.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-acknowledgmentrequestedcode
             '''
             result = self._values.get("acknowledgment_requested_code")
@@ -2162,7 +2236,10 @@ class CfnPartnership(
 
         @builtins.property
         def receiver_id(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-08 in the header.
+
+            This value (along with the ``receiverIdQualifier`` ) identifies the intended recipient of the interchange.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-receiverid
             '''
             result = self._values.get("receiver_id")
@@ -2170,7 +2247,10 @@ class CfnPartnership(
 
         @builtins.property
         def receiver_id_qualifier(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-07 in the header.
+
+            Qualifier for the receiver ID. Together, the ID and qualifier uniquely identify the receiving trading partner.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-receiveridqualifier
             '''
             result = self._values.get("receiver_id_qualifier")
@@ -2178,7 +2258,15 @@ class CfnPartnership(
 
         @builtins.property
         def repetition_separator(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-11 in the header.
+
+            This string makes it easier when you need to group similar adjacent element values together without using extra segments.
+            .. epigraph::
+
+               This parameter is only honored for version greater than 401 ( ``VERSION_4010`` and higher).
+
+               For versions less than 401, this field is called `StandardsId <https://docs.aws.amazon.com/https://www.stedi.com/edi/x12-004010/segment/ISA#ISA-11>`_ , in which case our service sets the value to ``U`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-repetitionseparator
             '''
             result = self._values.get("repetition_separator")
@@ -2186,7 +2274,10 @@ class CfnPartnership(
 
         @builtins.property
         def sender_id(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-06 in the header.
+
+            This value (along with the ``senderIdQualifier`` ) identifies the sender of the interchange.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-senderid
             '''
             result = self._values.get("sender_id")
@@ -2194,7 +2285,10 @@ class CfnPartnership(
 
         @builtins.property
         def sender_id_qualifier(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-05 in the header.
+
+            Qualifier for the sender ID. Together, the ID and qualifier uniquely identify the sending trading partner.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-senderidqualifier
             '''
             result = self._values.get("sender_id_qualifier")
@@ -2202,7 +2296,12 @@ class CfnPartnership(
 
         @builtins.property
         def usage_indicator_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Located at position ISA-15 in the header. Specifies how this interchange is being used:.
+
+            - ``T`` indicates this interchange is for testing.
+            - ``P`` indicates this interchange is for production.
+            - ``I`` indicates this interchange is informational.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12interchangecontrolheaders.html#cfn-b2bi-partnership-x12interchangecontrolheaders-usageindicatorcode
             '''
             result = self._values.get("usage_indicator_code")
@@ -2247,9 +2346,9 @@ class CfnPartnership(
             :param control_numbers: Specifies control number configuration for outbound X12 EDI headers. These settings determine the starting values for interchange, functional group, and transaction set control numbers.
             :param delimiters: The delimiters, for example semicolon ( ``;`` ), that separates sections of the headers for the X12 object.
             :param functional_group_headers: The functional group headers for the X12 object.
-            :param gs05_time_format: 
+            :param gs05_time_format: Specifies the time format in the GS05 element (time) of the functional group header. The following formats use 24-hour clock time: - ``HHMM`` - Hours and minutes - ``HHMMSS`` - Hours, minutes, and seconds - ``HHMMSSDD`` - Hours, minutes, seconds, and decimal seconds Where: - ``HH`` - Hours (00-23) - ``MM`` - Minutes (00-59) - ``SS`` - Seconds (00-59) - ``DD`` - Hundredths of seconds (00-99)
             :param interchange_control_headers: In X12 EDI messages, delimiters are used to mark the end of segments or elements, and are defined in the interchange control header.
-            :param validate_edi: Specifies whether or not to validate the EDI for this X12 object: ``TRUE`` or ``FALSE`` .
+            :param validate_edi: Specifies whether or not to validate the EDI for this X12 object: ``TRUE`` or ``FALSE`` . When enabled, this performs both standard EDI validation and applies any configured custom validation rules including element length constraints, code list validations, and element requirement checks. Validation results are returned in the response validation messages.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html
             :exampleMetadata: fixture=_generated
@@ -2348,7 +2447,21 @@ class CfnPartnership(
 
         @builtins.property
         def gs05_time_format(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the time format in the GS05 element (time) of the functional group header.
+
+            The following formats use 24-hour clock time:
+
+            - ``HHMM`` - Hours and minutes
+            - ``HHMMSS`` - Hours, minutes, and seconds
+            - ``HHMMSSDD`` - Hours, minutes, seconds, and decimal seconds
+
+            Where:
+
+            - ``HH`` - Hours (00-23)
+            - ``MM`` - Minutes (00-59)
+            - ``SS`` - Seconds (00-59)
+            - ``DD`` - Hundredths of seconds (00-99)
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-gs05timeformat
             '''
             result = self._values.get("gs05_time_format")
@@ -2370,6 +2483,8 @@ class CfnPartnership(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
             '''Specifies whether or not to validate the EDI for this X12 object: ``TRUE`` or ``FALSE`` .
+
+            When enabled, this performs both standard EDI validation and applies any configured custom validation rules including element length constraints, code list validations, and element requirement checks. Validation results are returned in the response validation messages.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-validateedi
             '''
@@ -2651,7 +2766,7 @@ class CfnProfile(
         :param business_name: Returns the name for the business associated with this profile.
         :param logging: Specifies whether or not logging is enabled for this profile.
         :param name: Returns the display name for profile.
-        :param phone: 
+        :param phone: Specifies the phone number associated with the profile.
         :param email: 
         :param tags: A key-value pair for a specific profile. Tags are metadata that you can use to search for and group capabilities for various purposes.
         '''
@@ -2797,6 +2912,7 @@ class CfnProfile(
     @builtins.property
     @jsii.member(jsii_name="phone")
     def phone(self) -> builtins.str:
+        '''Specifies the phone number associated with the profile.'''
         return typing.cast(builtins.str, jsii.get(self, "phone"))
 
     @phone.setter
@@ -2860,7 +2976,7 @@ class CfnProfileProps:
         :param business_name: Returns the name for the business associated with this profile.
         :param logging: Specifies whether or not logging is enabled for this profile.
         :param name: Returns the display name for profile.
-        :param phone: 
+        :param phone: Specifies the phone number associated with the profile.
         :param email: 
         :param tags: A key-value pair for a specific profile. Tags are metadata that you can use to search for and group capabilities for various purposes.
 
@@ -2938,7 +3054,8 @@ class CfnProfileProps:
 
     @builtins.property
     def phone(self) -> builtins.str:
-        '''
+        '''Specifies the phone number associated with the profile.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-phone
         '''
         result = self._values.get("phone")
@@ -3025,6 +3142,26 @@ class CfnTransformer(
                     x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
                         split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
                             split_by="splitBy"
+                        ),
+                        validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                            validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                    element_id="elementId",
+        
+                                    # the properties below are optional
+                                    codes_to_add=["codesToAdd"],
+                                    codes_to_remove=["codesToRemove"]
+                                ),
+                                element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                    element_id="elementId",
+                                    max_length=123,
+                                    min_length=123
+                                ),
+                                element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                    element_position="elementPosition",
+                                    requirement="requirement"
+                                )
+                            )]
                         )
                     )
                 ),
@@ -3046,6 +3183,33 @@ class CfnTransformer(
                 to_format="toFormat",
         
                 # the properties below are optional
+                advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                    x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                        split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                            split_by="splitBy"
+                        ),
+                        validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                            validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                    element_id="elementId",
+        
+                                    # the properties below are optional
+                                    codes_to_add=["codesToAdd"],
+                                    codes_to_remove=["codesToRemove"]
+                                ),
+                                element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                    element_id="elementId",
+                                    max_length=123,
+                                    min_length=123
+                                ),
+                                element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                    element_position="elementPosition",
+                                    requirement="requirement"
+                                )
+                            )]
+                        )
+                    )
+                ),
                 format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                     x12=b2bi.CfnTransformer.X12DetailsProperty(
                         transaction_set="transactionSet",
@@ -3396,8 +3560,11 @@ class CfnTransformer(
             *,
             x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param x12: 
+            '''A structure that contains advanced options for EDI processing.
+
+            Currently, only X12 advanced options are supported.
+
+            :param x12: A structure that contains X12-specific advanced options, such as split options for processing X12 EDI files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html
             :exampleMetadata: fixture=_generated
@@ -3412,6 +3579,26 @@ class CfnTransformer(
                     x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
                         split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
                             split_by="splitBy"
+                        ),
+                        validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                            validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                    element_id="elementId",
+                
+                                    # the properties below are optional
+                                    codes_to_add=["codesToAdd"],
+                                    codes_to_remove=["codesToRemove"]
+                                ),
+                                element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                    element_id="elementId",
+                                    max_length=123,
+                                    min_length=123
+                                ),
+                                element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                    element_position="elementPosition",
+                                    requirement="requirement"
+                                )
+                            )]
                         )
                     )
                 )
@@ -3427,7 +3614,8 @@ class CfnTransformer(
         def x12(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12AdvancedOptionsProperty"]]:
-            '''
+            '''A structure that contains X12-specific advanced options, such as split options for processing X12 EDI files.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html#cfn-b2bi-transformer-advancedoptions-x12
             '''
             result = self._values.get("x12")
@@ -3514,7 +3702,8 @@ class CfnTransformer(
             *,
             x12: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''
+            '''A structure that contains the X12 transaction set and version.
+
             :param x12: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-formatoptions.html
@@ -3579,10 +3768,11 @@ class CfnTransformer(
             advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param from_format: 
-            :param advanced_options: 
-            :param format_options: 
+            '''Contains the input formatting options for an inbound transformer (takes an X12-formatted EDI document as input and converts it to JSON or XML.
+
+            :param from_format: The format for the transformer input: currently on ``X12`` is supported.
+            :param advanced_options: Specifies advanced options for the input conversion process. These options provide additional control over how EDI files are processed during transformation.
+            :param format_options: A structure that contains the formatting options for an inbound transformer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html
             :exampleMetadata: fixture=_generated
@@ -3601,6 +3791,26 @@ class CfnTransformer(
                         x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
                             split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
                                 split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+                
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
                             )
                         )
                     ),
@@ -3627,7 +3837,8 @@ class CfnTransformer(
 
         @builtins.property
         def from_format(self) -> builtins.str:
-            '''
+            '''The format for the transformer input: currently on ``X12`` is supported.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-fromformat
             '''
             result = self._values.get("from_format")
@@ -3638,7 +3849,10 @@ class CfnTransformer(
         def advanced_options(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.AdvancedOptionsProperty"]]:
-            '''
+            '''Specifies advanced options for the input conversion process.
+
+            These options provide additional control over how EDI files are processed during transformation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-advancedoptions
             '''
             result = self._values.get("advanced_options")
@@ -3648,7 +3862,8 @@ class CfnTransformer(
         def format_options(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.FormatOptionsProperty"]]:
-            '''
+            '''A structure that contains the formatting options for an inbound transformer.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-formatoptions
             '''
             result = self._values.get("format_options")
@@ -3677,9 +3892,12 @@ class CfnTransformer(
             template_language: builtins.str,
             template: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param template_language: 
-            :param template: 
+            '''Specifies the mapping template for the transformer.
+
+            This template is used to map the parsed EDI file using JSONata or XSLT.
+
+            :param template_language: The transformation language for the template, either XSLT or JSONATA.
+            :param template: A string that represents the mapping template, in the transformation language specified in ``templateLanguage`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-mapping.html
             :exampleMetadata: fixture=_generated
@@ -3709,7 +3927,8 @@ class CfnTransformer(
 
         @builtins.property
         def template_language(self) -> builtins.str:
-            '''
+            '''The transformation language for the template, either XSLT or JSONATA.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-mapping.html#cfn-b2bi-transformer-mapping-templatelanguage
             '''
             result = self._values.get("template_language")
@@ -3718,7 +3937,8 @@ class CfnTransformer(
 
         @builtins.property
         def template(self) -> typing.Optional[builtins.str]:
-            '''
+            '''A string that represents the mapping template, in the transformation language specified in ``templateLanguage`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-mapping.html#cfn-b2bi-transformer-mapping-template
             '''
             result = self._values.get("template")
@@ -3738,18 +3958,25 @@ class CfnTransformer(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.OutputConversionProperty",
         jsii_struct_bases=[],
-        name_mapping={"to_format": "toFormat", "format_options": "formatOptions"},
+        name_mapping={
+            "to_format": "toFormat",
+            "advanced_options": "advancedOptions",
+            "format_options": "formatOptions",
+        },
     )
     class OutputConversionProperty:
         def __init__(
             self,
             *,
             to_format: builtins.str,
+            advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param to_format: 
-            :param format_options: 
+            '''Contains the formatting options for an outbound transformer (takes JSON or XML as input and converts it to an EDI document (currently only X12 format is supported).
+
+            :param to_format: The format for the output from an outbound transformer: only X12 is currently supported.
+            :param advanced_options: 
+            :param format_options: A structure that contains the X12 transaction set and version for the transformer output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html
             :exampleMetadata: fixture=_generated
@@ -3764,6 +3991,33 @@ class CfnTransformer(
                     to_format="toFormat",
                 
                     # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+                
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
+                            )
+                        )
+                    ),
                     format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                         x12=b2bi.CfnTransformer.X12DetailsProperty(
                             transaction_set="transactionSet",
@@ -3775,16 +4029,20 @@ class CfnTransformer(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__dba363199b2c0b97d3ba296b1d26754261d2515646da5bce6b98f57eff2c1d59)
                 check_type(argname="argument to_format", value=to_format, expected_type=type_hints["to_format"])
+                check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
                 check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "to_format": to_format,
             }
+            if advanced_options is not None:
+                self._values["advanced_options"] = advanced_options
             if format_options is not None:
                 self._values["format_options"] = format_options
 
         @builtins.property
         def to_format(self) -> builtins.str:
-            '''
+            '''The format for the output from an outbound transformer: only X12 is currently supported.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html#cfn-b2bi-transformer-outputconversion-toformat
             '''
             result = self._values.get("to_format")
@@ -3792,10 +4050,21 @@ class CfnTransformer(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def advanced_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.AdvancedOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html#cfn-b2bi-transformer-outputconversion-advancedoptions
+            '''
+            result = self._values.get("advanced_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.AdvancedOptionsProperty"]], result)
+
+        @builtins.property
         def format_options(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.FormatOptionsProperty"]]:
-            '''
+            '''A structure that contains the X12 transaction set and version for the transformer output.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html#cfn-b2bi-transformer-outputconversion-formatoptions
             '''
             result = self._values.get("format_options")
@@ -3824,9 +4093,10 @@ class CfnTransformer(
             input: typing.Optional[builtins.str] = None,
             output: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param input: 
-            :param output: 
+            '''An array of the Amazon S3 keys used to identify the location for your sample documents.
+
+            :param input: An array of keys for your input sample documents.
+            :param output: An array of keys for your output sample documents.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocumentkeys.html
             :exampleMetadata: fixture=_generated
@@ -3854,7 +4124,8 @@ class CfnTransformer(
 
         @builtins.property
         def input(self) -> typing.Optional[builtins.str]:
-            '''
+            '''An array of keys for your input sample documents.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocumentkeys.html#cfn-b2bi-transformer-sampledocumentkeys-input
             '''
             result = self._values.get("input")
@@ -3862,7 +4133,8 @@ class CfnTransformer(
 
         @builtins.property
         def output(self) -> typing.Optional[builtins.str]:
-            '''
+            '''An array of keys for your output sample documents.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocumentkeys.html#cfn-b2bi-transformer-sampledocumentkeys-output
             '''
             result = self._values.get("output")
@@ -3891,9 +4163,10 @@ class CfnTransformer(
             bucket_name: builtins.str,
             keys: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.SampleDocumentKeysProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
-            '''
-            :param bucket_name: 
-            :param keys: 
+            '''Describes a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
+
+            :param bucket_name: Contains the Amazon S3 bucket that is used to hold your sample documents.
+            :param keys: Contains an array of the Amazon S3 keys used to identify the location for your sample documents.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocuments.html
             :exampleMetadata: fixture=_generated
@@ -3923,7 +4196,8 @@ class CfnTransformer(
 
         @builtins.property
         def bucket_name(self) -> builtins.str:
-            '''
+            '''Contains the Amazon S3 bucket that is used to hold your sample documents.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocuments.html#cfn-b2bi-transformer-sampledocuments-bucketname
             '''
             result = self._values.get("bucket_name")
@@ -3934,7 +4208,8 @@ class CfnTransformer(
         def keys(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTransformer.SampleDocumentKeysProperty"]]]:
-            '''
+            '''Contains an array of the Amazon S3 keys used to identify the location for your sample documents.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocuments.html#cfn-b2bi-transformer-sampledocuments-keys
             '''
             result = self._values.get("keys")
@@ -3955,16 +4230,22 @@ class CfnTransformer(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12AdvancedOptionsProperty",
         jsii_struct_bases=[],
-        name_mapping={"split_options": "splitOptions"},
+        name_mapping={
+            "split_options": "splitOptions",
+            "validation_options": "validationOptions",
+        },
     )
     class X12AdvancedOptionsProperty:
         def __init__(
             self,
             *,
             split_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12SplitOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12ValidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param split_options: 
+            '''Contains advanced options specific to X12 EDI processing, such as splitting large X12 files into smaller units.
+
+            :param split_options: Specifies options for splitting X12 EDI files. These options control how large X12 files are divided into smaller, more manageable units.
+            :param validation_options: Specifies validation options for X12 EDI processing. These options control how validation rules are applied during EDI document processing, including custom validation rules for element length constraints, code list validations, and element requirement checks.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html
             :exampleMetadata: fixture=_generated
@@ -3978,25 +4259,64 @@ class CfnTransformer(
                 x12_advanced_options_property = b2bi.CfnTransformer.X12AdvancedOptionsProperty(
                     split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
                         split_by="splitBy"
+                    ),
+                    validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                        validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                            code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                element_id="elementId",
+                
+                                # the properties below are optional
+                                codes_to_add=["codesToAdd"],
+                                codes_to_remove=["codesToRemove"]
+                            ),
+                            element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                element_id="elementId",
+                                max_length=123,
+                                min_length=123
+                            ),
+                            element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                element_position="elementPosition",
+                                requirement="requirement"
+                            )
+                        )]
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c)
                 check_type(argname="argument split_options", value=split_options, expected_type=type_hints["split_options"])
+                check_type(argname="argument validation_options", value=validation_options, expected_type=type_hints["validation_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if split_options is not None:
                 self._values["split_options"] = split_options
+            if validation_options is not None:
+                self._values["validation_options"] = validation_options
 
         @builtins.property
         def split_options(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12SplitOptionsProperty"]]:
-            '''
+            '''Specifies options for splitting X12 EDI files.
+
+            These options control how large X12 files are divided into smaller, more manageable units.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html#cfn-b2bi-transformer-x12advancedoptions-splitoptions
             '''
             result = self._values.get("split_options")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12SplitOptionsProperty"]], result)
+
+        @builtins.property
+        def validation_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ValidationOptionsProperty"]]:
+            '''Specifies validation options for X12 EDI processing.
+
+            These options control how validation rules are applied during EDI document processing, including custom validation rules for element length constraints, code list validations, and element requirement checks.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html#cfn-b2bi-transformer-x12advancedoptions-validationoptions
+            '''
+            result = self._values.get("validation_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ValidationOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4006,6 +4326,104 @@ class CfnTransformer(
 
         def __repr__(self) -> str:
             return "X12AdvancedOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12CodeListValidationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "element_id": "elementId",
+            "codes_to_add": "codesToAdd",
+            "codes_to_remove": "codesToRemove",
+        },
+    )
+    class X12CodeListValidationRuleProperty:
+        def __init__(
+            self,
+            *,
+            element_id: builtins.str,
+            codes_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
+            codes_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Code list validation rule configuration.
+
+            :param element_id: Specifies the four-digit element ID to which the code list modifications apply. This identifies which X12 element will have its allowed code values modified.
+            :param codes_to_add: Specifies a list of code values to add to the element's allowed values. These codes will be considered valid for the specified element in addition to the standard codes defined by the X12 specification.
+            :param codes_to_remove: Specifies a list of code values to remove from the element's allowed values. These codes will be considered invalid for the specified element, even if they are part of the standard codes defined by the X12 specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12codelistvalidationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_code_list_validation_rule_property = b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                    element_id="elementId",
+                
+                    # the properties below are optional
+                    codes_to_add=["codesToAdd"],
+                    codes_to_remove=["codesToRemove"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c48f4b592271b72cef344b116f613ef8b316e53a42f875bfedd39b7997f45efe)
+                check_type(argname="argument element_id", value=element_id, expected_type=type_hints["element_id"])
+                check_type(argname="argument codes_to_add", value=codes_to_add, expected_type=type_hints["codes_to_add"])
+                check_type(argname="argument codes_to_remove", value=codes_to_remove, expected_type=type_hints["codes_to_remove"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "element_id": element_id,
+            }
+            if codes_to_add is not None:
+                self._values["codes_to_add"] = codes_to_add
+            if codes_to_remove is not None:
+                self._values["codes_to_remove"] = codes_to_remove
+
+        @builtins.property
+        def element_id(self) -> builtins.str:
+            '''Specifies the four-digit element ID to which the code list modifications apply.
+
+            This identifies which X12 element will have its allowed code values modified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12codelistvalidationrule.html#cfn-b2bi-transformer-x12codelistvalidationrule-elementid
+            '''
+            result = self._values.get("element_id")
+            assert result is not None, "Required property 'element_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def codes_to_add(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specifies a list of code values to add to the element's allowed values.
+
+            These codes will be considered valid for the specified element in addition to the standard codes defined by the X12 specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12codelistvalidationrule.html#cfn-b2bi-transformer-x12codelistvalidationrule-codestoadd
+            '''
+            result = self._values.get("codes_to_add")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def codes_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specifies a list of code values to remove from the element's allowed values.
+
+            These codes will be considered invalid for the specified element, even if they are part of the standard codes defined by the X12 specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12codelistvalidationrule.html#cfn-b2bi-transformer-x12codelistvalidationrule-codestoremove
+            '''
+            result = self._values.get("codes_to_remove")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12CodeListValidationRuleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4087,14 +4505,195 @@ class CfnTransformer(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "element_id": "elementId",
+            "max_length": "maxLength",
+            "min_length": "minLength",
+        },
+    )
+    class X12ElementLengthValidationRuleProperty:
+        def __init__(
+            self,
+            *,
+            element_id: builtins.str,
+            max_length: jsii.Number,
+            min_length: jsii.Number,
+        ) -> None:
+            '''Defines a validation rule that specifies custom length constraints for a specific X12 element.
+
+            This rule allows you to override the standard minimum and maximum length requirements for an element, enabling validation of trading partner-specific length requirements that may differ from the X12 specification. Both minimum and maximum length values must be specified.
+
+            :param element_id: Specifies the four-digit element ID to which the length constraints will be applied. This identifies which X12 element will have its length requirements modified.
+            :param max_length: Specifies the maximum allowed length for the identified element. This value defines the upper limit for the element's content length.
+            :param min_length: Specifies the minimum required length for the identified element. This value defines the lower limit for the element's content length.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementlengthvalidationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_element_length_validation_rule_property = b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                    element_id="elementId",
+                    max_length=123,
+                    min_length=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__72c63a128e248c7d4c6f89fa17885156ba472036c367fb1554413409d5bd58db)
+                check_type(argname="argument element_id", value=element_id, expected_type=type_hints["element_id"])
+                check_type(argname="argument max_length", value=max_length, expected_type=type_hints["max_length"])
+                check_type(argname="argument min_length", value=min_length, expected_type=type_hints["min_length"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "element_id": element_id,
+                "max_length": max_length,
+                "min_length": min_length,
+            }
+
+        @builtins.property
+        def element_id(self) -> builtins.str:
+            '''Specifies the four-digit element ID to which the length constraints will be applied.
+
+            This identifies which X12 element will have its length requirements modified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementlengthvalidationrule.html#cfn-b2bi-transformer-x12elementlengthvalidationrule-elementid
+            '''
+            result = self._values.get("element_id")
+            assert result is not None, "Required property 'element_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def max_length(self) -> jsii.Number:
+            '''Specifies the maximum allowed length for the identified element.
+
+            This value defines the upper limit for the element's content length.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementlengthvalidationrule.html#cfn-b2bi-transformer-x12elementlengthvalidationrule-maxlength
+            '''
+            result = self._values.get("max_length")
+            assert result is not None, "Required property 'max_length' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def min_length(self) -> jsii.Number:
+            '''Specifies the minimum required length for the identified element.
+
+            This value defines the lower limit for the element's content length.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementlengthvalidationrule.html#cfn-b2bi-transformer-x12elementlengthvalidationrule-minlength
+            '''
+            result = self._values.get("min_length")
+            assert result is not None, "Required property 'min_length' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12ElementLengthValidationRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "element_position": "elementPosition",
+            "requirement": "requirement",
+        },
+    )
+    class X12ElementRequirementValidationRuleProperty:
+        def __init__(
+            self,
+            *,
+            element_position: builtins.str,
+            requirement: builtins.str,
+        ) -> None:
+            '''Defines a validation rule that modifies the requirement status of a specific X12 element within a segment.
+
+            This rule allows you to make optional elements mandatory or mandatory elements optional, providing flexibility to accommodate different trading partner requirements and business rules. The rule targets a specific element position within a segment and sets its requirement status to either OPTIONAL or MANDATORY.
+
+            :param element_position: Specifies the position of the element within an X12 segment for which the requirement status will be modified. The format follows the pattern of segment identifier followed by element position (e.g., "ST-01" for the first element of the ST segment).
+            :param requirement: Specifies the requirement status for the element at the specified position. Valid values are OPTIONAL (the element may be omitted) or MANDATORY (the element must be present).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementrequirementvalidationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_element_requirement_validation_rule_property = b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                    element_position="elementPosition",
+                    requirement="requirement"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ba1e9be09bdff1beaa9be9fc2d4d3415f08bedf6d9c3ec96e9401508b7263a35)
+                check_type(argname="argument element_position", value=element_position, expected_type=type_hints["element_position"])
+                check_type(argname="argument requirement", value=requirement, expected_type=type_hints["requirement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "element_position": element_position,
+                "requirement": requirement,
+            }
+
+        @builtins.property
+        def element_position(self) -> builtins.str:
+            '''Specifies the position of the element within an X12 segment for which the requirement status will be modified.
+
+            The format follows the pattern of segment identifier followed by element position (e.g., "ST-01" for the first element of the ST segment).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementrequirementvalidationrule.html#cfn-b2bi-transformer-x12elementrequirementvalidationrule-elementposition
+            '''
+            result = self._values.get("element_position")
+            assert result is not None, "Required property 'element_position' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def requirement(self) -> builtins.str:
+            '''Specifies the requirement status for the element at the specified position.
+
+            Valid values are OPTIONAL (the element may be omitted) or MANDATORY (the element must be present).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12elementrequirementvalidationrule.html#cfn-b2bi-transformer-x12elementrequirementvalidationrule-requirement
+            '''
+            result = self._values.get("requirement")
+            assert result is not None, "Required property 'requirement' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12ElementRequirementValidationRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12SplitOptionsProperty",
         jsii_struct_bases=[],
         name_mapping={"split_by": "splitBy"},
     )
     class X12SplitOptionsProperty:
         def __init__(self, *, split_by: typing.Optional[builtins.str] = None) -> None:
-            '''
-            :param split_by: 
+            '''Contains options for splitting X12 EDI files into smaller units.
+
+            This is useful for processing large EDI files more efficiently.
+
+            :param split_by: Specifies the method used to split X12 EDI files. Valid values include ``TRANSACTION`` (split by individual transaction sets), or ``NONE`` (no splitting).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12splitoptions.html
             :exampleMetadata: fixture=_generated
@@ -4118,7 +4717,10 @@ class CfnTransformer(
 
         @builtins.property
         def split_by(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the method used to split X12 EDI files.
+
+            Valid values include ``TRANSACTION`` (split by individual transaction sets), or ``NONE`` (no splitting).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12splitoptions.html#cfn-b2bi-transformer-x12splitoptions-splitby
             '''
             result = self._values.get("split_by")
@@ -4132,6 +4734,200 @@ class CfnTransformer(
 
         def __repr__(self) -> str:
             return "X12SplitOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12ValidationOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"validation_rules": "validationRules"},
+    )
+    class X12ValidationOptionsProperty:
+        def __init__(
+            self,
+            *,
+            validation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12ValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Contains configuration options for X12 EDI validation.
+
+            This structure allows you to specify custom validation rules that will be applied during EDI document processing, including element length constraints, code list modifications, and element requirement changes. These validation options provide flexibility to accommodate trading partner-specific requirements while maintaining EDI compliance. The validation rules are applied in addition to standard X12 validation to ensure documents meet both standard and custom requirements.
+
+            :param validation_rules: Specifies a list of validation rules to apply during EDI document processing. These rules can include code list modifications, element length constraints, and element requirement changes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_validation_options_property = b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                    validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                        code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                            element_id="elementId",
+                
+                            # the properties below are optional
+                            codes_to_add=["codesToAdd"],
+                            codes_to_remove=["codesToRemove"]
+                        ),
+                        element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                            element_id="elementId",
+                            max_length=123,
+                            min_length=123
+                        ),
+                        element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                            element_position="elementPosition",
+                            requirement="requirement"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3b2db2001546ea5c18521043ed2c413bd208851812e5b62f93dea507652b0a20)
+                check_type(argname="argument validation_rules", value=validation_rules, expected_type=type_hints["validation_rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if validation_rules is not None:
+                self._values["validation_rules"] = validation_rules
+
+        @builtins.property
+        def validation_rules(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ValidationRuleProperty"]]]]:
+            '''Specifies a list of validation rules to apply during EDI document processing.
+
+            These rules can include code list modifications, element length constraints, and element requirement changes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationoptions.html#cfn-b2bi-transformer-x12validationoptions-validationrules
+            '''
+            result = self._values.get("validation_rules")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ValidationRuleProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12ValidationOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12ValidationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code_list_validation_rule": "codeListValidationRule",
+            "element_length_validation_rule": "elementLengthValidationRule",
+            "element_requirement_validation_rule": "elementRequirementValidationRule",
+        },
+    )
+    class X12ValidationRuleProperty:
+        def __init__(
+            self,
+            *,
+            code_list_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12CodeListValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            element_length_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12ElementLengthValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            element_requirement_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12ElementRequirementValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents a single validation rule that can be applied during X12 EDI processing.
+
+            This is a union type that can contain one of several specific validation rule types: code list validation rules for modifying allowed element codes, element length validation rules for enforcing custom length constraints, or element requirement validation rules for changing mandatory/optional status. Each validation rule targets specific aspects of EDI document validation to ensure compliance with trading partner requirements and business rules.
+
+            :param code_list_validation_rule: Specifies a code list validation rule that modifies the allowed code values for a specific X12 element. This rule enables you to customize which codes are considered valid for an element, allowing for trading partner-specific code requirements.
+            :param element_length_validation_rule: Specifies an element length validation rule that defines custom length constraints for a specific X12 element. This rule allows you to enforce minimum and maximum length requirements that may differ from the standard X12 specification.
+            :param element_requirement_validation_rule: Specifies an element requirement validation rule that modifies whether a specific X12 element is required or optional within a segment. This rule provides flexibility to accommodate different trading partner requirements for element presence.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_validation_rule_property = b2bi.CfnTransformer.X12ValidationRuleProperty(
+                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                        element_id="elementId",
+                
+                        # the properties below are optional
+                        codes_to_add=["codesToAdd"],
+                        codes_to_remove=["codesToRemove"]
+                    ),
+                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                        element_id="elementId",
+                        max_length=123,
+                        min_length=123
+                    ),
+                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                        element_position="elementPosition",
+                        requirement="requirement"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db78808abaa6a)
+                check_type(argname="argument code_list_validation_rule", value=code_list_validation_rule, expected_type=type_hints["code_list_validation_rule"])
+                check_type(argname="argument element_length_validation_rule", value=element_length_validation_rule, expected_type=type_hints["element_length_validation_rule"])
+                check_type(argname="argument element_requirement_validation_rule", value=element_requirement_validation_rule, expected_type=type_hints["element_requirement_validation_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if code_list_validation_rule is not None:
+                self._values["code_list_validation_rule"] = code_list_validation_rule
+            if element_length_validation_rule is not None:
+                self._values["element_length_validation_rule"] = element_length_validation_rule
+            if element_requirement_validation_rule is not None:
+                self._values["element_requirement_validation_rule"] = element_requirement_validation_rule
+
+        @builtins.property
+        def code_list_validation_rule(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12CodeListValidationRuleProperty"]]:
+            '''Specifies a code list validation rule that modifies the allowed code values for a specific X12 element.
+
+            This rule enables you to customize which codes are considered valid for an element, allowing for trading partner-specific code requirements.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-codelistvalidationrule
+            '''
+            result = self._values.get("code_list_validation_rule")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12CodeListValidationRuleProperty"]], result)
+
+        @builtins.property
+        def element_length_validation_rule(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ElementLengthValidationRuleProperty"]]:
+            '''Specifies an element length validation rule that defines custom length constraints for a specific X12 element.
+
+            This rule allows you to enforce minimum and maximum length requirements that may differ from the standard X12 specification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-elementlengthvalidationrule
+            '''
+            result = self._values.get("element_length_validation_rule")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ElementLengthValidationRuleProperty"]], result)
+
+        @builtins.property
+        def element_requirement_validation_rule(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ElementRequirementValidationRuleProperty"]]:
+            '''Specifies an element requirement validation rule that modifies whether a specific X12 element is required or optional within a segment.
+
+            This rule provides flexibility to accommodate different trading partner requirements for element presence.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-elementrequirementvalidationrule
+            '''
+            result = self._values.get("element_requirement_validation_rule")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12ElementRequirementValidationRuleProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12ValidationRuleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4212,6 +5008,26 @@ class CfnTransformerProps:
                         x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
                             split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
                                 split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+            
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
                             )
                         )
                     ),
@@ -4233,6 +5049,33 @@ class CfnTransformerProps:
                     to_format="toFormat",
             
                     # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+            
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
+                            )
+                        )
+                    ),
                     format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                         x12=b2bi.CfnTransformer.X12DetailsProperty(
                             transaction_set="transactionSet",
@@ -4951,6 +5794,7 @@ def _typecheckingstub__0ab01eed6892d54284d211380c1147d43f8287b1d284d94cfbe020e47
 def _typecheckingstub__dba363199b2c0b97d3ba296b1d26754261d2515646da5bce6b98f57eff2c1d59(
     *,
     to_format: builtins.str,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4975,6 +5819,16 @@ def _typecheckingstub__f6b7e60975e30fa176cbce1116829b7ea73143bc6b12e63afdd39fa25
 def _typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c(
     *,
     split_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12SplitOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ValidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c48f4b592271b72cef344b116f613ef8b316e53a42f875bfedd39b7997f45efe(
+    *,
+    element_id: builtins.str,
+    codes_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
+    codes_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4987,9 +5841,42 @@ def _typecheckingstub__6c52ecd7c7c399e4bebfaf5bf8793e65928fdad0c0133ff1ce55c0568
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__72c63a128e248c7d4c6f89fa17885156ba472036c367fb1554413409d5bd58db(
+    *,
+    element_id: builtins.str,
+    max_length: jsii.Number,
+    min_length: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba1e9be09bdff1beaa9be9fc2d4d3415f08bedf6d9c3ec96e9401508b7263a35(
+    *,
+    element_position: builtins.str,
+    requirement: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0646dede(
     *,
     split_by: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b2db2001546ea5c18521043ed2c413bd208851812e5b62f93dea507652b0a20(
+    *,
+    validation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db78808abaa6a(
+    *,
+    code_list_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12CodeListValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    element_length_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementLengthValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    element_requirement_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementRequirementValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

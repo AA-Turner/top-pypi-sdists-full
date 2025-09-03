@@ -22,10 +22,10 @@ use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
+use crate::alt::class::class_field::DescriptorBase;
 use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -270,7 +270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error_call_target(
                     errors,
                     range,
-                    format!("{}, got {}", expect_message, self.for_display(ty)),
+                    format!("{}, got `{}`", expect_message, self.for_display(ty)),
                     ErrorKind::NotCallable,
                     context,
                 )
@@ -400,7 +400,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
         self.solver()
             .finish_class_targs(&mut ctor_targs, self.uniques);
-        ret.subst_mut(ctor_targs.substitution().as_map());
+        ret.subst_mut(&ctor_targs.substitution_map());
         Some(ret)
     }
 
@@ -467,7 +467,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // Got something other than an instance of the class under construction.
                     self.solver()
                         .finish_class_targs(cls.targs_mut(), self.uniques);
-                    return ret.subst(cls.targs().substitution().as_map());
+                    return ret.subst(&cls.targs().substitution_map());
                 }
                 (true, has_errors)
             } else {
@@ -505,7 +505,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver()
             .finish_class_targs(cls.targs_mut(), self.uniques);
         if let Some(mut ret) = dunder_new_ret {
-            ret.subst_mut(cls.targs().substitution().as_map());
+            ret.subst_mut(&cls.targs().substitution_map());
             ret.subst_self_type_mut(&cls.to_type(), &|_, _| true);
             ret
         } else {

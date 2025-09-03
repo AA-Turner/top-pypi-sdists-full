@@ -2,7 +2,7 @@ use tokio::sync::RwLock;
 
 use log::debug;
 use reqwest::{cookie::CookieStore, header::HeaderMap, Method, Response, Version};
-use std::{fmt::Debug, str::FromStr, sync::Arc, time::Duration};
+use std::{fmt::Debug, net::IpAddr, sync::Arc, time::Duration};
 use url::Url;
 
 use crate::{
@@ -74,6 +74,7 @@ pub struct ImpitBuilder<CookieStoreImpl: CookieStore + 'static> {
     redirect: RedirectBehavior,
     cookie_store: Option<Arc<CookieStoreImpl>>,
     headers: Option<Vec<(String, String)>>,
+    local_address: Option<IpAddr>,
 }
 
 impl<CookieStoreImpl: CookieStore + 'static> Clone for ImpitBuilder<CookieStoreImpl> {
@@ -88,6 +89,7 @@ impl<CookieStoreImpl: CookieStore + 'static> Clone for ImpitBuilder<CookieStoreI
             redirect: self.redirect.clone(),
             cookie_store: self.cookie_store.clone(),
             headers: self.headers.clone(),
+            local_address: self.local_address,
         }
     }
 }
@@ -98,12 +100,13 @@ impl<CookieStoreImpl: CookieStore + 'static> Default for ImpitBuilder<CookieStor
             browser: None,
             ignore_tls_errors: false,
             vanilla_fallback: true,
-            proxy_url: String::from_str("").unwrap(),
+            proxy_url: String::new(),
             request_timeout: Duration::from_secs(30),
             max_http_version: Version::HTTP_2,
             redirect: RedirectBehavior::FollowRedirect(10),
             cookie_store: None,
             headers: None,
+            local_address: None,
         }
     }
 }
@@ -181,6 +184,20 @@ impl<CookieStoreImpl: CookieStore + 'static> ImpitBuilder<CookieStoreImpl> {
         self
     }
 
+    /// Sets the local address to bind the client to.
+    ///
+    /// This is useful for testing purposes or when you want to bind the client to a specific network interface.
+    /// Note that this address should be a valid IP address in the format "xxx.xxx.xxx.xxx" (for IPv4) or
+    /// "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff" (for IPv6).
+    pub fn with_local_address(mut self, local_address: String) -> Result<Self, ImpitError> {
+        let ip_addr = local_address.parse::<IpAddr>().map_err(|_| {
+            ImpitError::ReqwestError(format!("Invalid local address: {local_address}"))
+        })?;
+
+        self.local_address = Some(ip_addr);
+        Ok(self)
+    }
+
     /// Sets additional headers to include in every request made by the built [`Impit`] instance.
     ///
     /// This can be used to add e.g. custom user-agent or authorization headers that should be included in every request.
@@ -234,6 +251,10 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
 
         if !config.proxy_url.is_empty() {
             client = client.proxy(reqwest::Proxy::all(&config.proxy_url)?);
+        }
+
+        if let Some(ip_addr) = config.local_address {
+            client = client.local_address(ip_addr);
         }
 
         match config.redirect {
@@ -304,7 +325,11 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
             if engine_guard.is_none() {
                 *engine_guard = Some(H3Engine::init().await);
             }
-            engine_guard.as_ref().unwrap().host_supports_h3(host).await
+
+            match engine_guard.as_ref() {
+                None => false,
+                Some(engine) => engine.host_supports_h3(host).await,
+            }
         }
     }
 
@@ -322,7 +347,7 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
         }
 
         let parsed_url = self.parse_url(url.clone())?;
-        let host = parsed_url.host_str().unwrap().to_string();
+        let host = parsed_url.host_str().unwrap_or_default().to_string();
 
         let h3 = options.http3_prior_knowledge || self.should_use_h3(&host).await;
 
@@ -336,7 +361,7 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
 
         let client = if h3 {
             debug!("Using QUIC for request to {url}");
-            self.h3_client.as_ref().unwrap()
+            self.h3_client.as_ref().unwrap_or(&self.base_client)
         } else {
             debug!("{url} doesn't seem to have HTTP3 support");
             &self.base_client
@@ -363,25 +388,26 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
 
         let response = request.send().await;
 
-        if response.is_err() {
-            let max_redirects = match self.config.redirect {
-                RedirectBehavior::FollowRedirect(max) => max,
-                RedirectBehavior::ManualRedirect => 0,
-            };
+        let response = match response {
+            Ok(resp) => resp,
+            Err(err) => {
+                let max_redirects = match self.config.redirect {
+                    RedirectBehavior::FollowRedirect(max) => max,
+                    RedirectBehavior::ManualRedirect => 0,
+                };
 
-            return Err(ImpitError::from(
-                response.err().unwrap(),
-                ErrorContext {
-                    timeout: options.timeout.unwrap_or(self.config.request_timeout),
-                    max_redirects,
-                    method: method.to_string(),
-                    protocol: parsed_url.scheme().to_string(),
-                    url: url.clone(),
-                },
-            ));
-        }
-
-        let response = response.unwrap();
+                return Err(ImpitError::from(
+                    err,
+                    ErrorContext {
+                        timeout: options.timeout.unwrap_or(self.config.request_timeout),
+                        max_redirects,
+                        method: method.to_string(),
+                        protocol: parsed_url.scheme().to_string(),
+                        url: url.clone(),
+                    },
+                ));
+            }
+        };
 
         if !h3 {
             let engine_guard = self.h3_engine.read().await;
@@ -389,10 +415,13 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
                 h3_engine.set_h3_support(&host, false).await;
 
                 if let Some(alt_svc) = response.headers().get("Alt-Svc") {
-                    let alt_svc = alt_svc.to_str().unwrap();
-                    if alt_svc.contains("h3") {
-                        debug!("{host} supports HTTP/3 (alt-svc header), adding to Alt-Svc cache");
-                        h3_engine.set_h3_support(&host, true).await;
+                    if let Ok(alt_svc_str) = alt_svc.to_str() {
+                        if alt_svc_str.contains("h3") {
+                            debug!(
+                                "{host} supports HTTP/3 (alt-svc header), adding to Alt-Svc cache"
+                            );
+                            h3_engine.set_h3_support(&host, true).await;
+                        }
                     }
                 }
             }

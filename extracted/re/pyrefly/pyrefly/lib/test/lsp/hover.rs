@@ -8,10 +8,10 @@
 use lsp_types::Hover;
 use lsp_types::HoverContents;
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use ruff_text_size::TextSize;
 
 use crate::lsp::features::hover::get_hover;
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report;
 
@@ -53,6 +53,41 @@ xyz = [foo.meth]
 ```python
 (variable) xyz: list[(self: Self@Foo) -> None]
 ```
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn renamed_reexport_shows_original_name() {
+    let lib2 = r#"
+def foo() -> None: ...
+"#;
+    let lib = r#"
+from lib2 import foo as foo_renamed
+"#;
+    let code = r#"
+from lib import foo_renamed
+#                    ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("lib", lib), ("lib2", lib2)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import foo_renamed
+                         ^
+```python
+(function) foo: () -> None
+```
+
+
+# lib.py
+
+# lib2.py
 "#
         .trim(),
         report.trim(),

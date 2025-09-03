@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cg
-Version: 75.0.10
+Version: 75.1.0
 Summary: Clinical Genomics command center
 Requires-Python: >=3.9,<3.13
 Classifier: Programming Language :: Python
@@ -12,6 +12,7 @@ Provides-Extra: pre-commit
 Provides-Extra: pytest
 Provides-Extra: pytest-cov
 Provides-Extra: pytest-freezegun
+Provides-Extra: pytest-httpserver
 Provides-Extra: pytest-mock
 Provides-Extra: pytest-xdist
 Provides-Extra: ruff
@@ -54,6 +55,7 @@ Requires-Dist: pydantic-settings (>=2.3.3)
 Requires-Dist: pytest ; extra == "pytest"
 Requires-Dist: pytest-cov ; extra == "pytest-cov"
 Requires-Dist: pytest-freezegun ; extra == "pytest-freezegun"
+Requires-Dist: pytest-httpserver ; extra == "pytest-httpserver"
 Requires-Dist: pytest-mock ; extra == "pytest-mock"
 Requires-Dist: pytest-xdist ; extra == "pytest-xdist"
 Requires-Dist: python-dateutil

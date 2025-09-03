@@ -6,7 +6,7 @@ import boto3
 from bigeye_sdk.class_ext.enum_ext import StrEnum
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 def run_athena_query(database_name: str, s3_query_result_uri: str, query: str, region: str = "us-west-2") -> str:
     """

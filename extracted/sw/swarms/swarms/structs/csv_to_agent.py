@@ -1,22 +1,24 @@
-from typing import (
-    List,
-    Dict,
-    TypedDict,
-    Any,
-    Union,
-    TypeVar,
-)
-from dataclasses import dataclass
+import concurrent.futures
 import csv
 import json
-import yaml
-from pathlib import Path
+from dataclasses import dataclass
 from enum import Enum
-from swarms.structs.agent import Agent
-from swarms.schemas.swarms_api_schemas import AgentSpec
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    List,
+    TypedDict,
+    TypeVar,
+    Union,
+)
+
+import yaml
 from litellm import model_list
-import concurrent.futures
 from tqdm import tqdm
+
+from swarms.schemas.swarms_api_schemas import AgentSpec
+from swarms.structs.agent import Agent
 
 # Type variable for agent configuration
 AgentConfigType = TypeVar(
@@ -167,7 +169,7 @@ class AgentValidator:
             )
 
 
-class AgentLoader:
+class CSVAgentLoader:
     """Class to manage agents through various file formats with type safety and high performance"""
 
     def __init__(

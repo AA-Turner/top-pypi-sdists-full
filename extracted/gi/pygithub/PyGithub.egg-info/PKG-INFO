@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyGithub
-Version: 2.7.0
+Version: 2.8.1
 Summary: Use the full Github API v3
 Author-email: Vincent Jacques <vincent@vincent-jacques.net>
 Project-URL: Documentation, https://pygithub.readthedocs.io/en/stable/

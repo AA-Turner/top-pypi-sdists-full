@@ -20,7 +20,7 @@ from bigeye_sdk.exceptions.exceptions import FileLoadException
 from bigeye_sdk.functions.search_and_match_functions import fuzzy_match
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 VALID_SUBTYPE = TypeVar('VALID_SUBTYPE', bound='PydanticSubtypeSerializable')
 

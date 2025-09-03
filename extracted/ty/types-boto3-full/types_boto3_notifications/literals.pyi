@@ -36,12 +36,16 @@ __all__ = (
     "ListManagedNotificationChildEventsPaginatorName",
     "ListManagedNotificationConfigurationsPaginatorName",
     "ListManagedNotificationEventsPaginatorName",
+    "ListMemberAccountsPaginatorName",
     "ListNotificationConfigurationsPaginatorName",
     "ListNotificationEventsPaginatorName",
     "ListNotificationHubsPaginatorName",
+    "ListOrganizationalUnitsPaginatorName",
     "LocaleCodeType",
     "MediaElementTypeType",
+    "MemberAccountNotificationConfigurationStatusType",
     "NotificationConfigurationStatusType",
+    "NotificationConfigurationSubtypeType",
     "NotificationHubStatusType",
     "NotificationTypeType",
     "PaginatorName",
@@ -53,7 +57,7 @@ __all__ = (
     "UserNotificationsServiceName",
 )
 
-AccessStatusType = Literal["DISABLED", "ENABLED", "PENDING"]
+AccessStatusType = Literal["DISABLED", "ENABLED", "FAILED", "PENDING"]
 AccountContactTypeType = Literal[
     "ACCOUNT_ALTERNATE_BILLING",
     "ACCOUNT_ALTERNATE_OPERATIONS",
@@ -76,9 +80,11 @@ ListManagedNotificationConfigurationsPaginatorName = Literal[
     "list_managed_notification_configurations"
 ]
 ListManagedNotificationEventsPaginatorName = Literal["list_managed_notification_events"]
+ListMemberAccountsPaginatorName = Literal["list_member_accounts"]
 ListNotificationConfigurationsPaginatorName = Literal["list_notification_configurations"]
 ListNotificationEventsPaginatorName = Literal["list_notification_events"]
 ListNotificationHubsPaginatorName = Literal["list_notification_hubs"]
+ListOrganizationalUnitsPaginatorName = Literal["list_organizational_units"]
 LocaleCodeType = Literal[
     "de_DE",
     "en_CA",
@@ -97,7 +103,11 @@ LocaleCodeType = Literal[
     "zh_TW",
 ]
 MediaElementTypeType = Literal["IMAGE"]
+MemberAccountNotificationConfigurationStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "INACTIVE", "PENDING"
+]
 NotificationConfigurationStatusType = Literal["ACTIVE", "DELETING", "INACTIVE", "PARTIALLY_ACTIVE"]
+NotificationConfigurationSubtypeType = Literal["ACCOUNT", "ADMIN_MANAGED"]
 NotificationHubStatusType = Literal["ACTIVE", "DEREGISTERING", "INACTIVE", "REGISTERING"]
 NotificationTypeType = Literal["ALERT", "ANNOUNCEMENT", "INFORMATIONAL", "WARNING"]
 SchemaVersionType = Literal["v1.0"]
@@ -528,9 +538,11 @@ PaginatorName = Literal[
     "list_managed_notification_child_events",
     "list_managed_notification_configurations",
     "list_managed_notification_events",
+    "list_member_accounts",
     "list_notification_configurations",
     "list_notification_events",
     "list_notification_hubs",
+    "list_organizational_units",
 ]
 RegionName = Literal[
     "af-south-1",

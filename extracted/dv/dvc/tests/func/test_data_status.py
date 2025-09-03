@@ -1,3 +1,4 @@
+import shutil
 from collections.abc import Iterable
 from functools import partial
 from os import fspath
@@ -137,18 +138,25 @@ def test_tracked_directory_deep(M, tmp_dir, dvc, scm):
     }
 
 
-def test_new_empty_git_repo(M, tmp_dir, scm):
-    dvc = Repo.init()
+@pytest.mark.parametrize("git_repo_state", ["unborn", "committed"])
+@pytest.mark.parametrize("subdir", [True, False])
+def test_new_dvc_repo(M, tmp_dir, scm, subdir, git_repo_state):
+    if git_repo_state == "committed":
+        tmp_dir.scm_gen("test", "test", commit="init")
+
+    is_empty = git_repo_state == "unborn"
+    dir_ = tmp_dir / "sub" if subdir else tmp_dir
+    dvc = Repo.init(dir_, subdir=subdir)
     assert dvc.data_status() == {
         **EMPTY_STATUS,
-        "git": M.dict(is_empty=True, is_dirty=True),
+        "git": M.dict(is_dirty=True, is_empty=is_empty),
     }
 
-    tmp_dir.gen("foo", "foo")
-    dvc.add(["foo"])
+    dir_.gen("foo", "foo")
+    dvc.add([dir_ / "foo"])
     assert dvc.data_status() == {
         **EMPTY_STATUS,
-        "git": M.dict(is_empty=True, is_dirty=True),
+        "git": M.dict(is_empty=is_empty, is_dirty=True),
         "committed": {"added": ["foo"]},
     }
 
@@ -396,6 +404,42 @@ def test_missing_dir_object_from_index(M, tmp_dir, dvc, scm):
         "not_in_cache": [join("dir", "")],
         "git": M.dict(),
     }
+
+
+def test_remote_check(M, tmp_dir, dvc, scm, make_remote):
+    make_remote("default", default=True)
+    make_remote("myremote", default=False)
+
+    tmp_dir.dvc_gen({"dir": {"foo": "foo", "bar": "bar"}})
+    tmp_dir.dvc_gen("foobar", "foobar")
+    assert dvc.push() == 4
+    scm.add_commit(["dir.dvc", "foobar.dvc", ".gitignore"], message="add files")
+
+    entries = M.unordered("foobar", join("dir", ""))
+    granular_entries = M.unordered(
+        "foobar", join("dir", ""), join("dir", "foo"), join("dir", "bar")
+    )
+    expected_ng = EMPTY_STATUS | {"git": M.dict(), "unchanged": entries}
+    expected_g = EMPTY_STATUS | {
+        "not_in_remote": [],
+        "git": M.dict(),
+        "unchanged": granular_entries,
+    }
+
+    opts = {"not_in_remote": True, "remote_refresh": True}
+    assert dvc.data_status(**opts) == expected_ng
+    assert dvc.data_status(granular=True, **opts) == expected_g
+
+    opts |= {"remote": "myremote"}
+    assert dvc.data_status(**opts) == expected_ng | {"not_in_remote": entries}
+    assert dvc.data_status(granular=True, **opts) == expected_g | {
+        "not_in_remote": granular_entries
+    }
+
+    dvc.push(remote="myremote")
+
+    assert dvc.data_status(**opts) == expected_ng
+    assert dvc.data_status(granular=True, **opts) == expected_g
 
 
 def test_missing_remote_cache(M, tmp_dir, dvc, scm, local_remote):
@@ -964,3 +1008,206 @@ def test_missing_cache_remote_check(M, tmp_dir, dvc, scm, local_remote):
         "git": M.dict(),
         "not_in_remote": [join("dir", "")],
     }
+
+
+@pytest.mark.parametrize(
+    "targets,expected_non_granular,expected_granular",
+    [
+        param(
+            None,
+            {
+                "committed": {
+                    "renamed": [
+                        {"old": join("dir", ""), "new": join("dir2", "")},
+                        {"old": "file", "new": "file2"},
+                    ],
+                },
+                "uncommitted": {"modified": [join("dir2", "")]},
+            },
+            {
+                "committed": {
+                    "renamed": [
+                        {"old": join("dir", ""), "new": join("dir2", "")},
+                        {"old": join("dir", "bar"), "new": join("dir2", "bar")},
+                        {"old": join("dir", "foo"), "new": join("dir2", "foo")},
+                        {"old": "file", "new": "file2"},
+                    ],
+                },
+                "uncommitted": {
+                    "modified": [join("dir2", "")],
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+        param(
+            ["dir"],
+            {"committed": {"deleted": [join("dir", "")]}},
+            {
+                "committed": {
+                    "deleted": m.unordered(
+                        join("dir", ""), join("dir", "bar"), join("dir", "foo")
+                    )
+                }
+            },
+        ),
+        param(
+            ["dir2"],
+            {
+                "committed": {"added": [join("dir2", "")]},
+                "uncommitted": {"modified": [join("dir2", "")]},
+            },
+            {
+                "committed": {
+                    "added": m.unordered(
+                        join("dir2", ""),
+                        join("dir2", "bar"),
+                        join("dir2", "foo"),
+                    ),
+                },
+                "uncommitted": {
+                    "modified": [join("dir2", "")],
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+        param(
+            [join("dir", "bar")], {}, {"committed": {"deleted": [join("dir", "bar")]}}
+        ),
+        param(
+            [join("dir", "foo")], {}, {"committed": {"deleted": [join("dir", "foo")]}}
+        ),
+        param(
+            [join("dir2", "bar")], {}, {"committed": {"added": [join("dir2", "bar")]}}
+        ),
+        param(
+            [join("dir2", "foobar")],
+            {},
+            {"uncommitted": {"added": [join("dir2", "foobar")]}},
+        ),
+        param(
+            ["file"],
+            {"committed": {"deleted": ["file"]}},
+            {"committed": {"deleted": ["file"]}},
+        ),
+        param(
+            ["file2"],
+            {"committed": {"added": ["file2"]}},
+            {"committed": {"added": ["file2"]}},
+        ),
+        param(
+            ["dir", "dir2"],
+            {
+                "committed": {
+                    "renamed": [{"old": join("dir", ""), "new": join("dir2", "")}],
+                },
+                "uncommitted": {"modified": [join("dir2", "")]},
+            },
+            {
+                "committed": {
+                    "renamed": [
+                        {"old": join("dir", ""), "new": join("dir2", "")},
+                        {"old": join("dir", "bar"), "new": join("dir2", "bar")},
+                        {"old": join("dir", "foo"), "new": join("dir2", "foo")},
+                    ]
+                },
+                "uncommitted": {
+                    "modified": [join("dir2", "")],
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+        param(
+            ["file", "file2"],
+            {"committed": {"renamed": [{"old": "file", "new": "file2"}]}},
+            {"committed": {"renamed": [{"old": "file", "new": "file2"}]}},
+        ),
+        param(
+            [join("dir", "foo"), join("dir2", "foobar")],
+            {},
+            {
+                "committed": {"deleted": [join("dir", "foo")]},
+                "uncommitted": {"added": [join("dir2", "foobar")]},
+            },
+        ),
+        param(
+            [join("dir2", "foo"), join("dir2", "foobar")],
+            {},
+            {
+                "committed": {"added": [join("dir2", "foo")]},
+                "uncommitted": {
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+        param(
+            ["dir2", "file2"],
+            {
+                "committed": {"added": m.unordered(join("dir2", ""), "file2")},
+                "uncommitted": {"modified": [join("dir2", "")]},
+            },
+            {
+                "committed": {
+                    "added": m.unordered(
+                        join("dir2", ""),
+                        join("dir2", "bar"),
+                        join("dir2", "foo"),
+                        "file2",
+                    )
+                },
+                "uncommitted": {
+                    "modified": [join("dir2", "")],
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+        param(
+            ["dir2", join("dir2", "foobar"), "file"],
+            {
+                "uncommitted": {"modified": [join("dir2", "")]},
+                "committed": {"added": [join("dir2", "")], "deleted": ["file"]},
+            },
+            {
+                "committed": {
+                    "added": m.unordered(
+                        join("dir2", ""), join("dir2", "bar"), join("dir2", "foo")
+                    ),
+                    "deleted": ["file"],
+                },
+                "uncommitted": {
+                    "modified": [join("dir2", "")],
+                    "renamed": [
+                        {"old": join("dir2", "foo"), "new": join("dir2", "foobar")}
+                    ],
+                },
+            },
+        ),
+    ],
+)
+def test_renames(
+    M, tmp_dir, scm, dvc, targets, expected_non_granular, expected_granular
+):
+    tmp_dir.dvc_gen(
+        {"dir": {"foo": "foo", "bar": "bar"}, "file": "file"}, commit="add dir and file"
+    )
+    dvc.move("dir", "dir2")
+    dvc.move("file", "file2")
+    shutil.move(tmp_dir / "dir2" / "foo", tmp_dir / "dir2" / "foobar")
+
+    assert (
+        dvc.data_status(with_renames=True, targets=targets)
+        == EMPTY_STATUS | {"git": M.dict()} | expected_non_granular
+    )
+    assert (
+        dvc.data_status(granular=True, with_renames=True, targets=targets)
+        == EMPTY_STATUS | {"git": M.dict()} | expected_granular
+    )

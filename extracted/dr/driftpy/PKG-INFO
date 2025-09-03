@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: driftpy
-Version: 0.8.68
+Version: 0.8.70
 Summary: A Python client for the Drift DEX
 Home-page: https://github.com/drift-labs/driftpy
 License: MIT

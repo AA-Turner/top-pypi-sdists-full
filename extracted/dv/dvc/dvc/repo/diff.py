@@ -45,6 +45,12 @@ def _diff(old, new, data_keys, with_missing=False):
         with_renames=True,
         meta_cmp_key=meta_cmp_key,
         roots=data_keys,
+        # Include unknown entries from missing dir entry, so that they don't
+        # get reported as added/modified/deleted.
+        # Also return unchanged entries so that we can check if they are missing
+        # from cache.
+        with_unknown=True,
+        with_unchanged=with_missing,
     ):
         if (change.old and change.old.isdir and not change.old.hash_info) or (
             change.new and change.new.isdir and not change.new.hash_info

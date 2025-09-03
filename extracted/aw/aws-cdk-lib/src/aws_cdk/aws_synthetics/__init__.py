@@ -1506,6 +1506,9 @@ class CfnCanary(
                     kms_key_arn="kmsKeyArn"
                 )
             ),
+            browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
+                browser_type="browserType"
+            )],
             delete_lambda_resources_on_canary_deletion=False,
             dry_run_and_update=False,
             failure_retention_period=123,
@@ -1535,8 +1538,21 @@ class CfnCanary(
         
                     # the properties below are optional
                     ignore_coordinates=["ignoreCoordinates"]
-                )]
+                )],
+                browser_type="browserType"
             ),
+            visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
+                base_canary_run_id="baseCanaryRunId",
+        
+                # the properties below are optional
+                base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                    screenshot_name="screenshotName",
+        
+                    # the properties below are optional
+                    ignore_coordinates=["ignoreCoordinates"]
+                )],
+                browser_type="browserType"
+            )],
             vpc_config=synthetics.CfnCanary.VPCConfigProperty(
                 security_group_ids=["securityGroupIds"],
                 subnet_ids=["subnetIds"],
@@ -1560,6 +1576,7 @@ class CfnCanary(
         runtime_version: builtins.str,
         schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
         artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
@@ -1570,6 +1587,7 @@ class CfnCanary(
         success_retention_period: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
@@ -1582,6 +1600,7 @@ class CfnCanary(
         :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
         :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
         :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
+        :param browser_configs: List of browser configurations for the canary.
         :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
         :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
@@ -1591,7 +1610,8 @@ class CfnCanary(
         :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
         :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
         :param tags: The list of key-value pairs that are associated with the canary.
-        :param visual_reference: If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+        :param visual_reference: (deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+        :param visual_references: List of visual references for the canary.
         :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
         '''
         if __debug__:
@@ -1606,6 +1626,7 @@ class CfnCanary(
             runtime_version=runtime_version,
             schedule=schedule,
             artifact_config=artifact_config,
+            browser_configs=browser_configs,
             delete_lambda_resources_on_canary_deletion=delete_lambda_resources_on_canary_deletion,
             dry_run_and_update=dry_run_and_update,
             failure_retention_period=failure_retention_period,
@@ -1616,6 +1637,7 @@ class CfnCanary(
             success_retention_period=success_retention_period,
             tags=tags,
             visual_reference=visual_reference,
+            visual_references=visual_references,
             vpc_config=vpc_config,
         )
 
@@ -1796,6 +1818,24 @@ class CfnCanary(
         jsii.set(self, "artifactConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="browserConfigs")
+    def browser_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]]:
+        '''List of browser configurations for the canary.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
+
+    @browser_configs.setter
+    def browser_configs(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "browserConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="deleteLambdaResourcesOnCanaryDeletion")
     def delete_lambda_resources_on_canary_deletion(
         self,
@@ -1948,7 +1988,12 @@ class CfnCanary(
     def visual_reference(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]:
-        '''If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.'''
+        '''(deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]], jsii.get(self, "visualReference"))
 
     @visual_reference.setter
@@ -1960,6 +2005,24 @@ class CfnCanary(
             type_hints = typing.get_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visualReference", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="visualReferences")
+    def visual_references(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]]:
+        '''List of visual references for the canary.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
+
+    @visual_references.setter
+    def visual_references(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "visualReferences", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfig")
@@ -2118,6 +2181,56 @@ class CfnCanary(
 
         def __repr__(self) -> str:
             return "BaseScreenshotProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.BrowserConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"browser_type": "browserType"},
+    )
+    class BrowserConfigProperty:
+        def __init__(self, *, browser_type: builtins.str) -> None:
+            '''
+            :param browser_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                browser_config_property = synthetics.CfnCanary.BrowserConfigProperty(
+                    browser_type="browserType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435)
+                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "browser_type": browser_type,
+            }
+
+        @builtins.property
+        def browser_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html#cfn-synthetics-canary-browserconfig-browsertype
+            '''
+            result = self._values.get("browser_type")
+            assert result is not None, "Required property 'browser_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BrowserConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2306,9 +2419,10 @@ class CfnCanary(
             reference: builtins.str,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param reference: ARN of the Lambda layer.
-            :param type: Type of dependency.
+            '''A structure that contains information about a dependency for a canary.
+
+            :param reference: The dependency reference. For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
+            :param type: The type of dependency. Valid value is ``LambdaLayer`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html
             :exampleMetadata: fixture=_generated
@@ -2338,7 +2452,9 @@ class CfnCanary(
 
         @builtins.property
         def reference(self) -> builtins.str:
-            '''ARN of the Lambda layer.
+            '''The dependency reference.
+
+            For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-reference
             '''
@@ -2348,7 +2464,9 @@ class CfnCanary(
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
-            '''Type of dependency.
+            '''The type of dependency.
+
+            Valid value is ``LambdaLayer`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-type
             '''
@@ -2869,6 +2987,7 @@ class CfnCanary(
         name_mapping={
             "base_canary_run_id": "baseCanaryRunId",
             "base_screenshots": "baseScreenshots",
+            "browser_type": "browserType",
         },
     )
     class VisualReferenceProperty:
@@ -2877,6 +2996,7 @@ class CfnCanary(
             *,
             base_canary_run_id: builtins.str,
             base_screenshots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BaseScreenshotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            browser_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines the screenshots to use as the baseline for comparisons during visual monitoring comparisons during future runs of this canary.
 
@@ -2886,6 +3006,7 @@ class CfnCanary(
 
             :param base_canary_run_id: Specifies which canary run to use the screenshots from as the baseline for future visual monitoring with this canary. Valid values are ``nextrun`` to use the screenshots from the next run after this update is made, ``lastrun`` to use the screenshots from the most recent run before this update was made, or the value of ``Id`` in the `CanaryRun <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_CanaryRun.html>`_ from any past run of this canary.
             :param base_screenshots: An array of screenshots that are used as the baseline for comparisons during visual monitoring.
+            :param browser_type: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html
             :exampleMetadata: fixture=_generated
@@ -2905,18 +3026,22 @@ class CfnCanary(
                 
                         # the properties below are optional
                         ignore_coordinates=["ignoreCoordinates"]
-                    )]
+                    )],
+                    browser_type="browserType"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526)
                 check_type(argname="argument base_canary_run_id", value=base_canary_run_id, expected_type=type_hints["base_canary_run_id"])
                 check_type(argname="argument base_screenshots", value=base_screenshots, expected_type=type_hints["base_screenshots"])
+                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "base_canary_run_id": base_canary_run_id,
             }
             if base_screenshots is not None:
                 self._values["base_screenshots"] = base_screenshots
+            if browser_type is not None:
+                self._values["browser_type"] = browser_type
 
         @builtins.property
         def base_canary_run_id(self) -> builtins.str:
@@ -2941,6 +3066,14 @@ class CfnCanary(
             result = self._values.get("base_screenshots")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BaseScreenshotProperty"]]]], result)
 
+        @builtins.property
+        def browser_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-browsertype
+            '''
+            result = self._values.get("browser_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2964,6 +3097,7 @@ class CfnCanary(
         "runtime_version": "runtimeVersion",
         "schedule": "schedule",
         "artifact_config": "artifactConfig",
+        "browser_configs": "browserConfigs",
         "delete_lambda_resources_on_canary_deletion": "deleteLambdaResourcesOnCanaryDeletion",
         "dry_run_and_update": "dryRunAndUpdate",
         "failure_retention_period": "failureRetentionPeriod",
@@ -2974,6 +3108,7 @@ class CfnCanary(
         "success_retention_period": "successRetentionPeriod",
         "tags": "tags",
         "visual_reference": "visualReference",
+        "visual_references": "visualReferences",
         "vpc_config": "vpcConfig",
     },
 )
@@ -2988,6 +3123,7 @@ class CfnCanaryProps:
         runtime_version: builtins.str,
         schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
         artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
@@ -2998,6 +3134,7 @@ class CfnCanaryProps:
         success_retention_period: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCanary``.
@@ -3009,6 +3146,7 @@ class CfnCanaryProps:
         :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
         :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
         :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
+        :param browser_configs: List of browser configurations for the canary.
         :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
         :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
@@ -3018,7 +3156,8 @@ class CfnCanaryProps:
         :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
         :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
         :param tags: The list of key-value pairs that are associated with the canary.
-        :param visual_reference: If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+        :param visual_reference: (deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+        :param visual_references: List of visual references for the canary.
         :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html
@@ -3068,6 +3207,9 @@ class CfnCanaryProps:
                         kms_key_arn="kmsKeyArn"
                     )
                 ),
+                browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
+                    browser_type="browserType"
+                )],
                 delete_lambda_resources_on_canary_deletion=False,
                 dry_run_and_update=False,
                 failure_retention_period=123,
@@ -3097,8 +3239,21 @@ class CfnCanaryProps:
             
                         # the properties below are optional
                         ignore_coordinates=["ignoreCoordinates"]
-                    )]
+                    )],
+                    browser_type="browserType"
                 ),
+                visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
+                    base_canary_run_id="baseCanaryRunId",
+            
+                    # the properties below are optional
+                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                        screenshot_name="screenshotName",
+            
+                        # the properties below are optional
+                        ignore_coordinates=["ignoreCoordinates"]
+                    )],
+                    browser_type="browserType"
+                )],
                 vpc_config=synthetics.CfnCanary.VPCConfigProperty(
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"],
@@ -3118,6 +3273,7 @@ class CfnCanaryProps:
             check_type(argname="argument runtime_version", value=runtime_version, expected_type=type_hints["runtime_version"])
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument artifact_config", value=artifact_config, expected_type=type_hints["artifact_config"])
+            check_type(argname="argument browser_configs", value=browser_configs, expected_type=type_hints["browser_configs"])
             check_type(argname="argument delete_lambda_resources_on_canary_deletion", value=delete_lambda_resources_on_canary_deletion, expected_type=type_hints["delete_lambda_resources_on_canary_deletion"])
             check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
             check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
@@ -3128,6 +3284,7 @@ class CfnCanaryProps:
             check_type(argname="argument success_retention_period", value=success_retention_period, expected_type=type_hints["success_retention_period"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument visual_reference", value=visual_reference, expected_type=type_hints["visual_reference"])
+            check_type(argname="argument visual_references", value=visual_references, expected_type=type_hints["visual_references"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "artifact_s3_location": artifact_s3_location,
@@ -3139,6 +3296,8 @@ class CfnCanaryProps:
         }
         if artifact_config is not None:
             self._values["artifact_config"] = artifact_config
+        if browser_configs is not None:
+            self._values["browser_configs"] = browser_configs
         if delete_lambda_resources_on_canary_deletion is not None:
             self._values["delete_lambda_resources_on_canary_deletion"] = delete_lambda_resources_on_canary_deletion
         if dry_run_and_update is not None:
@@ -3159,6 +3318,8 @@ class CfnCanaryProps:
             self._values["tags"] = tags
         if visual_reference is not None:
             self._values["visual_reference"] = visual_reference
+        if visual_references is not None:
+            self._values["visual_references"] = visual_references
         if vpc_config is not None:
             self._values["vpc_config"] = vpc_config
 
@@ -3254,6 +3415,17 @@ class CfnCanaryProps:
         '''
         result = self._values.get("artifact_config")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.ArtifactConfigProperty]], result)
+
+    @builtins.property
+    def browser_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]]:
+        '''List of browser configurations for the canary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-browserconfigs
+        '''
+        result = self._values.get("browser_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]], result)
 
     @builtins.property
     def delete_lambda_resources_on_canary_deletion(
@@ -3377,12 +3549,26 @@ class CfnCanaryProps:
     def visual_reference(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]:
-        '''If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+        '''(deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
+
+        :deprecated: this property has been deprecated
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreference
+        :stability: deprecated
         '''
         result = self._values.get("visual_reference")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]], result)
+
+    @builtins.property
+    def visual_references(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]]:
+        '''List of visual references for the canary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreferences
+        '''
+        result = self._values.get("visual_references")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]], result)
 
     @builtins.property
     def vpc_config(
@@ -5127,6 +5313,7 @@ def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2
     runtime_version: builtins.str,
     schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
     artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
@@ -5137,6 +5324,7 @@ def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2
     success_retention_period: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5192,6 +5380,12 @@ def _typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270
 
 def _typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.ArtifactConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5256,6 +5450,12 @@ def _typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VPCConfigProperty]],
 ) -> None:
@@ -5273,6 +5473,13 @@ def _typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f
     *,
     screenshot_name: builtins.str,
     ignore_coordinates: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435(
+    *,
+    browser_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5347,6 +5554,7 @@ def _typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2c
     *,
     base_canary_run_id: builtins.str,
     base_screenshots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BaseScreenshotProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    browser_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5360,6 +5568,7 @@ def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1
     runtime_version: builtins.str,
     schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
     artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
@@ -5370,6 +5579,7 @@ def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1
     success_retention_period: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

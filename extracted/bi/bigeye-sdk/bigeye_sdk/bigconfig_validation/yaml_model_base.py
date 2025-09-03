@@ -18,7 +18,7 @@ from bigeye_sdk.functions.search_and_match_functions import fuzzy_match
 
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class YamlModelWithValidatorContext(BaseModel):

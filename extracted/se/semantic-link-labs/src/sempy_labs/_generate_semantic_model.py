@@ -4,7 +4,7 @@ import json
 import os
 from typing import Optional, List
 from sempy._utils._log import log
-from ._helper_functions import (
+from sempy_labs._helper_functions import (
     resolve_workspace_name_and_id,
     resolve_dataset_name_and_id,
     _conv_b64,
@@ -13,9 +13,9 @@ from ._helper_functions import (
     _mount,
     resolve_workspace_id,
 )
-from .lakehouse._lakehouse import lakehouse_attached
+from sempy_labs.lakehouse._lakehouse import lakehouse_attached
 import sempy_labs._icons as icons
-from ._refresh_semantic_model import refresh_semantic_model
+from sempy_labs._refresh_semantic_model import refresh_semantic_model
 from uuid import UUID
 
 
@@ -284,13 +284,9 @@ def deploy_semantic_model(
         source_workspace
     )
 
-    if target_workspace is None:
-        target_workspace_name = source_workspace_name
-        target_workspace_id = resolve_workspace_id(workspace=target_workspace_name)
-    else:
-        (target_workspace_name, target_workspace_id) = resolve_workspace_name_and_id(
-            target_workspace
-        )
+    (target_workspace_name, target_workspace_id) = resolve_workspace_name_and_id(
+        target_workspace
+    )
 
     if target_dataset is None:
         target_dataset = source_dataset
@@ -306,13 +302,12 @@ def deploy_semantic_model(
 
     dfD = fabric.list_datasets(workspace=target_workspace_id, mode="rest")
     dfD_filt = dfD[dfD["Dataset Name"] == target_dataset]
-    if len(dfD_filt) > 0 and not overwrite:
+    if not dfD_filt.empty and not overwrite:
         raise ValueError(
             f"{icons.warning} The '{target_dataset}' semantic model already exists within the '{target_workspace_name}' workspace. The 'overwrite' parameter is set to False so the source semantic model was not deployed to the target destination."
         )
 
     if perspective is not None:
-
         from sempy_labs.tom import connect_semantic_model
 
         with connect_semantic_model(

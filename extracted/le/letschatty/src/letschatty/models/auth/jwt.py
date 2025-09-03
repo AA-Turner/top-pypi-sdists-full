@@ -1,5 +1,6 @@
+from ..company.assets.users.user_asset_permission import AssetPermission
 from pydantic import BaseModel, Field
-from typing import Protocol
+from typing import List, Protocol
 from enum import StrEnum
 import time
 
@@ -19,6 +20,8 @@ class TokenPayload(BaseModel):
     user_id: str
     exp: int = Field(default_factory=get_expiration_timestamp)
     is_mega_admin: bool = Field(default=False)
+    permissions: List[AssetPermission] = Field(default_factory=list)
+    roles: List[str] = Field(default_factory=list)
 
 class AuthType(StrEnum):
     JWT = "jwt"

@@ -188,6 +188,8 @@ from ._workspaces import (
     unassign_workspace_from_capacity,
     list_workspace_role_assignments,
     delete_workspace,
+    get_workspace_network_communication_policy,
+    set_workspace_network_communication_policy,
 )
 from ._notebooks import (
     get_notebook_definition,
@@ -282,6 +284,7 @@ from ._list_functions import (
     list_synonyms,
 )
 from ._helper_functions import (
+    get_item_definition,
     copy_item,
     convert_to_friendly_case,
     resolve_environment_id,
@@ -593,4 +596,7 @@ __all__ = [
     "copy_item",
     "search_notebooks",
     "list_notebooks",
+    "get_item_definition",
+    "get_workspace_network_communication_policy",
+    "set_workspace_network_communication_policy",
 ]

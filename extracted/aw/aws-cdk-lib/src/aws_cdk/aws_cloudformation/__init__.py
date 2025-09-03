@@ -2478,7 +2478,7 @@ class CfnLambdaHook(
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fec9ac58a382959177810e26366e5dddc9f912aaf73b09411981c9ecbce1010a)
@@ -3169,7 +3169,7 @@ class CfnLambdaHookProps:
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html
         :exampleMetadata: fixture=_generated
@@ -3340,7 +3340,7 @@ class CfnLambdaHookProps:
 
         Example target filter in JSON:
 
-        ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}``
+        ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}``
 
         Example target filter in YAML:
 

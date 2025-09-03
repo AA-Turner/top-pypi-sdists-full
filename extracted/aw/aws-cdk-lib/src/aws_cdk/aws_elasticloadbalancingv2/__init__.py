@@ -10666,7 +10666,7 @@ class CfnTrustStore(
 ):
     '''Creates a trust store.
 
-    You must specify ``CaCertificatesBundleS3Bucket`` and ``CaCertificatesBundleS3Key`` .
+    You must specify ``CaCertificatesBundleS3Bucket`` and ``CaCertificatesBundleS3Key`` . When you create a trust store, you must specify ``Name`` .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststore.html
     :cloudformationResource: AWS::ElasticLoadBalancingV2::TrustStore
@@ -10766,7 +10766,9 @@ class CfnTrustStore(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''The current status of the trust store.
+        '''The status of the trust store.
+
+        The possible values are ``CREATING`` and ``ACTIVE`` .
 
         :cloudformationAttribute: Status
         '''
@@ -11092,6 +11094,8 @@ class CfnTrustStoreRevocation(
     @jsii.member(jsii_name="attrTrustStoreRevocations")
     def attr_trust_store_revocations(self) -> _IResolvable_da3f097b:
         '''Information about the revocation file in the trust store.
+
+        For more information, see `TrustStoreRevocation <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html>`_ .
 
         :cloudformationAttribute: TrustStoreRevocations
         '''

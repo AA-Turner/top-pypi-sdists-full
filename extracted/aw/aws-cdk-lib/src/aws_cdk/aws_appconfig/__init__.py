@@ -4901,7 +4901,7 @@ class ConfigurationContent(
         '''Defines the hosted configuration content from a file.
 
         :param input_path: The path to the file that defines configuration content.
-        :param content_type: The content type of the configuration.
+        :param content_type: The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``. For an up-to-date list of valid MIME types, see: https://www.iana.org/assignments/media-types/media-types.xhtml
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90a444a396ae95bf4dbe20a3cba4428b472f8dc18cddec786f4ed521d3ef8224)
@@ -4919,7 +4919,7 @@ class ConfigurationContent(
         '''Defines the hosted configuration content from inline code.
 
         :param content: The inline code that defines the configuration content.
-        :param content_type: The content type of the configuration.
+        :param content_type: The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``. For an up-to-date list of valid MIME types, see: https://www.iana.org/assignments/media-types/media-types.xhtml
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dc78a8c320c476850c109277461b0640bc3492938af15c32744671285117e99)
@@ -4937,7 +4937,7 @@ class ConfigurationContent(
         '''Defines the hosted configuration content as JSON from inline code.
 
         :param content: The inline code that defines the configuration content.
-        :param content_type: The content type of the configuration.
+        :param content_type: The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``. For an up-to-date list of valid MIME types, see: https://www.iana.org/assignments/media-types/media-types.xhtml
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0be240b695740e98f6925d6eb7c6948c1cdff98558955885c2275a539fa4e5f0)
@@ -4980,7 +4980,11 @@ class ConfigurationContent(
     @jsii.member(jsii_name="contentType")
     @abc.abstractmethod
     def content_type(self) -> builtins.str:
-        '''The configuration content type.'''
+        '''The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``.
+
+        For an up-to-date list of valid MIME types, see:
+        https://www.iana.org/assignments/media-types/media-types.xhtml
+        '''
         ...
 
 
@@ -4994,7 +4998,11 @@ class _ConfigurationContentProxy(ConfigurationContent):
     @builtins.property
     @jsii.member(jsii_name="contentType")
     def content_type(self) -> builtins.str:
-        '''The configuration content type.'''
+        '''The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``.
+
+        For an up-to-date list of valid MIME types, see:
+        https://www.iana.org/assignments/media-types/media-types.xhtml
+        '''
         return typing.cast(builtins.str, jsii.get(self, "contentType"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
@@ -13574,7 +13582,11 @@ class HostedConfiguration(
     @builtins.property
     @jsii.member(jsii_name="contentType")
     def content_type(self) -> typing.Optional[builtins.str]:
-        '''The content type of the hosted configuration.'''
+        '''The configuration content type, specified as a standard MIME type. Supported examples include: - ``text/plain`` - ``application/json`` - ``application/octet-stream`` - ``application/x-yaml``.
+
+        For an up-to-date list of valid MIME types, see:
+        https://www.iana.org/assignments/media-types/media-types.xhtml
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "contentType"))
 
     @builtins.property

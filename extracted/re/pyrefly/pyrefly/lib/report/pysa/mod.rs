@@ -16,13 +16,19 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::callable::Callable;
+use pyrefly_types::callable::Param;
+use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+use pyrefly_types::types::Overload;
+use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::visit::Visit;
@@ -45,6 +51,7 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -52,7 +59,6 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
-use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -104,10 +110,78 @@ enum ScopeParent {
     TopLevel,
 }
 
+/// Information needed from Pysa about a type.
+#[derive(Debug, Clone, Serialize)]
+struct PysaType {
+    // Pretty string representation of the type. Usually meant for the user.
+    string: String,
+
+    // Whether the type is a bool/int/float/enum, after stripping Optional and Awaitable.
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_bool: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_int: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_float: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_enum: bool,
+
+    // The list of classes that this type refers to, after stripping Optional and Awaitable.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    class_names: Vec<ClassRef>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+enum FunctionParameter {
+    PosOnly {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: PysaType,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    Pos {
+        name: String,
+        annotation: PysaType,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    VarArg {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: PysaType,
+    },
+    KwOnly {
+        name: String,
+        annotation: PysaType,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    Kwargs {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: PysaType,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+enum FunctionParameters {
+    List(Vec<FunctionParameter>),
+    Ellipsis,
+    ParamSpec,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct FunctionSignature {
+    parameters: FunctionParameters,
+    return_annotation: PysaType,
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct FunctionDefinition {
     name: String,
     parent: ScopeParent,
+    undecorated_signatures: Vec<FunctionSignature>,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_overload: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -157,7 +231,7 @@ struct PysaModuleFile {
     module_id: ModuleId,
     module_name: String,
     source_path: ModulePathDetails,
-    type_of_expression: HashMap<String, String>,
+    type_of_expression: HashMap<String, PysaType>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
     function_definitions: HashMap<String, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
@@ -229,14 +303,149 @@ fn location_key(range: &DisplayRange) -> String {
     )
 }
 
-struct VisitorContext<'a> {
+struct ModuleContext<'a> {
     handle: &'a Handle,
-    module_ids: &'a ModuleIds,
-    module_info: &'a ModuleInfo,
+    transaction: &'a Transaction<'a>,
+    bindings: &'a Bindings,
     answers: &'a Answers,
     stdlib: &'a Stdlib,
-    transaction: &'a Transaction<'a>,
-    type_of_expression: &'a mut HashMap<String, String>,
+    module_info: &'a ModuleInfo,
+    module_ids: &'a ModuleIds,
+}
+
+impl ClassRef {
+    fn from_class(class: &Class, context: &ModuleContext) -> ClassRef {
+        ClassRef {
+            module_id: context
+                .module_ids
+                .get(ModuleKey::from_module(class.module()))
+                .unwrap(),
+            module_name: class.module_name().to_string(),
+            class_id: ClassId::from_class(class),
+            class_name: class.qname().id().to_string(),
+        }
+    }
+}
+
+fn string_for_type(type_: &Type) -> String {
+    let mut ctx = TypeDisplayContext::new(&[type_]);
+    ctx.always_display_module_name();
+    ctx.display(type_).to_string()
+}
+
+fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool {
+    context
+        .transaction
+        .ad_hoc_solve(context.handle, |solver| {
+            solver.type_order().has_superclass(class, want)
+        })
+        .unwrap()
+}
+
+fn strip_optional(type_: &Type) -> Option<&Type> {
+    match type_ {
+        Type::Union(elements) if elements.len() == 2 && elements[0] == Type::None => {
+            Some(&elements[1])
+        }
+        Type::Union(elements) if elements.len() == 2 && elements[1] == Type::None => {
+            Some(&elements[0])
+        }
+        _ => None,
+    }
+}
+
+fn strip_awaitable<'a>(type_: &'a Type, context: &ModuleContext) -> Option<&'a Type> {
+    match type_ {
+        Type::ClassType(class_type)
+            if class_type.class_object() == context.stdlib.awaitable_object()
+                && class_type.targs().as_slice().len() == 1 =>
+        {
+            Some(&class_type.targs().as_slice()[0])
+        }
+        _ => None,
+    }
+}
+
+fn strip_coroutine<'a>(type_: &'a Type, context: &ModuleContext) -> Option<&'a Type> {
+    match type_ {
+        Type::ClassType(class_type)
+            if class_type.class_object() == context.stdlib.coroutine_object()
+                && class_type.targs().as_slice().len() >= 3 =>
+        {
+            Some(&class_type.targs().as_slice()[2])
+        }
+        _ => None,
+    }
+}
+
+fn is_scalar_type(get: &Type, want: &Class, context: &ModuleContext) -> bool {
+    if let Some(inner) = strip_optional(get) {
+        return is_scalar_type(inner, want, context);
+    }
+    if let Some(inner) = strip_awaitable(get, context) {
+        return is_scalar_type(inner, want, context);
+    }
+    if let Some(inner) = strip_coroutine(get, context) {
+        return is_scalar_type(inner, want, context);
+    }
+    match get {
+        Type::ClassType(class_type) => has_superclass(class_type.class_object(), want, context),
+        Type::Type(inner) => is_scalar_type(inner, want, context),
+        Type::TypeAlias(alias) => is_scalar_type(&alias.as_type(), want, context),
+        _ => false,
+    }
+}
+
+fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> Vec<Class> {
+    if let Some(inner) = strip_optional(type_) {
+        return get_classes_of_type(inner, context);
+    }
+    if let Some(inner) = strip_awaitable(type_, context) {
+        return get_classes_of_type(inner, context);
+    }
+    if let Some(inner) = strip_coroutine(type_, context) {
+        return get_classes_of_type(inner, context);
+    }
+    match type_ {
+        Type::ClassType(class_type) => vec![class_type.class_object().clone()],
+        Type::Union(elements) => elements
+            .iter()
+            .flat_map(|inner| get_classes_of_type(inner, context))
+            .collect(),
+        Type::Type(inner) => get_classes_of_type(inner, context),
+        Type::TypeAlias(alias) => get_classes_of_type(&alias.as_type(), context),
+        _ => Vec::new(),
+    }
+}
+
+impl PysaType {
+    fn from_type(type_: &Type, context: &ModuleContext) -> PysaType {
+        // Promote `Literal[..]` into `str` or `int`.
+        let type_ = type_.clone().promote_literals(context.stdlib);
+        let string = string_for_type(&type_);
+
+        PysaType {
+            string,
+            is_bool: is_scalar_type(&type_, context.stdlib.bool().class_object(), context),
+            is_int: is_scalar_type(&type_, context.stdlib.int().class_object(), context),
+            is_float: is_scalar_type(&type_, context.stdlib.float().class_object(), context),
+            is_enum: is_scalar_type(&type_, context.stdlib.enum_class().class_object(), context),
+            class_names: {
+                let mut classes = get_classes_of_type(&type_, context);
+                classes.sort();
+                classes.dedup();
+                classes
+                    .into_iter()
+                    .map(|class_type| ClassRef::from_class(&class_type, context))
+                    .collect()
+            },
+        }
+    }
+}
+
+struct VisitorContext<'a> {
+    module_context: &'a ModuleContext<'a>,
+    type_of_expression: &'a mut HashMap<String, PysaType>,
     definitions_of_expression: &'a mut HashMap<String, Vec<DefinitionRef>>,
 }
 
@@ -259,6 +468,7 @@ fn add_expression_definitions(
             let module_info = &definition.module;
             let display_range = module_info.display_range(definition.definition_range);
             match context
+                .module_context
                 .module_ids
                 .get(ModuleKey::from_module_info(module_info))
             {
@@ -292,25 +502,68 @@ fn add_expression_definitions(
     );
 }
 
+fn export_function_parameter(param: &Param, context: &ModuleContext) -> FunctionParameter {
+    match param {
+        Param::PosOnly(name, ty, required) => FunctionParameter::PosOnly {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: PysaType::from_type(ty, context),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::Pos(name, ty, required) => FunctionParameter::Pos {
+            name: name.to_string(),
+            annotation: PysaType::from_type(ty, context),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::VarArg(name, ty) => FunctionParameter::VarArg {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: PysaType::from_type(ty, context),
+        },
+        Param::KwOnly(name, ty, required) => FunctionParameter::KwOnly {
+            name: name.to_string(),
+            annotation: PysaType::from_type(ty, context),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::Kwargs(name, ty) => FunctionParameter::Kwargs {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: PysaType::from_type(ty, context),
+        },
+    }
+}
+
+fn export_function_parameters(params: &Params, context: &ModuleContext) -> FunctionParameters {
+    match params {
+        Params::List(params) => FunctionParameters::List(
+            params
+                .items()
+                .iter()
+                .map(|param| export_function_parameter(param, context))
+                .collect(),
+        ),
+        Params::Ellipsis => FunctionParameters::Ellipsis,
+        Params::ParamSpec(_, _) => FunctionParameters::ParamSpec,
+    }
+}
+
+fn export_function_signature(function: &Callable, context: &ModuleContext) -> FunctionSignature {
+    FunctionSignature {
+        parameters: export_function_parameters(&function.params, context),
+        return_annotation: PysaType::from_type(&function.ret, context),
+    }
+}
+
 fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     let range = e.range();
 
     // If the expression has a type, export it.
-    if let Some(type_) = context.answers.get_type_trace(range) {
-        // Promote `Literal[..]` into `str` or `int`.
-        let type_ = type_.promote_literals(context.stdlib);
-
-        let display_range = context.module_info.display_range(range);
-
-        let mut ctx = TypeDisplayContext::new(&[&type_]);
-        ctx.always_display_module_name();
+    if let Some(type_) = context.module_context.answers.get_type_trace(range) {
+        let display_range = context.module_context.module_info.display_range(range);
 
         assert!(
             context
                 .type_of_expression
                 .insert(
                     location_key(&display_range),
-                    ctx.display(&type_).to_string(),
+                    PysaType::from_type(&type_, context.module_context)
                 )
                 .is_none(),
             "Found expressions with the same location"
@@ -326,12 +579,13 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
             ) =>
         {
             let identifier = Ast::expr_name_identifier(name.clone());
-            let display_range = context.module_info.display_range(range);
+            let display_range = context.module_context.module_info.display_range(range);
 
             let definitions = context
+                .module_context
                 .transaction
                 .find_definition_for_name_use(
-                    context.handle,
+                    context.module_context.handle,
                     &identifier,
                     &FindPreference::default(),
                 )
@@ -340,13 +594,16 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
             add_expression_definitions(&display_range, definitions, name.id.as_str(), context);
         }
         Expr::Attribute(attribute) => {
-            let display_range = context.module_info.display_range(range);
-            let definitions = context.transaction.find_definition_for_attribute(
-                context.handle,
-                attribute.value.range(),
-                &attribute.attr,
-                &FindPreference::default(),
-            );
+            let display_range = context.module_context.module_info.display_range(range);
+            let definitions = context
+                .module_context
+                .transaction
+                .find_definition_for_attribute(
+                    context.module_context.handle,
+                    attribute.value.range(),
+                    &attribute.attr,
+                    &FindPreference::default(),
+                );
             add_expression_definitions(
                 &display_range,
                 definitions,
@@ -536,18 +793,73 @@ fn get_all_functions(
         .map(|idx| DecoratedFunction::from_bindings_answers(idx, bindings, answers))
 }
 
+// Return the function type, considering decorators and overloads.
+fn get_function_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
+    let definition_binding = Key::Definition(function.undecorated.identifier.clone());
+    let idx = context.bindings.key_to_idx(&definition_binding);
+    context.answers.get_idx(idx).unwrap().arc_clone_ty()
+}
+
+fn get_undecorated_return_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
+    let return_binding = Key::ReturnType(function.undecorated.identifier.clone());
+    let idx = context.bindings.key_to_idx(&return_binding);
+    context.answers.get_idx(idx).unwrap().arc_clone_ty()
+}
+
+fn should_export_function(function: &DecoratedFunction, context: &ModuleContext) -> bool {
+    // We only want to export one function when we have an @overload chain.
+    // If the function has no successor (function in the same scope with the same name), then we should export it.
+    // If the function has successors, but is not an overload, then we should export it. It probably means the successor is a redefinition.
+    let has_successor = context.bindings.get(function.idx).successor.is_some();
+    !has_successor || !function.is_overload()
+}
+
 fn export_all_functions(
     ast: &ModModule,
-    module_info: &Module,
-    bindings: &Bindings,
-    answers: &Answers,
+    context: &ModuleContext,
 ) -> HashMap<String, FunctionDefinition> {
     let mut function_definitions = HashMap::new();
 
-    for function in get_all_functions(bindings, answers) {
-        let display_range = module_info.display_range(function.id_range());
+    for function in get_all_functions(context.bindings, context.answers) {
+        if !should_export_function(&function, context) {
+            continue;
+        }
+
+        // We need the list of raw parameters, ignoring decorators.
+        // For overloads, we need the list of all overloads, not just the current one.
+        // To get it, we check if `get_function_type` returns `Type::Overload`.
+        let decorated_type = get_function_type(&function, context);
+        let undecorated_signatures = match decorated_type {
+            Type::Overload(Overload { signatures, .. }) => signatures
+                .iter()
+                .map(|overload_type| match overload_type {
+                    pyrefly_types::types::OverloadType::Function(f) => f,
+                    pyrefly_types::types::OverloadType::Forall(pyrefly_types::types::Forall {
+                        body,
+                        ..
+                    }) => body,
+                })
+                .map(|function| export_function_signature(&function.signature, context))
+                .collect::<Vec<_>>(),
+            _ => vec![FunctionSignature {
+                parameters: FunctionParameters::List(
+                    function
+                        .undecorated
+                        .params
+                        .iter()
+                        .map(|param| export_function_parameter(param, context))
+                        .collect(),
+                ),
+                return_annotation: PysaType::from_type(
+                    &get_undecorated_return_type(&function, context),
+                    context,
+                ),
+            }],
+        };
+
+        let display_range = context.module_info.display_range(function.id_range());
         let name = function.metadata().kind.as_func_id().func.to_string();
-        let parent = get_scope_parent(ast, module_info, function.id_range());
+        let parent = get_scope_parent(ast, context.module_info, function.id_range());
         assert!(
             function_definitions
                 .insert(
@@ -555,6 +867,7 @@ fn export_all_functions(
                     FunctionDefinition {
                         name,
                         parent,
+                        undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
                         is_staticmethod: function.metadata().flags.is_staticmethod,
                         is_classmethod: function.metadata().flags.is_classmethod,
@@ -582,39 +895,41 @@ fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item
 }
 
 fn get_class_field(
-    transaction: &Transaction,
-    handle: &Handle,
     class: &Class,
     field: &Name,
+    context: &ModuleContext,
 ) -> Option<Arc<ClassField>> {
-    transaction
-        .ad_hoc_solve(handle, |solver| {
+    context
+        .transaction
+        .ad_hoc_solve(context.handle, |solver| {
             solver.get_field_from_current_class_only(class, field)
         })
         .unwrap()
 }
 
 fn export_all_classes(
-    handle: &Handle,
-    transaction: &Transaction,
     ast: &ModModule,
-    module_info: &Module,
-    bindings: &Bindings,
-    answers: &Answers,
-    module_ids: &ModuleIds,
+    context: &ModuleContext,
 ) -> HashMap<String, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
-    for class_idx in bindings.keys::<KeyClass>() {
-        let class = answers.get_idx(class_idx).unwrap().0.clone().unwrap();
-        let display_range = module_info.display_range(class.qname().range());
+    for class_idx in context.bindings.keys::<KeyClass>() {
+        let class = context
+            .answers
+            .get_idx(class_idx)
+            .unwrap()
+            .0
+            .clone()
+            .unwrap();
+        let display_range = context.module_info.display_range(class.qname().range());
         let class_index = class.index();
-        let parent = get_scope_parent(ast, module_info, class.qname().range());
-        let metadata = answers
-            .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
+        let parent = get_scope_parent(ast, context.module_info, class.qname().range());
+        let metadata = context
+            .answers
+            .get_idx(context.bindings.key_to_idx(&KeyClassMetadata(class_index)))
             .unwrap();
 
-        let is_synthesized = match bindings.get(class_idx) {
+        let is_synthesized = match context.bindings.get(class_idx) {
             BindingClass::FunctionalClassDef(_, _, _) => true,
             BindingClass::ClassDef(_) => false,
         };
@@ -622,7 +937,7 @@ fn export_all_classes(
         let fields = class
             .fields()
             .filter_map(|field| {
-                match get_class_field(transaction, handle, &class, field) {
+                match get_class_field(&class, field, context) {
                     // We want to exclude fields that are function definitions,
                     // since those are exported in `definitions_of_expression`.
                     // There is no easy way to know if a field matches a `def ..`
@@ -647,14 +962,7 @@ fn export_all_classes(
             bases: metadata
                 .base_class_objects()
                 .iter()
-                .map(|base_class| ClassRef {
-                    module_id: module_ids
-                        .get(ModuleKey::from_module(base_class.module()))
-                        .unwrap(),
-                    module_name: base_class.module_name().to_string(),
-                    class_id: ClassId::from_class(base_class),
-                    class_name: base_class.qname().id().to_string(),
-                })
+                .map(|base_class| ClassRef::from_class(base_class, context))
                 .collect::<Vec<_>>(),
             is_synthesized,
             fields,
@@ -744,33 +1052,29 @@ fn get_module_file(
 
     let mut type_of_expression = HashMap::new();
     let mut definitions_of_expression = HashMap::new();
+    let context = ModuleContext {
+        handle,
+        transaction,
+        bindings,
+        answers,
+        stdlib,
+        module_info,
+        module_ids,
+    };
 
     for stmt in &ast.body {
         visit_statement(
             stmt,
             &mut VisitorContext {
-                handle,
-                module_ids,
-                module_info,
-                answers,
-                stdlib,
-                transaction,
+                module_context: &context,
                 type_of_expression: &mut type_of_expression,
                 definitions_of_expression: &mut definitions_of_expression,
             },
         );
     }
 
-    let function_definitions = export_all_functions(ast, module_info, bindings, answers);
-    let class_definitions = export_all_classes(
-        handle,
-        transaction,
-        ast,
-        module_info,
-        bindings,
-        answers,
-        module_ids,
-    );
+    let function_definitions = export_all_functions(ast, &context);
+    let class_definitions = export_all_classes(ast, &context);
 
     PysaModuleFile {
         format_version: 1,

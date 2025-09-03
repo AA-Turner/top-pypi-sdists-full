@@ -12,7 +12,7 @@ import smart_open
 from bigeye_sdk.log import get_logger
 
 # create logger
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 # Right now only works with snowflake.

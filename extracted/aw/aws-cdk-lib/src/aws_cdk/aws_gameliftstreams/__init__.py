@@ -88,7 +88,7 @@ class CfnApplication(
 
     An application specifies the content that you want to stream, such as a game or other software, and its runtime environment (Microsoft Windows, Ubuntu, or Proton).
 
-    Before you create an Amazon GameLift Streams application, upload your *uncompressed* game files to an Amazon Simple Storage Service (Amazon S3) bucket.
+    Before you create an Amazon GameLift Streams application, upload your *uncompressed* game files (do not upload a .zip file) to an Amazon Simple Storage Service (Amazon S3) standard bucket.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html
     :cloudformationResource: AWS::GameLiftStreams::Application

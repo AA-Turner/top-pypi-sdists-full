@@ -106,6 +106,7 @@ class CfnBudget(
                         budget_adjustment_period=123
                     )
                 ),
+                billing_view_arn="billingViewArn",
                 budget_limit=budgets.CfnBudget.SpendProperty(
                     amount=123,
                     unit="unit"
@@ -389,6 +390,7 @@ class CfnBudget(
             "budget_type": "budgetType",
             "time_unit": "timeUnit",
             "auto_adjust_data": "autoAdjustData",
+            "billing_view_arn": "billingViewArn",
             "budget_limit": "budgetLimit",
             "budget_name": "budgetName",
             "cost_filters": "costFilters",
@@ -406,6 +408,7 @@ class CfnBudget(
             budget_type: builtins.str,
             time_unit: builtins.str,
             auto_adjust_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudget.AutoAdjustDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            billing_view_arn: typing.Optional[builtins.str] = None,
             budget_limit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudget.SpendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             budget_name: typing.Optional[builtins.str] = None,
             cost_filters: typing.Any = None,
@@ -426,6 +429,7 @@ class CfnBudget(
             :param budget_type: Specifies whether this budget tracks costs, usage, RI utilization, RI coverage, Savings Plans utilization, or Savings Plans coverage.
             :param time_unit: The length of time until a budget resets the actual and forecasted spend. ``DAILY`` is available only for ``RI_UTILIZATION`` and ``RI_COVERAGE`` budgets.
             :param auto_adjust_data: Determine the budget amount for an auto-adjusting budget.
+            :param billing_view_arn: 
             :param budget_limit: The total amount of cost, usage, RI utilization, RI coverage, Savings Plans utilization, or Savings Plans coverage that you want to track with your budget. ``BudgetLimit`` is required for cost or usage budgets, but optional for RI or Savings Plans utilization or coverage budgets. RI and Savings Plans utilization or coverage budgets default to ``100`` . This is the only valid value for RI or Savings Plans utilization or coverage budgets. You can't use ``BudgetLimit`` with ``PlannedBudgetLimits`` for ``CreateBudget`` and ``UpdateBudget`` actions.
             :param budget_name: The name of a budget. The value must be unique within an account. ``BudgetName`` can't include ``:`` and ``\\`` characters. If you don't include value for ``BudgetName`` in the template, Billing and Cost Management assigns your budget a randomly generated name.
             :param cost_filters: The cost filters, such as ``Region`` , ``Service`` , ``LinkedAccount`` , ``Tag`` , or ``CostCategory`` , that are applied to a budget. AWS Budgets supports the following services as a ``Service`` filter for RI budgets: - Amazon EC2 - Amazon Redshift - Amazon Relational Database Service - Amazon ElastiCache - Amazon OpenSearch Service
@@ -461,6 +465,7 @@ class CfnBudget(
                             budget_adjustment_period=123
                         )
                     ),
+                    billing_view_arn="billingViewArn",
                     budget_limit=budgets.CfnBudget.SpendProperty(
                         amount=123,
                         unit="unit"
@@ -513,6 +518,7 @@ class CfnBudget(
                 check_type(argname="argument budget_type", value=budget_type, expected_type=type_hints["budget_type"])
                 check_type(argname="argument time_unit", value=time_unit, expected_type=type_hints["time_unit"])
                 check_type(argname="argument auto_adjust_data", value=auto_adjust_data, expected_type=type_hints["auto_adjust_data"])
+                check_type(argname="argument billing_view_arn", value=billing_view_arn, expected_type=type_hints["billing_view_arn"])
                 check_type(argname="argument budget_limit", value=budget_limit, expected_type=type_hints["budget_limit"])
                 check_type(argname="argument budget_name", value=budget_name, expected_type=type_hints["budget_name"])
                 check_type(argname="argument cost_filters", value=cost_filters, expected_type=type_hints["cost_filters"])
@@ -527,6 +533,8 @@ class CfnBudget(
             }
             if auto_adjust_data is not None:
                 self._values["auto_adjust_data"] = auto_adjust_data
+            if billing_view_arn is not None:
+                self._values["billing_view_arn"] = billing_view_arn
             if budget_limit is not None:
                 self._values["budget_limit"] = budget_limit
             if budget_name is not None:
@@ -576,6 +584,14 @@ class CfnBudget(
             '''
             result = self._values.get("auto_adjust_data")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBudget.AutoAdjustDataProperty"]], result)
+
+        @builtins.property
+        def billing_view_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-billingviewarn
+            '''
+            result = self._values.get("billing_view_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def budget_limit(
@@ -2029,6 +2045,7 @@ class CfnBudgetProps:
                             budget_adjustment_period=123
                         )
                     ),
+                    billing_view_arn="billingViewArn",
                     budget_limit=budgets.CfnBudget.SpendProperty(
                         amount=123,
                         unit="unit"
@@ -3344,6 +3361,7 @@ def _typecheckingstub__b2c7f5c59209a2623bf116ca3a20b23835ececd0df52736e4f148622f
     budget_type: builtins.str,
     time_unit: builtins.str,
     auto_adjust_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.AutoAdjustDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    billing_view_arn: typing.Optional[builtins.str] = None,
     budget_limit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.SpendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     budget_name: typing.Optional[builtins.str] = None,
     cost_filters: typing.Any = None,

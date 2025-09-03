@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import pytest
 from deepdiff import DeepDiff
+from packaging.specifiers import SpecifierSet
 
 MODULE_NAME = "safety_schemas.models"
 DATA_DIR = Path("tests/models/lib")
@@ -33,9 +34,42 @@ class TestModels:
                      "root['$defs']['VulnerabilityDefinition']",
                      "root['$defs']['PackageEcosystem']"}
 
+
+    _COMMON_PYDANTIC_EXCLUDE_PATHS = {
+        "root['$defs']['ScanConfigModel']['properties']['include_files']['propertyNames']",
+        "root['$defs']['ReportSchemaVersion']['const']"
+    }
+
+    # TODO: Once we require a higher version of Pydantic, we can remove the following exclusions.
+
+    # NOTE: Pydantic has been updating the way ENUMS are generated in the JSON schema export.
+    # The following exclusions are not a breaking change for us,
+    # as we are not doing codegen (yet) based on this.
+    EXCLUDE_PATHS_PER_PYDANTIC_VERSION = [
+        (SpecifierSet(">=2.10.0,<2.10.3"), {
+            "root['$defs']['FileType']['type']",
+            "root['$defs']['FileType']['title']",                        
+        }),
+
+        # the https://github.com/pydantic/pydantic/pull/10989 PR
+        # [Do not resolve the JSON Schema reference for dict core schema keys]
+        # makes the ENUMS used as dict keys *not* be resolved in the JSON schema export.
+        # This exclusion is redundant with the others related to FileType, but I'm keeping it as
+        # a reminder of the change.
+        (SpecifierSet(">=2.10.3"), {
+            "root['$defs']['FileType']",
+        })
+    ]
+
     @pytest.mark.parametrize("model, model_name", [(model, name) for name, model in inspect.getmembers(importlib.import_module(MODULE_NAME), inspect.isclass) if hasattr(model, "__annotations__") and not issubclass(model, Enum)])
     def test_model(self, model, model_name):
         LIB_DIR = DATA_DIR
+
+        exclude_paths = set(self.EXCLUDE_PATHS) | self._COMMON_PYDANTIC_EXCLUDE_PATHS
+
+        for specifier, exclusions in self.EXCLUDE_PATHS_PER_PYDANTIC_VERSION:
+            if specifier.contains(pydantic_version):
+                exclude_paths.update(exclusions)
 
         if pydantic_version.startswith("1."):
             LIB_DIR = DATA_DIR / "pydantic1"
@@ -51,5 +85,5 @@ class TestModels:
             expected = json.load(f)
 
         # Compare the two JSON objects
-        diff = DeepDiff(current, expected, exclude_paths=self.EXCLUDE_PATHS, ignore_order=True)
+        diff = DeepDiff(current, expected, exclude_paths=exclude_paths, ignore_order=True)
         assert not diff, f"{model_name} [{schema_path}] schema differs from old version: {diff}"

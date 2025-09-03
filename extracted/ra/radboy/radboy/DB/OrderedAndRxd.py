@@ -2,6 +2,87 @@ from radboy.DB.db import *
 from radboy.FB.FormBuilder import FormBuilder
 from copy import deepcopy as copy
 from radboy.ExportUtility import *
+def CountTo():
+    fd={
+        'Start':{
+        'type':'integer',
+        'default':0
+        },
+        'Stop':{
+        'default':int(5580*0.75),
+        'type':"integer",
+        },
+        'Steps':{
+        'default':int(50),
+        'type':"integer"
+        }
+        }
+    start=datetime.now()
+    data=FormBuilder(data=fd)
+    absolute_start=False
+    useLast=False
+    while True:
+        print(absolute_start)
+        if absolute_start:
+            fd={
+            'Start':{
+            'type':'integer',
+            'default':0
+            },
+            'Stop':{
+            'default':int(5580*0.75),
+            'type':"integer",
+            },
+            'Steps':{
+            'default':int(50),
+            'type':"integer"
+            }
+            }
+            start=datetime.now()
+            data=FormBuilder(data=fd)
+            absolute_start=False
+        if useLast:
+            print("using last setup!")
+        final_msg=''
+        if data is not None:
+            numeric=range(data['Start'],data['Stop'],data['Steps'])
+            cta=len(numeric)
+            present=datetime.now()
+            for num,i in enumerate(numeric):
+                while True:
+                    total_duration=datetime.now()-start
+                    since_last=datetime.now()-present
+                    final_msg=std_colorize(f"{i} of {data['Stop']} TTL DUR:{total_duration}/SNC LST:{since_last}",num,cta)
+                    print(final_msg)
+                    do=Control(func=FormBuilderMkText,ptext="next?",helpText="just hit enter",data="boolean")
+                    if do is None:
+                        return
+                    elif do in ['d',True]:
+                        break
+                    elif do in [False,]:
+                        continue
+                present=datetime.now()
+            print(f"{Fore.orange_red_1}Done!{Style.reset}",final_msg)
+            rerun=Control(func=FormBuilderMkText,ptext="re-run from absolute start? [y/N]",helpText="yes or no",data="boolean")
+            if rerun is None:
+                return
+            elif rerun in ['d',False]:
+                absolute_start=False
+            else:
+                absolute_start=True
+                continue
+
+            rerunLast=Control(func=FormBuilderMkText,ptext="re-run with last setup start? [y/N]",helpText="yes or no",data="boolean")
+            if rerunLast is None:
+                return
+            elif rerunLast in ['d',False]:
+                useLast=False
+            else:
+                useLast=True
+                continue
+            print(final_msg)
+            break
+
 
 class OrderedAndRecieved(BASE,Template):
     '''

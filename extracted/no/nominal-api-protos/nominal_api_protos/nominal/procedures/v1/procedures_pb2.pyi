@@ -217,6 +217,12 @@ class ProcedureMetadata(_message.Message):
     workspace: str
     def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., is_archived: bool = ..., is_published: bool = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ...) -> None: ...
 
+class NodeList(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class ProcedureGraph(_message.Message):
     __slots__ = ("nodes", "root_nodes", "section_edges", "step_edges")
     class NodesEntry(_message.Message):
@@ -231,29 +237,24 @@ class ProcedureGraph(_message.Message):
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: ProcedureGraph.NodeList
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureGraph.NodeList, _Mapping]] = ...) -> None: ...
+        value: NodeList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NodeList, _Mapping]] = ...) -> None: ...
     class StepEdgesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: ProcedureGraph.NodeList
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureGraph.NodeList, _Mapping]] = ...) -> None: ...
-    class NodeList(_message.Message):
-        __slots__ = ("value",)
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        value: _containers.RepeatedScalarFieldContainer[str]
-        def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
+        value: NodeList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NodeList, _Mapping]] = ...) -> None: ...
     NODES_FIELD_NUMBER: _ClassVar[int]
     ROOT_NODES_FIELD_NUMBER: _ClassVar[int]
     SECTION_EDGES_FIELD_NUMBER: _ClassVar[int]
     STEP_EDGES_FIELD_NUMBER: _ClassVar[int]
     nodes: _containers.MessageMap[str, ProcedureNode]
     root_nodes: _containers.RepeatedScalarFieldContainer[str]
-    section_edges: _containers.MessageMap[str, ProcedureGraph.NodeList]
-    step_edges: _containers.MessageMap[str, ProcedureGraph.NodeList]
-    def __init__(self, nodes: _Optional[_Mapping[str, ProcedureNode]] = ..., root_nodes: _Optional[_Iterable[str]] = ..., section_edges: _Optional[_Mapping[str, ProcedureGraph.NodeList]] = ..., step_edges: _Optional[_Mapping[str, ProcedureGraph.NodeList]] = ...) -> None: ...
+    section_edges: _containers.MessageMap[str, NodeList]
+    step_edges: _containers.MessageMap[str, NodeList]
+    def __init__(self, nodes: _Optional[_Mapping[str, ProcedureNode]] = ..., root_nodes: _Optional[_Iterable[str]] = ..., section_edges: _Optional[_Mapping[str, NodeList]] = ..., step_edges: _Optional[_Mapping[str, NodeList]] = ...) -> None: ...
 
 class ProcedureVariable(_message.Message):
     __slots__ = ("type", "source", "name")
@@ -305,10 +306,19 @@ class GetProcedureRequest(_message.Message):
     def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[BranchOrCommit, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
 
 class ProcedureDisplayGraph(_message.Message):
-    __slots__ = ("top_level_nodes",)
+    __slots__ = ("top_level_nodes", "section_to_sorted_children")
+    class SectionToSortedChildrenEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: NodeList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NodeList, _Mapping]] = ...) -> None: ...
     TOP_LEVEL_NODES_FIELD_NUMBER: _ClassVar[int]
+    SECTION_TO_SORTED_CHILDREN_FIELD_NUMBER: _ClassVar[int]
     top_level_nodes: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, top_level_nodes: _Optional[_Iterable[str]] = ...) -> None: ...
+    section_to_sorted_children: _containers.MessageMap[str, NodeList]
+    def __init__(self, top_level_nodes: _Optional[_Iterable[str]] = ..., section_to_sorted_children: _Optional[_Mapping[str, NodeList]] = ...) -> None: ...
 
 class ProcedureSearchQuery(_message.Message):
     __slots__ = ("search_text", "label", "property", "workspace", "created_by", "is_archived")

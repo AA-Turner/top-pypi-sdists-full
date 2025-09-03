@@ -2010,6 +2010,7 @@ class CfnResourceGateway(
         
             # the properties below are optional
             ip_address_type="ipAddressType",
+            ipv4_addresses_per_eni=123,
             security_group_ids=["securityGroupIds"],
             tags=[CfnTag(
                 key="key",
@@ -2027,6 +2028,7 @@ class CfnResourceGateway(
         subnet_ids: typing.Sequence[builtins.str],
         vpc_identifier: builtins.str,
         ip_address_type: typing.Optional[builtins.str] = None,
+        ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2037,6 +2039,7 @@ class CfnResourceGateway(
         :param subnet_ids: The IDs of the VPC subnets for the resource gateway.
         :param vpc_identifier: The ID of the VPC for the resource gateway.
         :param ip_address_type: The type of IP address used by the resource gateway.
+        :param ipv4_addresses_per_eni: The number of IPv4 addresses to allocate per ENI for the resource gateway.
         :param security_group_ids: The IDs of the security groups applied to the resource gateway.
         :param tags: The tags for the resource gateway.
         '''
@@ -2049,6 +2052,7 @@ class CfnResourceGateway(
             subnet_ids=subnet_ids,
             vpc_identifier=vpc_identifier,
             ip_address_type=ip_address_type,
+            ipv4_addresses_per_eni=ipv4_addresses_per_eni,
             security_group_ids=security_group_ids,
             tags=tags,
         )
@@ -2167,6 +2171,19 @@ class CfnResourceGateway(
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="ipv4AddressesPerEni")
+    def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
+        '''The number of IPv4 addresses to allocate per ENI for the resource gateway.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "ipv4AddressesPerEni"))
+
+    @ipv4_addresses_per_eni.setter
+    def ipv4_addresses_per_eni(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ebc10ed1c8e6c6821b6b7f4cd71006b4e3ce26c6b201ba4637014b8908140fd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipv4AddressesPerEni", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The IDs of the security groups applied to the resource gateway.'''
@@ -2204,6 +2221,7 @@ class CfnResourceGateway(
         "subnet_ids": "subnetIds",
         "vpc_identifier": "vpcIdentifier",
         "ip_address_type": "ipAddressType",
+        "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
         "security_group_ids": "securityGroupIds",
         "tags": "tags",
     },
@@ -2216,6 +2234,7 @@ class CfnResourceGatewayProps:
         subnet_ids: typing.Sequence[builtins.str],
         vpc_identifier: builtins.str,
         ip_address_type: typing.Optional[builtins.str] = None,
+        ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2225,6 +2244,7 @@ class CfnResourceGatewayProps:
         :param subnet_ids: The IDs of the VPC subnets for the resource gateway.
         :param vpc_identifier: The ID of the VPC for the resource gateway.
         :param ip_address_type: The type of IP address used by the resource gateway.
+        :param ipv4_addresses_per_eni: The number of IPv4 addresses to allocate per ENI for the resource gateway.
         :param security_group_ids: The IDs of the security groups applied to the resource gateway.
         :param tags: The tags for the resource gateway.
 
@@ -2244,6 +2264,7 @@ class CfnResourceGatewayProps:
             
                 # the properties below are optional
                 ip_address_type="ipAddressType",
+                ipv4_addresses_per_eni=123,
                 security_group_ids=["securityGroupIds"],
                 tags=[CfnTag(
                     key="key",
@@ -2257,6 +2278,7 @@ class CfnResourceGatewayProps:
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2266,6 +2288,8 @@ class CfnResourceGatewayProps:
         }
         if ip_address_type is not None:
             self._values["ip_address_type"] = ip_address_type
+        if ipv4_addresses_per_eni is not None:
+            self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
         if security_group_ids is not None:
             self._values["security_group_ids"] = security_group_ids
         if tags is not None:
@@ -2309,6 +2333,15 @@ class CfnResourceGatewayProps:
         '''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
+        '''The number of IPv4 addresses to allocate per ENI for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-ipv4addressespereni
+        '''
+        result = self._values.get("ipv4_addresses_per_eni")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7074,6 +7107,7 @@ def _typecheckingstub__c33d35acb93670756de87bb99dc9b48c5bdce217c8b7068ec8d831a66
     subnet_ids: typing.Sequence[builtins.str],
     vpc_identifier: builtins.str,
     ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -7116,6 +7150,12 @@ def _typecheckingstub__da193673158e2d7b463232edae7461c41e04d65f3e9a6058fb5136fae
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5ebc10ed1c8e6c6821b6b7f4cd71006b4e3ce26c6b201ba4637014b8908140fd(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7e2e4828934d008108e9f5f74e2c02dbd9f159db6f7be2e11295977601d1296b(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -7134,6 +7174,7 @@ def _typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49
     subnet_ids: typing.Sequence[builtins.str],
     vpc_identifier: builtins.str,
     ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

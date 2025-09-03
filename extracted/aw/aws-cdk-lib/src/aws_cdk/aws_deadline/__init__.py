@@ -649,7 +649,8 @@ class CfnFleet(
     @builtins.property
     @jsii.member(jsii_name="attrStatusMessage")
     def attr_status_message(self) -> builtins.str:
-        '''
+        '''A message that communicates a suspended status of the fleet.
+
         :cloudformationAttribute: StatusMessage
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatusMessage"))
@@ -3183,7 +3184,7 @@ class CfnLicenseEndpoint(
         :param id: Construct identifier for this resource (unique in its scope).
         :param security_group_ids: The identifier of the Amazon EC2 security group that controls access to the license endpoint.
         :param subnet_ids: Identifies the VPC subnets that can connect to a license endpoint.
-        :param vpc_id: The VCP(virtual private cloud) ID associated with the license endpoint.
+        :param vpc_id: The VPC (virtual private cloud) ID associated with the license endpoint.
         :param tags: The tags to add to your license endpoint. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
@@ -3314,7 +3315,7 @@ class CfnLicenseEndpoint(
     @builtins.property
     @jsii.member(jsii_name="vpcId")
     def vpc_id(self) -> builtins.str:
-        '''The VCP(virtual private cloud) ID associated with the license endpoint.'''
+        '''The VPC (virtual private cloud) ID associated with the license endpoint.'''
         return typing.cast(builtins.str, jsii.get(self, "vpcId"))
 
     @vpc_id.setter
@@ -3361,7 +3362,7 @@ class CfnLicenseEndpointProps:
 
         :param security_group_ids: The identifier of the Amazon EC2 security group that controls access to the license endpoint.
         :param subnet_ids: Identifies the VPC subnets that can connect to a license endpoint.
-        :param vpc_id: The VCP(virtual private cloud) ID associated with the license endpoint.
+        :param vpc_id: The VPC (virtual private cloud) ID associated with the license endpoint.
         :param tags: The tags to add to your license endpoint. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-licenseendpoint.html
@@ -3421,7 +3422,7 @@ class CfnLicenseEndpointProps:
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''The VCP(virtual private cloud) ID associated with the license endpoint.
+        '''The VPC (virtual private cloud) ID associated with the license endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-licenseendpoint.html#cfn-deadline-licenseendpoint-vpcid
         '''

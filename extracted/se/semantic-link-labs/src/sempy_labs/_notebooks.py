@@ -17,6 +17,7 @@ from sempy_labs._helper_functions import (
 from sempy.fabric.exceptions import FabricHTTPException
 from os import PathLike
 from uuid import UUID
+import os
 
 _notebook_prefix = "notebook-content."
 
@@ -315,7 +316,7 @@ def list_notebooks(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     Returns
     -------
     pandas.DataFrame
-        A pandas dataframe showing the SQL endpoints within a workspace.
+        A pandas dataframe showing the notebooks within a workspace.
     """
 
     columns = {

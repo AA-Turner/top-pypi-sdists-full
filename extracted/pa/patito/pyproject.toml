@@ -1,6 +1,6 @@
 [project]
 name = "patito"
-version = "0.8.4"
+version = "0.8.5"
 description = "A dataframe modelling library built on top of polars and pydantic."
 authors = [
     { name = "Jakob Gerhard Martinussen", email = "jakobgm@gmail.com" },
@@ -15,7 +15,7 @@ keywords = [
 ]
 dependencies = [
     "pydantic>=2.7.0",
-    "polars>=1.10.0",
+    "polars>=1.32.0",
     "typing-extensions",
 ]
 

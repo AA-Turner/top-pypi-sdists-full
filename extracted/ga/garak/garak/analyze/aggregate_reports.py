@@ -3,9 +3,9 @@
 # SPDX-FileCopyrightText: Portions Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""
- aggregate multiple garak reports on the same generator 
- useful for e.g. assembling a report that's been run one probe at a time
+"""aggregate multiple garak reports on the same generator
+
+useful for e.g. assembling a report that's been run one probe at a time
 """
 
 # cli params:

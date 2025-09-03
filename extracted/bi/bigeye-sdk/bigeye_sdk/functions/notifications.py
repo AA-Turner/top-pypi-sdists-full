@@ -10,7 +10,7 @@ from slack_sdk.errors import SlackApiError
 
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 def send_email(

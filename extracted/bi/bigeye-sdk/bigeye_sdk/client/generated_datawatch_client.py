@@ -142,7 +142,7 @@ from bigeye_sdk.model.protobuf_enum_facade import SimpleFieldType, SimpleMetricT
     SimpleWorkflowProcessingStatus, SimpleTableSortField, SimpleSortDirection, SimpleIssueStatus, SimpleIssuePriority, \
     SimpleIssueSortField
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class GeneratedDatawatchClient(abc.ABC):

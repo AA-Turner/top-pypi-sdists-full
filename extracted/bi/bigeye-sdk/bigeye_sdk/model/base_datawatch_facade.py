@@ -8,7 +8,7 @@ from pydantic.v1.dataclasses import dataclass
 from bigeye_sdk import DatawatchObject
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 @dataclass
 class DatawatchFacade(abc.ABC):

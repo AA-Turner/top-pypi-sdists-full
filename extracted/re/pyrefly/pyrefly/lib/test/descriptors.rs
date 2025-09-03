@@ -190,7 +190,6 @@ C().d = "42"
 );
 
 testcase!(
-    bug = "TODO(stroxler): type inference causes us to complain on the decorator application",
     test_class_property_descriptor,
     r#"
 from typing import assert_type, Callable, Any
@@ -198,11 +197,11 @@ class classproperty[T, R]:
     def __init__(self, fget: Callable[[type[T]], R]) -> None: ...
     def __get__(self, obj: object, obj_cls_type: type[T]) -> R: ...
 class C:
-    @classproperty    # E: Argument `(cls: Self@C) -> int` is not assignable to parameter `fget` with type `(type[@_]) -> @_`
+    @classproperty
     def cp(cls) -> int:
         return 42
-assert_type(C.cp, Any) # Should probably be int
-assert_type(C().cp, Any) # Should probably be int
+assert_type(C.cp, int)
+assert_type(C().cp, int)
 C.cp = 42  # E: Attribute `cp` of class `C` is a descriptor, which may not be overwritten
 C().cp = 42  # E:  Attribute `cp` of class `C` is a read-only descriptor with no `__set__` and cannot be set
     "#,
@@ -252,6 +251,21 @@ def f(a: A):
     assert_type(a.f(), Coroutine[Any, Any, int])
     assert_type(A.g(), Coroutine[Any, Any, int])
     assert_type(A.h(), Coroutine[Any, Any, int])
+    "#,
+);
+
+testcase!(
+    test_descriptor_on_tvar_bound,
+    r#"
+from typing import assert_type
+class D:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class A:
+    p = D()
+def f[T: A](x: T):
+    x.p = "foo"
+    assert_type(x.p, int)
     "#,
 );
 

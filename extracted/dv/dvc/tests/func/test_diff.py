@@ -2,7 +2,6 @@ import hashlib
 import os
 
 import pytest
-from funcy import first
 
 from dvc.exceptions import DvcException
 from dvc.utils.fs import remove
@@ -93,6 +92,81 @@ def test_no_cache_entry(tmp_dir, scm, dvc):
             }
         ],
         "renamed": [],
+    }
+
+
+def test_diff_no_cache(tmp_dir, scm, dvc):
+    (stage,) = tmp_dir.dvc_gen({"dir": {"file": "file content"}}, commit="first")
+    scm.tag("v1")
+    dvc.cache.local.clear()
+    old_digest = stage.outs[0].hash_info.value
+    dir_path = os.path.join("dir", "")
+
+    default_result = {
+        "added": [],
+        "deleted": [],
+        "modified": [],
+        "renamed": [],
+        "not in cache": [],
+    }
+
+    assert dvc.diff("v1") == default_result | {
+        "not in cache": [{"path": dir_path, "hash": old_digest}],
+    }
+    assert dvc.diff("HEAD", "v1") == {}
+    assert dvc.diff("v1", "HEAD") == {}
+
+    (stage,) = tmp_dir.dvc_gen(
+        {"dir": {"file": "modified file content"}}, commit="first"
+    )
+    scm.tag("v2")
+    new_digest = stage.outs[0].hash_info.value
+
+    assert dvc.diff("v2") == {}
+    assert dvc.diff("v1") == default_result | {
+        "modified": [
+            {"path": dir_path, "hash": {"old": old_digest, "new": new_digest}}
+        ],
+        "not in cache": [{"path": dir_path, "hash": old_digest}],
+    }
+    assert dvc.diff("v1", "v2") == default_result | {
+        "modified": [
+            {"path": dir_path, "hash": {"old": old_digest, "new": new_digest}}
+        ],
+    }
+
+    remove(dvc.cache.local.path)
+    # drop the cache so that we can test as if we don't know what entries are
+    # in the missing cache entry.
+    dvc.drop_data_index()
+
+    assert dvc.diff("v2") == default_result | {
+        "not in cache": [{"path": dir_path, "hash": new_digest}],
+    }
+    assert dvc.diff("v1") == default_result | {
+        "modified": [
+            {"path": dir_path, "hash": {"old": old_digest, "new": new_digest}}
+        ],
+        "not in cache": [{"path": dir_path, "hash": old_digest}],
+    }
+    assert dvc.diff("v2", "v1") == default_result | {
+        "modified": [
+            {"path": dir_path, "hash": {"old": new_digest, "new": old_digest}}
+        ],
+    }
+    assert dvc.diff("v1", "v2") == default_result | {
+        "modified": [
+            {"path": dir_path, "hash": {"old": old_digest, "new": new_digest}}
+        ],
+    }
+    assert dvc.diff() == default_result | {
+        "not in cache": [{"path": dir_path, "hash": new_digest}],
+    }
+
+    remove(str(tmp_dir / "dir"))
+    assert dvc.diff() == default_result | {
+        "deleted": [{"path": dir_path, "hash": new_digest}],
+        "not in cache": [{"path": dir_path, "hash": new_digest}],
     }
 
 
@@ -254,44 +328,6 @@ def test_directories(tmp_dir, scm, dvc):
         "not in cache": [],
         "renamed": [],
     }
-
-
-def test_diff_no_cache(tmp_dir, scm, dvc):
-    tmp_dir.dvc_gen({"dir": {"file": "file content"}}, commit="first")
-    scm.tag("v1")
-
-    tmp_dir.dvc_gen({"dir": {"file": "modified file content"}}, commit="second")
-    scm.tag("v2")
-
-    remove(dvc.cache.local.path)
-
-    # invalidate_dir_info to force cache loading
-    dvc.cache.local._dir_info = {}
-
-    diff = dvc.diff("v1", "v2")
-    assert diff["added"] == []
-    assert diff["deleted"] == []
-    assert first(diff["modified"])["path"] == os.path.join("dir", "")
-    assert diff["not in cache"] == []
-
-    (tmp_dir / "dir" / "file").unlink()
-    remove(str(tmp_dir / "dir"))
-    diff = dvc.diff()
-    assert diff["added"] == []
-    assert diff["deleted"] == [
-        {
-            "path": os.path.join("dir", ""),
-            "hash": "f0f7a307d223921557c929f944bf5303.dir",
-        }
-    ]
-    assert diff["renamed"] == []
-    assert diff["modified"] == []
-    assert diff["not in cache"] == [
-        {
-            "path": os.path.join("dir", ""),
-            "hash": "f0f7a307d223921557c929f944bf5303.dir",
-        }
-    ]
 
 
 def test_diff_dirty(tmp_dir, scm, dvc):

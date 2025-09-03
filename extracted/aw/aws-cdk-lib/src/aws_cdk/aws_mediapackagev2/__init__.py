@@ -433,7 +433,7 @@ class CfnChannel(
         ) -> None:
             '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
 
-            :param mqcs_input_switching: When true, AWS Elemental MediaPackage performs input switching based on the MQCS. Default is true. This setting is valid only when ``InputType`` is ``CMAF`` .
+            :param mqcs_input_switching: When true, AWS Elemental MediaPackage performs input switching based on the MQCS. Default is false. This setting is valid only when ``InputType`` is ``CMAF`` .
             :param preferred_input: For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores. Select ``1`` to prefer the first ingest endpoint, or ``2`` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-inputswitchconfiguration.html
@@ -466,7 +466,7 @@ class CfnChannel(
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
             '''When true, AWS Elemental MediaPackage performs input switching based on the MQCS.
 
-            Default is true. This setting is valid only when ``InputType`` is ``CMAF`` .
+            Default is false. This setting is valid only when ``InputType`` is ``CMAF`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-inputswitchconfiguration.html#cfn-mediapackagev2-channel-inputswitchconfiguration-mqcsinputswitching
             '''

@@ -110,6 +110,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                     "method": "delete",
                     "uri": "/v2/{name=projects/*/locations/*/services/*/revisions/*}",
                 },
+                {
+                    "method": "delete",
+                    "uri": "/v2/{name=projects/*/locations/*/workerPools/*/revisions/*}",
+                },
             ]
             return http_options
 
@@ -157,6 +161,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                     "method": "get",
                     "uri": "/v2/{name=projects/*/locations/*/services/*/revisions/*}",
                 },
+                {
+                    "method": "get",
+                    "uri": "/v2/{name=projects/*/locations/*/workerPools/*/revisions/*}",
+                },
             ]
             return http_options
 
@@ -203,6 +211,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                 {
                     "method": "get",
                     "uri": "/v2/{parent=projects/*/locations/*/services/*}/revisions",
+                },
+                {
+                    "method": "get",
+                    "uri": "/v2/{parent=projects/*/locations/*/workerPools/*}/revisions",
                 },
             ]
             return http_options

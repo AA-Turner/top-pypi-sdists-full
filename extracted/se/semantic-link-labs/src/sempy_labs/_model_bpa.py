@@ -3,8 +3,8 @@ import pandas as pd
 import warnings
 import datetime
 from IPython.display import display, HTML
-from ._model_dependencies import get_model_calc_dependencies
-from ._helper_functions import (
+from sempy_labs._model_dependencies import get_model_calc_dependencies
+from sempy_labs._helper_functions import (
     format_dax_object_name,
     create_relationship_name,
     save_as_delta_table,
@@ -15,9 +15,9 @@ from ._helper_functions import (
     resolve_workspace_name_and_id,
     _create_spark_session,
 )
-from .lakehouse import get_lakehouse_tables, lakehouse_attached
-from .tom import connect_semantic_model
-from ._model_bpa_rules import model_bpa_rules
+from sempy_labs.lakehouse import get_lakehouse_tables, lakehouse_attached
+from sempy_labs.tom import connect_semantic_model
+from sempy_labs._model_bpa_rules import model_bpa_rules
 from typing import Optional
 from sempy._utils._log import log
 import sempy_labs._icons as icons
@@ -391,7 +391,7 @@ def run_model_bpa(
         lakeT = get_lakehouse_tables()
         lakeT_filt = lakeT[lakeT["Table Name"] == delta_table_name]
 
-        dfExport["Severity"].replace(icons.severity_mapping, inplace=True)
+        dfExport["Severity"] = dfExport["Severity"].replace(icons.severity_mapping)
 
         if len(lakeT_filt) == 0:
             runId = 1

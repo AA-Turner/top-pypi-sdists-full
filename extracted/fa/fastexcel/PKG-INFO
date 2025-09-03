@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastexcel
-Version: 0.14.0
+Version: 0.15.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -14,16 +14,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: typing-extensions>=4.0.0 ; python_full_version < '3.10'
+Requires-Dist: pyarrow>=8.0.0 ; extra == 'pyarrow'
 Requires-Dist: pandas>=1.4.4 ; extra == 'pandas'
+Requires-Dist: pyarrow>=8.0.0 ; extra == 'pandas'
 Requires-Dist: polars>=0.16.14 ; extra == 'polars'
+Provides-Extra: pyarrow
 Provides-Extra: pandas
 Provides-Extra: polars
 License-File: LICENSE
 Summary: A fast excel file reader for Python, written in Rust
 Home-Page: https://github.com/ToucanToco/fastexcel
-License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Source Code, https://github.com/ToucanToco/fastexcel
@@ -31,61 +32,171 @@ Project-URL: Issues, https://github.com/ToucanToco/fastexcel
 
 # `fastexcel`
 
-A fast excel file reader for Python, written in Rust.
-
-Based on [`calamine`](https://github.com/tafia/calamine) and [Apache Arrow](https://arrow.apache.org/).
+A fast excel file reader for Python and Rust.
 
 Docs available [here](https://fastexcel.toucantoco.dev/).
 
-## Dev setup
+## Stability
+
+The Python library is considered production-ready. The API is mostly stable, and we avoid breaking changes as much as
+possible. v1.0.0 will be released once the [milestone](https://github.com/ToucanToco/fastexcel/milestone/2) is reached.
+
+The Rust crate is still experimental, and breaking changes are to be expected.
+
+## Installation
+
+```bash
+# Lightweight installation (no PyArrow dependency)
+pip install fastexcel
+
+# With Polars support only (no PyArrow needed)
+pip install fastexcel[polars]
+
+# With Pandas support (includes PyArrow)
+pip install fastexcel[pandas]
+
+# With PyArrow support
+pip install fastexcel[pyarrow]
+
+# With all integrations
+pip install fastexcel[pandas,polars]
+```
+
+## Quick Start
+
+### Modern usage (recommended)
+
+FastExcel supports the [Arrow PyCapsule Interface](https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html) for zero-copy data exchange with libraries like Polars, without requiring pyarrow as a dependency.
+Use fastexcel with any Arrow-compatible library without requiring pyarrow.
+
+```python
+import fastexcel
+
+# Load an Excel file
+reader = fastexcel.read_excel("data.xlsx")
+sheet = reader.load_sheet(0)  # Load first sheet
+
+# Use with Polars (zero-copy, no pyarrow needed)
+import polars as pl
+df = pl.DataFrame(sheet)  # Direct PyCapsule interface
+print(df)
+
+# Or use the to_polars() method (also via PyCapsule)
+df = sheet.to_polars()
+print(df)
+
+# Or access the raw Arrow data via PyCapsule interface
+schema = sheet.__arrow_c_schema__()
+array_data = sheet.__arrow_c_array__()
+```
+
+### Traditional usage (with pandas/pyarrow)
+
+```python
+import fastexcel
+
+reader = fastexcel.read_excel("data.xlsx")
+sheet = reader.load_sheet(0)
+
+# Convert to pandas (requires `pandas` extra)
+df = sheet.to_pandas()
+
+# Or get pyarrow RecordBatch directly
+record_batch = sheet.to_arrow()
+```
+
+### Working with tables
+
+```python
+reader = fastexcel.read_excel("data.xlsx")
+
+# List available tables
+tables = reader.table_names()
+print(f"Available tables: {tables}")
+
+# Load a specific table
+table = reader.load_table("MyTable")
+df = pl.DataFrame(table)  # Zero-copy via PyCapsule, no pyarrow needed
+```
+
+## Key Features
+
+- **Zero-copy data exchange** via [Arrow PyCapsule Interface](https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html)
+- **Flexible dependencies** - use with Polars (no PyArrow needed) or Pandas (includes PyArrow)
+- **Seamless Polars integration** - `pl.DataFrame(sheet)` and `sheet.to_polars()` work without PyArrow via PyCapsule interface
+- **High performance** - written in Rust with [calamine](https://github.com/tafia/calamine) and [Apache Arrow](https://arrow.apache.org/)
+- **Memory efficient** - lazy loading and optional eager evaluation
+- **Type safety** - automatic type inference with manual override options
+
+## Contributing & Development
 
 ### Prerequisites
 
-Python>=3.9 and a recent Rust toolchain must be installed on your machine. `cargo` must be available in your `PATH`.
+You'll need:
+1. **[Rust](https://rustup.rs/)** - Rust stable or nightly
+2. **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager (will install Python 3.9+ automatically)
+3. **[git](https://git-scm.com/)** - For version control
+4. **[make](https://www.gnu.org/software/make/)** - For running development commands
 
-### First setup
-
-On the very first time you setup the project, you'll need to create a virtualenv and install the necessary tools:
-
-```console
-python -m venv .venv
-source .venv/bin/activate
-(.venv) make dev-setup
+**Python Version Management:**
+uv handles Python installation automatically. To use a specific Python version:
+```bash
+uv python install 3.13  # Install Python 3.13
+uv python pin 3.13      # Pin project to Python 3.13
 ```
 
-This will also set up [pre-commit](https://pre-commit.com/).
+### Quick Start
 
-### Installing the project in dev mode
+```bash
+# Clone the repository (or from your fork)
+git clone https://github.com/ToucanToco/fastexcel.git
+cd fastexcel
 
-In order to install the project in dev mode (for local tests for example), use `make dev-install`.
-This will compile the wheel (in debug mode) and install it. It will then be available in your venv.
+# First-time setup: install dependencies, build debug version, and setup pre-commit hooks
+make setup-dev
+```
 
-### Installing the project in prod mode
+Verify your installation by running:
 
-This is required for profiling, as dev mode wheels are much slower. `make prod-install` will compile the project
-in release mode and install it in your local venv, overriding previous dev installs.
+```bash
+make
+```
 
-### Linting and formatting
+This runs a full development cycle: formatting, building, linting, and testing
 
-The Makefile provides the `lint` and `format` extras to ease this.
+### Development Commands
 
-## Running the tests
+Run `make help` to see all available commands, or use these common ones:
 
-`make test`
+```bash
+make all          # full dev cycle: format, build, lint, test
+make install      # install with debug build (daily development)
+make install-prod # install with release build (benchmarking)
+make test         # to run the tests
+make lint         # to run the linter
+make format       # to format python and rust code
+make doc-serve    # to serve the documentation locally
+```
 
-## Running the benchmarks
+### Useful Resources
 
-### Speed benchmark
+* [`python/fastexcel/_fastexcel.pyi`](./python/fastexcel/_fastexcel.pyi) - Python API types
+* [`python/tests/`](./python/tests) - Comprehensive usage examples
 
-`make benchmarks`
+## Benchmarking
 
-### Memory benchmark
+For benchmarking, use `make benchmarks` which automatically builds an optimised wheel.
+This is required for profiling, as dev mode builds are much slower.
 
-`mprof run -T 0.01 python python/tests/benchmarks/memory.py python/tests/benchmarks/fixtures/plain_data.xls`
+### Speed benchmarks
+```bash
+make benchmarks
+```
 
-## Building the docs
-
-`make doc`
+### Memory profiling
+```bash
+mprof run -T 0.01 python python/tests/benchmarks/memory.py python/tests/benchmarks/fixtures/plain_data.xls
+```
 
 ## Creating a release
 

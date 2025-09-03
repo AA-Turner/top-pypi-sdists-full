@@ -490,3 +490,70 @@ def f(foo: Foo):
             assert_type(x, int)
 "#,
 );
+
+testcase!(
+    test_hasattr_narrowing,
+    r#"
+from typing import reveal_type, assert_type, Any
+class C:
+    x: int
+
+def test(c: C):
+    if hasattr(c, "x"):
+        assert_type(c.x, int)
+    if hasattr(c, "y"):
+        assert_type(c.y, Any)
+    "#,
+);
+
+testcase!(
+    test_getattr_narrowing,
+    r#"
+from typing import assert_type, Any
+class C:
+    x: int | None
+class C2:
+    pass
+
+def test(c: C, c2: C2):
+    # if the class has the attribute declared, we do a truthy refinement if the default is statically falsy
+    if getattr(c, "x"):
+        assert_type(c.x, int)
+    if getattr(c, "x", None):
+        assert_type(c.x, int)
+    if getattr(c, "x", 1):
+        assert_type(c.x, int | None)
+
+    # if not, we infer `Any` if the default is statically falsy
+    if getattr(c2, "x"):
+        assert_type(c2.x, Any)
+    if getattr(c2, "x", None):
+        assert_type(c2.x, Any)
+    if getattr(c2, "x", 1):
+        assert_type(c2.x, Any)  # E: Object of class `C2` has no attribute `x`
+    "#,
+);
+
+testcase!(
+    test_getattr_binop_narrowing,
+    r#"
+from typing import assert_type, Any
+class C:
+    pass
+
+def test(c: C):
+    if getattr(c, "x") is not None:
+        assert_type(c.x, Any)
+    if getattr(c, "x") != None:
+        assert_type(c.x, Any)
+    if getattr(c, "x", None) is not None:
+        assert_type(c.x, Any)
+    if getattr(c, "x", None) != None:
+        assert_type(c.x, Any)
+    # these do nothing
+    if getattr(c, "x", 1) is not None:
+        assert_type(c.x, Any)  # E: Object of class `C` has no attribute `x`
+    if getattr(c, "x", 1) != 1:
+        assert_type(c.x, Any)  # E: Object of class `C` has no attribute `x`
+    "#,
+);

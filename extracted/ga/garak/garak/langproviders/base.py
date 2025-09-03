@@ -37,8 +37,7 @@ def remove_english_punctuation(text: str) -> str:
 
 
 def is_english(text):
-    """
-    Determines if the given text is predominantly English based on word matching.
+    """Determines if the given text is predominantly English based on word matching.
 
     Args:
         text (str): The text to evaluate.

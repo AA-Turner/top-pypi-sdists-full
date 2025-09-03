@@ -13,7 +13,7 @@ from anyscale.compute_config._private.compute_config_sdk import PrivateComputeCo
 from anyscale.compute_config.models import (
     ComputeConfig,
     ComputeConfigType,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
 )
 from anyscale.image._private.image_sdk import PrivateImageSDK
 from anyscale.utils.runtime_env import is_dir_remote_uri, parse_requirements_file
@@ -122,7 +122,7 @@ class WorkloadSDK(BaseSDK):
         autopopulate_in_workspace: bool = True,
         additional_py_modules: Optional[List[str]] = None,
         py_executable_override: Optional[str] = None,
-        cloud_deployment: Optional[str] = None,
+        cloud_resource_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Returns modified runtime_envs with all local dirs converted to remote URIs.
 
@@ -148,7 +148,7 @@ class WorkloadSDK(BaseSDK):
                 target,
                 cloud_id=cloud_id,
                 excludes=excludes,
-                cloud_deployment=cloud_deployment,
+                cloud_resource_name=cloud_resource_name,
             )
             local_path_to_uri[target] = uri
             return uri
@@ -190,13 +190,13 @@ class WorkloadSDK(BaseSDK):
 
         return new_runtime_envs
 
-    def override_and_upload_local_dirs_multi_deployment(  # noqa: PLR0912
+    def override_and_upload_local_dirs_multi_cloud_resource(  # noqa: PLR0912
         self,
         runtime_envs: List[Dict[str, Any]],
         *,
         working_dir_override: Optional[str],
         excludes_override: Optional[List[str]],
-        cloud_deployments: List[Optional[str]],
+        cloud_resource_names: List[Optional[str]],
         cloud_id: Optional[str] = None,
         autopopulate_in_workspace: bool = True,
         additional_py_modules: Optional[List[str]] = None,
@@ -220,14 +220,14 @@ class WorkloadSDK(BaseSDK):
                 return local_path_to_bucket_path[target]
 
             self.logger.info(
-                f"Uploading local dir '{target}' to object storage for all {len(cloud_deployments)} cloud deployments in the compute config."
+                f"Uploading local dir '{target}' to object storage for all {len(cloud_resource_names)} cloud resources in the compute config."
             )
             assert cloud_id is not None
-            bucket_path = self._client.upload_local_dir_to_cloud_storage_multi_deployment(
+            bucket_path = self._client.upload_local_dir_to_cloud_storage_multi_cloud_resource(
                 target,
                 cloud_id=cloud_id,
                 excludes=excludes,
-                cloud_deployments=cloud_deployments,
+                cloud_resource_names=cloud_resource_names,
             )
             local_path_to_bucket_path[target] = bucket_path
             return bucket_path
@@ -362,9 +362,7 @@ class WorkloadSDK(BaseSDK):
         else:
             # If we are creating a new compute config, ensure cloud is set accordingly
             if (
-                isinstance(
-                    compute_config, (ComputeConfig, MultiDeploymentComputeConfig)
-                )
+                isinstance(compute_config, (ComputeConfig, MultiResourceComputeConfig))
                 and compute_config.cloud is None
             ):
                 compute_config = replace(compute_config, cloud=cloud)

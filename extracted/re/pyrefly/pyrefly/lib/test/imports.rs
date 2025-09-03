@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::fs_anyhow;
 
-use crate::state::handle::Handle;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
@@ -975,12 +975,35 @@ fn env_submodule_attribute_name_collision() -> TestEnv {
 }
 
 testcase!(
-    bug = "Pyrefly incorrectly resolves `foo.bar` to the submodule rather than the same-named function in the submodule",
     test_submodule_attribute_name_collision,
     env_submodule_attribute_name_collision(),
     r#"
-from typing import reveal_type
+from typing import assert_type, Callable
 import foo
-reveal_type(foo.bar)  # E: revealed type: Module[foo.bar]
+assert_type(foo.bar, Callable[[], None])
+    "#,
+);
+
+testcase!(
+    test_unittest_main,
+    r#"
+import unittest
+unittest.main()
+    "#,
+);
+
+testcase!(
+    bug = "In the presence of collisions, the runtime result can be order-dependent",
+    test_ambiguous_pkg_attribute_vs_submodule,
+    r#"
+# The behavior when a package `__init__` attribute and a submodule collide can
+# be ambiguous. We currently do not model this fully, and instead use the distinction
+# between `import pkg.xyz` vs `from pkg import xyz` (which is correlated with the
+# runtime behavior but not entirely the same) to approximate.
+#
+# One example where this leads us astray is with unittest.main; the following
+# snippet works at runtime:
+import unittest.main
+unittest.main()  # E: Expected a callable, got `Module[unittest.main]`
     "#,
 );

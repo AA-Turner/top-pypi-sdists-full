@@ -5712,7 +5712,9 @@ class CfnEncryptionConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfiguration",
 ):
-    '''Resource Type definition for AWS::IoT::EncryptionConfiguration.
+    '''Retrieves the encryption configuration for resources and data of your AWS account in AWS IoT Core .
+
+    For more information, see `Data encryption at rest <https://docs.aws.amazon.com/iot/latest/developerguide/encryption-at-rest.html>`_ in the *AWS IoT Core Developer Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
     :cloudformationResource: AWS::IoT::EncryptionConfiguration
@@ -5745,9 +5747,9 @@ class CfnEncryptionConfiguration(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param encryption_type: 
-        :param kms_access_role_arn: 
-        :param kms_key_arn: 
+        :param encryption_type: The type of the KMS key.
+        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
+        :param kms_key_arn: The ARN of the customer managed KMS key.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__590a310b1ce9a41bd611fc7e92d5bb9381ff548973b6322c201006617fc000f1)
@@ -5794,7 +5796,8 @@ class CfnEncryptionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
     def attr_account_id(self) -> builtins.str:
-        '''
+        '''The unique identifier (ID) of an AWS account.
+
         :cloudformationAttribute: AccountId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
@@ -5810,7 +5813,8 @@ class CfnEncryptionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="attrLastModifiedDate")
     def attr_last_modified_date(self) -> builtins.str:
-        '''
+        '''The date when encryption configuration is last updated.
+
         :cloudformationAttribute: LastModifiedDate
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDate"))
@@ -5823,6 +5827,7 @@ class CfnEncryptionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
     def encryption_type(self) -> builtins.str:
+        '''The type of the KMS key.'''
         return typing.cast(builtins.str, jsii.get(self, "encryptionType"))
 
     @encryption_type.setter
@@ -5835,6 +5840,7 @@ class CfnEncryptionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="kmsAccessRoleArn")
     def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsAccessRoleArn"))
 
     @kms_access_role_arn.setter
@@ -5847,6 +5853,7 @@ class CfnEncryptionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed KMS key.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
 
     @kms_key_arn.setter
@@ -5873,10 +5880,11 @@ class CfnEncryptionConfiguration(
             error_code: typing.Optional[builtins.str] = None,
             error_message: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param configuration_status: 
-            :param error_code: 
-            :param error_message: 
+            '''The encryption configuration details that include the status information of the AWS Key Management Service ( AWS KMS ) key and the AWS KMS access role.
+
+            :param configuration_status: The health status of KMS key and AWS KMS access role. If either KMS key or AWS KMS access role is ``UNHEALTHY`` , the return value will be ``UNHEALTHY`` . To use a customer managed KMS key, the value of ``configurationStatus`` must be ``HEALTHY`` .
+            :param error_code: The error code that indicates either the KMS key or the AWS KMS access role is ``UNHEALTHY`` . Valid values: ``KMS_KEY_VALIDATION_ERROR`` and ``ROLE_VALIDATION_ERROR`` .
+            :param error_message: The detailed error message that corresponds to the ``errorCode`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html
             :exampleMetadata: fixture=_generated
@@ -5908,7 +5916,10 @@ class CfnEncryptionConfiguration(
 
         @builtins.property
         def configuration_status(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The health status of KMS key and AWS KMS access role.
+
+            If either KMS key or AWS KMS access role is ``UNHEALTHY`` , the return value will be ``UNHEALTHY`` . To use a customer managed KMS key, the value of ``configurationStatus`` must be ``HEALTHY`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-configurationstatus
             '''
             result = self._values.get("configuration_status")
@@ -5916,7 +5927,10 @@ class CfnEncryptionConfiguration(
 
         @builtins.property
         def error_code(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The error code that indicates either the KMS key or the AWS KMS access role is ``UNHEALTHY`` .
+
+            Valid values: ``KMS_KEY_VALIDATION_ERROR`` and ``ROLE_VALIDATION_ERROR`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-errorcode
             '''
             result = self._values.get("error_code")
@@ -5924,7 +5938,8 @@ class CfnEncryptionConfiguration(
 
         @builtins.property
         def error_message(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The detailed error message that corresponds to the ``errorCode`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-errormessage
             '''
             result = self._values.get("error_message")
@@ -5961,9 +5976,9 @@ class CfnEncryptionConfigurationProps:
     ) -> None:
         '''Properties for defining a ``CfnEncryptionConfiguration``.
 
-        :param encryption_type: 
-        :param kms_access_role_arn: 
-        :param kms_key_arn: 
+        :param encryption_type: The type of the KMS key.
+        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
+        :param kms_key_arn: The ARN of the customer managed KMS key.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
         :exampleMetadata: fixture=_generated
@@ -5997,7 +6012,8 @@ class CfnEncryptionConfigurationProps:
 
     @builtins.property
     def encryption_type(self) -> builtins.str:
-        '''
+        '''The type of the KMS key.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-encryptiontype
         '''
         result = self._values.get("encryption_type")
@@ -6006,7 +6022,8 @@ class CfnEncryptionConfigurationProps:
 
     @builtins.property
     def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmsaccessrolearn
         '''
         result = self._values.get("kms_access_role_arn")
@@ -6014,7 +6031,8 @@ class CfnEncryptionConfigurationProps:
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The ARN of the customer managed KMS key.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")

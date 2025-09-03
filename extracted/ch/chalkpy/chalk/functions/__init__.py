@@ -4174,8 +4174,8 @@ def inference(model: ModelReference, inputs: list[Underscore | Any]) -> Undersco
     >>> from chalk.features import _, features
     >>> from chalk.models import ModelReference
     >>> user_churn_risk = ModelReference.from(name="user_churn_model", version=1)
-    ...
-    ... @features
+    >>>
+    >>> @features
     ... class User:
     ...    id: str
     ...    a: float
@@ -5307,6 +5307,7 @@ __all__ = (
     "h3_lat_lon_to_cell",
     "h3_cell_to_lat_lon",
     "if_then_else",
+    "inference",
     "is_leap_year",
     "is_month_end",
     "is_null",

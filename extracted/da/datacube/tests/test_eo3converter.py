@@ -5,21 +5,27 @@
 # pylint: disable=unused-argument,unused-variable,missing-module-docstring,wrong-import-position,import-error
 # pylint: disable=redefined-outer-name,protected-access,import-outside-toplevel
 
-import os
+import math
 import uuid
 from typing import Any
 
 import pystac
 import pytest
-from affine import Affine
 from odc.geo.geom import Geometry
+from odc.stac import load
 from odc.stac._mdtools import RasterCollectionMetadata, has_proj_ext, has_raster_ext
 from pystac.extensions.eo import EOExtension
 from pystac.extensions.item_assets import ItemAssetsExtension
 from pystac.extensions.projection import ProjectionExtension
 from toolz import dicttoolz
 
-from datacube.metadata import ds2stac, infer_dc_product, stac2ds
+from datacube.metadata import (
+    ds2stac,
+    ds_doc_to_stac,
+    infer_dc_product,
+    infer_eo3_product,
+    stac2ds,
+)
 from datacube.metadata._eo3converter import _compute_uuid, _item_to_ds
 from datacube.model import Dataset, Product
 from datacube.testutils.io import native_geobox
@@ -281,9 +287,12 @@ def test_accessories(sentinel_stac_ms: pystac.Item) -> None:
     assert set(ds.metadata_doc["accessories"].keys()) == set(expected_accs)
 
 
-def test_ds2stac(eo3_dataset: Dataset):
-    assert eo3_dataset.uri is not None
-    output_stac = ds2stac(eo3_dataset).to_dict()
+def test_ds2stac(eo3_dataset: Dataset) -> None:
+    output_stac = ds2stac(
+        eo3_dataset,
+        self_url="https://localhost/stac/eo3_dataset.json",
+        base_url="https://localhost/",
+    ).to_dict()
     assert output_stac["properties"]["instruments"] == ["oli", "tirs"]
     assert set(output_stac["assets"].keys()) == set(
         list(eo3_dataset.measurements.keys()) + list(eo3_dataset.accessories.keys())
@@ -291,32 +300,14 @@ def test_ds2stac(eo3_dataset: Dataset):
     assert output_stac["links"] == [
         {
             "rel": "self",
-            "href": os.path.abspath(eo3_dataset.uri).replace(
-                "odc-metadata.yaml", "stac-item.json"
-            ),
-            "type": "application/json",
-        },
-        {
-            "rel": "odc_yaml",
-            "href": eo3_dataset.uri,
-            "type": "text/yaml",
-            "title": "ODC Dataset YAML",
-        },
-    ]
-
-
-def test_ds2stac_links(eo3_dataset: Dataset):
-    eo3_dataset.uri = None
-    output_stac = ds2stac(
-        eo3_dataset,
-        self_url="https://localhost/stac/eo3_dataset.json",
-        stac_url="https://localhost/",
-    ).to_dict()
-    assert output_stac["links"] == [
-        {
-            "rel": "self",
             "href": "https://localhost/stac/eo3_dataset.json",
             "type": "application/json",
+        },
+        {
+            "title": "ODC Dataset YAML",
+            "rel": "odc_yaml",
+            "href": f"https://localhost/dataset/{eo3_dataset.id}.odc-metadata.yaml",
+            "type": "text/yaml",
         },
         {
             "rel": "collection",
@@ -337,7 +328,7 @@ def test_ds2stac_links(eo3_dataset: Dataset):
     ]
 
 
-def test_sources(ds_legacy_sources: Dataset, ds_ext_lineage: Dataset):
+def test_sources(ds_legacy_sources: Dataset, ds_ext_lineage: Dataset) -> None:
     assert ds2stac(ds_legacy_sources).to_dict()["properties"]["odc:lineage"] == {
         "level1": ["b5f234fe-bba8-5483-9bc0-250360d429cf"]
     }
@@ -346,9 +337,11 @@ def test_sources(ds_legacy_sources: Dataset, ds_ext_lineage: Dataset):
     }
 
 
-def test_roundtrip(eo3_dataset: Dataset, eo3_product: Product):
+def test_roundtrip(eo3_dataset: Dataset, eo3_product: Product) -> None:
     original = eo3_dataset
-    roundtrip = _item_to_ds(ds2stac(eo3_dataset), eo3_product)
+    roundtrip = _item_to_ds(
+        ds2stac(eo3_dataset, base_url="https://localhost/"), eo3_product
+    )
     orig_doc = original.metadata_doc
     rt_doc = roundtrip.metadata_doc
 
@@ -359,18 +352,17 @@ def test_roundtrip(eo3_dataset: Dataset, eo3_product: Product):
     assert (
         list(roundtrip.grids["default"]["shape"]) == original.grids["default"]["shape"]
     )
-    # assert list(roundtrip.grids["default"]["transform"]) == original.grids["default"]["transform"][:6]
     assert (
-        roundtrip.grids["default"]["transform"]
-        == Affine(*original.grids["default"]["transform"]).to_shapely()
+        list(roundtrip.grids["default"]["transform"])
+        == original.grids["default"]["transform"][:6]
     )
     # there's no way to conserve grid names when converting to stac, but values should still be the same
     assert (
         list(roundtrip.grids["g15"]["shape"]) == original.grids["panchromatic"]["shape"]
     )
     assert (
-        roundtrip.grids["g15"]["transform"]
-        == Affine(*original.grids["panchromatic"]["transform"]).to_shapely()
+        list(roundtrip.grids["g15"]["transform"])
+        == original.grids["panchromatic"]["transform"][:6]
     )
 
     assert roundtrip.crs == original.crs
@@ -385,3 +377,76 @@ def test_roundtrip(eo3_dataset: Dataset, eo3_product: Product):
     assert set(roundtrip.measurements.keys()) == set(original.measurements.keys())
     assert roundtrip.measurements["nbar_panchromatic"]["grid"] == "g15"
     assert set(roundtrip.accessories.keys()) == set(original.accessories.keys())
+
+
+def test_infer_eo3_product(odc_dataset_doc) -> None:
+    product = infer_eo3_product(odc_dataset_doc)
+    assert product.definition == {
+        "name": "ga_ls8c_ard_3",
+        "metadata_type": "eo3",
+        "metadata": {"product": {"name": "ga_ls8c_ard_3"}},
+        "measurements": [
+            {"name": "nbar_blue"},
+            {"name": "nbar_coastal_aerosol"},
+            {"name": "nbar_green"},
+            {"name": "nbar_nir"},
+            {"name": "nbar_panchromatic"},
+            {"name": "nbar_red"},
+            {"name": "nbar_swir_1"},
+            {"name": "nbar_swir_2"},
+            {"name": "nbart_blue"},
+            {"name": "nbart_coastal_aerosol"},
+            {"name": "nbart_green"},
+            {"name": "nbart_nir"},
+            {"name": "nbart_panchromatic"},
+            {"name": "nbart_red"},
+            {"name": "nbart_swir_1"},
+            {"name": "nbart_swir_2"},
+            {"name": "oa_azimuthal_exiting"},
+            {"name": "oa_azimuthal_incident"},
+            {"name": "oa_combined_terrain_shadow"},
+            {"name": "oa_exiting_angle"},
+            {"name": "oa_fmask"},
+            {"name": "oa_incident_angle"},
+            {"name": "oa_nbar_contiguity"},
+            {"name": "oa_nbart_contiguity"},
+            {"name": "oa_relative_azimuth"},
+            {"name": "oa_relative_slope"},
+            {"name": "oa_satellite_azimuth"},
+            {"name": "oa_satellite_view"},
+            {"name": "oa_solar_azimuth"},
+            {"name": "oa_solar_zenith"},
+            {"name": "oa_time_delta"},
+        ],
+    }
+
+
+def test_dsdoc_to_stac(odc_dataset_doc, eo3_dataset) -> None:
+    from_doc = ds_doc_to_stac(odc_dataset_doc)
+    from_ds = ds2stac(eo3_dataset)
+    assert from_doc.to_dict() == from_ds.to_dict()
+
+
+def test_s1_nrb(s1_nrb_stac, s1_nrb_product) -> None:
+    # simulate loading an indexed stac dataset by converting it to eo3 then back to stac
+    eo3_ds = next(
+        iter(
+            stac2ds([s1_nrb_stac], product_cache={"ga_s1_nrb_iw_hh_0": s1_nrb_product})
+        )
+    )
+    dc_stac = ds2stac(eo3_ds)
+    assert (
+        "https://stac-extensions.github.io/sat/v1.0.0/schema.json"
+        in dc_stac.stac_extensions
+    )
+    assert (
+        "https://stac-extensions.github.io/sar/v1.0.0/schema.json"
+        in dc_stac.stac_extensions
+    )
+    stac_ds = load(
+        [dc_stac],
+        crs="EPSG:32753",
+        resolution=20,
+        bbox=(137.26307, -7.45486, 137.32457, -7.41362),
+    )
+    assert not math.isnan(stac_ds.VV_gamma0.data[0][0][0])

@@ -1,7 +1,7 @@
 from sempy._utils._log import log
 import pandas as pd
 from typing import Optional, List
-from ._helper_functions import (
+from sempy_labs._helper_functions import (
     resolve_workspace_name_and_id,
     resolve_item_name_and_id,
     _update_dataframe_datatypes,
@@ -21,6 +21,8 @@ def list_item_job_instances(
     Returns a list of job instances for the specified item.
 
     This is a wrapper function for the following API: `Job Scheduler - List Item Job Instances <https://learn.microsoft.com/rest/api/fabric/core/job-scheduler/list-item-job-instances>`_.
+
+    Service Principal Authentication is supported (see `here <https://github.com/microsoft/semantic-link-labs/blob/main/notebooks/Service%20Principal.ipynb>`_ for examples).
 
     Parameters
     ----------
@@ -62,6 +64,7 @@ def list_item_job_instances(
     responses = _base_api(
         request=f"v1/workspaces/{workspace_id}/items/{item_id}/jobs/instances",
         uses_pagination=True,
+        client="fabric_sp",
     )
 
     if not responses[0].get("value"):
@@ -185,6 +188,9 @@ def list_item_schedules(
         "Times": "string",
         "Owner Id": "string",
         "Owner Type": "string",
+        "Recurrence": "int",
+        "Occurrence Type": "string",
+        "Occurrence Day of Month": "int",
     }
     df = _create_dataframe(columns=columns)
 
@@ -210,6 +216,11 @@ def list_item_schedules(
                 "Times": config.get("times"),
                 "Owner Id": own.get("id"),
                 "Owner Type": own.get("type"),
+                "Recurrence": config.get("recurrence"),
+                "Occurrence Type": config.get("occurence", {}).get("occurrenceType"),
+                "Occurrence Day of Month": config.get("occurrence", {}).get(
+                    "dayOfMonth"
+                ),
             }
         )
 

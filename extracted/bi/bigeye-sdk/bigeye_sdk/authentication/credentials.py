@@ -9,7 +9,7 @@ from bigeye_sdk.functions.aws import get_secret
 
 from bigeye_sdk.log import get_logger
 
-log = get_logger(__file__)
+log = get_logger(__name__)
 
 
 class Credential(abc.ABC):

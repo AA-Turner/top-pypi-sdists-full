@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
+from langgraph_api.api.a2a import a2a_routes
 from langgraph_api.api.assistants import assistants_routes
 from langgraph_api.api.mcp import mcp_routes
 from langgraph_api.api.meta import meta_info, meta_metrics
@@ -75,6 +76,8 @@ if HTTP_CONFIG:
         protected_routes.extend(ui_routes)
     if not HTTP_CONFIG.get("disable_mcp"):
         protected_routes.extend(mcp_routes)
+    if not HTTP_CONFIG.get("disable_a2a"):
+        protected_routes.extend(a2a_routes)
 else:
     protected_routes.extend(assistants_routes)
     protected_routes.extend(runs_routes)
@@ -82,6 +85,7 @@ else:
     protected_routes.extend(store_routes)
     protected_routes.extend(ui_routes)
     protected_routes.extend(mcp_routes)
+    protected_routes.extend(a2a_routes)
 
 routes: list[BaseRoute] = []
 user_router = None

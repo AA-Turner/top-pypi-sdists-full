@@ -2506,7 +2506,7 @@ class CfnPortal(
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
-        :param session_logger_arn: 
+        :param session_logger_arn: The ARN of the session logger that is assocaited with the portal.
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
         :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
@@ -2793,6 +2793,7 @@ class CfnPortal(
     @builtins.property
     @jsii.member(jsii_name="sessionLoggerArn")
     def session_logger_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the session logger that is assocaited with the portal.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sessionLoggerArn"))
 
     @session_logger_arn.setter
@@ -2911,7 +2912,7 @@ class CfnPortalProps:
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
-        :param session_logger_arn: 
+        :param session_logger_arn: The ARN of the session logger that is assocaited with the portal.
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
         :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
@@ -3103,7 +3104,8 @@ class CfnPortalProps:
 
     @builtins.property
     def session_logger_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The ARN of the session logger that is assocaited with the portal.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-sessionloggerarn
         '''
         result = self._values.get("session_logger_arn")
@@ -3165,7 +3167,7 @@ class CfnSessionLogger(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger",
 ):
-    '''Definition of AWS::WorkSpacesWeb::SessionLogger Resource Type.
+    '''The session logger resource.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
     :cloudformationResource: AWS::WorkSpacesWeb::SessionLogger
@@ -3224,11 +3226,11 @@ class CfnSessionLogger(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param event_filter: 
-        :param log_configuration: 
-        :param additional_encryption_context: 
-        :param customer_managed_key: 
-        :param display_name: 
+        :param event_filter: The filter that specifies which events to monitor.
+        :param log_configuration: The configuration that specifies where logs are fowarded.
+        :param additional_encryption_context: The additional encryption context of the session logger.
+        :param customer_managed_key: The custom managed key of the session logger.
+        :param display_name: The human-readable display name.
         :param tags: 
         '''
         if __debug__:
@@ -3279,7 +3281,8 @@ class CfnSessionLogger(
     @builtins.property
     @jsii.member(jsii_name="attrAssociatedPortalArns")
     def attr_associated_portal_arns(self) -> typing.List[builtins.str]:
-        '''
+        '''The associated portal ARN.
+
         :cloudformationAttribute: AssociatedPortalArns
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedPortalArns"))
@@ -3287,7 +3290,8 @@ class CfnSessionLogger(
     @builtins.property
     @jsii.member(jsii_name="attrCreationDate")
     def attr_creation_date(self) -> builtins.str:
-        '''
+        '''The date the session logger resource was created.
+
         :cloudformationAttribute: CreationDate
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
@@ -3295,7 +3299,8 @@ class CfnSessionLogger(
     @builtins.property
     @jsii.member(jsii_name="attrSessionLoggerArn")
     def attr_session_logger_arn(self) -> builtins.str:
-        '''
+        '''The ARN of the session logger resource.
+
         :cloudformationAttribute: SessionLoggerArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrSessionLoggerArn"))
@@ -3316,6 +3321,7 @@ class CfnSessionLogger(
     def event_filter(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"]:
+        '''The filter that specifies which events to monitor.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"], jsii.get(self, "eventFilter"))
 
     @event_filter.setter
@@ -3333,6 +3339,7 @@ class CfnSessionLogger(
     def log_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"]:
+        '''The configuration that specifies where logs are fowarded.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"], jsii.get(self, "logConfiguration"))
 
     @log_configuration.setter
@@ -3350,6 +3357,7 @@ class CfnSessionLogger(
     def additional_encryption_context(
         self,
     ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The additional encryption context of the session logger.'''
         return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
@@ -3365,6 +3373,7 @@ class CfnSessionLogger(
     @builtins.property
     @jsii.member(jsii_name="customerManagedKey")
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The custom managed key of the session logger.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedKey"))
 
     @customer_managed_key.setter
@@ -3377,6 +3386,7 @@ class CfnSessionLogger(
     @builtins.property
     @jsii.member(jsii_name="displayName")
     def display_name(self) -> typing.Optional[builtins.str]:
+        '''The human-readable display name.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
 
     @display_name.setter
@@ -3410,9 +3420,10 @@ class CfnSessionLogger(
             all: typing.Any = None,
             include: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param all: 
-            :param include: 
+            '''The filter that specifies the events to monitor.
+
+            :param all: The filter that monitors all of the available events, including any new events emitted in the future.
+            :param include: The filter that monitors only the listed set of events. New events are not auto-monitored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html
             :exampleMetadata: fixture=_generated
@@ -3442,7 +3453,8 @@ class CfnSessionLogger(
 
         @builtins.property
         def all(self) -> typing.Any:
-            '''
+            '''The filter that monitors all of the available events, including any new events emitted in the future.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html#cfn-workspacesweb-sessionlogger-eventfilter-all
             '''
             result = self._values.get("all")
@@ -3450,7 +3462,10 @@ class CfnSessionLogger(
 
         @builtins.property
         def include(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The filter that monitors only the listed set of events.
+
+            New events are not auto-monitored.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html#cfn-workspacesweb-sessionlogger-eventfilter-include
             '''
             result = self._values.get("include")
@@ -3478,8 +3493,9 @@ class CfnSessionLogger(
             *,
             s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.S3LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param s3: 
+            '''The configuration of the log.
+
+            :param s3: The configuration for delivering the logs to S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-logconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3513,7 +3529,8 @@ class CfnSessionLogger(
         def s3(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.S3LogConfigurationProperty"]]:
-            '''
+            '''The configuration for delivering the logs to S3.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-logconfiguration.html#cfn-workspacesweb-sessionlogger-logconfiguration-s3
             '''
             result = self._values.get("s3")
@@ -3551,12 +3568,13 @@ class CfnSessionLogger(
             bucket_owner: typing.Optional[builtins.str] = None,
             key_prefix: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param bucket: 
-            :param folder_structure: 
-            :param log_file_format: 
-            :param bucket_owner: 
-            :param key_prefix: 
+            '''The S3 log configuration.
+
+            :param bucket: The S3 bucket name where logs are delivered.
+            :param folder_structure: The folder structure that defines the organizational structure for log files in S3.
+            :param log_file_format: The format of the LogFile that is written to S3.
+            :param bucket_owner: The expected bucket owner of the target S3 bucket. The caller must have permissions to write to the target bucket.
+            :param key_prefix: The S3 path prefix that determines where log files are stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3596,7 +3614,8 @@ class CfnSessionLogger(
 
         @builtins.property
         def bucket(self) -> builtins.str:
-            '''
+            '''The S3 bucket name where logs are delivered.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-bucket
             '''
             result = self._values.get("bucket")
@@ -3605,7 +3624,8 @@ class CfnSessionLogger(
 
         @builtins.property
         def folder_structure(self) -> builtins.str:
-            '''
+            '''The folder structure that defines the organizational structure for log files in S3.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-folderstructure
             '''
             result = self._values.get("folder_structure")
@@ -3614,7 +3634,8 @@ class CfnSessionLogger(
 
         @builtins.property
         def log_file_format(self) -> builtins.str:
-            '''
+            '''The format of the LogFile that is written to S3.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-logfileformat
             '''
             result = self._values.get("log_file_format")
@@ -3623,7 +3644,10 @@ class CfnSessionLogger(
 
         @builtins.property
         def bucket_owner(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The expected bucket owner of the target S3 bucket.
+
+            The caller must have permissions to write to the target bucket.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-bucketowner
             '''
             result = self._values.get("bucket_owner")
@@ -3631,7 +3655,8 @@ class CfnSessionLogger(
 
         @builtins.property
         def key_prefix(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The S3 path prefix that determines where log files are stored.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-keyprefix
             '''
             result = self._values.get("key_prefix")
@@ -3674,11 +3699,11 @@ class CfnSessionLoggerProps:
     ) -> None:
         '''Properties for defining a ``CfnSessionLogger``.
 
-        :param event_filter: 
-        :param log_configuration: 
-        :param additional_encryption_context: 
-        :param customer_managed_key: 
-        :param display_name: 
+        :param event_filter: The filter that specifies which events to monitor.
+        :param log_configuration: The configuration that specifies where logs are fowarded.
+        :param additional_encryption_context: The additional encryption context of the session logger.
+        :param customer_managed_key: The custom managed key of the session logger.
+        :param display_name: The human-readable display name.
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
@@ -3746,7 +3771,8 @@ class CfnSessionLoggerProps:
     def event_filter(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty]:
-        '''
+        '''The filter that specifies which events to monitor.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-eventfilter
         '''
         result = self._values.get("event_filter")
@@ -3757,7 +3783,8 @@ class CfnSessionLoggerProps:
     def log_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty]:
-        '''
+        '''The configuration that specifies where logs are fowarded.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-logconfiguration
         '''
         result = self._values.get("log_configuration")
@@ -3768,7 +3795,8 @@ class CfnSessionLoggerProps:
     def additional_encryption_context(
         self,
     ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''
+        '''The additional encryption context of the session logger.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
@@ -3776,7 +3804,8 @@ class CfnSessionLoggerProps:
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The custom managed key of the session logger.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-customermanagedkey
         '''
         result = self._values.get("customer_managed_key")
@@ -3784,7 +3813,8 @@ class CfnSessionLoggerProps:
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The human-readable display name.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-displayname
         '''
         result = self._values.get("display_name")

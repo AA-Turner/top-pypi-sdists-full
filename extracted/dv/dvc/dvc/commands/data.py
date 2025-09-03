@@ -10,6 +10,7 @@ from dvc.ui import ui
 from dvc.utils import colorize
 
 if TYPE_CHECKING:
+    from dvc.repo.data import GitInfo
     from dvc.repo.data import Status as DataStatus
 
 
@@ -55,20 +56,15 @@ class CmdDataStatus(CmdBase):
     def _process_status(status: "DataStatus"):
         """Flatten stage status, and filter empty stage status contents."""
         for stage, stage_status in status.items():
-            items = stage_status
-            if isinstance(stage_status, dict):
-                items = {
-                    file: state
-                    for state, files in stage_status.items()
-                    for file in files
-                }
-            if not items:
+            if not stage_status or (
+                isinstance(stage_status, dict) and not any(stage_status.values())
+            ):
                 continue
-            yield stage, items
+            yield stage, stage_status
 
     @classmethod
     def _show_status(cls, status: "DataStatus") -> int:  # noqa: C901
-        git_info = status.pop("git")  # type: ignore[misc]
+        git_info: GitInfo = status.pop("git")  # type: ignore[misc]
         result = dict(cls._process_status(status))
         if not result:
             no_changes = "No changes"
@@ -90,7 +86,16 @@ class CmdDataStatus(CmdBase):
                     ui.write(f"  ({hint})")
 
             if isinstance(stage_status, dict):
-                items = [f"{state}: {file}" for file, state in stage_status.items()]
+                items = [
+                    f"{state}: "
+                    + (
+                        " -> ".join(change.values())
+                        if isinstance(change, dict)
+                        else change
+                    )
+                    for state, changes in stage_status.items()
+                    for change in changes
+                ]
             else:
                 items = stage_status
 
@@ -111,6 +116,7 @@ class CmdDataStatus(CmdBase):
                 targets=self.args.targets,
                 granular=self.args.granular,
                 untracked_files=self.args.untracked_files,
+                remote=self.args.remote,
                 not_in_remote=self.args.not_in_remote,
                 remote_refresh=self.args.remote_refresh,
             )
@@ -127,9 +133,12 @@ class CmdDataStatus(CmdBase):
 
 
 def add_parser(subparsers, parent_parser):
+    data_help = "Commands related to data management."
     data_parser = subparsers.add_parser(
         "data",
         parents=[parent_parser],
+        description=append_doc_link(data_help, "data/status"),
+        help=data_help,
         formatter_class=formatter.RawDescriptionHelpFormatter,
     )
     data_subparsers = data_parser.add_subparsers(
@@ -182,6 +191,12 @@ def add_parser(subparsers, parent_parser):
         nargs="?",
         help="Show untracked files.",
     )
+    data_status_parser.add_argument(
+        "-r",
+        "--remote",
+        help="Remote storage to check (only applicable with --not-in-remote).",
+        metavar="<name>",
+    ).complete = completion.REMOTE
     data_status_parser.add_argument(
         "--not-in-remote",
         action="store_true",

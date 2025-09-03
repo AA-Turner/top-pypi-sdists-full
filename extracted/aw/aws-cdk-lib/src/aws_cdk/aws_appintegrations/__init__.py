@@ -147,7 +147,7 @@ class CfnApplication(
         :param application_config: 
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
-        :param is_service: Indicates if the application is a service. Default: - false
+        :param is_service: Indicates whether the application is a service. Default: - false
         :param permissions: The configuration of events or requests that the application has access to.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
@@ -338,7 +338,7 @@ class CfnApplication(
     def is_service(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates if the application is a service.'''
+        '''Indicates whether the application is a service.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "isService"))
 
     @is_service.setter
@@ -731,7 +731,7 @@ class CfnApplicationProps:
         :param application_config: 
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
-        :param is_service: Indicates if the application is a service. Default: - false
+        :param is_service: Indicates whether the application is a service. Default: - false
         :param permissions: The configuration of events or requests that the application has access to.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
 
@@ -884,7 +884,7 @@ class CfnApplicationProps:
     def is_service(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates if the application is a service.
+        '''Indicates whether the application is a service.
 
         :default: - false
 

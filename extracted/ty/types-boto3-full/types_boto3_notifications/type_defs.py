@@ -30,7 +30,9 @@ from .literals import (
     EventRuleStatusType,
     EventStatusType,
     LocaleCodeType,
+    MemberAccountNotificationConfigurationStatusType,
     NotificationConfigurationStatusType,
+    NotificationConfigurationSubtypeType,
     NotificationHubStatusType,
     NotificationTypeType,
     TextPartTypeType,
@@ -55,6 +57,7 @@ __all__ = (
     "AssociateChannelRequestTypeDef",
     "AssociateManagedNotificationAccountContactRequestTypeDef",
     "AssociateManagedNotificationAdditionalChannelRequestTypeDef",
+    "AssociateOrganizationalUnitRequestTypeDef",
     "CreateEventRuleRequestTypeDef",
     "CreateEventRuleResponseTypeDef",
     "CreateNotificationConfigurationRequestTypeDef",
@@ -67,6 +70,7 @@ __all__ = (
     "DisassociateChannelRequestTypeDef",
     "DisassociateManagedNotificationAccountContactRequestTypeDef",
     "DisassociateManagedNotificationAdditionalChannelRequestTypeDef",
+    "DisassociateOrganizationalUnitRequestTypeDef",
     "EventRuleStatusSummaryTypeDef",
     "EventRuleStructureTypeDef",
     "GetEventRuleRequestTypeDef",
@@ -100,6 +104,9 @@ __all__ = (
     "ListManagedNotificationEventsRequestPaginateTypeDef",
     "ListManagedNotificationEventsRequestTypeDef",
     "ListManagedNotificationEventsResponseTypeDef",
+    "ListMemberAccountsRequestPaginateTypeDef",
+    "ListMemberAccountsRequestTypeDef",
+    "ListMemberAccountsResponseTypeDef",
     "ListNotificationConfigurationsRequestPaginateTypeDef",
     "ListNotificationConfigurationsRequestTypeDef",
     "ListNotificationConfigurationsResponseTypeDef",
@@ -109,6 +116,9 @@ __all__ = (
     "ListNotificationHubsRequestPaginateTypeDef",
     "ListNotificationHubsRequestTypeDef",
     "ListNotificationHubsResponseTypeDef",
+    "ListOrganizationalUnitsRequestPaginateTypeDef",
+    "ListOrganizationalUnitsRequestTypeDef",
+    "ListOrganizationalUnitsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ManagedNotificationChannelAssociationSummaryTypeDef",
@@ -121,6 +131,7 @@ __all__ = (
     "ManagedNotificationEventTypeDef",
     "ManagedSourceEventMetadataSummaryTypeDef",
     "MediaElementTypeDef",
+    "MemberAccountTypeDef",
     "MessageComponentsSummaryTypeDef",
     "MessageComponentsTypeDef",
     "NotificationConfigurationStructureTypeDef",
@@ -179,6 +190,11 @@ class AssociateManagedNotificationAccountContactRequestTypeDef(TypedDict):
 class AssociateManagedNotificationAdditionalChannelRequestTypeDef(TypedDict):
     channelArn: str
     managedNotificationConfigurationArn: str
+
+
+class AssociateOrganizationalUnitRequestTypeDef(TypedDict):
+    organizationalUnitId: str
+    notificationConfigurationArn: str
 
 
 class CreateEventRuleRequestTypeDef(TypedDict):
@@ -244,6 +260,11 @@ class DisassociateManagedNotificationAccountContactRequestTypeDef(TypedDict):
 class DisassociateManagedNotificationAdditionalChannelRequestTypeDef(TypedDict):
     channelArn: str
     managedNotificationConfigurationArn: str
+
+
+class DisassociateOrganizationalUnitRequestTypeDef(TypedDict):
+    organizationalUnitId: str
+    notificationConfigurationArn: str
 
 
 class GetEventRuleRequestTypeDef(TypedDict):
@@ -322,10 +343,28 @@ class ManagedNotificationConfigurationStructureTypeDef(TypedDict):
     description: str
 
 
+class ListMemberAccountsRequestTypeDef(TypedDict):
+    notificationConfigurationArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    memberAccount: NotRequired[str]
+    status: NotRequired[MemberAccountNotificationConfigurationStatusType]
+    organizationalUnitId: NotRequired[str]
+
+
+class MemberAccountTypeDef(TypedDict):
+    accountId: str
+    status: MemberAccountNotificationConfigurationStatusType
+    statusReason: str
+    organizationalUnitId: str
+    notificationConfigurationArn: NotRequired[str]
+
+
 class ListNotificationConfigurationsRequestTypeDef(TypedDict):
     eventRuleSource: NotRequired[str]
     channelArn: NotRequired[str]
     status: NotRequired[NotificationConfigurationStatusType]
+    subtype: NotRequired[NotificationConfigurationSubtypeType]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -337,9 +376,16 @@ class NotificationConfigurationStructureTypeDef(TypedDict):
     status: NotificationConfigurationStatusType
     creationTime: datetime
     aggregationDuration: NotRequired[AggregationDurationType]
+    subtype: NotRequired[NotificationConfigurationSubtypeType]
 
 
 class ListNotificationHubsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListOrganizationalUnitsRequestTypeDef(TypedDict):
+    notificationConfigurationArn: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -489,11 +535,18 @@ class GetNotificationConfigurationResponseTypeDef(TypedDict):
     status: NotificationConfigurationStatusType
     creationTime: datetime
     aggregationDuration: AggregationDurationType
+    subtype: NotificationConfigurationSubtypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListChannelsResponseTypeDef(TypedDict):
     channels: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListOrganizationalUnitsResponseTypeDef(TypedDict):
+    organizationalUnits: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -568,14 +621,28 @@ class ListManagedNotificationConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListMemberAccountsRequestPaginateTypeDef(TypedDict):
+    notificationConfigurationArn: str
+    memberAccount: NotRequired[str]
+    status: NotRequired[MemberAccountNotificationConfigurationStatusType]
+    organizationalUnitId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListNotificationConfigurationsRequestPaginateTypeDef(TypedDict):
     eventRuleSource: NotRequired[str]
     channelArn: NotRequired[str]
     status: NotRequired[NotificationConfigurationStatusType]
+    subtype: NotRequired[NotificationConfigurationSubtypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListNotificationHubsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListOrganizationalUnitsRequestPaginateTypeDef(TypedDict):
+    notificationConfigurationArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -634,6 +701,7 @@ class ListNotificationEventsRequestPaginateTypeDef(TypedDict):
     source: NotRequired[str]
     includeChildEvents: NotRequired[bool]
     aggregateNotificationEventArn: NotRequired[str]
+    organizationalUnitId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -646,10 +714,17 @@ class ListNotificationEventsRequestTypeDef(TypedDict):
     aggregateNotificationEventArn: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    organizationalUnitId: NotRequired[str]
 
 
 class ListManagedNotificationConfigurationsResponseTypeDef(TypedDict):
     managedNotificationConfigurations: List[ManagedNotificationConfigurationStructureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListMemberAccountsResponseTypeDef(TypedDict):
+    memberAccounts: List[MemberAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -767,6 +842,7 @@ class NotificationEventOverviewTypeDef(TypedDict):
     aggregationEventType: NotRequired[AggregationEventTypeType]
     aggregateNotificationEventArn: NotRequired[str]
     aggregationSummary: NotRequired[AggregationSummaryTypeDef]
+    organizationalUnitId: NotRequired[str]
 
 
 NotificationEventTypeDef = TypedDict(
@@ -787,6 +863,7 @@ NotificationEventTypeDef = TypedDict(
         "aggregationSummary": NotRequired[AggregationSummaryTypeDef],
         "startTime": NotRequired[datetime],
         "endTime": NotRequired[datetime],
+        "organizationalUnitId": NotRequired[str],
     },
 )
 

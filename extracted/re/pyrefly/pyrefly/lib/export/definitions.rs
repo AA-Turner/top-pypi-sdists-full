@@ -39,7 +39,7 @@ use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DefinitionStyle {
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     /// We also store what kind of symbol it is
@@ -47,7 +47,9 @@ pub enum DefinitionStyle {
     /// Defined as an implicit global like `__name__`.
     Global,
     /// Imported with an alias, e.g. `from x import y as z`
-    ImportAs(ModuleName),
+    /// Name is the previous name before the alias
+    ImportAs(ModuleName, Name),
+
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`
     ImportAsEq(ModuleName),
     /// Imported from another module, e.g. `from x import y`
@@ -259,7 +261,8 @@ impl<'a> DefinitionsBuilder<'a> {
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
-                e.get_mut().style = cmp::min(e.get().style, style);
+                let style = cmp::min(&e.get().style, &style);
+                e.get_mut().style = style.clone();
                 if e.get().annot.is_none() {
                     e.get_mut().annot = annot;
                 }
@@ -342,7 +345,7 @@ impl<'a> DefinitionsBuilder<'a> {
                             if alias.id == a.name.id {
                                 DefinitionStyle::ImportAsEq(imported_module)
                             } else {
-                                DefinitionStyle::ImportAs(imported_module)
+                                DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
                             },
                         ),
                     };
@@ -373,19 +376,19 @@ impl<'a> DefinitionsBuilder<'a> {
                                 if a.asname.as_ref().map(|x| &x.id) == Some(&a.name.id) {
                                     DefinitionStyle::ImportAsEq(name)
                                 } else if a.asname.is_some() {
-                                    DefinitionStyle::ImportAs(name)
+                                    DefinitionStyle::ImportAs(name, a.name.id.clone())
                                 } else {
                                     DefinitionStyle::Import(name)
                                 }
                             }
                         };
-                        self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
-                        if matches!(style, DefinitionStyle::ImportAsEq(_))
+                        if matches!(&style, &DefinitionStyle::ImportAsEq(_))
                             && a.name.id == dunder::ALL
                             && let Some(module) = name
                         {
                             self.inner.dunder_all = vec![DunderAllEntry::Module(x.range, module)]
                         }
+                        self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
                     }
                 }
             }
@@ -429,13 +432,35 @@ impl<'a> DefinitionsBuilder<'a> {
                     }
                 }
             }
+            Stmt::AnnAssign(x) => {
+                if let Some(value) = &x.value {
+                    self.named_in_expr(value);
+                }
+                if let Some(v) = &x.value
+                    && DunderAllEntry::is_all(&x.target)
+                {
+                    self.inner.dunder_all = DunderAllEntry::as_list(v.as_ref());
+                }
+                match &*x.target {
+                    Expr::Name(x) => {
+                        self.add_name(
+                            &x.id,
+                            x.range,
+                            DefinitionStyle::Local(SymbolKind::Variable),
+                            Some(ShortIdentifier::expr_name(x)),
+                        );
+                    }
+                    _ => self.expr_lvalue(&x.target),
+                }
+            }
             Stmt::AugAssign(x) => {
                 self.named_in_expr(&x.value);
                 if DunderAllEntry::is_all(&x.target) && x.op == Operator::Add {
                     self.inner
                         .dunder_all
                         .extend(DunderAllEntry::as_list(&x.value));
-                } else if let Expr::Name(name) = &*x.target {
+                }
+                if let Expr::Name(name) = &*x.target {
                     self.add_name(
                         &name.id,
                         name.range,
@@ -477,22 +502,6 @@ impl<'a> DefinitionsBuilder<'a> {
                         }
                         _ => {}
                     }
-                }
-            }
-            Stmt::AnnAssign(x) => {
-                if let Some(value) = &x.value {
-                    self.named_in_expr(value);
-                }
-                match &*x.target {
-                    Expr::Name(x) => {
-                        self.add_name(
-                            &x.id,
-                            x.range,
-                            DefinitionStyle::Local(SymbolKind::Variable),
-                            Some(ShortIdentifier::expr_name(x)),
-                        );
-                    }
-                    _ => self.expr_lvalue(&x.target),
                 }
             }
             Stmt::TypeAlias(x) => {
@@ -838,6 +847,23 @@ __all__.remove('r')
             defs.dunder_all.map(|x| x),
             vec![a, b, a, b, foo, a, b, foo, a, r]
         );
+    }
+
+    #[test]
+    fn test_all_annotated() {
+        let defs = calculate_unranged_definitions_with_defaults(
+            r#"
+from foo import *
+a = 1
+b = 1
+__all__: list[str] = ["a", "b"]
+        "#,
+        );
+        assert_definition_names(&defs, &["a", "b", "__all__"]);
+        let loc = TextRange::default();
+        let a = &DunderAllEntry::Name(loc, Name::new_static("a"));
+        let b = &DunderAllEntry::Name(loc, Name::new_static("b"));
+        assert_eq!(defs.dunder_all.map(|x| x), vec![a, b]);
     }
 
     #[test]

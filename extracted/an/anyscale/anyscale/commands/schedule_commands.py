@@ -9,7 +9,10 @@ import yaml
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
-from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
+from anyscale.commands.util import (
+    AnyscaleCommand,
+    DeprecatedAnyscaleCommand,
+)
 from anyscale.controllers.schedule_controller import ScheduleController
 from anyscale.schedule.models import JobConfig, ScheduleConfig, ScheduleState
 
@@ -94,9 +97,11 @@ def apply(config_file: str, name: Optional[str],) -> None:
 
 @schedule_cli.command(
     name="create",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale schedule",
-    new_cli=apply,
+    help="[DEPRECATED - use 'apply' instead] Create a schedule.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="`anyscale schedule create` has been deprecated",
+    alternative="use `anyscale schedule apply` instead",
 )
 @click.argument("schedule_config_file", required=True)
 @click.option(
@@ -108,13 +113,15 @@ def apply(config_file: str, name: Optional[str],) -> None:
 def create(
     schedule_config_file: str, name: Optional[str], description: Optional[str],
 ) -> None:
-    """ Create or Update a Schedule
+    """Create or Update a Schedule.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale schedule apply' instead.
 
     This function accepts 1 argument, a path to a YAML config file that defines this schedule.
 
     Note: if a schedule with the name exists in the specified project, it will be updated instead.
     """
-    log.warning("DEPRECATED: Use `anyscale schedule apply` instead.")
     job_controller = ScheduleController()
     job_controller.apply(
         schedule_config_file, name, description,
@@ -123,9 +130,11 @@ def create(
 
 @schedule_cli.command(
     name="update",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale schedule",
-    new_cli=apply,
+    help="[DEPRECATED - use 'apply' instead] Update a schedule.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="`anyscale schedule update` has been deprecated",
+    alternative="use `anyscale schedule apply` instead",
 )
 @click.argument("schedule_config_file", required=True)
 @click.option(
@@ -137,11 +146,13 @@ def create(
 def update(
     schedule_config_file: str, name: Optional[str], description: Optional[str],
 ) -> None:
-    """ Create or Update a Schedule
+    """Create or Update a Schedule.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale schedule apply' instead.
 
     This function accepts 1 argument, a path to a YAML config file that defines this schedule.
     """
-    log.warning("DEPRECATED: Use `anyscale schedule apply` instead.")
     job_controller = ScheduleController()
     job_controller.apply(
         schedule_config_file, name, description,

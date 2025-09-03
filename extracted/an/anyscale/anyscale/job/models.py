@@ -269,7 +269,7 @@ config = JobConfig(
     name="my-job",
     entrypoint="python main.py",
     max_retries=1,
-    # An inline `ComputeConfig` or `MultiDeploymentComputeConfig` can also be provided.
+    # An inline `ComputeConfig` or `MultiResourceComputeConfig` can also be provided.
     compute_config="my-compute-config:1",
     # A containerfile path can also be provided.
     image_uri="anyscale/image/my-image:1",

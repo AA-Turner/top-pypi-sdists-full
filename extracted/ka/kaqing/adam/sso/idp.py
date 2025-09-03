@@ -4,6 +4,7 @@ import os
 import sys
 import termios
 import traceback
+from typing import Callable, TypeVar
 import requests
 from kubernetes import config
 import yaml
@@ -16,9 +17,10 @@ from .idp_login import IdpLogin
 from adam.config import Config
 from adam.utils import log, log2
 
+T = TypeVar('T')
+
 class Idp:
     ctrl_c_entered = False
-    term_moded = False
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -80,27 +82,27 @@ class Idp:
             while password == None or Idp.ctrl_c_entered: # exit the while loop even if password is empty string
                 if Idp.ctrl_c_entered:
                     Idp.ctrl_c_entered = False
-                Idp.set_term_no_limit()
 
                 default_pass = CredCache().get_password() if use_cached_creds else None
                 if default_pass:
                     if forced:
                         password = default_pass
                     else:
-                        password = getpass.getpass(f'Password(default ********): ') or default_pass
+                        password = Idp.with_no_ican(lambda: getpass.getpass(f'Password(default ********): ') or default_pass)
                 else:
-                    password = getpass.getpass(f'Password: ')
+                    password = Idp.with_no_ican(lambda: getpass.getpass(f'Password: '))
 
             if username and password:
-                if r := Idp.try_kubeconfig(username, password):
-                    log(f"You're signed in as {username}")
+                # if uploading kubeconfig file fails many times, you will be locked out
+                # kubeconfig file content has first char as tab and length of bigger than 128
+                if password[0] == '\t' or len(password) > Config().get('app.login.password-max-length', 128):
+                    if r := Idp.try_kubeconfig(username, password):
+                        log(f"You're signed in as {username}")
+                        return r
+                else:
+                    if r := session.authenticator.authenticate(session.idp_uri, app_host, username, password):
+                        log(f"You're signed in as {username}")
                     return r
-
-                r = session.authenticator.authenticate(session.idp_uri, app_host, username, password)
-                if r:
-                    log(f"You're signed in as {username}")
-
-                return r
         finally:
             if r and Config().get('app.login.cache-creds', True):
                 CredCache().cache(username, password)
@@ -109,18 +111,22 @@ class Idp:
 
         return None
 
-    def set_term_no_limit():
-        if not Idp.term_moded:
-            # override 4096 character limit with OS terminal
-            fd = sys.stdin.fileno()
-            new = termios.tcgetattr(fd)
-            new[3] = new[3] & ~termios.ICANON
+    def with_no_ican(body: Callable[[], T]) -> T:
+        # override 4096 character limit with OS terminal - stty -noican
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        new = termios.tcgetattr(fd)
+        new[3] = new[3] & ~termios.ICANON
+        try:
             termios.tcsetattr(fd, termios.TCSADRAIN, new)
-
-            Idp.term_moded = True
+            return body()
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
     def try_kubeconfig(username: str, kubeconfig: str):
         try:
+            if kubeconfig[0] == '\t':
+                kubeconfig = kubeconfig[1:]
             kubeconfig_string = base64.b64decode(kubeconfig.encode('ascii') + b'==').decode('utf-8')
             if kubeconfig_string.startswith('apiVersion: '):
                 kubeconfig_dict = yaml.safe_load(kubeconfig_string)

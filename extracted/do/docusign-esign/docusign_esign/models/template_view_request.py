@@ -34,11 +34,13 @@ class TemplateViewRequest(object):
     """
     swagger_types = {
         'return_url': 'str',
+        'settings': 'TemplateViewSettings',
         'view_access': 'str'
     }
 
     attribute_map = {
         'return_url': 'returnUrl',
+        'settings': 'settings',
         'view_access': 'viewAccess'
     }
 
@@ -49,10 +51,12 @@ class TemplateViewRequest(object):
         self._configuration = _configuration
 
         self._return_url = None
+        self._settings = None
         self._view_access = None
         self.discriminator = None
 
         setattr(self, "_{}".format('return_url'), kwargs.get('return_url', None))
+        setattr(self, "_{}".format('settings'), kwargs.get('settings', None))
         setattr(self, "_{}".format('view_access'), kwargs.get('view_access', None))
 
     @property
@@ -77,6 +81,29 @@ class TemplateViewRequest(object):
         """
 
         self._return_url = return_url
+
+    @property
+    def settings(self):
+        """Gets the settings of this TemplateViewRequest.  # noqa: E501
+
+          # noqa: E501
+
+        :return: The settings of this TemplateViewRequest.  # noqa: E501
+        :rtype: TemplateViewSettings
+        """
+        return self._settings
+
+    @settings.setter
+    def settings(self, settings):
+        """Sets the settings of this TemplateViewRequest.
+
+          # noqa: E501
+
+        :param settings: The settings of this TemplateViewRequest.  # noqa: E501
+        :type: TemplateViewSettings
+        """
+
+        self._settings = settings
 
     @property
     def view_access(self):

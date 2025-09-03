@@ -550,12 +550,12 @@ collaborators:
 """
 
 
-CLOUD_DEPLOYMENT_CREATE_EXAMPLE = """\
-$ anyscale cloud deployment create --cloud my-cloud --file new-cloud-deployment.yaml
-Successfully created cloud deployment my-new-deployment in cloud my-cloud.
+CLOUD_RESOURCE_CREATE_EXAMPLE = """\
+$ anyscale cloud resource create --cloud my-cloud --file new-cloud-resource.yaml
+Successfully created cloud resource my-new-resource in cloud my-cloud.
 
-$ cat new-cloud-deployment.yaml
-name: my-new-deployment
+$ cat new-cloud-resource.yaml
+name: my-new-resource
 provider: AWS
 compute_stack: VM
 region: us-west-2
@@ -575,11 +575,11 @@ aws_config:
   memorydb_cluster_name: my-memorydb-cluster
 """
 
-CLOUD_DEPLOYMENT_DELETE_EXAMPLE = """\
-$ anyscale cloud deployment delete --cloud my-cloud --deployment my-deployment
+CLOUD_RESOURCE_DELETE_EXAMPLE = """\
+$ anyscale cloud resource delete --cloud my-cloud --resource my-resource
 Output
-Please confirm that you would like to remove deployment my-deployment from cloud my-cloud. [y/N]: y
-(anyscale +3.5s) Successfully removed deployment my-deployment from cloud my-cloud!
+Please confirm that you would like to remove resource my-resource from cloud my-cloud. [y/N]: y
+(anyscale +3.5s) Successfully removed resource my-resource from cloud my-cloud!
 """
 
 CLOUD_GET_CLOUD_EXAMPLE = """\
@@ -589,7 +589,7 @@ name: my-cloud
 created_at: 2022-10-18 05:12:13.335803+00:00
 is_default: true
 deployments:
-- cloud_deployment_id: cldrsrc_123
+- cloud_resource_id: cldrsrc_123
   name: vm-aws-us-west-2
   provider: AWS
   compute_stack: VM

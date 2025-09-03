@@ -89,6 +89,7 @@ from graphiti_core.utils.maintenance.edge_operations import (
 )
 from graphiti_core.utils.maintenance.graph_data_operations import (
     EPISODE_WINDOW_LEN,
+    build_dynamic_indexes,
     build_indices_and_constraints,
     retrieve_episodes,
 )
@@ -450,6 +451,7 @@ class Graphiti:
 
             validate_excluded_entity_types(excluded_entity_types, entity_types)
             validate_group_id(group_id)
+            await build_dynamic_indexes(self.driver, group_id)
 
             previous_episodes = (
                 await self.retrieve_episodes(
@@ -625,6 +627,7 @@ class Graphiti:
             # if group_id is None, use the default group id by the provider
             group_id = group_id or get_default_group_id(self.driver.provider)
             validate_group_id(group_id)
+            await build_dynamic_indexes(self.driver, group_id)
 
             # Create default edge type map
             edge_type_map_default = (
@@ -1006,6 +1009,8 @@ class Graphiti:
         if edge.fact_embedding is None:
             await edge.generate_embedding(self.embedder)
 
+        await build_dynamic_indexes(self.driver, source_node.group_id)
+
         nodes, uuid_map, _ = await resolve_extracted_nodes(
             self.clients,
             [source_node, target_node],
@@ -1068,7 +1073,7 @@ class Graphiti:
                 if record['episode_count'] == 1:
                     nodes_to_delete.append(node)
 
+        await Edge.delete_by_uuids(self.driver, [edge.uuid for edge in edges_to_delete])
         await Node.delete_by_uuids(self.driver, [node.uuid for node in nodes_to_delete])
 
-        await Edge.delete_by_uuids(self.driver, [edge.uuid for edge in edges_to_delete])
         await episode.delete(self.driver)

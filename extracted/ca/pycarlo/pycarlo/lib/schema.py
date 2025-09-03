@@ -23318,26 +23318,6 @@ class LookerDashboardTileRef(sgqlc.types.Type):
     tile_title = sgqlc.types.Field(String, graphql_name="tileTitle")
 
 
-class MaintenanceWindow(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("id", "start_time", "end_time", "reason", "reason_type")
-    id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="id")
-    """Unique identifier for the maintenance window"""
-
-    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """Start of maintenance window"""
-
-    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
-    """End of maintenance window"""
-
-    reason = sgqlc.types.Field(String, graphql_name="reason")
-    """Reason for maintenance window"""
-
-    reason_type = sgqlc.types.Field(
-        sgqlc.types.non_null(DataMaintenanceReasonType), graphql_name="reasonType"
-    )
-
-
 class ManyToManyChange(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("operation", "object_names")
@@ -75656,7 +75636,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "node_id",
         "is_partial_date_range",
         "freshness",
-        "maintenance_windows",
         "freshness_collection_status",
         "volume_collection_status",
         "is_muted",
@@ -76115,51 +76094,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
 
     * `start_time` (`DateTime!`)None
     * `end_time` (`DateTime`)None
-    """
-
-    maintenance_windows = sgqlc.types.Field(
-        sgqlc.types.list_of(MaintenanceWindow),
-        graphql_name="maintenanceWindows",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                (
-                    "end_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
-                    ),
-                ),
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "metric_type",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DataMaintenanceMetric),
-                        graphql_name="metricType",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """List of exclusion windows. No anomalies will be created during
-    these periods and data points will be ignored for training.
-
-    Arguments:
-
-    * `start_time` (`DateTime!`): Start time of maintenance period
-    * `end_time` (`DateTime!`): End time of maintenance period
-    * `mcon` (`String!`): MC object identifier
-    * `metric_type` (`DataMaintenanceMetric!`)None
     """
 
     freshness_collection_status = sgqlc.types.Field(

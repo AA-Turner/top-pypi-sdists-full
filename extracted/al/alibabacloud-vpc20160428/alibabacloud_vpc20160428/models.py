@@ -15252,6 +15252,8 @@ class CreatePhysicalConnectionOccupancyOrderRequest(TeaModel):
     def __init__(
         self,
         auto_pay: bool = None,
+        auto_renew: bool = None,
+        auto_renew_duration: int = None,
         client_token: str = None,
         instance_charge_type: str = None,
         owner_account: str = None,
@@ -15268,6 +15270,8 @@ class CreatePhysicalConnectionOccupancyOrderRequest(TeaModel):
         # *   **true**: yes Make sure that you have a sufficient balance in your account. Otherwise, your order becomes invalid and is automatically canceled.
         # *   **false**: disables automatic payment. This is the default value.
         self.auto_pay = auto_pay
+        self.auto_renew = auto_renew
+        self.auto_renew_duration = auto_renew_duration
         # The client token that is used to ensure the idempotence of the request.
         # 
         # You can use the client to generate the token, but you must make sure that the token is unique among different requests.
@@ -15312,6 +15316,10 @@ class CreatePhysicalConnectionOccupancyOrderRequest(TeaModel):
         result = dict()
         if self.auto_pay is not None:
             result['AutoPay'] = self.auto_pay
+        if self.auto_renew is not None:
+            result['AutoRenew'] = self.auto_renew
+        if self.auto_renew_duration is not None:
+            result['AutoRenewDuration'] = self.auto_renew_duration
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
         if self.instance_charge_type is not None:
@@ -15338,6 +15346,10 @@ class CreatePhysicalConnectionOccupancyOrderRequest(TeaModel):
         m = m or dict()
         if m.get('AutoPay') is not None:
             self.auto_pay = m.get('AutoPay')
+        if m.get('AutoRenew') is not None:
+            self.auto_renew = m.get('AutoRenew')
+        if m.get('AutoRenewDuration') is not None:
+            self.auto_renew_duration = m.get('AutoRenewDuration')
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
         if m.get('InstanceChargeType') is not None:
@@ -59214,6 +59226,7 @@ class DescribeVirtualBorderRoutersResponseBodyVirtualBorderRouterSetVirtualBorde
         local_ipv_6gateway_ip: str = None,
         min_rx_interval: int = None,
         min_tx_interval: int = None,
+        mtu: int = None,
         name: str = None,
         pconn_vbr_charge_type: str = None,
         pconn_vbr_expire_time: str = None,
@@ -59288,6 +59301,7 @@ class DescribeVirtualBorderRoutersResponseBodyVirtualBorderRouterSetVirtualBorde
         self.min_rx_interval = min_rx_interval
         # The time interval to send Bidirectional Forwarding Detection (BFD) packets. Valid values: **200 to 1000**. Unit: milliseconds.
         self.min_tx_interval = min_tx_interval
+        self.mtu = mtu
         # The VBR name.
         self.name = name
         # The billing method of the VBR. Valid values:
@@ -59416,6 +59430,8 @@ class DescribeVirtualBorderRoutersResponseBodyVirtualBorderRouterSetVirtualBorde
             result['MinRxInterval'] = self.min_rx_interval
         if self.min_tx_interval is not None:
             result['MinTxInterval'] = self.min_tx_interval
+        if self.mtu is not None:
+            result['Mtu'] = self.mtu
         if self.name is not None:
             result['Name'] = self.name
         if self.pconn_vbr_charge_type is not None:
@@ -59504,6 +59520,8 @@ class DescribeVirtualBorderRoutersResponseBodyVirtualBorderRouterSetVirtualBorde
             self.min_rx_interval = m.get('MinRxInterval')
         if m.get('MinTxInterval') is not None:
             self.min_tx_interval = m.get('MinTxInterval')
+        if m.get('Mtu') is not None:
+            self.mtu = m.get('Mtu')
         if m.get('Name') is not None:
             self.name = m.get('Name')
         if m.get('PConnVbrChargeType') is not None:
@@ -92764,6 +92782,7 @@ class ModifyVirtualBorderRouterAttributeRequest(TeaModel):
         local_ipv_6gateway_ip: str = None,
         min_rx_interval: int = None,
         min_tx_interval: int = None,
+        mtu: int = None,
         name: str = None,
         owner_account: str = None,
         owner_id: int = None,
@@ -92821,6 +92840,7 @@ class ModifyVirtualBorderRouterAttributeRequest(TeaModel):
         self.min_rx_interval = min_rx_interval
         # The time interval to send BFD packets. Valid values: **200 to 1000**. Unit: milliseconds.
         self.min_tx_interval = min_tx_interval
+        self.mtu = mtu
         # The name of the VBR.
         # 
         # The name must be 2 to 128 characters in length, and can contain letters, digits, underscores (_), and hyphens (-). The name must start with a letter. It cannot start with `http://` or `https://`.
@@ -92897,6 +92917,8 @@ class ModifyVirtualBorderRouterAttributeRequest(TeaModel):
             result['MinRxInterval'] = self.min_rx_interval
         if self.min_tx_interval is not None:
             result['MinTxInterval'] = self.min_tx_interval
+        if self.mtu is not None:
+            result['Mtu'] = self.mtu
         if self.name is not None:
             result['Name'] = self.name
         if self.owner_account is not None:
@@ -92949,6 +92971,8 @@ class ModifyVirtualBorderRouterAttributeRequest(TeaModel):
             self.min_rx_interval = m.get('MinRxInterval')
         if m.get('MinTxInterval') is not None:
             self.min_tx_interval = m.get('MinTxInterval')
+        if m.get('Mtu') is not None:
+            self.mtu = m.get('Mtu')
         if m.get('Name') is not None:
             self.name = m.get('Name')
         if m.get('OwnerAccount') is not None:

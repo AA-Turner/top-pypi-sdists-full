@@ -56,6 +56,10 @@ pub enum AtomicNarrowOp {
     IsNotInstance(Expr),
     IsSubclass(Expr),
     IsNotSubclass(Expr),
+    HasAttr(Name),
+    NotHasAttr(Name),
+    GetAttr(Name, Option<Box<Expr>>),
+    NotGetAttr(Name, Option<Box<Expr>>),
     TypeGuard(Type, Arguments),
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
@@ -107,6 +111,24 @@ impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
             AtomicNarrowOp::IsSubclass(expr) => write!(f, "IsSubclass({})", expr.display_with(ctx)),
             AtomicNarrowOp::IsNotSubclass(expr) => {
                 write!(f, "IsNotSubclass({})", expr.display_with(ctx))
+            }
+            AtomicNarrowOp::HasAttr(attr) => {
+                write!(f, "HasAttr({})", attr)
+            }
+            AtomicNarrowOp::NotHasAttr(attr) => {
+                write!(f, "NotHasAttr({})", attr)
+            }
+            AtomicNarrowOp::GetAttr(attr, Some(default)) => {
+                write!(f, "GetAttr({}, {})", attr, default.display_with(ctx))
+            }
+            AtomicNarrowOp::NotGetAttr(attr, Some(default)) => {
+                write!(f, "NotGetAttr({}, {})", attr, default.display_with(ctx))
+            }
+            AtomicNarrowOp::GetAttr(attr, None) => {
+                write!(f, "GetAttr({}, None)", attr)
+            }
+            AtomicNarrowOp::NotGetAttr(attr, None) => {
+                write!(f, "NotGetAttr({}, None)", attr)
             }
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 write!(f, "TypeGuard({t}, {})", arguments.display_with(ctx))
@@ -183,6 +205,10 @@ impl AtomicNarrowOp {
             Self::IsNotInstance(v) => Self::IsInstance(v.clone()),
             Self::IsSubclass(v) => Self::IsNotSubclass(v.clone()),
             Self::IsNotSubclass(v) => Self::IsSubclass(v.clone()),
+            Self::HasAttr(attr) => Self::NotHasAttr(attr.clone()),
+            Self::NotHasAttr(attr) => Self::HasAttr(attr.clone()),
+            Self::GetAttr(attr, default) => Self::NotGetAttr(attr.clone(), default.clone()),
+            Self::NotGetAttr(attr, default) => Self::GetAttr(attr.clone(), default.clone()),
             Self::Eq(v) => Self::NotEq(v.clone()),
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::In(v) => Self::NotIn(v.clone()),
@@ -388,8 +414,10 @@ impl NarrowOps {
                 ops: cmp_ops,
                 comparators,
             })) => {
-                // If the left expression is a call to len(), we're narrowing the argument
+                // If the left expression is a call to `len()` or `getattr()`, we're narrowing the first argument
                 let mut left = &**left;
+                // If the left expression is a call to `getattr()` we store attribute name and default
+                let mut getattr_name = None;
                 let mut special_export = None;
                 if let Expr::Call(ExprCall {
                     func, arguments, ..
@@ -405,6 +433,23 @@ impl NarrowOps {
                         left = &arguments.args[0];
                     }
                 }
+                // If we have something like `getattr(x, "attr") != None` or `getattr(x, "attr", None) is not None`
+                // we can perform a `hasattr(x, "attr")` narrow.
+                if let Expr::Call(ExprCall {
+                    func, arguments, ..
+                }) = left
+                    && arguments.keywords.is_empty()
+                    && (arguments.args.len() == 2
+                        || (arguments.args.len() == 3
+                            && matches!(arguments.args[2], Expr::NoneLiteral(_))))
+                    && let Expr::StringLiteral(ExprStringLiteral { value, .. }) = &arguments.args[1]
+                {
+                    special_export = builder.as_special_export(func);
+                    if matches!(special_export, Some(SpecialExport::GetAttr)) {
+                        left = &arguments.args[0];
+                        getattr_name = Some(Name::new(value.to_string()));
+                    }
+                }
                 let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
@@ -416,6 +461,15 @@ impl NarrowOps {
                             }
                             (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::Type)) => {
                                 AtomicNarrowOp::TypeNotEq(right.clone())
+                            }
+                            (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::GetAttr))
+                                if matches!(right, Expr::NoneLiteral(_))
+                                    && let Some(attr) = &getattr_name =>
+                            {
+                                AtomicNarrowOp::HasAttr(attr.clone())
+                            }
+                            (_, Some(SpecialExport::GetAttr)) => {
+                                return None;
                             }
                             (CmpOp::Is, None) => AtomicNarrowOp::Is(right.clone()),
                             (CmpOp::IsNot, None) => AtomicNarrowOp::IsNot(right.clone()),
@@ -491,6 +545,47 @@ impl NarrowOps {
                 && arguments.keywords.is_empty() =>
             {
                 Self::from_single_narrow_op(&arguments.args[0], AtomicNarrowOp::IsTruthy, *range)
+            }
+            Some(Expr::Call(ExprCall {
+                node_index: _,
+                range,
+                func,
+                arguments,
+            })) if builder.as_special_export(func) == Some(SpecialExport::HasAttr)
+                && arguments.args.len() == 2
+                && arguments.keywords.is_empty()
+                && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
+                    &arguments.args[1] =>
+            {
+                Self::from_single_narrow_op(
+                    &arguments.args[0],
+                    AtomicNarrowOp::HasAttr(Name::new(value.to_string())),
+                    *range,
+                )
+            }
+            Some(Expr::Call(ExprCall {
+                node_index: _,
+                range,
+                func,
+                arguments,
+            })) if builder.as_special_export(func) == Some(SpecialExport::GetAttr)
+                && (arguments.args.len() == 2 || arguments.args.len() == 3)
+                && arguments.keywords.is_empty()
+                && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
+                    &arguments.args[1] =>
+            {
+                Self::from_single_narrow_op(
+                    &arguments.args[0],
+                    AtomicNarrowOp::GetAttr(
+                        Name::new(value.to_string()),
+                        if arguments.args.len() == 2 {
+                            None
+                        } else {
+                            Some(Box::new(arguments.args[2].clone()))
+                        },
+                    ),
+                    *range,
+                )
             }
             Some(Expr::Call(ExprCall {
                 node_index: _,

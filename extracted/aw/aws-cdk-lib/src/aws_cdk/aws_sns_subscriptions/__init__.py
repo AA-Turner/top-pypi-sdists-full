@@ -362,13 +362,15 @@ class LambdaSubscription(
         
         # Lambda should receive only message matching the following conditions on message body:
         # color: 'red' or 'orange'
+        # store: property must not be present
         my_topic.add_subscription(subscriptions.LambdaSubscription(fn,
             filter_policy_with_message_body={
                 "background": sns.FilterOrPolicy.policy({
                     "color": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.string_filter(
                         allowlist=["red", "orange"]
                     ))
-                })
+                }),
+                "store": sns.FilterOrPolicy.filter(sns.SubscriptionFilter.not_exists_filter())
             }
         ))
     '''

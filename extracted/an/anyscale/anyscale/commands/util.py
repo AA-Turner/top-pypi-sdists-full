@@ -1,9 +1,16 @@
 from copy import deepcopy
-from typing import Dict, Tuple, TypeVar
+from datetime import date, datetime
+import sys
+from typing import Dict, Optional, Tuple, TypeVar
 
 import click
+import colorama
 
 from anyscale._private.workload import WorkloadConfig
+from anyscale.cli_logger import BlockLogger
+
+
+logger = BlockLogger()
 
 
 class AnyscaleCommand(click.Command):
@@ -151,3 +158,89 @@ def override_env_vars(config: T, overrides: Dict[str, str]) -> T:
     final_env_vars = deepcopy(config.env_vars) if config.env_vars else {}
     final_env_vars.update(overrides)
     return config.options(env_vars=final_env_vars)
+
+
+class DeprecatedAnyscaleCommand(click.Command):
+    """
+    DeprecatedAnyscaleCommand is a subclass of click.Command that shows deprecation warnings.
+
+    Similar to LegacyAnyscaleCommand but focuses on deprecation with dates and alternatives.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.__removal_date__ = kwargs.pop("removal_date", None)
+        self.__deprecation_message__ = kwargs.pop("deprecation_message", None)
+        self.__alternative__ = kwargs.pop("alternative", None)
+        super().__init__(*args, **kwargs)
+
+    def get_help(self, ctx):
+        """Override get_help to show deprecation warning when help is displayed."""
+        self._show_deprecation_warning()
+        return super().get_help(ctx)
+
+    def invoke(self, ctx):
+        """Override invoke to show deprecation warning before executing."""
+        self._show_deprecation_warning()
+        return super().invoke(ctx)
+
+    def _show_deprecation_warning(self):
+        """Show the deprecation warning."""
+
+        # Visual separator for attention
+        print("\n" + "=" * 80, file=sys.stderr)
+        print(
+            f"{colorama.Style.BRIGHT}{colorama.Fore.YELLOW}⚠️  DEPRECATION WARNING ⚠️{colorama.Style.RESET_ALL}",
+            file=sys.stderr,
+        )
+        print("=" * 80, file=sys.stderr)
+
+        # Build deprecation message
+        base_msg = (
+            self.__deprecation_message__
+            if self.__deprecation_message__
+            else f"Command '{self.name}' is deprecated"
+        )
+
+        # Removal date information with grammar-aware connector
+        date_msg = None
+        if self.__removal_date__:
+            date_str = self._format_removal_date(self.__removal_date__)
+            if date_str:
+                ends_with_punct = base_msg.strip().endswith((".", "!", "?"))
+                if ends_with_punct:
+                    date_msg = f"It will be removed on {date_str}"
+                else:
+                    date_msg = f"and will be removed on {date_str}"
+
+        # Alternative suggestion
+        alternative_msg = None
+        if self.__alternative__:
+            alternative_msg = f"\n\n➡️  {colorama.Style.BRIGHT}Please {self.__alternative__}{colorama.Style.RESET_ALL}"
+
+        main_line_parts = [part for part in (base_msg, date_msg) if part]
+        deprecation_msg = " ".join(main_line_parts)
+        if alternative_msg:
+            deprecation_msg += alternative_msg
+
+        # Logger warning but also print directly for visibility
+        print(
+            f"\n{colorama.Fore.YELLOW}{deprecation_msg}{colorama.Style.RESET_ALL}",
+            file=sys.stderr,
+        )
+        print("=" * 80 + "\n", file=sys.stderr)
+
+    def _format_removal_date(self, removal_date) -> Optional[str]:
+        """Format the removal date for display."""
+        try:
+            if isinstance(removal_date, str):
+                parsed_date = datetime.strptime(removal_date, "%Y-%m-%d").date()
+            elif isinstance(removal_date, datetime):
+                parsed_date = removal_date.date()
+            elif isinstance(removal_date, date):
+                parsed_date = removal_date
+            else:
+                return None
+
+            return parsed_date.strftime("%Y-%m-%d")
+        except (ValueError, AttributeError):
+            return str(removal_date)

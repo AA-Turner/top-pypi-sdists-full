@@ -12,7 +12,11 @@ import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
 from anyscale.commands.list_util import display_list
-from anyscale.commands.util import AnyscaleCommand, NotRequiredIf
+from anyscale.commands.util import (
+    AnyscaleCommand,
+    DeprecatedAnyscaleCommand,
+    NotRequiredIf,
+)
 from anyscale.controllers.project_controller import ProjectController
 from anyscale.project.models import (
     CreateProjectCollaborator,
@@ -441,6 +445,10 @@ def _default_project_name() -> str:
         "[DEPRECATED] Create a new project or attach this directory to an existing project."
     ),
     hidden=True,
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="`anyscale init` has been deprecated",
+    alternative="use `anyscale project create` to create a new project",
 )
 @click.option(
     "--project-id",
@@ -474,10 +482,11 @@ def anyscale_init(
     config: Optional[str],
     requirements: Optional[str],
 ) -> None:
-    log.warning(
-        "`anyscale init` has been deprecated. Please use `anyscale project init` "
-        "to create or attach to a project from this directory."
-    )
+    """Create a new project or attach this directory to an existing project.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale project create' to create a new project.
+    """
     if (project_id and name) or not (project_id or name):
         raise click.BadArgumentUsage(
             "Only one of project_id and name must be provided."
@@ -491,6 +500,10 @@ def anyscale_init(
     name="init",
     help="[DEPRECATED] Create a new project or attach this directory to an existing project.",
     hidden=True,
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="`anyscale project init` has been deprecated",
+    alternative="use `anyscale project create` to create a new project and specify a project id or name for the other Anyscale CLI commands",
 )
 @click.option(
     "--project-id",
@@ -510,11 +523,11 @@ def anyscale_init(
     default=_default_project_name(),
 )
 def init(project_id: Optional[str], name: Optional[str],) -> None:
-    log.warning(
-        "`anyscale project init` has been deprecated and will be removed in "
-        "April 2022. Please use `anyscale project create` to create a new project "
-        "and specify a project id or name for the other Anyscale CLI commands."
-    )
+    """Create a new project or attach this directory to an existing project.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale project create' to create a new project.
+    """
     if (project_id and name) or not (project_id or name):
         raise click.BadArgumentUsage(
             "Only one of --project-id and --name must be provided."

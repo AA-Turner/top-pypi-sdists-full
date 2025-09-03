@@ -19,6 +19,7 @@ import collections
 import dataclasses
 import socket
 import sys
+from typing import Optional
 
 from cheroot import wsgi
 from etils import epath
@@ -26,10 +27,31 @@ from etils import epath
 from xprof import profile_plugin_loader
 from xprof.standalone import base_plugin
 from xprof.standalone import plugin_event_multiplexer
+from xprof.convert import _pywrap_profiler_plugin
 
 DataProvider = plugin_event_multiplexer.DataProvider
 TBContext = base_plugin.TBContext
 ProfilePluginLoader = profile_plugin_loader.ProfilePluginLoader
+
+
+_DEFAULT_WORKER_ADDRESS = "0.0.0.0:50051"
+_DEFAULT_GRPC_PORT = 50051
+
+
+@dataclasses.dataclass(frozen=True)
+class ServerConfig:
+  """Configuration parameters for launching the XProf server.
+
+  This dataclass holds all the settings required to initialize and run the XProf
+  profiling server, including network ports, log locations, and feature flags.
+  """
+
+  logdir: Optional[str]
+  port: int
+  grpc_port: int
+  worker_service_address: str
+  use_distributed_processing: bool
+  hide_capture_profile_button: bool
 
 
 def make_wsgi_app(plugin):
@@ -107,20 +129,30 @@ def _get_wildcard_address(port) -> str:
   return fallback_address
 
 
-@dataclasses.dataclass(frozen=True)
-class FeatureConfig:
-  """Config for different features in XProf."""
-  hide_capture_profile_button: bool
+def _launch_server(
+    config: ServerConfig,
+):
+  """Initializes and launches the main XProf server.
 
+  This function sets up the necessary components for the XProf server based on
+  the provided configuration. It starts the gRPC worker service if distributed
+  processing is enabled, creates the TensorBoard context, loads the profile
+  plugin, and finally starts the web server to handle HTTP requests.
 
-def launch_server(logdir, port, feature_config: FeatureConfig):
-  context = TBContext(logdir, DataProvider(logdir), TBContext.Flags(False))
-  context.hide_capture_profile_button = (
-      feature_config.hide_capture_profile_button
+  Args:
+    config: The ServerConfig object containing all server settings.
+  """
+  if config.use_distributed_processing:
+    _pywrap_profiler_plugin.initialize_stubs(config.worker_service_address)
+    _pywrap_profiler_plugin.start_grpc_server(config.grpc_port)
+
+  context = TBContext(
+      config.logdir, DataProvider(config.logdir), TBContext.Flags(False)
   )
+  context.hide_capture_profile_button = config.hide_capture_profile_button
   loader = ProfilePluginLoader()
   plugin = loader.load(context)
-  run_server(plugin, _get_wildcard_address(port), port)
+  run_server(plugin, _get_wildcard_address(config.port), config.port)
 
 
 def get_abs_path(logdir: str) -> str:
@@ -144,15 +176,24 @@ def get_abs_path(logdir: str) -> str:
   return str(epath.Path(logdir).expanduser().resolve())
 
 
-def main() -> int:
-  """Parses command-line arguments and launches the XProf server."""
+def _create_argument_parser() -> argparse.ArgumentParser:
+  """Creates and configures the argument parser for the XProf server CLI.
+
+  This function sets up argparse to handle command-line flags for specifying
+  the log directory, server port, and other operational modes.
+
+  Returns:
+    The configured argument parser.
+  """
   parser = argparse.ArgumentParser(
       prog="xprof",
       description="Launch the XProf profiling server.",
       formatter_class=argparse.RawDescriptionHelpFormatter,
-      epilog="Examples:\n"
-      "\txprof ~/jax/profile-logs -p 8080\n"
-      "\txprof --logdir ~/jax/profile-logs -p 8080",
+      epilog=(
+          "Examples:\n"
+          "\txprof ~/jax/profile-logs -p 8080\n"
+          "\txprof --logdir ~/jax/profile-logs -p 8080"
+      ),
   )
 
   logdir_group = parser.add_mutually_exclusive_group(required=False)
@@ -191,6 +232,55 @@ def main() -> int:
       help="Hides the 'Capture Profile' button in the UI.",
   )
 
+  parser.add_argument(
+      "-udp",
+      "--use_distributed_processing",
+      action="store_true",
+      help=(
+          "Enable distributed processing for cloud-based profiling. This flag"
+          " must be set to start the gRPC server and connect to worker"
+          " services."
+      ),
+  )
+
+  parser.add_argument(
+      "-wsa",
+      "--worker_service_address",
+      type=str,
+      default=_DEFAULT_WORKER_ADDRESS,
+      help=(
+          "A comma-separated list of worker service addresses (IPs or FQDNs)"
+          " with their gRPC ports, used in distributed profiling. Example:"
+          " 'worker-a.project.internal:50051,worker-b.project.internal:50051'."
+          " Requires --use_distributed_processing."
+      ),
+  )
+
+  parser.add_argument(
+      "-gp",
+      "--grpc_port",
+      type=int,
+      default=_DEFAULT_GRPC_PORT,
+      help=(
+          "The port for the gRPC server, which runs alongside the main HTTP"
+          " server for distributed profiling. This must be different from the"
+          " main server port (--port). Requires --use_distributed_processing."
+      ),
+  )
+  return parser
+
+
+def main() -> int:
+  """Parses command-line arguments and launches the XProf server.
+
+  This is the main entry point for the XProf server application. It parses
+  command-line arguments, creates a ServerConfig, and then launches the
+  server.
+
+  Returns:
+    An exit code, 0 for success and non-zero for errors.
+  """
+  parser = _create_argument_parser()
   try:
     args = parser.parse_args()
   except SystemExit as e:
@@ -201,13 +291,22 @@ def main() -> int:
       if args.logdir_opt or args.logdir_pos
       else None
   )
-  port = args.port
-  hide_capture_profile_button = args.hide_capture_profile_button
+  config = ServerConfig(
+      logdir=logdir,
+      port=args.port,
+      grpc_port=args.grpc_port,
+      worker_service_address=args.worker_service_address,
+      use_distributed_processing=args.use_distributed_processing,
+      hide_capture_profile_button=args.hide_capture_profile_button,
+  )
 
   print("Attempting to start XProf server:")
   print(f"  Log Directory: {logdir}")
-  print(f"  Port: {port}")
-  print(f"  Hide Capture Button: {hide_capture_profile_button}")
+  print(f"  Port: {config.port}")
+  if config.use_distributed_processing:
+    print("  Distributed Processing: enabled")
+    print(f"  Worker Service Address: {config.worker_service_address}")
+  print(f"  Hide Capture Button: {config.hide_capture_profile_button}")
 
   if logdir and not epath.Path(logdir).exists():
     print(
@@ -217,8 +316,7 @@ def main() -> int:
     )
     return 1
 
-  feature_config = FeatureConfig(
-      hide_capture_profile_button=hide_capture_profile_button
+  _launch_server(
+      config,
   )
-  launch_server(logdir, port, feature_config)
   return 0

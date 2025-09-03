@@ -366,7 +366,7 @@ def can_use_in_object_var(cls: GenericType) -> bool:
     if types.is_union(cls):
         return all(can_use_in_object_var(t) for t in types.get_args(cls))
     return (
-        inspect.isclass(cls)
+        isinstance(cls, type)
         and not safe_issubclass(cls, Var)
         and serializers.can_serialize(cls, dict)
     )
@@ -515,6 +515,17 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
             The VarData of the components and all of its children.
         """
         return self._var_data
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deepcopy the var.
+
+        Args:
+            memo: The memo dictionary to use for the deepcopy.
+
+        Returns:
+            A deepcopy of the var.
+        """
+        return self
 
     def equals(self, other: Var) -> bool:
         """Check if two vars are equal.
@@ -795,7 +806,7 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
         if can_use_in_object_var(output):
             return self.to(ObjectVar, output)
 
-        if inspect.isclass(output):
+        if isinstance(output, type):
             for var_subclass in _var_subclasses[::-1]:
                 if safe_issubclass(output, var_subclass.var_subclass):
                     current_var_type = self._var_type
@@ -891,7 +902,7 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
             args = get_args(var_type)
             fixed_type = unionize(*(type(arg) for arg in args))
 
-        if not inspect.isclass(fixed_type):
+        if not isinstance(fixed_type, type):
             msg = f"Unsupported type {var_type} for guess_type."
             raise TypeError(msg)
 
@@ -930,6 +941,7 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
         Returns:
             A function that that creates a setter for the var.
         """
+        setter_name = Var._get_setter_name_for_name(name)
 
         def setter(state: Any, value: Any):
             """Get the setter for the var.
@@ -951,7 +963,7 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
 
         setter.__annotations__["value"] = self._var_type
 
-        setter.__qualname__ = Var._get_setter_name_for_name(name)
+        setter.__qualname__ = setter_name
 
         return setter
 
@@ -1152,18 +1164,6 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
             The var without the data.
         """
         return dataclasses.replace(self, _var_data=None)
-
-    def __get__(self, instance: Any, owner: Any):
-        """Get the var.
-
-        Args:
-            instance: The instance to get the var from.
-            owner: The owner of the var.
-
-        Returns:
-            The var.
-        """
-        return self
 
     def _decode(self) -> Any:
         """Decode Var as a python value.
@@ -1409,7 +1409,7 @@ class LiteralVar(Var):
         bases = cls.__bases__
 
         bases_normalized = [
-            base if inspect.isclass(base) else get_origin(base) for base in bases
+            base if isinstance(base, type) else get_origin(base) for base in bases
         ]
 
         possible_bases = [
@@ -1475,6 +1475,13 @@ class LiteralVar(Var):
         for literal_subclass, var_subclass in _var_literal_subclasses[::-1]:
             if isinstance(value, var_subclass.python_types):
                 return literal_subclass.create(value, _var_data=_var_data)
+
+        if (
+            (as_var_method := getattr(value, "_as_var", None)) is not None
+            and callable(as_var_method)
+            and isinstance((resulting_var := as_var_method()), Var)
+        ):
+            return resulting_var
 
         from reflex.event import EventHandler
         from reflex.utils.format import get_event_handler_parts

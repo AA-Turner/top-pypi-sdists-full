@@ -15593,8 +15593,8 @@ class BackendService(proto.Message):
             MAGLEV: used as a drop in replacement for the ring hash load
             balancer. Maglev is not as stable as ring hash but has
             faster table lookup build times and host selection times.
-            For more information about Maglev, see
-            https://ai.google/research/pubs/pub44824 -
+            For more information about Maglev, see Maglev: A Fast and
+            Reliable Software Network Load Balancer. -
             WEIGHTED_ROUND_ROBIN: Per-endpoint Weighted Round Robin Load
             Balancing using weights computed from Backend reported
             Custom Metrics. If set, the Backend Service responses are
@@ -15767,7 +15767,7 @@ class BackendService(proto.Message):
             set, lists of backends and health checks must be both empty.
         service_lb_policy (str):
             URL to networkservices.ServiceLbPolicy resource. Can only be
-            set if load balancing scheme is EXTERNAL, EXTERNAL_MANAGED,
+            set if load balancing scheme is EXTERNAL_MANAGED,
             INTERNAL_MANAGED or INTERNAL_SELF_MANAGED and the scope is
             global.
 
@@ -15981,15 +15981,15 @@ class BackendService(proto.Message):
         balancer. - MAGLEV: used as a drop in replacement for the ring hash
         load balancer. Maglev is not as stable as ring hash but has faster
         table lookup build times and host selection times. For more
-        information about Maglev, see
-        https://ai.google/research/pubs/pub44824 - WEIGHTED_ROUND_ROBIN:
-        Per-endpoint Weighted Round Robin Load Balancing using weights
-        computed from Backend reported Custom Metrics. If set, the Backend
-        Service responses are expected to contain non-standard HTTP response
-        header field Endpoint-Load-Metrics. The reported metrics to use for
-        computing the weights are specified via the customMetrics field.
-        This field is applicable to either: - A regional backend service
-        with the service_protocol set to HTTP, HTTPS, HTTP2 or H2C, and
+        information about Maglev, see Maglev: A Fast and Reliable Software
+        Network Load Balancer. - WEIGHTED_ROUND_ROBIN: Per-endpoint Weighted
+        Round Robin Load Balancing using weights computed from Backend
+        reported Custom Metrics. If set, the Backend Service responses are
+        expected to contain non-standard HTTP response header field
+        Endpoint-Load-Metrics. The reported metrics to use for computing the
+        weights are specified via the customMetrics field. This field is
+        applicable to either: - A regional backend service with the
+        service_protocol set to HTTP, HTTPS, HTTP2 or H2C, and
         load_balancing_scheme set to INTERNAL_MANAGED. - A global backend
         service with the load_balancing_scheme set to INTERNAL_SELF_MANAGED,
         INTERNAL_MANAGED, or EXTERNAL_MANAGED. If sessionAffinity is not
@@ -16019,8 +16019,8 @@ class BackendService(proto.Message):
                 Maglev is not as stable as ring hash but has
                 faster table lookup build times and host
                 selection times. For more information about
-                Maglev, see
-                https://ai.google/research/pubs/pub44824
+                Maglev, see Maglev: A Fast and Reliable Software
+                Network Load Balancer.
             ORIGINAL_DESTINATION (166297216):
                 Backend host is selected based on the client
                 connection metadata, i.e., connections are
@@ -17757,8 +17757,8 @@ class BackendServiceLocalityLoadBalancingPolicyConfigPolicy(proto.Message):
                 Maglev is not as stable as ring hash but has
                 faster table lookup build times and host
                 selection times. For more information about
-                Maglev, see
-                https://ai.google/research/pubs/pub44824
+                Maglev, see Maglev: A Fast and Reliable Software
+                Network Load Balancer.
             ORIGINAL_DESTINATION (166297216):
                 Backend host is selected based on the client
                 connection metadata, i.e., connections are
@@ -114140,10 +114140,10 @@ class TargetHttpsProxy(proto.Message):
     `Global </compute/docs/reference/rest/v1/targetHttpsProxies>`__ \*
     `Regional </compute/docs/reference/rest/v1/regionTargetHttpsProxies>`__
     A target HTTPS proxy is a component of Google Cloud HTTPS load
-    balancers. \* targetHttpProxies are used by global external
+    balancers. \* targetHttpsProxies are used by global external
     Application Load Balancers, classic Application Load Balancers,
     cross-region internal Application Load Balancers, and Traffic
-    Director. \* regionTargetHttpProxies are used by regional internal
+    Director. \* regionTargetHttpsProxies are used by regional internal
     Application Load Balancers and regional external Application Load
     Balancers. Forwarding rules reference a target HTTPS proxy, and the
     target proxy then references a URL map. For more information, read
@@ -117891,6 +117891,8 @@ class UpcomingMaintenance(proto.Message):
                 Maintenance due to network errors.
             FAILURE_NVLINK (484426295):
                 Maintenance due to NVLink failure.
+            FAILURE_REDUNDANT_HARDWARE_FAULT (31000530):
+                Maintenance due to redundant hardware fault.
             INFRASTRUCTURE_RELOCATION (359845636):
                 Maintenance due to infrastructure relocation.
             MAINTENANCE_REASON_UNKNOWN (50570235):
@@ -117912,6 +117914,7 @@ class UpcomingMaintenance(proto.Message):
         FAILURE_MEMORY = 440132982
         FAILURE_NETWORK = 42811449
         FAILURE_NVLINK = 484426295
+        FAILURE_REDUNDANT_HARDWARE_FAULT = 31000530
         INFRASTRUCTURE_RELOCATION = 359845636
         MAINTENANCE_REASON_UNKNOWN = 50570235
         PLANNED_NETWORK_UPDATE = 135494677

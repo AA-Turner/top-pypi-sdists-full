@@ -534,15 +534,7 @@ def get_classwise_splits(
         len(partition_items),
         annotation_type,
     )
-    classwise_splits = defaultdict(
-        lambda: {
-            "train": 0,
-            "test": 0,
-            "val": 0,
-            "unassigned": 0,
-            "total": 0,
-        }
-    )
+    classwise_splits = {}
     for item in partition_items:
         logging.debug(
             "Processing item for get_classwise_splits: %s",
@@ -557,10 +549,26 @@ def get_classwise_splits(
                 for annotation in annotations:
                     category = annotation.get("category")
                     if category and split_type:
+                        if category not in classwise_splits:
+                            classwise_splits[category] = {
+                                "train": 0,
+                                "test": 0,
+                                "val": 0,
+                                "unassigned": 0,
+                                "total": 0,
+                            }
                         classwise_splits[category][split_type] += 1
             elif annotation_type == "classification":
                 category = annotations[0].get("category")
                 if category and split_type:
+                    if category not in classwise_splits:
+                        classwise_splits[category] = {
+                            "train": 0,
+                            "test": 0,
+                            "val": 0,
+                            "unassigned": 0,
+                            "total": 0,
+                        }
                     classwise_splits[category][split_type] += 1
         except Exception as err:
             logging.error(
@@ -977,7 +985,7 @@ def get_batch_partition_items(
     Returns:
         List of partition items
     """
-    path = f"/v2/dataset/list-partition-items/{dataset_id}/{partition}"
+    path = f"/v1/dataset_item/list-partition-items/{dataset_id}/{partition}"
     batch_items = fetch_items(
         rpc,
         path,
@@ -1015,7 +1023,7 @@ def get_video_frame_batch_partition_items(
     """
     # Get the base partition items first (API no longer accepts additional parameters)
     if input_type in ['mscoco_video', 'davis', 'mot', 'youtube_bb', 'kinetics', 'video_imagenet']:
-            path = f"/v2/dataset/list-partition-items/{dataset_id}/{partition}?pageSize={request_batch_size}&pageNumber={page_number}"
+            path = f"/v1/dataset_item/list-partition-items/{dataset_id}/{partition}?pageSize={request_batch_size}&pageNumber={page_number}"
             logging.debug("Fetching base partition items from path: %s", path)
             
             response = rpc_get_call(rpc=rpc, path=path)
@@ -1036,7 +1044,7 @@ def get_video_frame_batch_partition_items(
             
             return items
     else:
-        path = f"/v2/dataset/list-partition-items/{dataset_id}/{partition}"
+        path = f"/v1/dataset_item/list-partition-items/{dataset_id}/{partition}"
         batch_items = fetch_video_frame_items(
             rpc,
             path,
@@ -1212,7 +1220,7 @@ def get_number_of_partition_batches(
     Returns:
         Number of pages
     """
-    path = f"/v2/dataset/list-partition-items/{dataset_id}/{partition}"
+    path = f"/v1/dataset_item/list-partition-items/{dataset_id}/{partition}"
     response = rpc_get_call(rpc=rpc, path=path)
     if not response:
         logging.error(
@@ -1353,7 +1361,7 @@ def get_batch_dataset_items(
     request_batch_size: int = 100,
 ) -> List[Dict[str, Any]]:
     """Get a batch of items from a specific dataset version page."""
-    path = f"/v2/dataset/item/{dataset_id}/version/{dataset_version}"
+    path = f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
     return fetch_items(rpc, path, request_batch_size, page_number)
 
 def get_batch_video_dataset_items(
@@ -1364,7 +1372,7 @@ def get_batch_video_dataset_items(
     request_batch_size: int = 100,
 ) -> List[Dict[str, Any]]:
     """Get a batch of items from a specific dataset version page."""
-    path = f"/v2/dataset/item/{dataset_id}/version/{dataset_version}"
+    path = f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
     return fetch_video_frame_items(rpc, path, request_batch_size, page_number, True, True)
 
 
@@ -1403,7 +1411,7 @@ def get_data_prep_batch_video_dataset_items(
         logging.debug(f"Enriched items: {enriched_items}")
         return enriched_items
     else:
-        path = f"/v2/dataset/item/{dataset_id}/version/{dataset_version}"
+        path = f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
         return fetch_data_prep_video_frame_items(rpc, path, request_batch_size, page_number, True, True, True)
 
 def fetch_base_dataset_items(
@@ -1414,7 +1422,7 @@ def fetch_base_dataset_items(
     page_size: int
 ) -> List[Dict[str, Any]]:
     path = (
-        f"/v2/dataset/item/{dataset_id}/version/{dataset_version}"
+        f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
         f"?pageNumber={page_number}&pageSize={page_size}&sortBy=&sortOrder=asc&isPresignedURLRequired=true"
     )
     logging.debug(f"Fetching base dataset items: {path}")
@@ -1463,7 +1471,7 @@ def get_number_of_dataset_batches(
     request_batch_size: int = 1,
 ) -> int:
     """Calculate total number of pages for a dataset."""
-    path = f"/v2/dataset/item/{dataset_id}/version/{dataset_version}"
+    path = f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
     response = rpc_get_call(rpc=rpc, path=path)
     if not response:
         logging.error(

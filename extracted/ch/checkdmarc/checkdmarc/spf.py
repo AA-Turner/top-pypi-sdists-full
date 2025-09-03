@@ -349,7 +349,7 @@ def parse_spf_record(
                 )
                 if len(a_records) == 0:
                     raise _SPFMissingRecords(
-                        f"{value.lower()} does not have any A/AAAA records"
+                        f"An a mechanism points to {value.lower()}, but that domain/subdomain does not have any A/AAAA records."
                     )
                 for record in a_records:
                     if cidr:
@@ -365,7 +365,7 @@ def parse_spf_record(
                 )
                 if len(mx_hosts) == 0:
                     raise _SPFMissingRecords(
-                        f"{value.lower()} does not have any MX records"
+                        f"An mx mechanism points to {value.lower()}, but that domain/subdomain does not have any MX records."
                     )
                 if len(mx_hosts) > 10:
                     url = "https://tools.ietf.org/html/rfc7208#section-4.6.4"
@@ -466,6 +466,18 @@ def parse_spf_record(
                         resolver=resolver,
                         timeout=timeout,
                     )
+                    include = OrderedDict(
+                        [
+                            ("domain", value),
+                            ("record", include_record),
+                            ("dns_lookups", include["dns_lookups"]),
+                            ("dns_void_lookups", include["dns_void_lookups"]),
+                            ("parsed", include["parsed"]),
+                            ("warnings", include["warnings"]),
+                        ]
+                    )
+                    parsed["include"].append(include)
+                    warnings += include["warnings"]
                     lookup_mechanism_count += include["dns_lookups"]
                     void_lookup_mechanism_count += include["dns_void_lookups"]
                     if lookup_mechanism_count > 10:
@@ -486,18 +498,6 @@ def parse_spf_record(
                             f"{u}",
                             dns_void_lookups=void_lookup_mechanism_count,
                         )
-                    include = OrderedDict(
-                        [
-                            ("domain", value),
-                            ("record", include_record),
-                            ("dns_lookups", include["dns_lookups"]),
-                            ("dns_void_lookups", include["dns_void_lookups"]),
-                            ("parsed", include["parsed"]),
-                            ("warnings", include["warnings"]),
-                        ]
-                    )
-                    parsed["include"].append(include)
-                    warnings += include["warnings"]
 
                 except DNSException as error:
                     if isinstance(error, DNSExceptionNXDOMAIN):

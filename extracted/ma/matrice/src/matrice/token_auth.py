@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import requests
 from dateutil.parser import parse
 from requests.auth import AuthBase
-
+import logging
 
 class RefreshToken(AuthBase):
     """Implements a custom authentication scheme."""
@@ -17,7 +17,7 @@ class RefreshToken(AuthBase):
         self.access_key = access_key
         self.secret_key = secret_key
         self.VALIDATE_ACCESS_KEY_URL = (
-            f"https://{os.environ.get('ENV', 'prod')}.backend.app.matrice.ai/v1/user/validate_access_key"
+            f"https://{os.environ.get('ENV', 'prod')}.backend.app.matrice.ai/v1/accounting/validate_access_key"
         )
 
     def __call__(self, r):
@@ -43,18 +43,20 @@ class RefreshToken(AuthBase):
                 timeout=60,
             )
         except Exception as e:
-            print("Error while making request to the auth server")
-            print(e)
+            logging.error("Error while making request to the auth server in RefreshToken")
+            logging.error(e)
             sys.exit(0)
         if response.status_code != 200:
-            print("Error response from the auth server")
-            print(response.text)
+            logging.error("Error response from the auth server in RefreshToken")
+            logging.error(response.text)
             sys.exit(0)
         res_dict = response.json()
+        
         if res_dict["success"]:
+            logging.info(f"res_dict: {res_dict}")
             self.bearer_token = "Bearer " + res_dict["data"]["refreshToken"]
         else:
-            print("The provided credentials are incorrect!!")
+            logging.error("The provided credentials are incorrect!! in RefreshToken")
             sys.exit(0)
 
 
@@ -73,7 +75,7 @@ class AuthToken(AuthBase):
         self.refresh_token = refresh_token
         self.expiry_time = datetime.now(timezone.utc)
         self.REFRESH_TOKEN_URL = (
-            f"https://{os.environ.get('ENV', 'prod')}.backend.app.matrice.ai/v1/user/refresh"
+            f"https://{os.environ.get('ENV', 'prod')}.backend.app.matrice.ai/v1/accounting/refresh"
         )
 
     def __call__(self, r):
@@ -94,17 +96,17 @@ class AuthToken(AuthBase):
                 timeout=60,
             )
         except Exception as e:
-            print("Error while making request to the auth server")
-            print(e)
+            logging.error("Error while making request to the auth server in AuthToken")
+            logging.error(e)
             sys.exit(0)
         if response.status_code != 200:
-            print("Error response from the auth server")
-            print(response.text)
+            logging.error("Error response from the auth server in AuthToken")
+            logging.error(response.text)
             sys.exit(0)
         res_dict = response.json()
         if res_dict["success"]:
             self.bearer_token = "Bearer " + res_dict["data"]["token"]
             self.expiry_time = parse(res_dict["data"]["expiresAt"])
         else:
-            print("The provided credentials are incorrect!!")
+            logging.error("The provided credentials are incorrect!! in AuthToken")
             sys.exit(0)

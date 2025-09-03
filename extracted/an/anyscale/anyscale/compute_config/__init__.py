@@ -21,7 +21,7 @@ from anyscale.compute_config.models import (
     ComputeConfigType,
     ComputeConfigVersion,
     HeadNodeConfig,
-    MultiDeploymentComputeConfig,
+    MultiResourceComputeConfig,
     WorkerNodeGroupConfig,
 )
 

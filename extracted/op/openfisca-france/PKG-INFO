@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenFisca-France
-Version: 174.0.0
+Version: 174.0.1
 Summary: OpenFisca Rules as Code model for France.
 Author-email: OpenFisca Team <contact@openfisca.fr>
 Project-URL: Homepage, https://github.com/openfisca/openfisca-france
@@ -22,7 +22,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.AGPL.txt
 Requires-Dist: numpy<2,>=1.24.3
 Requires-Dist: openfisca-core[web-api]<44,>=43
-Requires-Dist: setuptools
 Provides-Extra: inversion-revenus
 Requires-Dist: scipy<2.0,>=1.10.1; extra == "inversion-revenus"
 Provides-Extra: de-net-a-brut

@@ -719,11 +719,6 @@ CHAT_MODEL_TABLE = {
         supports_thinking=True,
         supports_tools=True,
     ),
-    "nvidia/llama-3.1-nemotron-nano-vl-8b-v1": Model(
-        id="nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
-        model_type="vlm",
-        client="ChatNVIDIA",
-    ),
     "nvidia/llama-3.1-nemotron-ultra-253b-v1": Model(
         id="nvidia/llama-3.1-nemotron-ultra-253b-v1",
         model_type="chat",
@@ -737,6 +732,7 @@ CHAT_MODEL_TABLE = {
         client="ChatNVIDIA",
         supports_thinking=True,
         supports_tools=True,
+        supports_structured_output=True,
     ),
     "nvidia/llama-3.3-nemotron-super-49b-v1.5": Model(
         id="nvidia/llama-3.3-nemotron-super-49b-v1.5",
@@ -744,6 +740,7 @@ CHAT_MODEL_TABLE = {
         client="ChatNVIDIA",
         supports_thinking=True,
         supports_tools=True,
+        supports_structured_output=True,
     ),
     "moonshotai/kimi-k2-instruct": Model(
         id="moonshotai/kimi-k2-instruct",
@@ -889,8 +886,8 @@ VLM_MODEL_TABLE = {
         model_type="vlm",
         client="ChatNVIDIA",
     ),
-    "nvdev/meta/llama-4-scout-17b-16e-instruct": Model(
-        id="nvdev/meta/llama-4-scout-17b-16e-instruct",
+    "nvidia/llama-3.1-nemotron-nano-vl-8b-v1": Model(
+        id="nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
         model_type="vlm",
         client="ChatNVIDIA",
     ),

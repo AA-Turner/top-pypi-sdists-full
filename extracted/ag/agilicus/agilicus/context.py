@@ -122,7 +122,6 @@ def get_api_config():
 
 
 def get_value(ctx, value):
-    global CONTEXT
     if ctx.obj and value in ctx.obj:
         return ctx.obj[value]
     if CONTEXT.obj and value in CONTEXT.obj:

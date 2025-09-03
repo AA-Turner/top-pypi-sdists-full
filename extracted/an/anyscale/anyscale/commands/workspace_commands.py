@@ -11,8 +11,7 @@ from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.execute_interactive_command_options import (
     ExecuteInteractiveCommandOptions,
 )
-from anyscale.commands import workspace_commands_v2
-from anyscale.commands.util import LegacyAnyscaleCommand
+from anyscale.commands.util import DeprecatedAnyscaleCommand, LegacyAnyscaleCommand
 from anyscale.controllers.cluster_controller import ClusterController
 from anyscale.controllers.workspace_controller import WorkspaceController
 from anyscale.project_utils import find_project_root
@@ -34,10 +33,11 @@ def workspace_cli() -> None:
 
 @workspace_cli.command(
     name="create",
-    help="Create a workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.create,
+    help="[DEPRECATED - use 'workspace_v2 create' instead] Create a workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 create' instead",
 )
 @click.option(
     "--name", "-n", required=True, help="Name of the workspace to create.",
@@ -85,6 +85,11 @@ def create(  # noqa: PLR0913
     ray_version: str,
     compute_config_id: str,
 ) -> None:
+    """Create a workspace on Anyscale.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 create' instead.
+    """
     if cluster_env_build_id is None and docker is None:
         raise click.ClickException(
             "Please specify one of `--docker` or `--cluster-env-build-id`."
@@ -121,15 +126,21 @@ def create(  # noqa: PLR0913
 
 @workspace_cli.command(
     name="start",
-    help="Start an existing workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.start,
+    help="[DEPRECATED - use 'workspace_v2 start' instead] Start an existing workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 start' instead",
 )
 @click.option(
     "--name", "-n", required=True, help="Name of existing workspace to start.",
 )
 def start(name: str) -> None:
+    """Start an existing workspace on Anyscale.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 start' instead.
+    """
     cluster_controller = ClusterController()
 
     workspace = get_workspace_from_name(name)
@@ -154,15 +165,21 @@ def start(name: str) -> None:
 
 @workspace_cli.command(
     name="terminate",
-    help="Terminate a workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.terminate,
+    help="[DEPRECATED - use 'workspace_v2 terminate' instead] Terminate a workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 terminate' instead",
 )
 @click.option(
     "--name", "-n", required=True, help="Name of existing workspace to terminate.",
 )
 def terminate(name: str) -> None:
+    """Terminate a workspace on Anyscale.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 terminate' instead.
+    """
     cluster_controller = ClusterController()
     workspace = get_workspace_from_name(name)
     cluster_id = workspace.cluster_id
@@ -179,9 +196,11 @@ def terminate(name: str) -> None:
 
 @workspace_cli.command(
     name="clone",
-    help="Clone a workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    is_limited_support=True,
+    help="[DEPRECATED - use workspace_v2 clone functionality instead] Clone a workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use workspace_v2 clone functionality instead",
 )
 @click.option(
     "--name", "-n", required=True, help="Name of existing workspace to clone.",
@@ -190,8 +209,10 @@ def terminate(name: str) -> None:
     "--verbose", "-v", required=False, is_flag=True, default=False, help="Verbose mode"
 )
 def clone(name: str, verbose: bool) -> None:
-    """
-    Clone the workspace to a local dir whose name is the name of the workspace.
+    """Clone the workspace to a local dir whose name is the name of the workspace.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use workspace_v2 clone functionality instead.
     """
     _check_local()
 
@@ -207,12 +228,23 @@ def clone(name: str, verbose: bool) -> None:
     _do_pull(pull_git_state=True, verbose=verbose)
 
 
-@workspace_cli.command(name="activate")
+@workspace_cli.command(
+    name="activate",
+    help="[DEPRECATED - no longer needed] Activate a workspace.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 activate command is no longer needed",
+    alternative="use workspace_v2 commands which don't require activation",
+)
 @click.argument(
     "name", required=True, default=None,
 )
 def activate(name: str) -> None:
     """Activate a workspace.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    The workspace v1 activate command is no longer needed.
+    Use workspace_v2 commands which don't require activation.
 
     If the current directory is already a part of a workspace, change the workspace.
     Else, setup a new workspace rooted at the current directory
@@ -239,10 +271,11 @@ def activate(name: str) -> None:
 
 @workspace_cli.command(
     name="pull",
-    help="Pull files from a workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.pull,
+    help="[DEPRECATED - use 'workspace_v2 pull' instead] Pull files from a workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 pull' instead",
 )
 @click.option(
     "--pull-git-state",
@@ -252,6 +285,11 @@ def activate(name: str) -> None:
     help="Also pull git state. This will add additional overhead.",
 )
 def pull(pull_git_state) -> None:
+    """Pull files from a workspace on Anyscale.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 pull' instead.
+    """
     _check_local()
     _check_workspace()
     _do_pull(pull_git_state)
@@ -259,10 +297,11 @@ def pull(pull_git_state) -> None:
 
 @workspace_cli.command(
     name="push",
-    help="Push files to a workspace on Anyscale.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.push,
+    help="[DEPRECATED - use 'workspace_v2 push' instead] Push files to a workspace on Anyscale.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 push' instead",
 )
 @click.option(
     "--push-git-state",
@@ -272,6 +311,11 @@ def pull(pull_git_state) -> None:
     help="Also push git state. This is currently unoptimized and will be very slow.",
 )
 def push(push_git_state) -> None:
+    """Push files to a workspace on Anyscale.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 push' instead.
+    """
     _check_local()
     _check_workspace()
     _do_push(push_git_state)
@@ -279,10 +323,11 @@ def push(push_git_state) -> None:
 
 @workspace_cli.command(
     name="run",
-    help="Run a command in a workspace, syncing files first if needed.",
-    cls=LegacyAnyscaleCommand,
-    new_prefix="anyscale workspace_v2",
-    new_cli=workspace_commands_v2.run_command,
+    help="[DEPRECATED - use 'workspace_v2 run_command' instead] Run a command in a workspace, syncing files first if needed.",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 run_command' instead",
 )
 @click.argument("command", required=True)
 @click.option(
@@ -310,6 +355,11 @@ def push(push_git_state) -> None:
     help="Whether to skip pushing files prior to running the command.",
 )
 def run(command: str, web_terminal: bool, as_job: bool, no_push: bool,) -> None:
+    """Run a command in a workspace, syncing files first if needed.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 run_command' instead.
+    """
     _check_local()
     _check_workspace()
     if as_job:
@@ -337,17 +387,20 @@ def run(command: str, web_terminal: bool, as_job: bool, no_push: bool,) -> None:
 
 @workspace_cli.command(
     name="ssh",
-    help="ssh into a workspace, you can also pass args to the ssh command. E.g. 'anyscale workspace ssh -- -L 8888:localhost:8888",
-    cls=LegacyAnyscaleCommand,
-    new_cli=workspace_commands_v2.ssh,
-    new_prefix="anyscale workspace_v2",
+    help="[DEPRECATED - use 'workspace_v2 ssh' instead] ssh into a workspace, you can also pass args to the ssh command. E.g. 'anyscale workspace ssh -- -L 8888:localhost:8888",
+    cls=DeprecatedAnyscaleCommand,
+    removal_date="2025-10-01",
+    deprecation_message="The workspace v1 CLI is being replaced",
+    alternative="use 'anyscale workspace_v2 ssh' instead",
 )
 @click.argument(
     "args", nargs=-1, required=False, type=click.UNPROCESSED,
 )
 def ssh(args: Tuple[str]) -> None:
-    """
-    ssh into a running workspace.
+    """ssh into a running workspace.
+
+    DEPRECATED: This command will be removed on 2025-10-01.
+    Use 'anyscale workspace_v2 ssh' instead.
     """
     _check_local()
 
@@ -364,6 +417,7 @@ def list_command() -> None:
     workspace_controller.list()
 
 
+# TODO(vigneshka): Migrate to v2 if there is usage, then deprecate
 @workspace_cli.command(name="cp", cls=LegacyAnyscaleCommand, is_limited_support=True)
 @click.argument(
     "remote_path",

@@ -695,7 +695,7 @@ class Scaling:
         Returns:
             Tuple of (data, error, message) from API response
         """
-        path = f"/v1/scaling/get_user_access_key_pair/{user_id}/{self.instance_id}"
+        path = f"/v1/compute/get_user_access_key_pair/{user_id}/{self.instance_id}"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,

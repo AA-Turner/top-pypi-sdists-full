@@ -329,6 +329,25 @@ s3deploy.BucketDeployment(self, "DeployWithInvalidation",
 )
 ```
 
+By default, the deployment will wait for invalidation to succeed to complete. This will poll Cloudfront for a maximum of 13 minutes to check for a successful invalidation. The drawback to this is that the deployment will fail if invalidation fails or if it takes longer than 13 minutes. As a workaround, there is the option `waitForDistributionInvalidation`, which can be set to false to skip waiting for the invalidation, but this can be risky as invalidation errors will not be reported.
+
+```python
+import aws_cdk.aws_cloudfront as cloudfront
+
+# bucket: s3.IBucket
+# distribution: cloudfront.IDistribution
+
+
+s3deploy.BucketDeployment(self, "DeployWithInvalidation",
+    sources=[s3deploy.Source.asset("./website-dist")],
+    destination_bucket=bucket,
+    distribution=distribution,
+    distribution_paths=["/images/*.png"],
+    # Invalidate cache but don't wait or verify that invalidation has completed successfully.
+    wait_for_distribution_invalidation=False
+)
+```
+
 ## Signed Content Payloads
 
 By default, deployment uses streaming uploads which set the `x-amz-content-sha256`
@@ -678,6 +697,7 @@ class BucketDeployment(
         use_efs: typing.Optional[builtins.bool] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
         vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        wait_for_distribution_invalidation: typing.Optional[builtins.bool] = None,
         website_redirect_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -715,6 +735,7 @@ class BucketDeployment(
         :param use_efs: Mount an EFS file system. Enable this if your assets are large and you encounter disk space errors. Enabling this option will require a VPC to be specified. Default: - No EFS. Lambda has access only to 512MB of disk space.
         :param vpc: The VPC network to place the deployment lambda handler in. This is required if ``useEfs`` is set. Default: None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
+        :param wait_for_distribution_invalidation: In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
         :param website_redirect_location: System-defined x-amz-website-redirect-location metadata to be set on all objects in the deployment. Default: - No website redirection.
         '''
         if __debug__:
@@ -754,6 +775,7 @@ class BucketDeployment(
             use_efs=use_efs,
             vpc=vpc,
             vpc_subnets=vpc_subnets,
+            wait_for_distribution_invalidation=wait_for_distribution_invalidation,
             website_redirect_location=website_redirect_location,
         )
 
@@ -861,6 +883,7 @@ class BucketDeployment(
         "use_efs": "useEfs",
         "vpc": "vpc",
         "vpc_subnets": "vpcSubnets",
+        "wait_for_distribution_invalidation": "waitForDistributionInvalidation",
         "website_redirect_location": "websiteRedirectLocation",
     },
 )
@@ -900,6 +923,7 @@ class BucketDeploymentProps:
         use_efs: typing.Optional[builtins.bool] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
         vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        wait_for_distribution_invalidation: typing.Optional[builtins.bool] = None,
         website_redirect_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for ``BucketDeployment``.
@@ -936,6 +960,7 @@ class BucketDeploymentProps:
         :param use_efs: Mount an EFS file system. Enable this if your assets are large and you encounter disk space errors. Enabling this option will require a VPC to be specified. Default: - No EFS. Lambda has access only to 512MB of disk space.
         :param vpc: The VPC network to place the deployment lambda handler in. This is required if ``useEfs`` is set. Default: None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
+        :param wait_for_distribution_invalidation: In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
         :param website_redirect_location: System-defined x-amz-website-redirect-location metadata to be set on all objects in the deployment. Default: - No website redirection.
 
         :exampleMetadata: infused
@@ -993,6 +1018,7 @@ class BucketDeploymentProps:
             check_type(argname="argument use_efs", value=use_efs, expected_type=type_hints["use_efs"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+            check_type(argname="argument wait_for_distribution_invalidation", value=wait_for_distribution_invalidation, expected_type=type_hints["wait_for_distribution_invalidation"])
             check_type(argname="argument website_redirect_location", value=website_redirect_location, expected_type=type_hints["website_redirect_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "destination_bucket": destination_bucket,
@@ -1058,6 +1084,8 @@ class BucketDeploymentProps:
             self._values["vpc"] = vpc
         if vpc_subnets is not None:
             self._values["vpc_subnets"] = vpc_subnets
+        if wait_for_distribution_invalidation is not None:
+            self._values["wait_for_distribution_invalidation"] = wait_for_distribution_invalidation
         if website_redirect_location is not None:
             self._values["website_redirect_location"] = website_redirect_location
 
@@ -1425,6 +1453,21 @@ class BucketDeploymentProps:
         '''
         result = self._values.get("vpc_subnets")
         return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+
+    @builtins.property
+    def wait_for_distribution_invalidation(self) -> typing.Optional[builtins.bool]:
+        '''In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete.
+
+        This may speed up deployment and avoid
+        intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation
+        can silently fail.
+
+        :default: true
+
+        :see: https://github.com/aws/aws-cdk/issues/15891
+        '''
+        result = self._values.get("wait_for_distribution_invalidation")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def website_redirect_location(self) -> typing.Optional[builtins.str]:
@@ -2507,6 +2550,7 @@ def _typecheckingstub__2544491e92aa50a255b927ef16b9cde2961eae48803afca3b5d1105bf
     use_efs: typing.Optional[builtins.bool] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    wait_for_distribution_invalidation: typing.Optional[builtins.bool] = None,
     website_redirect_location: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2552,6 +2596,7 @@ def _typecheckingstub__cbabf07e8b4adfb2b2058c075c4f35512ebc580f80a6db9bf13e90589
     use_efs: typing.Optional[builtins.bool] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    wait_for_distribution_invalidation: typing.Optional[builtins.bool] = None,
     website_redirect_location: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

@@ -140,6 +140,9 @@ class CfnIdMappingWorkflow(
         
             # the properties below are optional
             description="description",
+            id_mapping_incremental_run_config=entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty(
+                incremental_run_type="incrementalRunType"
+            ),
             output_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty(
                 output_s3_path="outputS3Path",
         
@@ -163,6 +166,7 @@ class CfnIdMappingWorkflow(
         role_arn: builtins.str,
         workflow_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -174,6 +178,7 @@ class CfnIdMappingWorkflow(
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
         :param description: A description of the workflow.
+        :param id_mapping_incremental_run_config: 
         :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
@@ -187,6 +192,7 @@ class CfnIdMappingWorkflow(
             role_arn=role_arn,
             workflow_name=workflow_name,
             description=description,
+            id_mapping_incremental_run_config=id_mapping_incremental_run_config,
             output_source_config=output_source_config,
             tags=tags,
         )
@@ -337,6 +343,23 @@ class CfnIdMappingWorkflow(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="idMappingIncrementalRunConfig")
+    def id_mapping_incremental_run_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]], jsii.get(self, "idMappingIncrementalRunConfig"))
+
+    @id_mapping_incremental_run_config.setter
+    def id_mapping_incremental_run_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05343eaa423891f629815a20fdb306f3b3da6aa0d3418d30466a32ec633713a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idMappingIncrementalRunConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="outputSourceConfig")
     def output_source_config(
         self,
@@ -366,6 +389,56 @@ class CfnIdMappingWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__f1c5de5e1db5e25e42cb52039b70835fa351dc563f560ac5ff3604bab3a7c6d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"incremental_run_type": "incrementalRunType"},
+    )
+    class IdMappingIncrementalRunConfigProperty:
+        def __init__(self, *, incremental_run_type: builtins.str) -> None:
+            '''
+            :param incremental_run_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingincrementalrunconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_entityresolution as entityresolution
+                
+                id_mapping_incremental_run_config_property = entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty(
+                    incremental_run_type="incrementalRunType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__115e9b3aa3c15532ffa6d06e165d032acb0428815b530082a13312eaf046d37b)
+                check_type(argname="argument incremental_run_type", value=incremental_run_type, expected_type=type_hints["incremental_run_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "incremental_run_type": incremental_run_type,
+            }
+
+        @builtins.property
+        def incremental_run_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingincrementalrunconfig.html#cfn-entityresolution-idmappingworkflow-idmappingincrementalrunconfig-incrementalruntype
+            '''
+            result = self._values.get("incremental_run_type")
+            assert result is not None, "Required property 'incremental_run_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdMappingIncrementalRunConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty",
@@ -1015,6 +1088,7 @@ class CfnIdMappingWorkflow(
         "role_arn": "roleArn",
         "workflow_name": "workflowName",
         "description": "description",
+        "id_mapping_incremental_run_config": "idMappingIncrementalRunConfig",
         "output_source_config": "outputSourceConfig",
         "tags": "tags",
     },
@@ -1028,6 +1102,7 @@ class CfnIdMappingWorkflowProps:
         role_arn: builtins.str,
         workflow_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1038,6 +1113,7 @@ class CfnIdMappingWorkflowProps:
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
         :param description: A description of the workflow.
+        :param id_mapping_incremental_run_config: 
         :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
         :param tags: The tags used to organize, track, or control access for this resource.
 
@@ -1088,6 +1164,9 @@ class CfnIdMappingWorkflowProps:
             
                 # the properties below are optional
                 description="description",
+                id_mapping_incremental_run_config=entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty(
+                    incremental_run_type="incrementalRunType"
+                ),
                 output_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty(
                     output_s3_path="outputS3Path",
             
@@ -1107,6 +1186,7 @@ class CfnIdMappingWorkflowProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument id_mapping_incremental_run_config", value=id_mapping_incremental_run_config, expected_type=type_hints["id_mapping_incremental_run_config"])
             check_type(argname="argument output_source_config", value=output_source_config, expected_type=type_hints["output_source_config"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1117,6 +1197,8 @@ class CfnIdMappingWorkflowProps:
         }
         if description is not None:
             self._values["description"] = description
+        if id_mapping_incremental_run_config is not None:
+            self._values["id_mapping_incremental_run_config"] = id_mapping_incremental_run_config
         if output_source_config is not None:
             self._values["output_source_config"] = output_source_config
         if tags is not None:
@@ -1178,6 +1260,16 @@ class CfnIdMappingWorkflowProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def id_mapping_incremental_run_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-idmappingincrementalrunconfig
+        '''
+        result = self._values.get("id_mapping_incremental_run_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty]], result)
 
     @builtins.property
     def output_source_config(
@@ -4546,6 +4638,7 @@ def _typecheckingstub__498454075de816db2ba240e783f9530effd93522c63f637ee5bff5bbf
     role_arn: builtins.str,
     workflow_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -4594,6 +4687,12 @@ def _typecheckingstub__73508385219d92414fa73246ef135667c9eca037d9a796d5490e9c29d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__05343eaa423891f629815a20fdb306f3b3da6aa0d3418d30466a32ec633713a2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c441bfde4467a201e4e9322b69a020514feb4e0efb56d31892f1f02e461d7119(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty]]]],
 ) -> None:
@@ -4602,6 +4701,13 @@ def _typecheckingstub__c441bfde4467a201e4e9322b69a020514feb4e0efb56d31892f1f02e4
 
 def _typecheckingstub__f1c5de5e1db5e25e42cb52039b70835fa351dc563f560ac5ff3604bab3a7c6d3(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__115e9b3aa3c15532ffa6d06e165d032acb0428815b530082a13312eaf046d37b(
+    *,
+    incremental_run_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4673,6 +4779,7 @@ def _typecheckingstub__a92ec1b5f460936930fefdd0c239f69c3ec93198e4a71c3867bbe1bf1
     role_arn: builtins.str,
     workflow_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

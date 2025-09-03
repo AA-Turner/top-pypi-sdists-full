@@ -336,7 +336,7 @@ class GCPConfig(object):
     def deployment_manager_id(self):
         """Gets the deployment_manager_id of this GCPConfig.  # noqa: E501
 
-        The deployment manager deployment ID, for deployments with Anyscale-managed resources.  # noqa: E501
+        The deployment manager deployment ID, for Anyscale-managed resources.  # noqa: E501
 
         :return: The deployment_manager_id of this GCPConfig.  # noqa: E501
         :rtype: str
@@ -347,7 +347,7 @@ class GCPConfig(object):
     def deployment_manager_id(self, deployment_manager_id):
         """Sets the deployment_manager_id of this GCPConfig.
 
-        The deployment manager deployment ID, for deployments with Anyscale-managed resources.  # noqa: E501
+        The deployment manager deployment ID, for Anyscale-managed resources.  # noqa: E501
 
         :param deployment_manager_id: The deployment_manager_id of this GCPConfig.  # noqa: E501
         :type: str

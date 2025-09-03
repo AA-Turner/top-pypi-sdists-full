@@ -566,6 +566,22 @@ class AnotherClass:
 );
 
 testcase!(
+    test_union_as_protocol,
+    r#"
+from typing import Protocol
+class P(Protocol):
+    x: int
+class A:
+    x: int
+class B:
+    y: int
+def f[T: A | B](direct: A | B, quantified: T) -> None:
+    p: P = direct  # E: `A | B` is not assignable to `P`
+    p: P = quantified  # E: `T` is not assignable to `P`
+    "#,
+);
+
+testcase!(
     bug = "We don't support this yet",
     test_callback_protocol_generic,
     r#"
