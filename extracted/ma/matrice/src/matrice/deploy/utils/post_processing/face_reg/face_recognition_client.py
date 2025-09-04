@@ -165,7 +165,7 @@ class FacialRecognitionClient:
                                   location: str,
                                   employee_id: Optional[str] = None,
                                   timestamp: str = datetime.now(timezone.utc).isoformat(),
-                                  ) -> str | None:
+                                  ) -> str:
         """
         Store people activity data and return response with potential upload URLs
         

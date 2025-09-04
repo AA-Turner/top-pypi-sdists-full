@@ -29,7 +29,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import chips
 
-__version__ = "3.83.0"
+__version__ = "3.83.1"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -392,6 +392,8 @@ class Chip:
                     linux_id = chips.T194
                 elif "nvidia,tegra234" in compats:
                     linux_id = chips.T234
+                elif "nvidia,tegra264" in compats:
+                    linux_id = chips.T264
             if compatible and "imx8m" in compatible:
                 linux_id = chips.IMX8MX
             if compatible and "odroid-c2" in compatible:

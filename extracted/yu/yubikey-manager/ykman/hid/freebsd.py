@@ -68,7 +68,7 @@ from yubikit.core.otp import OtpConnection
 from .base import USAGE_OTP, YUBICO_VID, OtpYubiKeyDevice
 
 # Don't typecheck this file on Windows
-assert sys.platform != "win32"  # nosec
+assert sys.platform != "win32"  # noqa: S101
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class HidrawConnection(OtpConnection):
     def receive(self):
         buf = bytearray(1 + 8)
         fcntl.ioctl(self.fd, HIDIOCGFEATURE_9, buf, True)
-        return buf[1:]
+        return bytes(buf[1:])
 
     def send(self, data):
         buf = bytes([0]) + data
@@ -203,7 +203,8 @@ class UhidConnection(OtpConnection):
         ret = libc.ioctl(self.fd, USB_GET_REPORT, ctypes.pointer(desc))
         if ret != 0:
             raise ValueError("ioctl failed: " + str(ret))
-        return buf[:-1]
+
+        return buf.raw[:-1]
 
     def send(self, data):
         buf = ctypes.create_string_buffer(8)

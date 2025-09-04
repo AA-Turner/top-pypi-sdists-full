@@ -25,13 +25,15 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import abc
 import logging
 import os
 import struct
 from dataclasses import dataclass, field
 from enum import IntEnum, unique
-from typing import Callable, NamedTuple, Optional, Sequence, Union
+from typing import Callable, NamedTuple, Sequence
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -82,7 +84,7 @@ def _calculate_mac(key: bytes, chain: bytes, message: bytes) -> tuple[bytes, byt
 def _init_cipher(key: bytes, counter: int, response=False) -> Cipher:
     encryptor = Cipher(
         algorithms.AES(key),
-        modes.ECB(),  # nosec ECB
+        modes.ECB(),  # noqa: S305
         backend=default_backend(),
     ).encryptor()
     iv_data = (b"\x80" if response else b"\x00") + int.to_bytes(counter, 15, "big")
@@ -100,7 +102,7 @@ class SessionKeys(NamedTuple):
     key_senc: bytes
     key_smac: bytes
     key_srmac: bytes
-    key_dek: Optional[bytes] = None
+    key_dek: bytes | None = None
 
 
 class StaticKeys(NamedTuple):
@@ -108,10 +110,10 @@ class StaticKeys(NamedTuple):
 
     key_enc: bytes
     key_mac: bytes
-    key_dek: Optional[bytes] = None
+    key_dek: bytes | None = None
 
     @classmethod
-    def default(cls) -> "StaticKeys":
+    def default(cls) -> StaticKeys:
         return cls(_DEFAULT_KEY, _DEFAULT_KEY, _DEFAULT_KEY)
 
     def derive(self, context: bytes) -> SessionKeys:
@@ -140,7 +142,7 @@ class KeyRef(bytes):
     def kvn(self) -> int:
         return self[1]
 
-    def __new__(cls, kid_or_data: Union[int, bytes], kvn: Optional[int] = None):
+    def __new__(cls, kid_or_data: int | bytes, kvn: int | None = None):
         """This allows creation by passing either binary data, or kid and kvn."""
         if isinstance(kid_or_data, int):  # kid and kvn
             if kvn is None:
@@ -154,7 +156,7 @@ class KeyRef(bytes):
         # mypy thinks this is wrong
         return super(KeyRef, cls).__new__(cls, data)  # type: ignore
 
-    def __init__(self, kid_or_data: Union[int, bytes], kvn: Optional[int] = None):
+    def __init__(self, kid_or_data: int | bytes, kvn: int | None = None):
         if len(self) != 2:
             raise ValueError("Incorrect length")
 
@@ -180,8 +182,8 @@ class Scp03KeyParams(ScpKeyParams):
 class Scp11KeyParams(ScpKeyParams):
     pk_sd_ecka: ec.EllipticCurvePublicKey
     # For SCP11 a/c we need an OCE key, with its trust chain
-    oce_ref: Optional[KeyRef] = None
-    sk_oce_ecka: Optional[ec.EllipticCurvePrivateKey] = None
+    oce_ref: KeyRef | None = None
+    sk_oce_ecka: ec.EllipticCurvePrivateKey | None = None
     # Certificate chain for sk_oce_ecka, leaf-last order
     certificates: Sequence[x509.Certificate] = field(default_factory=list)
 
@@ -248,8 +250,8 @@ class ScpState:
         send_apdu: SendApdu,
         key_params: Scp03KeyParams,
         *,
-        host_challenge: Optional[bytes] = None,
-    ) -> tuple["ScpState", bytes]:
+        host_challenge: bytes | None = None,
+    ) -> tuple[ScpState, bytes]:
         logger.debug("Initializing SCP03 handshake")
         host_challenge = host_challenge or os.urandom(8)
         resp = send_apdu(
@@ -282,7 +284,7 @@ class ScpState:
         cls,
         send_apdu: SendApdu,
         key_params: Scp11KeyParams,
-    ) -> "ScpState":
+    ) -> ScpState:
         kid = ScpKid(key_params.ref.kid)
         logger.debug(f"Initializing {kid.name} handshake")
 
@@ -298,9 +300,9 @@ class ScpState:
 
         if kid in (ScpKid.SCP11a, ScpKid.SCP11c):
             # GPC v2.3 Amendment F (SCP11) v1.4 §7.5
-            assert key_params.sk_oce_ecka  # nosec
+            assert key_params.sk_oce_ecka  # noqa: S101
             n = len(key_params.certificates) - 1
-            assert n >= 0  # nosec
+            assert n >= 0  # noqa: S101
             oce_ref = key_params.oce_ref or KeyRef(0, 0)
             logger.debug("Sending certificate chain")
             for i, cert in enumerate(key_params.certificates):

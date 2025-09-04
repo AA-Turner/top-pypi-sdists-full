@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sklearndf
-Version: 2.4.1
+Version: 2.4.2
 Summary: Data frame support and feature traceability for `scikit-learn`.
 Home-page: https://github.com/BCG-X-Official/sklearndf
 Author: Boston Consulting Group (BCG)

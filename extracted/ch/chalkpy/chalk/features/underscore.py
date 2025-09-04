@@ -235,7 +235,8 @@ class Underscore:
             elif node.identifier.name == "__":
                 return DoubleUnderscore()
             else:
-                raise ValueError(f"Unknown identifier: {node.identifier.name}")
+                return UnderscoreAttr(UnderscoreRoot(), node.identifier.name)
+
         elif node.HasField("get_attribute"):
             parent = cls._from_proto(node.get_attribute.parent)
             if not isinstance(parent, Underscore):

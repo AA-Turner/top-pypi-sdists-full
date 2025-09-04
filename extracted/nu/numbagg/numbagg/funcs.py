@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from typing import TypeVar
+
 import numpy as np
 from numba import bool_, float32, float64, int32, int64
+from numpy.typing import NDArray
 
-from numbagg.decorators import ndaggregate, ndfill, ndquantile, ndreduce
+from numbagg.decorators import ndaggregate, ndfill, ndmatrix, ndquantile, ndreduce
+
+from .utils import FloatArray, NumericArray
+
+T = TypeVar("T", bound=NumericArray)
+F = TypeVar("F", bound=FloatArray)
 
 
 @ndaggregate.wrap(
@@ -14,7 +22,7 @@ from numbagg.decorators import ndaggregate, ndfill, ndquantile, ndreduce
         (float64[:], bool_[:]),
     ]
 )
-def allnan(a, out):
+def allnan(a: NumericArray, out: NumericArray) -> None:
     for ai in a:
         if not np.isnan(ai):
             out[0] = False
@@ -29,7 +37,7 @@ def allnan(a, out):
         (float64[:], bool_[:]),
     ]
 )
-def anynan(a, out):
+def anynan(a: NumericArray, out: NumericArray) -> None:
     for ai in a.flat:
         if np.isnan(ai):
             out[0] = True
@@ -44,7 +52,7 @@ def anynan(a, out):
         (float64[:], int64[:]),
     ]
 )
-def nancount(a, out):
+def nancount(a: T, out: T) -> None:
     non_missing = 0
     for ai in a.flat:
         if not np.isnan(ai):
@@ -94,11 +102,7 @@ def nanmean(a, out):
     ],
     supports_ddof=True,
 )
-def nanvar(
-    a,
-    ddof,
-    out,
-):
+def nanvar(a: F, ddof: int, out: F) -> None:
     # Running two loops might seem inefficient, but it's 3x faster than a Welford's
     # algorithm. And if we don't compute the mean first, we get numerical instability
     # (which our tests capture so is easy to observe).
@@ -129,7 +133,7 @@ def nanvar(
     ],
     supports_ddof=True,
 )
-def nanstd(a, ddof, out):
+def nanstd(a: F, ddof: int, out: F) -> None:
     asum = 0
     count = 0
     for ai in a:
@@ -232,7 +236,9 @@ def nanmin(a):
 
 
 @ndquantile.wrap(([(float64[:], float64[:], float64[:])], "(n),(m)->(m)"))
-def nanquantile(arr: np.ndarray, quantile, out):
+def nanquantile(
+    arr: NDArray[np.float64], quantile: NDArray[np.float64], out: NDArray[np.float64]
+) -> None:
     nans = np.isnan(arr)
     valid_obs = arr.size - np.sum(nans)
 
@@ -279,7 +285,7 @@ def nanquantile(arr: np.ndarray, quantile, out):
 
 
 @ndfill.wrap()
-def bfill(a, limit, out):
+def bfill(a: F, limit: int, out: F) -> None:
     lives_remaining = limit
     current = np.nan
     # Ugly `range` expression, but can't do 'enumerate(reversed(a))', and adding a
@@ -297,7 +303,7 @@ def bfill(a, limit, out):
 
 
 @ndfill.wrap()
-def ffill(a, limit, out):
+def ffill(a: F, limit: int, out: F) -> None:
     lives_remaining = limit
     current = np.nan
     for i, val in enumerate(a):
@@ -314,5 +320,202 @@ def ffill(a, limit, out):
 count = nancount
 
 
-def nanmedian(a: np.ndarray, **kwargs):
+def nanmedian(a: NDArray[np.float64], **kwargs) -> NDArray[np.float64]:
     return nanquantile(a, quantiles=0.5, **kwargs)
+
+
+@ndmatrix.wrap(
+    signature=(
+        [(float32[:, :], float32[:, :]), (float64[:, :], float64[:, :])],
+        "(n,m)->(n,n)",
+    )
+)
+def nancorrmatrix(a: F, out: F) -> None:
+    """
+    Compute correlation matrix treating NaN as missing values.
+
+    Matrix Function Dimensional Conventions:
+
+    Due to NumPy gufunc constraints, matrix functions have fixed axis assignments:
+
+    Static Matrix Functions (nancorrmatrix, nancovmatrix):
+    - vars_axis: -2 (variables dimension gets duplicated into n×n matrix)
+    - obs_axis: -1 (observations dimension gets reduced)
+    - Input signature: (..., vars, obs) -> (..., vars, vars)
+
+    Moving Matrix Functions (move_corrmatrix, etc.):
+    - obs_axis: -2 (observations dimension preserved as time axis)
+    - vars_axis: -1 (variables dimension duplicated to end as matrix dims)
+    - Input signature: (..., obs, vars) -> (..., obs, vars, vars)
+
+    This asymmetry exists because:
+    - Static: gufunc "(vars,obs)->(vars,vars)" needs obs at end to reduce
+    - Moving: gufunc "(obs,vars)->(obs,vars,vars)" needs vars at end to add matrix dims
+
+    Parameters
+    ----------
+    a : array_like
+        Input array with shape (..., vars, obs) where:
+        - vars (axis=-2): variables to compute correlations between
+        - obs (axis=-1): observations to aggregate over (gets reduced)
+
+    Returns
+    -------
+    ndarray
+        Shape (..., vars, vars) - correlation matrix with same leading
+        dimensions as input, plus vars×vars correlation matrix at the end.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import numbagg as nb
+    >>> # Standard: 3 variables, 100 observations
+    >>> data = np.random.randn(3, 100)
+    >>> corr = nb.nancorrmatrix(data)
+    >>> corr.shape
+    (3, 3)
+    >>>
+    >>> # Broadcasting: batch of correlation matrices
+    >>> data_3d = np.random.randn(5, 3, 100)
+    >>> corr_3d = nb.nancorrmatrix(data_3d)
+    >>> corr_3d.shape
+    (5, 3, 3)
+    >>>
+    >>> # Wrong arrangement: transpose first
+    >>> data_wrong = np.random.randn(100, 3)  # obs, vars
+    >>> data_correct = data_wrong.T  # vars, obs
+    >>> corr = nb.nancorrmatrix(data_correct)
+
+    Notes
+    -----
+    - Uses pairwise complete observations (like pandas.DataFrame.corr)
+    - Cache-friendly implementation: processes observations sequentially for better locality
+    - Unlike NumPy's corrcoef, this broadcasts over arbitrary leading dimensions
+    - For other dimension arrangements, transpose your data first
+    - axis parameter removed - dimensions are now fixed for consistency
+    """
+    n_vars, n_obs = a.shape
+
+    # Allocate arrays for all pairs - optimized for cache locality
+    sums_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_sq_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_sq_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_ij = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    counts = np.zeros((n_vars, n_vars), dtype=np.int64)
+
+    # Single pass through observations (excellent cache locality)
+    for k in range(n_obs):
+        # Load entire observation into cache once
+        obs = a[:, k]
+
+        # Process all variable pairs for this observation
+        for i in range(n_vars):
+            val_i = obs[i]
+            if not np.isnan(val_i):
+                for j in range(i, n_vars):  # Only upper triangle
+                    val_j = obs[j]
+                    if not np.isnan(val_j):
+                        sums_i[i, j] += val_i
+                        sums_j[i, j] += val_j
+                        sums_sq_i[i, j] += val_i * val_i
+                        sums_sq_j[i, j] += val_j * val_j
+                        sums_ij[i, j] += val_i * val_j
+                        counts[i, j] += 1
+
+    # Compute final correlations from accumulated statistics
+    for i in range(n_vars):
+        for j in range(i, n_vars):
+            count = counts[i, j]
+            if count > 1:  # Need at least 2 observations for correlation
+                mean_i = sums_i[i, j] / count
+                mean_j = sums_j[i, j] / count
+
+                # Variances (sample variance with ddof=1)
+                var_i = (sums_sq_i[i, j] / count) - (mean_i * mean_i)
+                var_j = (sums_sq_j[i, j] / count) - (mean_j * mean_j)
+                var_i_unbiased = var_i * count / (count - 1)
+                var_j_unbiased = var_j * count / (count - 1)
+
+                # Covariance (sample covariance with ddof=1)
+                cov = (sums_ij[i, j] / count) - (mean_i * mean_j)
+                cov_unbiased = cov * count / (count - 1)
+
+                # Correlation
+                if var_i_unbiased > 0 and var_j_unbiased > 0:
+                    corr = cov_unbiased / np.sqrt(var_i_unbiased * var_j_unbiased)
+                    out[i, j] = corr
+                    out[j, i] = corr  # Symmetric
+                else:
+                    out[i, j] = np.nan
+                    out[j, i] = np.nan
+            else:
+                out[i, j] = np.nan
+                out[j, i] = np.nan
+
+
+@ndmatrix.wrap(
+    signature=(
+        [(float32[:, :], float32[:, :]), (float64[:, :], float64[:, :])],
+        "(n,m)->(n,n)",
+    )
+)
+def nancovmatrix(a: F, out: F) -> None:
+    """
+    Compute covariance matrix treating NaN as missing values.
+
+    Dimension conventions:
+    - Input: (n_vars, n_obs) - variables as rows, observations as columns
+    - Output: (n_vars, n_vars) - square covariance matrix
+    - Broadcasting: Supports arbitrary leading dimensions via NumPy's gufunc system
+
+    Uses pairwise complete observations (like pandas.DataFrame.cov).
+    Cache-friendly implementation: processes observations sequentially for better locality.
+
+    Unlike NumPy's cov, this function broadcasts over higher dimensions:
+
+    Examples:
+    - 2D: (3, 100) -> (3, 3)
+    - 3D: (batch=5, vars=3, obs=100) -> (5, 3, 3)
+    - 4D: (2, 5, 3, 100) -> (2, 5, 3, 3)
+    """
+    n_vars, n_obs = a.shape
+
+    # Allocate arrays for all pairs - optimized for cache locality
+    sums_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_ij = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    counts = np.zeros((n_vars, n_vars), dtype=np.int64)
+
+    # Single pass through observations (excellent cache locality)
+    for k in range(n_obs):
+        # Load entire observation into cache once
+        obs = a[:, k]
+
+        # Process all variable pairs for this observation
+        for i in range(n_vars):
+            val_i = obs[i]
+            if not np.isnan(val_i):
+                for j in range(i, n_vars):  # Only upper triangle
+                    val_j = obs[j]
+                    if not np.isnan(val_j):
+                        sums_i[i, j] += val_i
+                        sums_j[i, j] += val_j
+                        sums_ij[i, j] += val_i * val_j
+                        counts[i, j] += 1
+
+    # Compute final covariances from accumulated statistics
+    for i in range(n_vars):
+        for j in range(i, n_vars):
+            count = counts[i, j]
+            if count > 1:
+                mean_i = sums_i[i, j] / count
+                mean_j = sums_j[i, j] / count
+                # Covariance: E[XY] - E[X]E[Y], scaled to unbiased estimator
+                cov = (sums_ij[i, j] / count) - (mean_i * mean_j)
+                cov_unbiased = cov * count / (count - 1)
+                out[i, j] = cov_unbiased
+                out[j, i] = cov_unbiased  # Symmetric
+            else:
+                out[i, j] = np.nan
+                out[j, i] = np.nan

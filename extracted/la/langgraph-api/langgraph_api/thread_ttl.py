@@ -1,6 +1,7 @@
 """Sweeping logic for cleaning up expired threads and checkpoints."""
 
 import asyncio
+from typing import cast
 
 import structlog
 
@@ -23,7 +24,9 @@ async def thread_ttl_sweep_loop():
         raise NotImplementedError(
             f"Unrecognized thread deletion strategy: {strategy}. Expected 'delete'."
         )
-    sweep_interval_minutes = thread_ttl_config.get("sweep_interval_minutes", 5)
+    sweep_interval_minutes = cast(
+        int, thread_ttl_config.get("sweep_interval_minutes", 5)
+    )
     await logger.ainfo(
         f"Starting thread TTL sweeper with interval {sweep_interval_minutes} minutes",
         strategy=strategy,

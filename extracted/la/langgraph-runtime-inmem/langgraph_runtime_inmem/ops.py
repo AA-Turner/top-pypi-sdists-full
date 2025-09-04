@@ -958,6 +958,7 @@ class Threads(Authenticated):
         thread_id: UUID,
         *,
         metadata: MetadataValue,
+        ttl: ThreadTTLConfig | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Thread]:
         """Update a thread."""

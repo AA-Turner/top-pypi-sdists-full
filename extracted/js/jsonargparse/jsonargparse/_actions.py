@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from ._common import Action, is_subclass, parser_context
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace, NSKeyError, split_key, split_key_root
-from ._optionals import _get_config_read_mode
+from ._optionals import _get_config_read_mode, ruamel_support
 from ._type_checking import ActionsContainer, ArgumentParser
 from ._util import (
     Path,
@@ -29,8 +29,9 @@ from ._util import (
 
 __all__ = [
     "ActionConfigFile",
-    "ActionYesNo",
+    "ActionFail",
     "ActionParser",
+    "ActionYesNo",
 ]
 
 
@@ -65,7 +66,7 @@ def _find_action_and_subcommand(
     fallback_action = None
     for action in actions:
         if action.dest == dest or f"--{dest}" in action.option_strings:
-            if isinstance(action, _ActionConfigLoad):
+            if isinstance(action, (_ActionConfigLoad, ActionFail)):
                 fallback_action = action
             else:
                 return action, None
@@ -251,13 +252,16 @@ class _ActionPrintConfig(Action):
             help=(
                 "Print the configuration after applying all other arguments and exit. The optional "
                 "flags customizes the output and are one or more keywords separated by comma. The "
-                "supported flags are: comments, skip_default, skip_null."
-            ),
+                "supported flags are:%s skip_default, skip_null."
+            )
+            % (" comments," if ruamel_support else ""),
         )
 
     def __call__(self, parser, namespace, value, option_string=None):
         kwargs = {"subparser": parser, "key": None, "skip_none": False, "skip_validation": False}
-        valid_flags = {"": None, "comments": "yaml_comments", "skip_default": "skip_default", "skip_null": "skip_none"}
+        valid_flags = {"": None, "skip_default": "skip_default", "skip_null": "skip_none"}
+        if ruamel_support:
+            valid_flags["comments"] = "yaml_comments"
         if value is not None:
             flags = value[0].split(",")
             invalid_flags = [f for f in flags if f not in valid_flags]
@@ -347,7 +351,6 @@ class _ActionHelpClassPath(Action):
         if typehint is not None:
             self._typehint = typehint
         else:
-            self._typehint = kwargs.pop("_typehint")
             self.update_init_kwargs(kwargs)
             super().__init__(**kwargs)
 
@@ -360,13 +363,14 @@ class _ActionHelpClassPath(Action):
             is_protocol,
         )
 
-        typehint = get_unaliased_type(get_optional_arg(self._typehint))
+        typehint = get_unaliased_type(get_optional_arg(kwargs.pop("_typehint")))
         if get_typehint_origin(typehint) is not Union:
             assert "nargs" not in kwargs
             kwargs["nargs"] = "?"
-        self._basename = iter_to_set_str(get_subclass_names(self._typehint, callable_return=True))
+        self._typehint = typehint
+        self._basename = iter_to_set_str(get_subclass_names(typehint, callable_return=True))
         self._baseclasses = get_subclass_types(typehint, callable_return=True)
-        assert self._baseclasses
+        assert self._baseclasses and all(isinstance(b, type) for b in self._baseclasses)
 
         self._kind = "subclass of"
         if any(is_protocol(b) for b in self._baseclasses):
@@ -388,28 +392,28 @@ class _ActionHelpClassPath(Action):
 
     def print_help(self, call_args):
         from ._typehints import (
-            ActionTypeHint,
-            get_optional_arg,
-            get_unaliased_type,
+            adapt_partial_callable_class,
             implements_protocol,
             resolve_class_path_by_name,
         )
 
         parser, _, value, option_string = call_args
         try:
-            typehint = get_unaliased_type(get_optional_arg(self._typehint))
             if self.nargs == "?" and value is None:
-                val_class = typehint
+                val_class = self._typehint
             else:
-                val_class = import_object(resolve_class_path_by_name(typehint, value))
+                val_class = import_object(resolve_class_path_by_name(self._baseclasses, value))
         except Exception as ex:
             raise TypeError(f"{option_string}: {ex}") from ex
+
         if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in self._baseclasses):
             raise TypeError(f'{option_string}: Class "{value}" is not a {self._kind} {self._basename}')
         dest = re.sub("\\.help$", "", self.dest)
         subparser = type(parser)(description=f"Help for {option_string}={get_import_path(val_class)}")
-        if ActionTypeHint.is_callable_typehint(typehint) and hasattr(typehint, "__args__"):
-            self.sub_add_kwargs["skip"] = {max(0, len(typehint.__args__) - 1)}
+        val = Namespace(class_path=get_import_path(val_class))
+        _, partial_skip_args = adapt_partial_callable_class(self._typehint, val)
+        if partial_skip_args:
+            self.sub_add_kwargs["skip"] = partial_skip_args
         subparser.add_class_arguments(val_class, dest, **self.sub_add_kwargs)
         subparser._inner_parser = True
         remove_actions(subparser, (_HelpAction, _ActionPrintConfig, _ActionConfigLoad))
@@ -430,6 +434,34 @@ class _ActionHelpClassPath(Action):
                     num += 1
                 break
         return args[num + 1 :]
+
+
+class ActionFail(Action):
+    """Action that always fails parsing with a given error."""
+
+    def __init__(self, message: str = "option unavailable", **kwargs):
+        """Initializer for ActionFail instance.
+
+        Args:
+            message: Text for the error to show. Use `%(option)s`/`%(value)s` to include the option and/or value.
+        """
+        if len(kwargs) == 0:
+            self._message = message
+        else:
+            self._message = kwargs.pop("_message")
+            kwargs["default"] = SUPPRESS
+            kwargs["required"] = False
+            if kwargs["option_strings"] == []:
+                kwargs["nargs"] = "?"
+            super().__init__(**kwargs)
+
+    def __call__(self, *args, **kwargs):
+        """Always fails with given message."""
+        if len(args) == 0:
+            kwargs["_message"] = self._message
+            return ActionFail(**kwargs)
+        parser, _, value, option = args
+        parser.error(self._message % {"value": value, "option": option})
 
 
 class ActionYesNo(Action):

@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.5.11 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.6.0 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -94,7 +94,7 @@ def get_cache(cache_name):
     if all_cache is None:
         all_cache = {}
         shared_state["_cache"]=  all_cache
-    cache = shared_state.get(cache_name, None)
+    cache = all_cache.get(cache_name, None)
     if cache is None:
         cache = {}
         all_cache[cache_name] = cache
@@ -688,7 +688,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.11) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.6.0) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -2287,9 +2287,10 @@ class offload:
         src = f"""
 def {fname}(module, *args, **kwargs):
     _ = __TYPE_CONST  # anchor type as a constant to make code object unique per class
+    nada = "{fname}"
     mgr = module._mm_manager
     mgr._pre_check(module)
-    return module._mm_forward(*args, **kwargs)
+    return module._mm_forward(*args, **kwargs) #{fname}
 """
         ns = {"__TYPE_CONST": mod_cls}
         exec(src, ns)                   # compile a new function object/code object for this class
@@ -2310,7 +2311,8 @@ def {fname}(module, *args, **kwargs):
         wrapper_fn = self._get_wrapper_for_type(type(target_module))
 
         # bind as a bound method (no partial/closures)
-        target_module.forward = types.MethodType(wrapper_fn, target_module)
+        # target_module.forward = types.MethodType(wrapper_fn, target_module)
+        target_module.forward = functools.update_wrapper(functools.partial(wrapper_fn, target_module), previous_method) 
 
     def hook_check_load_into_GPU_if_needed_default(self, target_module, model, model_id, blocks_name, previous_method,  context):
 
@@ -2345,12 +2347,12 @@ def {fname}(module, *args, **kwargs):
         if isinstance(target_module, torch.nn.Linear):
             def check_load_into_GPU_needed_linear(module, *args, **kwargs):
                 check_load_into_GPU_needed()
-                return previous_method(*args, **kwargs) 
+                return previous_method(*args, **kwargs) # linear
             check_load_into_GPU_needed_module = check_load_into_GPU_needed_linear
         else:
             def check_load_into_GPU_needed_other(module, *args, **kwargs):
                 check_load_into_GPU_needed()
-                return previous_method(*args, **kwargs) 
+                return previous_method(*args, **kwargs) # other
             check_load_into_GPU_needed_module = check_load_into_GPU_needed_other
 
         setattr(target_module, "_mm_id", model_id)
@@ -2498,7 +2500,7 @@ def {fname}(module, *args, **kwargs):
 
 
 
-def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, partialPinning = False, loras = None, quantizeTransformer = True,  extraModelsToQuantize = None, quantizationType = qint8, budgets= 0, workingVRAM = None, asyncTransfers = True, compile = False, convertWeightsFloatTo = torch.bfloat16, perc_reserved_mem_max = 0, coTenantsMap = None, verboseLevel = -1):
+def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, partialPinning = False, loras = None, quantizeTransformer = True,  extraModelsToQuantize = None, quantizationType = qint8, budgets= 0, workingVRAM = None, asyncTransfers = True, compile = False, convertWeightsFloatTo = torch.bfloat16, perc_reserved_mem_max = 0, coTenantsMap = None, vram_safety_coefficient = 0.8, compile_mode ="default", verboseLevel = -1):
     """Hook to a pipeline or a group of modules in order to reduce their VRAM requirements:
     pipe_or_dict_of_modules : the pipeline object or a dictionary of modules of the model
     quantizeTransformer: set True by default will quantize on the fly the video / image model
@@ -2507,6 +2509,8 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
     budgets: 0 by default (unlimited). If non 0, it corresponds to the maximum size in MB that every model will occupy at any moment
         (in fact the real usage is twice this number). It is very efficient to reduce VRAM consumption but this feature may be very slow
         if pinnedMemory is not enabled
+    vram_safety_coefficient: float between 0 and 1 (exclusive), default 0.8. Sets the maximum portion of VRAM that can be used for models.
+        Lower values provide more safety margin but may reduce performance.        
     """
     self = offload()
     self.verboseLevel = verboseLevel
@@ -2522,7 +2526,11 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
             return float(b[:-1]) * self.device_mem_capacity
         else:
             return b * ONE_MB
-        
+
+    # Validate vram_safety_coefficient
+    if not isinstance(vram_safety_coefficient, float) or vram_safety_coefficient <= 0 or vram_safety_coefficient >= 1:
+        raise ValueError("vram_safety_coefficient must be a float between 0 and 1 (exclusive)")
+
     budget = 0
     if not budgets is None:
         if isinstance(budgets , dict):
@@ -2667,14 +2675,14 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
                 model_budget =  new_budget if model_budget == 0 or new_budget < model_budget else model_budget
         if  model_budget > 0 and model_budget > current_model_size:
             model_budget = 0
-        coef =0.8
+        coef =vram_safety_coefficient
         if current_model_size > coef * self.device_mem_capacity and model_budget == 0 or model_budget > coef * self.device_mem_capacity:
             if verboseLevel >= 1:
                 if model_budget == 0:
-                    print(f"Model '{model_id}' is too large ({current_model_size/ONE_MB:0.1f} MB) to fit entirely in {coef * 100}% of the VRAM (max capacity is {coef * self.device_mem_capacity/ONE_MB}) MB)")
+                    print(f"Model '{model_id}' is too large ({current_model_size/ONE_MB:0.1f} MB) to fit entirely in {coef * 100:.0f}% of the VRAM (max capacity is {coef * self.device_mem_capacity/ONE_MB:0.1f}) MB)")
                 else:
                     print(f"Budget ({budget/ONE_MB:0.1f} MB) for Model '{model_id}' is too important so that this model can fit in the VRAM (max capacity is {self.device_mem_capacity/ONE_MB}) MB)")
-                print(f"Budget allocation for this model has been consequently reduced to the 80% of max GPU Memory ({coef * self.device_mem_capacity/ONE_MB:0.1f} MB). This may not leave enough working VRAM and you will probably need to define manually a lower budget for this model.")
+                print(f"Budget allocation for this model has been consequently reduced to the {coef * 100:.0f}% of max GPU Memory ({coef * self.device_mem_capacity/ONE_MB:0.1f} MB). This may not leave enough working VRAM and you will probably need to define manually a lower budget for this model.")
                 model_budget = coef * self.device_mem_capacity 
                 
         
@@ -2765,8 +2773,8 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
                     elif compilationInThisOne and submodule in towers_modules: 
                         self.hook_preload_blocks_for_compilation(submodule, model_id, cur_blocks_name, context = submodule_name )
                     else:
-                        if compilationInThisOne and False:
-                            self.hook_check_load_into_GPU_needed(submodule, current_model, model_id, cur_blocks_name, submodule_method, context = submodule_name )
+                        if compilationInThisOne: #and False
+                            self.hook_check_load_into_GPU_if_needed(submodule, current_model, model_id, cur_blocks_name, submodule_method, context = submodule_name )
                         else:
                             self.hook_check_load_into_GPU_if_needed_default(submodule, current_model, model_id, cur_blocks_name, submodule_method, context = submodule_name )
 
@@ -2783,7 +2791,7 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
                     print(f"Pytorch compilation of model '{model_id}' is not yet supported.")
 
             for submodel in towers_modules:
-                submodel.forward= torch.compile(submodel.forward,  backend= "inductor", mode="default" ) # , fullgraph= True, mode= "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs",  
+                submodel.forward= torch.compile(submodel.forward,  backend= "inductor", mode= compile_mode) # , fullgraph= True, mode= "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs",  
                     #dynamic=True,
 
         self.tune_preloading(model_id, current_budget, towers_names)

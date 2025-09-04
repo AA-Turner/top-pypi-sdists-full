@@ -76,10 +76,6 @@ class KmsVaultClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("key_management"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -117,8 +113,6 @@ class KmsVaultClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("kms_vault", config, signer, key_management_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -168,15 +162,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/backup_vault.py.html>`__ to see an example of how to use backup_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/backup_vault.py.html>`__ to see an example of how to use backup_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -188,7 +178,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -238,7 +227,6 @@ class KmsVaultClient(object):
                 body=kwargs.get('backup_vault_details'),
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -251,7 +239,6 @@ class KmsVaultClient(object):
                 body=kwargs.get('backup_vault_details'),
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -304,15 +291,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/cancel_vault_deletion.py.html>`__ to see an example of how to use cancel_vault_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/cancel_vault_deletion.py.html>`__ to see an example of how to use cancel_vault_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -324,7 +307,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -372,7 +354,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -384,7 +365,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -442,15 +422,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/change_vault_compartment.py.html>`__ to see an example of how to use change_vault_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/change_vault_compartment.py.html>`__ to see an example of how to use change_vault_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -462,7 +438,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -510,7 +485,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=change_vault_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -522,7 +496,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=change_vault_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -568,15 +541,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/create_vault.py.html>`__ to see an example of how to use create_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/create_vault.py.html>`__ to see an example of how to use create_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -588,7 +557,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -624,7 +592,6 @@ class KmsVaultClient(object):
                 body=create_vault_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -636,7 +603,6 @@ class KmsVaultClient(object):
                 body=create_vault_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -693,15 +659,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/create_vault_replica.py.html>`__ to see an example of how to use create_vault_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/create_vault_replica.py.html>`__ to see an example of how to use create_vault_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -713,7 +675,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -761,7 +722,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=create_vault_replica_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -773,7 +733,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=create_vault_replica_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -826,15 +785,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/delete_vault_replica.py.html>`__ to see an example of how to use delete_vault_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/delete_vault_replica.py.html>`__ to see an example of how to use delete_vault_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -846,7 +801,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -894,7 +848,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=delete_vault_replica_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -906,7 +859,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 body=delete_vault_replica_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -941,15 +893,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/get_vault.py.html>`__ to see an example of how to use get_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/get_vault.py.html>`__ to see an example of how to use get_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -961,7 +909,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1004,7 +951,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1016,7 +962,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1046,15 +991,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.VaultUsage`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/get_vault_usage.py.html>`__ to see an example of how to use get_vault_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/get_vault_usage.py.html>`__ to see an example of how to use get_vault_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -1066,7 +1007,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1109,7 +1049,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="VaultUsage",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1121,7 +1060,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="VaultUsage",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1190,15 +1128,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type list of :class:`~oci.key_management.models.VaultReplicaSummary`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/list_vault_replicas.py.html>`__ to see an example of how to use list_vault_replicas API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/list_vault_replicas.py.html>`__ to see an example of how to use list_vault_replicas API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -1210,7 +1144,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "limit",
@@ -1285,7 +1218,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="list[VaultReplicaSummary]",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1298,7 +1230,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="list[VaultReplicaSummary]",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1352,15 +1283,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type list of :class:`~oci.key_management.models.VaultSummary`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/list_vaults.py.html>`__ to see an example of how to use list_vaults API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/list_vaults.py.html>`__ to see an example of how to use list_vaults API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1372,7 +1299,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "limit",
             "page",
@@ -1432,7 +1358,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="list[VaultSummary]",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1444,7 +1369,6 @@ class KmsVaultClient(object):
                 header_params=header_params,
                 response_type="list[VaultSummary]",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1505,11 +1429,6 @@ class KmsVaultClient(object):
         :param bool allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
-
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :param int buffer_limit: (optional)
             A buffer limit for the stream to be buffered. buffer_limit is used to set the buffer size capacity. Streams will be read until the size of the buffer reaches the buffer_limit.
             If the stream size is greater than the buffer_limit, a BufferError exception will be thrown.
@@ -1522,7 +1441,7 @@ class KmsVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/restore_vault_from_file.py.html>`__ to see an example of how to use restore_vault_from_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/restore_vault_from_file.py.html>`__ to see an example of how to use restore_vault_from_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1534,7 +1453,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "buffer_limit",
             "content_length",
@@ -1603,7 +1521,6 @@ class KmsVaultClient(object):
                 body=restore_vault_from_file_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1616,7 +1533,6 @@ class KmsVaultClient(object):
                 body=restore_vault_from_file_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1666,15 +1582,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/restore_vault_from_object_store.py.html>`__ to see an example of how to use restore_vault_from_object_store API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/restore_vault_from_object_store.py.html>`__ to see an example of how to use restore_vault_from_object_store API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1686,7 +1598,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -1731,7 +1642,6 @@ class KmsVaultClient(object):
                 body=kwargs.get('restore_vault_from_object_store_details'),
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1744,7 +1654,6 @@ class KmsVaultClient(object):
                 body=kwargs.get('restore_vault_from_object_store_details'),
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1801,15 +1710,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/schedule_vault_deletion.py.html>`__ to see an example of how to use schedule_vault_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/schedule_vault_deletion.py.html>`__ to see an example of how to use schedule_vault_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -1821,7 +1726,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -1870,7 +1774,6 @@ class KmsVaultClient(object):
                 body=schedule_vault_deletion_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1883,7 +1786,6 @@ class KmsVaultClient(object):
                 body=schedule_vault_deletion_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1930,15 +1832,11 @@ class KmsVaultClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.key_management.models.Vault`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/keymanagement/update_vault.py.html>`__ to see an example of how to use update_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/keymanagement/update_vault.py.html>`__ to see an example of how to use update_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vaultId']
@@ -1950,7 +1848,6 @@ class KmsVaultClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1996,7 +1893,6 @@ class KmsVaultClient(object):
                 body=update_vault_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2009,7 +1905,6 @@ class KmsVaultClient(object):
                 body=update_vault_details,
                 response_type="Vault",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

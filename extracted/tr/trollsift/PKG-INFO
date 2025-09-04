@@ -1,15 +1,17 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: trollsift
-Version: 0.5.3
+Version: 0.6.0
 Summary: String parser/formatter
 Author-email: The Pytroll Team <pytroll@googlegroups.com>
+License-Expression: GPL-3.0-or-later
+License-File: LICENSE.txt
 Keywords: pytroll,string formatting,string parsing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering
+Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 

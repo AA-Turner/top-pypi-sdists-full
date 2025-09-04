@@ -356,7 +356,8 @@ async def acompletion(
     logprobs: Optional[bool] = None,
     top_logprobs: Optional[int] = None,
     deployment_id=None,
-    reasoning_effort: Optional[Literal["minimal", "low", "medium", "high"]] = None,
+    reasoning_effort: Optional[Literal["none", "minimal", "low", "medium", "high", "default"]] = None,
+    safety_identifier: Optional[str] = None,
     # set api_base, api_version, api_key
     base_url: Optional[str] = None,
     api_version: Optional[str] = None,
@@ -493,6 +494,7 @@ async def acompletion(
         "api_key": api_key,
         "model_list": model_list,
         "reasoning_effort": reasoning_effort,
+        "safety_identifier": safety_identifier,
         "extra_headers": extra_headers,
         "acompletion": True,  # assuming this is a required parameter
         "thinking": thinking,
@@ -895,7 +897,7 @@ def completion(  # type: ignore # noqa: PLR0915
     logit_bias: Optional[dict] = None,
     user: Optional[str] = None,
     # openai v1.0+ new params
-    reasoning_effort: Optional[Literal["minimal", "low", "medium", "high"]] = None,
+    reasoning_effort: Optional[Literal["none", "minimal", "low", "medium", "high", "default"]] = None,
     response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     seed: Optional[int] = None,
     tools: Optional[List] = None,
@@ -906,6 +908,7 @@ def completion(  # type: ignore # noqa: PLR0915
     web_search_options: Optional[OpenAIWebSearchOptions] = None,
     deployment_id=None,
     extra_headers: Optional[dict] = None,
+    safety_identifier: Optional[str] = None,
     # soon to be deprecated params by OpenAI
     functions: Optional[List] = None,
     function_call: Optional[str] = None,
@@ -1243,6 +1246,7 @@ def completion(  # type: ignore # noqa: PLR0915
             "reasoning_effort": reasoning_effort,
             "thinking": thinking,
             "web_search_options": web_search_options,
+            "safety_identifier": safety_identifier,
             "allowed_openai_params": kwargs.get("allowed_openai_params"),
         }
         optional_params = get_optional_params(

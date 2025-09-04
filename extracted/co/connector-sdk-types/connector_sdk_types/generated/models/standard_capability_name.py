@@ -44,6 +44,7 @@ class StandardCapabilityName(str, Enum):
     LIST_ACCOUNTS = 'list_accounts'
     LIST_UPDATED_ACCOUNTS = 'list_updated_accounts'
     GET_ACCOUNT = 'get_account'
+    GET_DATA_RECENCY = 'get_data_recency'
     LIST_ACTIVITY_RECORDS = 'list_activity_records'
     LIST_CUSTOM_ATTRIBUTES_SCHEMA = 'list_custom_attributes_schema'
     LIST_ENTITLEMENTS = 'list_entitlements'

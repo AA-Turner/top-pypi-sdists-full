@@ -16,13 +16,13 @@ from .new_dimensional_price_configuration import NewDimensionalPriceConfiguratio
 __all__ = ["NewFloatingBulkPrice", "ConversionRateConfig"]
 
 ConversionRateConfig: TypeAlias = Annotated[
-    Union[UnitConversionRateConfig, TieredConversionRateConfig, None],
-    PropertyInfo(discriminator="conversion_rate_type"),
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class NewFloatingBulkPrice(BaseModel):
     bulk_config: BulkConfig
+    """Configuration for bulk pricing"""
 
     cadence: Literal["annual", "semi_annual", "monthly", "quarterly", "one_time", "custom"]
     """The cadence to bill for this price on."""
@@ -34,6 +34,7 @@ class NewFloatingBulkPrice(BaseModel):
     """The id of the item the price will be associated with."""
 
     price_model_type: Literal["bulk"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
 
     name: str
     """The name of the price."""

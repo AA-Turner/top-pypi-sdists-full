@@ -338,7 +338,7 @@ impl PyFsPath {
         Ok(fbytes.into())
     }
 
-    fn read_bytes(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn read_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let fbytes = std::fs::read(self.path());
         match fbytes {
             Ok(b) => Ok(PyBytes::new(py, &b).into()),
@@ -680,10 +680,10 @@ impl PyFsPath {
         Self::from(self.path().join(p))
     }
 
-    fn metadata(&self) -> PyResult<ryo3_std::PyMetadata> {
+    fn metadata(&self) -> PyResult<ryo3_std::fs::PyMetadata> {
         self.path()
             .metadata()
-            .map(ryo3_std::PyMetadata::from)
+            .map(ryo3_std::fs::PyMetadata::from)
             .map_err(|e| PyFileNotFoundError::new_err(format!("metadata: {e}")))
     }
 
@@ -712,10 +712,10 @@ impl PyFsPath {
             .map_err(|e| PyValueError::new_err(format!("strip_prefix: {e}")))
     }
 
-    fn symlink_metadata(&self) -> PyResult<ryo3_std::PyMetadata> {
+    fn symlink_metadata(&self) -> PyResult<ryo3_std::fs::PyMetadata> {
         self.path()
             .metadata()
-            .map(ryo3_std::PyMetadata::from)
+            .map(ryo3_std::fs::PyMetadata::from)
             .map_err(|e| PyFileNotFoundError::new_err(format!("metadata: {e}")))
     }
 

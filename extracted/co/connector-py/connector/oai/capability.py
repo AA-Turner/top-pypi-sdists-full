@@ -35,6 +35,8 @@ from connector_sdk_types.generated import (
     GetAccountResponse,
     GetAuthorizationUrlRequest,
     GetAuthorizationUrlResponse,
+    GetDataRecencyRequest,
+    GetDataRecencyResponse,
     GetLastActivityRequest,
     GetLastActivityResponse,
     HandleAuthorizationCallbackRequest,
@@ -680,5 +682,9 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.GET_ACCOUNT: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=GetAccountRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=GetAccountResponse, is_request=False),
+    ),
+    StandardCapabilityName.GET_DATA_RECENCY: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=GetDataRecencyRequest, is_request=True),
+        output_payload=_payload_type_data(envelope_type=GetDataRecencyResponse, is_request=False),
     ),
 }

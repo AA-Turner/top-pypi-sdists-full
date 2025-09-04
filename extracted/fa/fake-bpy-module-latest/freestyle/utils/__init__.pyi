@@ -125,7 +125,7 @@ def material_from_fedge(fe) -> None:
     """get the diffuse RGBA color from an FEdge"""
 
 def normal_at_I0D(it) -> None: ...
-def pairwise(iterable, types={StrokeVertexIterator, Stroke}) -> None:
+def pairwise(iterable, types={Stroke, StrokeVertexIterator}) -> None:
     """Yields a tuple containing the previous and current object"""
 
 def rgb_to_bw(r, g, b) -> None:

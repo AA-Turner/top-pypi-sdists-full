@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.hypervisor
-Version: 3.18
+Version: 3.19
 Summary: A Dissect module implementing parsers for various hypervisor disk, backup and configuration files
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3

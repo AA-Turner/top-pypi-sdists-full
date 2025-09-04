@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-02T19:19:25.305417                                                            #
+# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-03T10:45:51.928280                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
-    import typing
     import metaflow.runner.deployer_impl
+    import typing
 
 from ....runner.deployer_impl import DeployerImpl as DeployerImpl
 

@@ -1,30 +1,9 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.40.2
+Version: 4.41.0
 Summary: Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
-License: The MIT License (MIT)
-        
-        Copyright (c) 2019-present, Mauricio Villegas <mauricio@omnius.com>
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Documentation-stable, https://jsonargparse.readthedocs.io/en/stable/
 Project-URL: Documentation-latest, https://jsonargparse.readthedocs.io/en/latest/
 Project-URL: Changes, https://jsonargparse.readthedocs.io/en/stable/changelog.html
@@ -37,18 +16,17 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: PyYAML>=3.13
@@ -59,15 +37,14 @@ Requires-Dist: jsonargparse[jsonnet]; extra == "all"
 Requires-Dist: jsonargparse[toml]; extra == "all"
 Requires-Dist: jsonargparse[urls]; extra == "all"
 Requires-Dist: jsonargparse[fsspec]; extra == "all"
-Requires-Dist: jsonargparse[ruyaml]; extra == "all"
+Requires-Dist: jsonargparse[ruamel]; extra == "all"
 Requires-Dist: jsonargparse[omegaconf]; extra == "all"
 Requires-Dist: jsonargparse[typing-extensions]; extra == "all"
 Requires-Dist: jsonargparse[reconplogger]; extra == "all"
 Provides-Extra: signatures
 Requires-Dist: jsonargparse[typing-extensions]; extra == "signatures"
 Requires-Dist: docstring-parser>=0.17; extra == "signatures"
-Requires-Dist: typeshed-client>=2.3.0; python_version == "3.8" and extra == "signatures"
-Requires-Dist: typeshed-client>=2.8.2; python_version >= "3.9" and extra == "signatures"
+Requires-Dist: typeshed-client>=2.8.2; extra == "signatures"
 Provides-Extra: jsonschema
 Requires-Dist: jsonschema>=3.2.0; extra == "jsonschema"
 Provides-Extra: jsonnet
@@ -82,8 +59,10 @@ Provides-Extra: shtab
 Requires-Dist: shtab>=1.7.1; extra == "shtab"
 Provides-Extra: argcomplete
 Requires-Dist: argcomplete>=3.5.1; extra == "argcomplete"
+Provides-Extra: ruamel
+Requires-Dist: ruamel.yaml>=0.18.15; extra == "ruamel"
 Provides-Extra: ruyaml
-Requires-Dist: ruyaml>=0.20.0; extra == "ruyaml"
+Requires-Dist: jsonargparse[ruamel]; extra == "ruyaml"
 Provides-Extra: omegaconf
 Requires-Dist: omegaconf>=2.1.1; extra == "omegaconf"
 Provides-Extra: typing-extensions
@@ -97,7 +76,7 @@ Requires-Dist: jsonargparse[argcomplete]; extra == "test"
 Requires-Dist: types-PyYAML>=6.0.11; extra == "test"
 Requires-Dist: types-requests>=2.28.9; extra == "test"
 Requires-Dist: responses>=0.12.0; extra == "test"
-Requires-Dist: pydantic>=2.3.0; extra == "test"
+Requires-Dist: pydantic>=2.3.0; python_version < "3.14" and extra == "test"
 Requires-Dist: attrs>=22.2.0; extra == "test"
 Provides-Extra: test-no-urls
 Requires-Dist: pytest>=6.2.5; extra == "test-no-urls"
@@ -226,14 +205,14 @@ high-quality code**. It encompasses numerous powerful features, some unique to
   <https://pypi.org/project/simple-parsing/>`__ and `Tyro
   <https://pypi.org/project/tyro/>`__.
 
+
 Other notable features include:
 
 - **Extensive type hint support:** nested types (union, optional), containers
-  (list, dict, etc.), user-defined generics, restricted types (regex, numbers),
-  paths, URLs, types from stubs (``*.pyi``), future annotations (PEP `563
-  <https://peps.python.org/pep-0563/>`__), and backports (PEPs `604
-  <https://peps.python.org/pep-0604>`__/`585
-  <https://peps.python.org/pep-0585>`__).
+  (list, dict, etc.), protocols, user-defined generics, restricted types (regex,
+  numbers), paths, URLs, types from stubs (``*.pyi``), future annotations (PEP
+  `563 <https://peps.python.org/pep-0563/>`__), and backports (PEP `604
+  <https://peps.python.org/pep-0604>`__).
 
 - **Keyword arguments introspection:** resolving of parameters used via
   ``**kwargs``.
@@ -246,13 +225,20 @@ Other notable features include:
 
 - **Config file formats:** `json <https://www.json.org/>`__, `yaml
   <https://yaml.org/>`__, `toml <https://toml.io/>`__, `jsonnet
-  <https://jsonnet.org/>`__ and extendable to more formats.
+  <https://jsonnet.org/>`__ and extensible to more formats.
 
 - **Relative paths:** within config files and parsing of config paths referenced
   inside other configs.
 
 - **Argument linking:** directing parsed values to multiple parameters,
   preventing unnecessary interpolation in configs.
+
+- **Variable interpolation:** powered by `OmegaConf
+  <https://omegaconf.readthedocs.io/en/latest/usage.html#variable-interpolation>`__.
+
+- **Tab completion:** powered by `shtab
+  <https://pypi.org/project/shtab/>`__ or `argcomplete
+  <https://pypi.org/project/argcomplete/>`__.
 
 
 Design principles
@@ -296,15 +282,22 @@ You can install using `pip <https://pypi.org/project/jsonargparse/>`__ as:
 
     pip install jsonargparse
 
-By default the only dependency that jsonargparse installs is `PyYAML
+By default, the only dependency installed with ``jsonargparse`` is `PyYAML
 <https://pypi.org/project/PyYAML/>`__. However, several optional features can be
-enabled by specifying any of the following extras requires: ``signatures``,
-``jsonschema``, ``jsonnet``, ``urls``, ``fsspec``, ``toml``, ``ruyaml``,
-``omegaconf``, ``shtab`` and ``argcomplete``. There is also the ``all`` extras
-require to enable all optional features (excluding tab completion ones).
-Installing jsonargparse with extras require is as follows:
+enabled by specifying one or more of the following extras (optional
+dependencies): ``signatures``, ``jsonschema``, ``jsonnet``, ``urls``,
+``fsspec``, ``toml``, ``ruamel``, ``omegaconf``, ``shtab``, and ``argcomplete``.
+Additionally, the ``all`` extras can be used to enable all optional features
+(excluding tab completion ones). To install ``jsonargparse`` with extras, use
+the following syntax:
 
 .. code-block:: bash
 
     pip install "jsonargparse[signatures,urls]"  # Enable signatures and URLs features
     pip install "jsonargparse[all]"              # Enable all optional features
+
+To install the latest development version, use the following command:
+
+.. code-block:: bash
+
+    pip install "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse.git@main"

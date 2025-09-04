@@ -54,9 +54,9 @@ class DecodingXMLParser:
     """
 
     EMIT_DEPTH = 1
-    FOREGIN_DTD = True
+    FOREIGN_DTD = True
 
-    def __init__(self, text: str):
+    def __init__(self, text: str, *, escape_all: bool = True):
         self.text = text.encode("utf-8")
         self.output: list[str] = []
         self.emit_start: int | None = None
@@ -66,9 +66,10 @@ class DecodingXMLParser:
         self.inside_quoted = False
         self.do_cleanup = False
         self.depth = 0
+        self.escape_all = escape_all
         self.parser = parser = ParserCreate()
-        if self.FOREGIN_DTD:
-            parser.UseForeignDTD(self.FOREGIN_DTD)
+        if self.FOREIGN_DTD:
+            parser.UseForeignDTD(self.FOREIGN_DTD)
         parser.SetParamEntityParsing(XML_PARAM_ENTITY_PARSING_NEVER)
         parser.StartElementHandler = self.StartElementHandler
         parser.EndElementHandler = self.EndElementHandler
@@ -83,13 +84,17 @@ class DecodingXMLParser:
         # Convert from hex to character
         return chr(int(escaped, 16))
 
-    @staticmethod
-    def decode_escapes(match: re.Match) -> str:
+    def decode_escapes(self, match: re.Match) -> str:
         escaped = match.group(1)
         if escaped in ESCAPE_NEWLINE:
             return "\n"  # an actual newline
         if escaped in ESCAPE_TAB:
             return "\t"  # an actual tab
+        if escaped == "\\":
+            return "\\"
+        # Compose Multiplatform Resources handles escaping only for few chars
+        if not self.escape_all:
+            return rf"\{escaped}"
         if escaped in ESCAPE_PLAIN:
             # Plain string to escape
             return escaped
@@ -220,7 +225,7 @@ class DecodingXMLParser:
 
 class EncodingXMLParser(DecodingXMLParser):
     EMIT_DEPTH = 0
-    FOREGIN_DTD = False
+    FOREIGN_DTD = False
 
     def process_string(self, text: str) -> tuple[str, bool, bool]:
         return (
@@ -248,6 +253,7 @@ class AndroidResourceUnit(base.TranslationUnit):
             '"': '\\"',
         }
     )
+    ESCAPE_ALL: ClassVar[bool] = True
 
     @classmethod
     def createfromxmlElement(cls, element):
@@ -340,11 +346,11 @@ class AndroidResourceUnit(base.TranslationUnit):
 
     def get_xml_text_value(self, xmltarget):
         raw_xml = etree.tostring(xmltarget, encoding="unicode", with_tail=False)
-        # Use decoding parser to keep XML entitities, CDATA while processing Android escaping
-        parser = DecodingXMLParser(raw_xml)
+        # Use decoding parser to keep XML entities, CDATA while processing Android escaping
+        parser = DecodingXMLParser(raw_xml, escape_all=self.ESCAPE_ALL)
 
         # Unescape as plain text in case there is no XML markup. Ufortunately
-        # CDATA elements are not listed as childs in lxml, so test for it in raw XML.
+        # CDATA elements are not listed as children in lxml, so test for it in raw XML.
         if len(xmltarget) == 0 and "<![CDATA[" not in raw_xml:
             if xmltarget.text is None:
                 return ""
@@ -413,13 +419,17 @@ class AndroidResourceUnit(base.TranslationUnit):
             return "en"
         return super().gettargetlanguage()
 
-    def get_plural_tags(self):
+    def get_base_locale_code(self) -> str:
         locale = self.gettargetlanguage()
         if not locale:
-            return data.plural_tags["en"]
-        # Handle b+ style language codes
-        locale = locale.removeprefix("b+")
-        locale = locale.replace("_", "-").replace("+", "-").split("-")[0]
+            return "en"
+        # Handle b+ style language codes and standardize
+        return (
+            locale.removeprefix("b+").replace("_", "-").replace("+", "-").split("-")[0]
+        )
+
+    def get_plural_tags(self):
+        locale = self.get_base_locale_code()
         return data.plural_tags.get(locale, data.plural_tags["en"])
 
     @property
@@ -453,14 +463,28 @@ class AndroidResourceUnit(base.TranslationUnit):
 
             self.xmlelement.text = "\n    "
 
+            # Include additional plural for decimal numbers if not present. This is
+            # enforced by Android lint but translate-toolkit currently does not support
+            # editing this.
+            locale = self.get_base_locale_code()
+            if locale in data.DECIMAL_EXTRA_TAGS:
+                for extra in data.DECIMAL_EXTRA_TAGS[locale]:
+                    if extra not in plural_tags:
+                        # Create copy here to avoid modifications to language.data
+                        plural_tags = [*plural_tags, extra]
+                        plural_strings.append(plural_strings[-1])
+
             # Include "other" as copy of "many" if "other" is not present. This avoids crashes
             # of Android builts with broken plurals handling.
             if "other" not in plural_tags and "many" in plural_tags:
-                # Create copy here to avoid modifications to laguage.data
+                # Create copy here to avoid modifications to language.data
                 plural_tags = [*plural_tags, "other"]
                 plural_strings.append(plural_strings[-1])
 
-            for plural_tag, plural_string in zip(plural_tags, plural_strings):
+            for plural_tag, plural_string in sorted(
+                zip(plural_tags, plural_strings),
+                key=lambda item: data.cldr_plural_categories.index(item[0]),
+            ):
                 item = etree.Element("item")
                 item.set("quantity", plural_tag)
                 self.xmlelement.append(item)
@@ -623,6 +647,8 @@ class AndroidResourceFile(lisa.LISAfile):
 
 
 class CMPResourceUnit(AndroidResourceUnit):
+    # Only \n and \t are escaped here (+ Unicode escape sequences), see
+    # https://github.com/JetBrains/compose-multiplatform/blob/754dc253964e5aeab63581ed2a6a4ac376af1c32/gradle-plugins/compose/src/main/kotlin/org/jetbrains/compose/resources/PrepareComposeResources.kt#L270-L298
     ESCAPE_TRANSLATE = str.maketrans(
         {
             "\\": "\\\\",
@@ -630,6 +656,7 @@ class CMPResourceUnit(AndroidResourceUnit):
             "\t": "\\t",
         }
     )
+    ESCAPE_ALL: ClassVar[bool] = False
 
 
 class CMPResourceFile(AndroidResourceFile):

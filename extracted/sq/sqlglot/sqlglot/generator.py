@@ -511,6 +511,8 @@ class Generator(metaclass=_Generator):
         exp.DataType.Type.SMALLDATETIME: "TIMESTAMP",
     }
 
+    UNSUPPORTED_TYPES: set[exp.DataType.Type] = set()
+
     TIME_PART_SINGULARS = {
         "MICROSECONDS": "MICROSECOND",
         "SECONDS": "SECOND",
@@ -1406,6 +1408,11 @@ class Generator(metaclass=_Generator):
         interior = self.expressions(expression, flat=True)
 
         type_value = expression.this
+        if type_value in self.UNSUPPORTED_TYPES:
+            self.unsupported(
+                f"Data type {type_value.value} is not supported when targeting {self.dialect.__class__.__name__}"
+            )
+
         if type_value == exp.DataType.Type.USERDEFINED and expression.args.get("kind"):
             type_sql = self.sql(expression, "kind")
         else:
@@ -4660,9 +4667,12 @@ class Generator(metaclass=_Generator):
     def arrayconcat_sql(self, expression: exp.ArrayConcat, name: str = "ARRAY_CONCAT") -> str:
         exprs = expression.expressions
         if not self.ARRAY_CONCAT_IS_VAR_LEN:
-            rhs = reduce(lambda x, y: exp.ArrayConcat(this=x, expressions=[y]), exprs)
+            if len(exprs) == 0:
+                rhs: t.Union[str, exp.Expression] = exp.Array(expressions=[])
+            else:
+                rhs = reduce(lambda x, y: exp.ArrayConcat(this=x, expressions=[y]), exprs)
         else:
-            rhs = self.expressions(expression)
+            rhs = self.expressions(expression)  # type: ignore
 
         return self.func(name, expression.this, rhs or None)
 

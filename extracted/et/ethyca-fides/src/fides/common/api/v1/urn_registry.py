@@ -73,6 +73,9 @@ MESSAGING_EMAIL_INVITE_STATUS = "/messaging/email-invite/status"
 POLICY_LIST = "/dsr/policy"
 POLICY_DETAIL = "/dsr/policy/{policy_key}"
 
+# Privacy Center URLs
+PRIVACY_CENTER_DSR_PACKAGE = "/privacy-request/{privacy_request_id}/access-package"
+
 # Privacy request URLs
 PRIVACY_REQUESTS = "/privacy-request"
 PRIVACY_REQUEST_APPROVE = "/privacy-request/administrate/approve"
@@ -112,6 +115,9 @@ PRIVACY_REQUEST_RESUME_FROM_REQUIRES_INPUT = (
 PRIVACY_REQUEST_TRANSFER_TO_PARENT = (
     "/privacy-request/transfer/{privacy_request_id}/{rule_key}"
 )
+
+# Privacy Request Redaction Patterns URLs
+PRIVACY_REQUEST_REDACTION_PATTERNS = "/privacy-request/redaction-patterns"
 
 # Privacy Request pre-approve URLs
 PRIVACY_REQUEST_PRE_APPROVE = "/privacy-request/{privacy_request_id}/pre-approve"

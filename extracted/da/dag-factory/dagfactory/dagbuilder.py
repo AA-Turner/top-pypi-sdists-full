@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import ast
 import inspect
+import logging
 import os
 import re
 import warnings
 from copy import deepcopy
-from datetime import datetime, timedelta
-from functools import partial, reduce
+from datetime import datetime
+from functools import partial
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 from airflow import configuration
+from packaging import version
+
+from dagfactory.utils import check_dict_key
 
 try:
     from airflow.sdk.bases.operator import BaseOperator
@@ -22,90 +26,58 @@ except ImportError:
     from airflow.models import BaseOperator, Variable
     from airflow.models.dag import DAG
 
+from airflow.datasets import Dataset
+from airflow.models import MappedOperator
 from airflow.utils.module_loading import import_string
+from airflow.utils.task_group import TaskGroup
 from airflow.version import version as AIRFLOW_VERSION
-from packaging import version
-
-from dagfactory.constants import AIRFLOW3_MAJOR_VERSION
-
-try:
-    from airflow.providers.cncf.kubernetes import get_provider_info
-
-    try:
-        K8S_PROVIDER_VERSION = get_provider_info.get_provider_info()["versions"][0]
-    except KeyError:  # pragma: no cover
-        from airflow.providers.cncf.kubernetes import __version__
-
-        K8S_PROVIDER_VERSION = __version__
-except ImportError:  # pragma: no cover
-    K8S_PROVIDER_VERSION = "0"
-
-INSTALLED_AIRFLOW_VERSION = version.parse(AIRFLOW_VERSION)
 
 try:  # Try Airflow 3
     from airflow.providers.standard.operators.python import BranchPythonOperator, PythonOperator
-except ImportError:
-    from airflow.operators.python import BranchPythonOperator, PythonOperator
-
-from airflow.providers.common.sql.sensors.sql import SqlSensor
-from airflow.providers.http.sensors.http import HttpSensor
-
-# http operator was renamed in providers-http 4.11.0
-try:
-    from airflow.providers.http.operators.http import HttpOperator
-
-    HTTP_OPERATOR_CLASS = HttpOperator
-except ImportError:  # pragma: no cover
-    try:
-        from airflow.providers.http.operators.http import SimpleHttpOperator
-
-        HTTP_OPERATOR_CLASS = SimpleHttpOperator
-    except ImportError:  # pragma: no cover
-        # Fall back to dynamically importing the operator
-        HTTP_OPERATOR_CLASS = None
-
-
-try:
-    # Try Airflow 3
     from airflow.providers.standard.sensors.python import PythonSensor
 except ImportError:
+    from airflow.operators.python import BranchPythonOperator, PythonOperator
     from airflow.sensors.python import PythonSensor
 
 
-from airflow.models import MappedOperator
+logger = logging.getLogger(__name__)
 
+# Try to import HttpOperator and HttpSensor only if the package is installed
 try:
-    from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
-except ImportError:
-    from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
+    from airflow.providers.http.operators.http import HttpOperator
+    from airflow.providers.http.sensors.http import HttpSensor
 
+    HTTP_OPERATOR_CLASS = HttpOperator
+    HTTP_SENSOR_CLASS = HttpSensor
+except ImportError:  # pragma: no cover
+    try:
+        # TODO: Remove this when apache-airflow-providers-http >= 5.0.0
+        from airflow.providers.http.operators.http import SimpleHttpOperator
+        from airflow.providers.http.sensors.http import HttpSensor
+
+        HTTP_OPERATOR_CLASS = SimpleHttpOperator
+        HTTP_SENSOR_CLASS = HttpSensor
+    except ImportError:  # pragma: no cover
+        HTTP_OPERATOR_CLASS = None
+        HTTP_SENSOR_CLASS = None
+        logger.info("Package apache-airflow-providers-http is not installed.")
+
+# Try to import SqlSensor only if the package is installed
 try:
-    from airflow.providers.cncf.kubernetes.secret import Secret
-except ImportError:
-    from airflow.kubernetes.secret import Secret
+    from airflow.providers.common.sql.sensors.sql import SqlSensor
 
-from airflow.datasets import Dataset
-from airflow.timetables.base import Timetable
-from airflow.utils.task_group import TaskGroup
-from kubernetes.client.models import (
-    V1Affinity,
-    V1Container,
-    V1ContainerPort as Port,
-    V1EnvFromSource,
-    V1EnvVar,
-    V1LocalObjectReference,
-    V1Pod,
-    V1PodSecurityContext,
-    V1Toleration,
-    V1Volume,
-    V1VolumeMount as VolumeMount,
-)
+    SQL_SENSOR_CLASS = SqlSensor
+except ImportError:
+    logger.info("Package apache-airflow-providers-common-sql is not installed.")
+    SQL_SENSOR_CLASS = None
 
 from dagfactory import parsers, utils
+from dagfactory.constants import AIRFLOW3_MAJOR_VERSION
 from dagfactory.exceptions import DagFactoryConfigException, DagFactoryException
 
 # these are params only used in the DAG factory, not in the tasks
 SYSTEM_PARAMS: List[str] = ["operator", "dependencies", "task_group_name", "parent_group_name"]
+INSTALLED_AIRFLOW_VERSION = version.parse(AIRFLOW_VERSION)
 
 
 class DagBuilder:
@@ -133,22 +105,23 @@ class DagBuilder:
 
         :returns: dict of dag parameters
         """
-        try:
-            dag_params: Dict[str, Any] = utils.merge_configs(self.dag_config, self.default_config)
-        except Exception as err:
-            raise DagFactoryConfigException("Failed to merge config with default config") from err
+        dag_params: Dict[str, Any] = utils.merge_configs(self.dag_config, self.default_config)
         dag_params["dag_id"]: str = self.dag_name
 
         # If there are no default_args, add an empty dictionary
         dag_params["default_args"] = {} if "default_args" not in dag_params else dag_params["default_args"]
 
-        if utils.check_dict_key(dag_params, "schedule_interval") and dag_params["schedule_interval"] == "None":
-            dag_params["schedule_interval"] = None
+        if utils.check_dict_key(dag_params, "start_date"):
+            dag_params["start_date"]: datetime = utils.get_datetime(
+                date_value=dag_params["start_date"],
+                timezone=dag_params.get("timezone", "UTC"),
+            )
 
-        # Convert from 'dagrun_timeout_sec: int' to 'dagrun_timeout: timedelta'
-        if utils.check_dict_key(dag_params, "dagrun_timeout_sec"):
-            dag_params["dagrun_timeout"]: timedelta = timedelta(seconds=dag_params["dagrun_timeout_sec"])
-            del dag_params["dagrun_timeout_sec"]
+        if utils.check_dict_key(dag_params, "end_date"):
+            dag_params["end_date"]: datetime = utils.get_datetime(
+                date_value=dag_params["end_date"],
+                timezone=dag_params.get("timezone", "UTC"),
+            )
 
         # Convert from 'end_date: Union[str, datetime, date]' to 'end_date: datetime'
         if utils.check_dict_key(dag_params["default_args"], "end_date"):
@@ -156,16 +129,6 @@ class DagBuilder:
                 date_value=dag_params["default_args"]["end_date"],
                 timezone=dag_params["default_args"].get("timezone", "UTC"),
             )
-
-        if utils.check_dict_key(dag_params["default_args"], "retry_delay_sec"):
-            dag_params["default_args"]["retry_delay"]: timedelta = timedelta(
-                seconds=dag_params["default_args"]["retry_delay_sec"]
-            )
-            del dag_params["default_args"]["retry_delay_sec"]
-
-        if utils.check_dict_key(dag_params["default_args"], "sla_secs"):
-            dag_params["default_args"]["sla"]: timedelta = timedelta(seconds=dag_params["default_args"]["sla_secs"])
-            del dag_params["default_args"]["sla_secs"]
 
         # Parse callbacks at the DAG-level and at the Task-level, configured in default_args. Note that the version
         # check has gone into the set_callback method
@@ -232,96 +195,37 @@ class DagBuilder:
             else:
                 raise DagFactoryException("render_template_as_native_obj should be bool type!")
 
-        try:
-            # ensure that default_args dictionary contains key "start_date"
-            # with "datetime" value in specified timezone
+        if check_dict_key(dag_params["default_args"], "start_date"):
             dag_params["default_args"]["start_date"]: datetime = utils.get_datetime(
                 date_value=dag_params["default_args"]["start_date"],
                 timezone=dag_params["default_args"].get("timezone", "UTC"),
             )
-        except KeyError as err:
-            # pylint: disable=line-too-long
-            raise DagFactoryConfigException(f"{self.dag_name} config is missing start_date") from err
+
         return dag_params
 
     @staticmethod
-    def make_timetable(timetable: str, timetable_params: Dict[str, Any]) -> Timetable:
-        """
-        Takes a custom timetable and params and creates an instance of that timetable.
+    def _handle_http_sensor(operator_obj, task_params):
+        # Only handle if HttpOperator/HttpSensor are available
+        if HTTP_OPERATOR_CLASS and issubclass(operator_obj, HTTP_OPERATOR_CLASS):
+            headers = task_params.get("headers", {})
+            content_type = headers.get("Content-Type", "").lower()
 
-        :returns instance of timetable object
-        """
-        try:
-            # class is a Callable https://stackoverflow.com/a/34578836/3679900
-            timetable_obj: Callable[..., Timetable] = import_string(timetable)
-        except Exception as err:
-            raise DagFactoryException(f"Failed to import timetable {timetable} due to: {err}") from err
-        try:
-            schedule: Timetable = timetable_obj(**timetable_params)
-        except Exception as err:  # pragma: no cover
-            raise DagFactoryException(f"Failed to create {timetable_obj} due to: {err}") from err
-        return schedule
+            if "data" in task_params and "application/json" in content_type:
+                task_params["data"]: Callable = utils.get_json_serialized_callable(task_params["data"])
 
-    @staticmethod
-    def _create_volume(vol):
-        volume = V1Volume(name=vol.get("name"))
-        for k, v in vol["configs"].items():
-            snake_key = utils.convert_to_snake_case(k)
-            if hasattr(volume, snake_key):
-                setattr(volume, snake_key, v)
-            else:
-                raise DagFactoryException(f"Volume for KubernetesPodOperator does not have attribute {k}")
-        return volume
-
-    @staticmethod
-    def _clean_kpo_task_params(task_params: dict) -> dict:
-        conversions = [
-            ("ports", Port, "list"),
-            ("volume_mounts", VolumeMount, "list"),
-            ("env_vars", V1EnvVar, "list"),
-            ("env_from", V1EnvFromSource, "list"),
-            ("secrets", Secret, "list"),
-            ("affinity", V1Affinity, "single"),
-            ("image_pull_secrets", V1LocalObjectReference, "list"),
-            ("tolerations", V1Toleration, "list"),
-            ("security_context", V1PodSecurityContext, "single"),
-            ("init_containers", V1Container, "list"),
-            ("pod_runtime_info_envs", V1EnvVar, "list"),
-            ("full_pod_spec", V1Pod, "single"),
-        ]
-
-        # Conditional field based on version
-        if version.parse(K8S_PROVIDER_VERSION) >= version.parse("7.8.0"):
-            from kubernetes.client.models import V1HostAlias
-
-            conversions.append(("host_aliases", V1HostAlias, "list"))
-
-        if version.parse(K8S_PROVIDER_VERSION) >= version.parse("7.0.0"):
-            from kubernetes.client.models import V1PodDNSConfig
-
-            conversions.append(("dns_config", V1PodDNSConfig, "single"))
-
-        if version.parse(K8S_PROVIDER_VERSION) >= version.parse("5.0.0"):
-            from kubernetes.client.models import V1ResourceRequirements
-
-            conversions.append(("container_resources", V1ResourceRequirements, "single"))
-
-        if version.parse(K8S_PROVIDER_VERSION) >= version.parse("4.4.0"):
-            from kubernetes.client.models import V1SecurityContext
-
-            conversions.append(("container_security_context", V1SecurityContext, "single"))
-
-        for key, cls, conv_type in conversions:
-            if key in task_params and task_params[key] is not None:
-                if conv_type == "list":
-                    task_params[key] = [cls(**v) for v in task_params[key]]
-                elif conv_type == "single":
-                    task_params[key] = cls(task_params[key])
-
-        # Special case for volumes that uses a different constructor
-        if task_params.get("volumes") is not None:
-            task_params["volumes"] = [DagBuilder._create_volume(vol) for vol in task_params["volumes"]]
-
+                if "Content-Type" not in headers:
+                    headers["Content-Type"] = "application/json"
+                task_params["headers"] = headers
+        elif HTTP_SENSOR_CLASS and issubclass(operator_obj, HTTP_SENSOR_CLASS):
+            response_check_name = task_params.pop("response_check_name", None)
+            response_check_file = task_params.pop("response_check_file", None)
+            response_check_lambda = task_params.pop("response_check_lambda", None)
+            if response_check_name:
+                task_params["response_check"]: Callable = utils.get_python_callable(
+                    response_check_name, response_check_file
+                )
+            elif response_check_lambda:
+                task_params["response_check"]: Callable = utils.get_python_callable_lambda(response_check_lambda)
         return task_params
 
     # pylint: disable=too-many-branches
@@ -334,127 +238,83 @@ class DagBuilder:
 
         :returns: instance of operator object
         """
-        try:
-            # class is a Callable https://stackoverflow.com/a/34578836/3679900
-            operator_obj: Callable[..., BaseOperator] = import_string(operator)
-        except Exception as err:
-            raise DagFactoryException(f"Failed to import operator: {operator}") from err
+        # class is a Callable https://stackoverflow.com/a/34578836/3679900
+        operator_obj: Callable[..., BaseOperator] = import_string(operator)
         # pylint: disable=too-many-nested-blocks
-        try:
-            if issubclass(operator_obj, (PythonOperator, BranchPythonOperator, PythonSensor)):
-                if (
-                    not task_params.get("python_callable")
-                    and not task_params.get("python_callable_name")
-                    and not task_params.get("python_callable_file")
-                ):
-                    # pylint: disable=line-too-long
-                    raise DagFactoryException(
-                        "Failed to create task. PythonOperator, BranchPythonOperator and PythonSensor requires \
-                        `python_callable_name` and `python_callable_file` "
-                        "parameters.\nOptionally you can load python_callable "
-                        "from a file. with the special pyyaml notation:\n"
-                        "  python_callable_file: !!python/name:my_module.my_func"
-                    )
-                if not task_params.get("python_callable"):
-                    task_params["python_callable"]: Callable = utils.get_python_callable(
-                        task_params["python_callable_name"], task_params["python_callable_file"]
-                    )
-                    # remove dag-factory specific parameters
-                    # Airflow 2.0 doesn't allow these to be passed to operator
-                    del task_params["python_callable_name"]
-                    del task_params["python_callable_file"]
-                elif isinstance(task_params["python_callable"], str):
-                    task_params["python_callable"]: Callable = import_string(task_params["python_callable"])
+        if issubclass(operator_obj, (PythonOperator, BranchPythonOperator, PythonSensor)):
+            if (
+                not task_params.get("python_callable")
+                and not task_params.get("python_callable_name")
+                and not task_params.get("python_callable_file")
+            ):
+                # pylint: disable=line-too-long
+                raise DagFactoryException(
+                    "Failed to create task. PythonOperator, BranchPythonOperator and PythonSensor requires \
+                    `python_callable_name` and `python_callable_file` "
+                    "parameters.\nOptionally you can load python_callable "
+                    "from a file. with the special pyyaml notation:\n"
+                    "  python_callable_file: !!python/name:my_module.my_func"
+                )
+            if not task_params.get("python_callable"):
+                task_params["python_callable"]: Callable = utils.get_python_callable(
+                    task_params["python_callable_name"], task_params["python_callable_file"]
+                )
+                # remove dag-factory specific parameters
+                # Airflow 2.0 doesn't allow these to be passed to operator
+                del task_params["python_callable_name"]
+                del task_params["python_callable_file"]
+            elif isinstance(task_params["python_callable"], str):
+                task_params["python_callable"]: Callable = import_string(task_params["python_callable"])
 
-            # Check for the custom success and failure callables in SqlSensor. These are considered
-            # optional, so no failures in case they aren't found. Note: there's no reason to
-            # declare both a callable file and a lambda function for success/failure parameter.
-            # If both are found the object will not throw and error, instead callable file will
-            # take precedence over the lambda function
-            if issubclass(operator_obj, SqlSensor):
-                # Success checks
-                if task_params.get("success_check_file") and task_params.get("success_check_name"):
-                    task_params["success"]: Callable = utils.get_python_callable(
-                        task_params["success_check_name"], task_params["success_check_file"]
-                    )
-                    del task_params["success_check_name"]
-                    del task_params["success_check_file"]
-                elif task_params.get("success_check_lambda"):
-                    task_params["success"]: Callable = utils.get_python_callable_lambda(
-                        task_params["success_check_lambda"]
-                    )
-                    del task_params["success_check_lambda"]
-                # Failure checks
-                if task_params.get("failure_check_file") and task_params.get("failure_check_name"):
-                    task_params["failure"]: Callable = utils.get_python_callable(
-                        task_params["failure_check_name"], task_params["failure_check_file"]
-                    )
-                    del task_params["failure_check_name"]
-                    del task_params["failure_check_file"]
-                elif task_params.get("failure_check_lambda"):
-                    task_params["failure"]: Callable = utils.get_python_callable_lambda(
-                        task_params["failure_check_lambda"]
-                    )
-                    del task_params["failure_check_lambda"]
+        # Check for the custom success and failure callables in SqlSensor. These are considered
+        # optional, so no failures in case they aren't found. Note: there's no reason to
+        # declare both a callable file and a lambda function for success/failure parameter.
+        # If both are found the object will not throw and error, instead callable file will
+        # take precedence over the lambda function
+        if SQL_SENSOR_CLASS and issubclass(operator_obj, SQL_SENSOR_CLASS):
+            # Success checks
+            if task_params.get("success_check_file") and task_params.get("success_check_name"):
+                task_params["success"]: Callable = utils.get_python_callable(
+                    task_params["success_check_name"], task_params["success_check_file"]
+                )
+                del task_params["success_check_name"]
+                del task_params["success_check_file"]
+            elif task_params.get("success_check_lambda"):
+                task_params["success"]: Callable = utils.get_python_callable_lambda(task_params["success_check_lambda"])
+                del task_params["success_check_lambda"]
+            # Failure checks
+            if task_params.get("failure_check_file") and task_params.get("failure_check_name"):
+                task_params["failure"]: Callable = utils.get_python_callable(
+                    task_params["failure_check_name"], task_params["failure_check_file"]
+                )
+                del task_params["failure_check_name"]
+                del task_params["failure_check_file"]
+            elif task_params.get("failure_check_lambda"):
+                task_params["failure"]: Callable = utils.get_python_callable_lambda(task_params["failure_check_lambda"])
+                del task_params["failure_check_lambda"]
 
-            if issubclass(operator_obj, HttpSensor):
-                if not (
-                    task_params.get("response_check_name") and task_params.get("response_check_file")
-                ) and not task_params.get("response_check_lambda"):
-                    raise DagFactoryException(
-                        "Failed to create task. HttpSensor requires \
-                        `response_check_name` and `response_check_file` parameters \
-                        or `response_check_lambda` parameter."
-                    )
-                if task_params.get("response_check_file"):
-                    task_params["response_check"]: Callable = utils.get_python_callable(
-                        task_params["response_check_name"], task_params["response_check_file"]
-                    )
-                    # remove dag-factory specific parameters
-                    # Airflow 2.0 doesn't allow these to be passed to operator
-                    del task_params["response_check_name"]
-                    del task_params["response_check_file"]
-                else:
-                    task_params["response_check"]: Callable = utils.get_python_callable_lambda(
-                        task_params["response_check_lambda"]
-                    )
-                    # remove dag-factory specific parameters
-                    # Airflow 2.0 doesn't allow these to be passed to operator
-                    del task_params["response_check_lambda"]
+        # Only handle HTTP operator/sensor if the package is installed
+        if (HTTP_OPERATOR_CLASS or HTTP_SENSOR_CLASS) and issubclass(
+            operator_obj, (HTTP_OPERATOR_CLASS, HTTP_SENSOR_CLASS)
+        ):
+            task_params = DagBuilder._handle_http_sensor(operator_obj, task_params)
 
-            if issubclass(operator_obj, KubernetesPodOperator):
-                task_params = DagBuilder._clean_kpo_task_params(task_params)
+        DagBuilder.adjust_general_task_params(task_params)
 
-            # HttpOperator
-            if HTTP_OPERATOR_CLASS and issubclass(operator_obj, HTTP_OPERATOR_CLASS):
-                headers = task_params.get("headers", {})
-                content_type = headers.get("Content-Type", "").lower()
+        expand_kwargs: Dict[str, Union[Dict[str, Any], Any]] = {}
+        if utils.check_dict_key(task_params, "expand") or utils.check_dict_key(task_params, "partial"):
+            # Getting expand and partial kwargs from task_params
+            (task_params, expand_kwargs, partial_kwargs) = utils.get_expand_partial_kwargs(task_params)
 
-                if "data" in task_params and "application/json" in content_type:
-                    task_params["data"]: Callable = utils.get_json_serialized_callable(task_params["data"])
+            # If there are partial_kwargs we should merge them with existing task_params
+            if partial_kwargs and not utils.is_partial_duplicated(partial_kwargs, task_params):
+                task_params.update(partial_kwargs)
 
-                    if "Content-Type" not in headers:
-                        headers["Content-Type"] = "application/json"
-                    task_params["headers"] = headers
-
-            DagBuilder.adjust_general_task_params(task_params)
-
-            expand_kwargs: Dict[str, Union[Dict[str, Any], Any]] = {}
-            if utils.check_dict_key(task_params, "expand") or utils.check_dict_key(task_params, "partial"):
-                # Getting expand and partial kwargs from task_params
-                (task_params, expand_kwargs, partial_kwargs) = utils.get_expand_partial_kwargs(task_params)
-
-                # If there are partial_kwargs we should merge them with existing task_params
-                if partial_kwargs and not utils.is_partial_duplicated(partial_kwargs, task_params):
-                    task_params.update(partial_kwargs)
-
-            task: Union[BaseOperator, MappedOperator] = (
-                operator_obj(**task_params)
-                if not expand_kwargs
-                else operator_obj.partial(**task_params).expand(**expand_kwargs)
-            )
-        except Exception as err:
-            raise DagFactoryException(f"Failed to create {operator_obj} task: {err}") from err
+        task: Union[BaseOperator, MappedOperator] = (
+            operator_obj(**task_params)
+            if not expand_kwargs
+            else operator_obj.partial(**task_params).expand(**expand_kwargs)
+        )
         return task
 
     @staticmethod
@@ -709,66 +569,6 @@ class DagBuilder:
             return [Dataset(uri) for uri in datasets_uri]
 
     @staticmethod
-    def _init_watchers(watchers_data):
-        """Initialize watcher objects from configuration."""
-        from dagfactory.utils import _import_from_string
-
-        watchers = []
-        for watcher in watchers_data:
-            watcher_class = _import_from_string(watcher["callable"])
-            trigger_data = watcher.get("trigger", {})
-            trigger_class = _import_from_string(trigger_data.get("callable"))
-            trigger_params = trigger_data.get("params", {})
-            watchers.append(watcher_class(name=watcher.get("name"), trigger=trigger_class(**trigger_params)))
-        return watchers
-
-    @staticmethod
-    def _combine_assets(assets, op: str):
-        """Combine a list of Asset objects using logical operators."""
-        if op == "or":
-            return reduce(lambda a, b: a | b, assets)
-        elif op == "and":
-            return reduce(lambda a, b: a & b, assets)
-        else:
-            raise ValueError(f"Unknown operator: {op}")
-
-    @staticmethod
-    def _is_asset(d):
-        from airflow.sdk import Asset
-
-        if not isinstance(d, dict):
-            return False
-        for key, value in d.items():
-            if isinstance(value, Asset):
-                return True
-            elif isinstance(value, list):
-                if any(isinstance(item, Asset) for item in value):
-                    return True
-            elif isinstance(value, dict):
-                if DagBuilder._is_asset(value):
-                    return True
-        return False
-
-    @staticmethod
-    def _asset_schedule(value):
-        """Recursively parse and construct assets or combinations of assets."""
-        from airflow.sdk import Asset
-
-        if isinstance(value, dict):
-            if "or" in value:
-                assets = [DagBuilder._asset_schedule(item) for item in value["or"]]
-                return DagBuilder._combine_assets(assets, "or")
-            elif "and" in value:
-                assets = [DagBuilder._asset_schedule(item) for item in value["and"]]
-                return DagBuilder._combine_assets(assets, "and")
-        elif isinstance(value, list):
-            return [asset for asset in value]
-        elif isinstance(value, Asset):
-            return value
-        else:
-            raise TypeError(f"Unexpected data type: {type(value)}")
-
-    @staticmethod
     def configure_schedule(dag_params: Dict[str, Any], dag_kwargs: Dict[str, Any]) -> None:
         """
         Configures the schedule for the DAG based on parameters and the Airflow version.
@@ -782,45 +582,148 @@ class DagBuilder:
         :raises KeyError: If required keys like "schedule" or "datasets" are missing in the parameters.
         :returns: None. The function updates `dag_kwargs` in-place.
         """
+        # We want to align the schedule key with the Airflow version 3.0+, so we raise an error if the `schedule_interval` key is used
+        if utils.check_dict_key(dag_params, "schedule_interval"):
+            raise DagFactoryException(
+                "The `schedule_interval` key is no longer supported in Airflow 3.0+. Use `schedule` instead."
+            )
+
+        # The `schedule_interval` parameter was deprecated in Airflow 2 and removed in Airflow 3.
+        schedule_key = "schedule"
+
         if INSTALLED_AIRFLOW_VERSION.major < AIRFLOW3_MAJOR_VERSION:
-            is_airflow_version_at_least_2_4 = version.parse(AIRFLOW_VERSION) >= version.parse("2.4.0")
             is_airflow_version_at_least_2_9 = version.parse(AIRFLOW_VERSION) >= version.parse("2.9.0")
             has_schedule_attr = utils.check_dict_key(dag_params, "schedule")
-            has_schedule_interval_attr = utils.check_dict_key(dag_params, "schedule_interval")
 
-            if has_schedule_attr and not has_schedule_interval_attr and is_airflow_version_at_least_2_4:
+            if has_schedule_attr:
                 schedule: Dict[str, Any] = dag_params.get("schedule")
 
-                has_file_attr = utils.check_dict_key(schedule, "file")
-                has_datasets_attr = utils.check_dict_key(schedule, "datasets")
+                # Only check for file and datasets attributes if schedule is a dict
+                has_file_attr = isinstance(schedule, dict) and utils.check_dict_key(schedule, "file")
+                has_datasets_attr = isinstance(schedule, dict) and utils.check_dict_key(schedule, "datasets")
 
                 if has_file_attr and has_datasets_attr:
                     file = schedule.get("file")
                     datasets: Union[List[str], str] = schedule.get("datasets")
                     datasets_conditions: str = utils.parse_list_datasets(datasets)
-                    dag_kwargs["schedule"] = DagBuilder.process_file_with_datasets(file, datasets_conditions)
+                    dag_kwargs[schedule_key] = DagBuilder.process_file_with_datasets(file, datasets_conditions)
 
                 elif has_datasets_attr and is_airflow_version_at_least_2_9:
                     datasets = schedule["datasets"]
                     datasets_conditions: str = utils.parse_list_datasets(datasets)
-                    dag_kwargs["schedule"] = DagBuilder.evaluate_condition_with_datasets(datasets_conditions)
+                    dag_kwargs[schedule_key] = DagBuilder.evaluate_condition_with_datasets(datasets_conditions)
 
                 else:
-                    dag_kwargs["schedule"] = [Dataset(uri) for uri in schedule]
+                    if isinstance(schedule, str):
+                        # check if it's "none" (case-insensitive, with whitespace)
+                        if schedule.strip().lower() == "none":
+                            dag_kwargs[schedule_key] = None
+                        else:
+                            dag_kwargs[schedule_key] = schedule
+                    elif isinstance(schedule, list):
+                        # if schedule is a list, check if it's a list of URIs
+                        # Filter out any empty strings or None values
+                        valid_uris = [uri for uri in schedule if uri and uri.strip()]
+                        dag_kwargs[schedule_key] = valid_uris
+                    else:
+                        # For other types, use the schedule as is
+                        dag_kwargs[schedule_key] = schedule
 
-                if has_file_attr:
-                    schedule.pop("file")
-                if has_datasets_attr:
-                    schedule.pop("datasets")
+                # Only pop keys if schedule is a dict
+                if isinstance(schedule, dict):
+                    if has_file_attr:
+                        schedule.pop("file")
+                    if has_datasets_attr:
+                        schedule.pop("datasets")
         else:
             schedule = dag_params.get("schedule")
-            if DagBuilder._is_asset(schedule):
-                dag_kwargs["schedule"] = DagBuilder._asset_schedule(schedule)
+            if (
+                utils.check_dict_key(dag_params, "schedule")
+                and isinstance(schedule, str)
+                and schedule.strip().lower() == "none"
+            ):
+                dag_kwargs[schedule_key] = None
             else:
-                if isinstance(dag_params["schedule"], str) and dag_params["schedule"].lower() == "none":
-                    dag_kwargs["schedule"] = None
-                else:
-                    dag_kwargs["schedule"] = schedule
+                dag_kwargs[schedule_key] = dag_params.get("schedule")
+
+    @staticmethod
+    def _normalise_tasks_config(tasks_cfg: Any) -> Dict[str, Dict[str, Any]]:
+        """Ensure tasks configuration is in the canonical dict form.
+
+        Dag authors may provide tasks either as a mapping of ``task_id`` -> config
+        or as a *list* of configs each containing a ``task_id`` key. This helper
+        converts the latter to the former so that the rest of the builder logic
+        can operate on a single, predictable structure.
+
+        :param tasks_cfg: the raw ``tasks`` value from the YAML / dict config
+        """
+        # Nothing provided – let the caller decide how to handle later.
+        if tasks_cfg is None:
+            return {}
+
+        # Already in the desired form
+        if isinstance(tasks_cfg, dict):
+            return tasks_cfg
+
+        if isinstance(tasks_cfg, list):
+            converted: Dict[str, Dict[str, Any]] = {}
+
+            for entry in tasks_cfg:
+                if not isinstance(entry, dict) or "task_id" not in entry:
+                    raise DagFactoryConfigException(
+                        "Each task definition in the list must be a mapping that contains a 'task_id' key"
+                    )
+
+                task_id = entry["task_id"]
+
+                if task_id in converted:
+                    raise DagFactoryConfigException(f"Duplicate task_id detected in tasks list: '{task_id}'")
+
+                # Exclude task_id from the configuration body – historically it
+                # is represented by the mapping key, not within the dict.
+                task_conf = {k: v for k, v in entry.items() if k != "task_id"}
+                converted[task_id] = task_conf
+
+            return converted
+
+        raise DagFactoryConfigException("'tasks' must be either a mapping or a list of task configs")
+
+    @staticmethod
+    def _normalise_task_groups_config(task_groups_cfg: Any) -> Dict[str, Dict[str, Any]]:
+        """Convert a list-based task_groups definition into dict form.
+
+        Accepts either the canonical mapping of ``group_name`` -> config or a list where each item is a mapping
+        containing a ``group_name`` key. Performs duplicate detection and basic validation.
+
+        :param task_groups_cfg: the raw ``task_groups`` value from the YAML / dict config
+        """
+
+        if task_groups_cfg is None:
+            return {}
+
+        if isinstance(task_groups_cfg, dict):
+            return task_groups_cfg
+
+        if isinstance(task_groups_cfg, list):
+            converted: Dict[str, Dict[str, Any]] = {}
+
+            for entry in task_groups_cfg:
+                if not isinstance(entry, dict) or "group_name" not in entry:
+                    raise DagFactoryConfigException(
+                        "Each task_group definition in the list must be a mapping that contains a 'group_name' key"
+                    )
+
+                group_id = entry["group_name"]
+
+                if group_id in converted:
+                    raise DagFactoryConfigException(f"Duplicate group_name detected in task_groups list: '{group_id}'")
+
+                group_conf = {k: v for k, v in entry.items() if k != "group_name"}
+                converted[group_id] = group_conf
+
+            return converted
+
+        raise DagFactoryConfigException("'task_groups' must be either a mapping or a list of group configs")
 
     # pylint: disable=too-many-locals
     def build(self) -> Dict[str, Union[str, DAG]]:
@@ -832,14 +735,15 @@ class DagBuilder:
         """
         dag_params: Dict[str, Any] = self.get_dag_params()
 
+        dag_params["tasks"] = DagBuilder._normalise_tasks_config(dag_params.get("tasks"))
+
+        dag_params["task_groups"] = DagBuilder._normalise_task_groups_config(dag_params.get("task_groups"))
+
         dag_kwargs: Dict[str, Any] = {}
 
         dag_kwargs["dag_id"] = dag_params["dag_id"]
         if version.parse(AIRFLOW_VERSION) >= version.parse("2.9.0"):
             dag_kwargs["dag_display_name"] = dag_params.get("dag_display_name", dag_params["dag_id"])
-
-        if not dag_params.get("timetable") and not utils.check_dict_key(dag_params, "schedule"):
-            dag_kwargs["schedule_interval"] = dag_params.get("schedule_interval", timedelta(days=1))
 
         dag_kwargs["description"] = dag_params.get("description", None)
 
@@ -854,10 +758,7 @@ class DagBuilder:
             )
 
         if dag_params.get("timetable"):
-            timetable_args = dag_params.get("timetable")
-            dag_kwargs["timetable"] = DagBuilder.make_timetable(
-                timetable_args.get("callable"), timetable_args.get("params")
-            )
+            dag_kwargs["timetable"] = dag_params.get("timetable")
 
         dag_kwargs["catchup"] = dag_params.get(
             "catchup", configuration.conf.getboolean("scheduler", "catchup_by_default")
@@ -900,6 +801,9 @@ class DagBuilder:
         DagBuilder.configure_schedule(dag_params, dag_kwargs)
 
         dag_kwargs["params"] = dag_params.get("params", None)
+
+        dag_kwargs["start_date"] = dag_params.get("start_date", None)
+        dag_kwargs["end_date"] = dag_params.get("end_date", None)
 
         dag: DAG = DAG(**dag_kwargs)
 
@@ -1020,20 +924,8 @@ class DagBuilder:
         return sorted_tasks
 
     @staticmethod
-    def adjust_general_task_params(task_params: dict(str, Any)):
+    def adjust_general_task_params(task_params: dict[str, Any]):
         """Adjusts in place the task params argument"""
-        if utils.check_dict_key(task_params, "execution_timeout_secs"):
-            task_params["execution_timeout"]: timedelta = timedelta(seconds=task_params["execution_timeout_secs"])
-            del task_params["execution_timeout_secs"]
-
-        if utils.check_dict_key(task_params, "sla_secs"):
-            task_params["sla"]: timedelta = timedelta(seconds=task_params["sla_secs"])
-            del task_params["sla_secs"]
-
-        if utils.check_dict_key(task_params, "execution_delta_secs"):
-            task_params["execution_delta"]: timedelta = timedelta(seconds=task_params["execution_delta_secs"])
-            del task_params["execution_delta_secs"]
-
         # Used by airflow.sensors.external_task_sensor.ExternalTaskSensor
         if utils.check_dict_key(task_params, "execution_date_fn"):
             python_callable: Callable = import_string(task_params["execution_date_fn"])
@@ -1083,7 +975,7 @@ class DagBuilder:
                     task_params[variable["attribute"]] = variable_value
             del task_params["variables_as_arguments"]
 
-        if version.parse(AIRFLOW_VERSION) >= version.parse("2.4.0"):
+        if version.parse(AIRFLOW_VERSION) < version.parse("3.0.0"):
             for key in ["inlets", "outlets"]:
                 if utils.check_dict_key(task_params, key):
                     if utils.check_dict_key(task_params[key], "file") and utils.check_dict_key(

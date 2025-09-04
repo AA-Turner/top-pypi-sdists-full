@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
 use percent_encoding::percent_decode;
 use tempfile::SpooledTempFile;
+use parking_lot::Mutex as ParkingLotMutex;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 #[pyclass]
@@ -46,9 +46,9 @@ pub struct UploadFile {
     pub content_type: Option<String>,
     #[pyo3(get)]
     pub size: usize,
-    pub file: Arc<Mutex<SpooledTempFile>>,
+    pub file: Arc<ParkingLotMutex<SpooledTempFile>>,
     #[pyo3(get)]
-    pub headers: PyObject,
+    pub headers: Py<PyAny>,
 }
 
 #[pymethods]
@@ -58,18 +58,15 @@ impl UploadFile {
         filename: String,
         content_type: Option<String>,
         size: usize,
-        headers: PyObject,
+        headers: Py<PyAny>,
     ) -> PyResult<Self> {
         Self::create_with_spool_size(filename, content_type, size, headers, 1024 * 1024)
     }
 
-    fn read(&self, py: Python, size: Option<usize>) -> PyResult<PyObject> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyRuntimeError::new_err(format!("Failed to create tokio runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
-            let mut file = self.file.lock().await;
+    fn read(&self, py: Python, size: Option<usize>) -> PyResult<Py<PyAny>> {
+        // Use blocking runtime for sync operations to prevent GIL issues
+        py.detach(|| {
+            let mut file = self.file.lock();
             let mut buffer = if let Some(s) = size {
                 vec![0u8; s]
             } else {
@@ -86,36 +83,31 @@ impl UploadFile {
                 })?;
             }
 
-            Ok(PyBytes::new(py, &buffer).into())
+            Python::attach(|py| Ok(PyBytes::new(py, &buffer).into()))
         })
     }
 
     fn write(&self, data: &Bound<'_, PyBytes>) -> PyResult<usize> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyRuntimeError::new_err(format!("Failed to create tokio runtime: {}", e))
+        let mut file = self.file.lock();
+        let bytes_written = file.write(data.as_bytes()).map_err(|e| {
+            PyRuntimeError::new_err(format!("Failed to write to file: {}", e))
         })?;
-
-        rt.block_on(async {
-            let mut file = self.file.lock().await;
-            let bytes_written = file.write(data.as_bytes()).map_err(|e| {
-                PyRuntimeError::new_err(format!("Failed to write to file: {}", e))
-            })?;
-            Ok(bytes_written)
-        })
+        Ok(bytes_written)
     }
 
-    fn seek(&self, offset: i64) -> PyResult<u64> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyRuntimeError::new_err(format!("Failed to create tokio runtime: {}", e))
-        })?;
+    fn seek(&self, position: i64, whence: i32) -> PyResult<i64> {
+        let mut file = self.file.lock();
+        let seek_from = match whence {
+            0 => SeekFrom::Start(position as u64), // SEEK_SET
+            1 => SeekFrom::Current(position),      // SEEK_CUR  
+            2 => SeekFrom::End(position),          // SEEK_END
+            _ => return Err(PyValueError::new_err("Invalid whence value")),
+        };
 
-        rt.block_on(async {
-            let mut file = self.file.lock().await;
-            let position = file.seek(SeekFrom::Start(offset as u64)).map_err(|e| {
-                PyRuntimeError::new_err(format!("Failed to seek file: {}", e))
-            })?;
-            Ok(position)
-        })
+        let new_position = file.seek(seek_from).map_err(|e| {
+            PyRuntimeError::new_err(format!("Failed to seek file: {}", e))
+        })? as i64;
+        Ok(new_position)
     }
 
     fn close(&self) -> PyResult<()> {
@@ -129,7 +121,7 @@ impl UploadFile {
         filename: String,
         content_type: Option<String>,
         size: usize,
-        headers: PyObject,
+        headers: Py<PyAny>,
         spool_max_size: usize,
     ) -> PyResult<Self> {
         let file = SpooledTempFile::new(spool_max_size);
@@ -137,7 +129,7 @@ impl UploadFile {
             filename,
             content_type,
             size,
-            file: Arc::new(Mutex::new(file)),
+            file: Arc::new(ParkingLotMutex::new(file)),
             headers,
         })
     }
@@ -147,17 +139,17 @@ impl UploadFile {
 #[pyclass]
 pub struct FormData {
     #[pyo3(get)]
-    pub items: Vec<(String, PyObject)>,
+    pub items: Vec<(String, Py<PyAny>)>,
 }
 
 #[pymethods]
 impl FormData {
     #[new]
-    fn new(items: Vec<(String, PyObject)>) -> Self {
+    fn new(items: Vec<(String, Py<PyAny>)>) -> Self {
         FormData { items }
     }
 
-    fn get(&self, py: Python, key: &str) -> PyResult<Option<PyObject>> {
+    fn get(&self, py: Python, key: &str) -> PyResult<Option<Py<PyAny>>> {
         for (k, v) in &self.items {
             if k == key {
                 return Ok(Some(v.clone_ref(py)));
@@ -166,7 +158,7 @@ impl FormData {
         Ok(None)
     }
 
-    fn getlist(&self, py: Python, key: &str) -> PyResult<Vec<PyObject>> {
+    fn getlist(&self, py: Python, key: &str) -> PyResult<Vec<Py<PyAny>>> {
         let mut result = Vec::new();
         for (k, v) in &self.items {
             if k == key {
@@ -187,8 +179,8 @@ pub struct FormParser {
 #[pymethods]
 impl FormParser {
     #[new]
-    fn new(headers: PyObject, max_part_size: Option<usize>) -> PyResult<Self> {
-        let headers_map = Python::with_gil(|py| {
+    fn new(headers: Py<PyAny>, max_part_size: Option<usize>) -> PyResult<Self> {
+        let headers_map = Python::attach(|py| {
             let mut map = HashMap::new();
             let headers_dict = headers.bind(py);
             
@@ -278,12 +270,12 @@ pub struct MultiPartParser {
 impl MultiPartParser {
     #[new]
     fn new(
-        headers: PyObject,
+        headers: Py<PyAny>,
         max_files: Option<usize>,
         max_fields: Option<usize>,
         max_part_size: Option<usize>,
     ) -> PyResult<Self> {
-        let headers_map = Python::with_gil(|py| {
+        let headers_map = Python::attach(|py| {
             let mut map = HashMap::new();
             let headers_dict = headers.bind(py);
             
@@ -341,7 +333,7 @@ impl MultiPartParser {
                 // Write data to the upload file
                 let py_bytes = PyBytes::new(py, &part.data);
                 upload_file.write(&py_bytes)?;
-                upload_file.seek(0)?;
+                upload_file.seek(0, 0)?;
 
                 items.push((part.name, Py::new(py, upload_file)?.into()));
             } else {
@@ -584,7 +576,7 @@ fn parse_content_disposition(header: &str) -> Option<HashMap<String, String>> {
 /// assert options == {b"charset": b"utf-8"}
 /// ```
 #[pyfunction]
-pub fn parse_options_header(py: Python<'_>, value: Option<PyObject>) -> PyResult<(PyObject, PyObject)> {
+pub fn parse_options_header(py: Python<'_>, value: Option<Py<PyAny>>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     let empty_bytes = PyBytes::new(py, b"").into();
     let empty_dict = PyDict::new(py).into();
     

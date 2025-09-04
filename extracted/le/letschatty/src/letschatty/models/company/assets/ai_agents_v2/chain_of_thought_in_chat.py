@@ -18,6 +18,7 @@ class ChainOfThoughtInChatStatus(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELED = "canceled"
 
 class ChainOfThoughtInChatRequest(BaseModel):
     """Request for the chain of thought in chat"""

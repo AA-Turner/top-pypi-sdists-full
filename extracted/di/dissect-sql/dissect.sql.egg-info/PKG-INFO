@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dissect.sql
-Version: 3.11
+Version: 3.12
 Summary: A Dissect module implementing a parsers for the SQLite database file format, commonly used by applications to store configuration data
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3
@@ -27,6 +27,7 @@ Requires-Dist: dissect.util<4,>=3
 Provides-Extra: dev
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
 Requires-Dist: dissect.util<4.0.dev,>=3.0.dev; extra == "dev"
+Dynamic: license-file
 
 # dissect.sql
 

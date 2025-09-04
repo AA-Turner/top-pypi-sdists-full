@@ -68,7 +68,8 @@ class TestTaskResponse(unittest.TestCase):
                     ],
                 reserved_resources_record = [
                     ''
-                    ]
+                    ],
+                result = None
             )
         else:
             return TaskResponse(

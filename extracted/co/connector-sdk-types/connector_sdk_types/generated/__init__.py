@@ -58,6 +58,7 @@ from .models.credential_config import CredentialConfig
 from .models.custom_attribute_customized_type import CustomAttributeCustomizedType
 from .models.custom_attribute_schema import CustomAttributeSchema
 from .models.custom_attribute_type import CustomAttributeType
+from .models.data_recency import DataRecency
 from .models.deactivate_account import DeactivateAccount
 from .models.deactivate_account200_response import DeactivateAccount200Response
 from .models.deactivate_account_request import DeactivateAccountRequest
@@ -116,6 +117,10 @@ from .models.get_connected_info import GetConnectedInfo
 from .models.get_connected_info200_response import GetConnectedInfo200Response
 from .models.get_connected_info_request import GetConnectedInfoRequest
 from .models.get_connected_info_response import GetConnectedInfoResponse
+from .models.get_data_recency import GetDataRecency
+from .models.get_data_recency200_response import GetDataRecency200Response
+from .models.get_data_recency_request import GetDataRecencyRequest
+from .models.get_data_recency_response import GetDataRecencyResponse
 from .models.get_last_activity import GetLastActivity
 from .models.get_last_activity200_response import GetLastActivity200Response
 from .models.get_last_activity_request import GetLastActivityRequest
@@ -298,6 +303,7 @@ __all__ = [
     "CustomAttributeCustomizedType",
     "CustomAttributeSchema",
     "CustomAttributeType",
+    "DataRecency",
     "DeactivateAccount",
     "DeactivateAccount200Response",
     "DeactivateAccountRequest",
@@ -356,6 +362,10 @@ __all__ = [
     "GetConnectedInfo200Response",
     "GetConnectedInfoRequest",
     "GetConnectedInfoResponse",
+    "GetDataRecency",
+    "GetDataRecency200Response",
+    "GetDataRecencyRequest",
+    "GetDataRecencyResponse",
     "GetLastActivity",
     "GetLastActivity200Response",
     "GetLastActivityRequest",

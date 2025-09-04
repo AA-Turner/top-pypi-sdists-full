@@ -5718,7 +5718,15 @@ def open(
     """
     ...
 def ord(c: str | bytes | bytearray, /) -> int:
-    """Return the Unicode code point for a one-character string."""
+    """
+    Return the ordinal value of a character.
+
+    If the argument is a one-character string, return the Unicode code
+    point of that character.
+
+    If the argument is a bytes or bytearray object of length 1, return its
+    single byte value.
+    """
     ...
 @type_check_only
 class _SupportsWriteAndFlush(SupportsWrite[_T_contra], SupportsFlush, Protocol[_T_contra]): ...

@@ -10,29 +10,24 @@ from .shared import (
     Tier as Tier,
     Price as Price,
     Address as Address,
-    BPSTier as BPSTier,
     Invoice as Invoice,
     Maximum as Maximum,
     Minimum as Minimum,
     BulkTier as BulkTier,
     Discount as Discount,
     ItemSlim as ItemSlim,
-    BPSConfig as BPSConfig,
     TaxAmount as TaxAmount,
     Allocation as Allocation,
     BulkConfig as BulkConfig,
     CreditNote as CreditNote,
     NewMaximum as NewMaximum,
     NewMinimum as NewMinimum,
-    TierConfig as TierConfig,
     UnitConfig as UnitConfig,
-    BulkBPSTier as BulkBPSTier,
     InvoiceTiny as InvoiceTiny,
     MatrixValue as MatrixValue,
     MatrixConfig as MatrixConfig,
     PerPriceCost as PerPriceCost,
     TieredConfig as TieredConfig,
-    BulkBPSConfig as BulkBPSConfig,
     CustomerTaxID as CustomerTaxID,
     PackageConfig as PackageConfig,
     PriceInterval as PriceInterval,
@@ -43,8 +38,6 @@ from .shared import (
     CreditNoteTiny as CreditNoteTiny,
     MaximumInterval as MaximumInterval,
     MinimumInterval as MinimumInterval,
-    NewPlanBPSPrice as NewPlanBPSPrice,
-    TieredBPSConfig as TieredBPSConfig,
     TierSubLineItem as TierSubLineItem,
     CouponRedemption as CouponRedemption,
     CustomerMinified as CustomerMinified,
@@ -63,8 +56,6 @@ from .shared import (
     NewPlanTieredPrice as NewPlanTieredPrice,
     PaginationMetadata as PaginationMetadata,
     PercentageDiscount as PercentageDiscount,
-    NewFloatingBPSPrice as NewFloatingBPSPrice,
-    NewPlanBulkBPSPrice as NewPlanBulkBPSPrice,
     NewPlanPackagePrice as NewPlanPackagePrice,
     SubLineItemGrouping as SubLineItemGrouping,
     InvoiceLevelDiscount as InvoiceLevelDiscount,
@@ -73,13 +64,11 @@ from .shared import (
     SubscriptionMinified as SubscriptionMinified,
     TransformPriceFilter as TransformPriceFilter,
     NewPercentageDiscount as NewPercentageDiscount,
-    NewPlanTieredBPSPrice as NewPlanTieredBPSPrice,
     SubscriptionTrialInfo as SubscriptionTrialInfo,
     UsageDiscountInterval as UsageDiscountInterval,
     AmountDiscountInterval as AmountDiscountInterval,
     NewFloatingMatrixPrice as NewFloatingMatrixPrice,
     NewFloatingTieredPrice as NewFloatingTieredPrice,
-    NewFloatingBulkBPSPrice as NewFloatingBulkBPSPrice,
     NewFloatingPackagePrice as NewFloatingPackagePrice,
     SubLineItemMatrixConfig as SubLineItemMatrixConfig,
     BillingCycleRelativeDate as BillingCycleRelativeDate,
@@ -88,7 +77,6 @@ from .shared import (
     BillingCycleConfiguration as BillingCycleConfiguration,
     MonetaryMaximumAdjustment as MonetaryMaximumAdjustment,
     MonetaryMinimumAdjustment as MonetaryMinimumAdjustment,
-    NewFloatingTieredBPSPrice as NewFloatingTieredBPSPrice,
     NewPlanGroupedTieredPrice as NewPlanGroupedTieredPrice,
     NewPlanTieredPackagePrice as NewPlanTieredPackagePrice,
     ConversionRateTieredConfig as ConversionRateTieredConfig,
@@ -102,6 +90,7 @@ from .shared import (
     NewPlanUnitWithPercentPrice as NewPlanUnitWithPercentPrice,
     ChangedSubscriptionResources as ChangedSubscriptionResources,
     NewBillingCycleConfiguration as NewBillingCycleConfiguration,
+    NewPlanMinimumCompositePrice as NewPlanMinimumCompositePrice,
     DimensionalPriceConfiguration as DimensionalPriceConfiguration,
     FixedFeeQuantityScheduleEntry as FixedFeeQuantityScheduleEntry,
     NewFloatingGroupedTieredPrice as NewFloatingGroupedTieredPrice,
@@ -109,13 +98,13 @@ from .shared import (
     NewPlanBulkWithProrationPrice as NewPlanBulkWithProrationPrice,
     NewPlanGroupedAllocationPrice as NewPlanGroupedAllocationPrice,
     NewPlanTieredWithMinimumPrice as NewPlanTieredWithMinimumPrice,
-    NewPlanTierWithProrationPrice as NewPlanTierWithProrationPrice,
     NewPlanUnitWithProrationPrice as NewPlanUnitWithProrationPrice,
     BillingCycleAnchorConfiguration as BillingCycleAnchorConfiguration,
     MonetaryUsageDiscountAdjustment as MonetaryUsageDiscountAdjustment,
     NewFloatingUnitWithPercentPrice as NewFloatingUnitWithPercentPrice,
     MonetaryAmountDiscountAdjustment as MonetaryAmountDiscountAdjustment,
     NewDimensionalPriceConfiguration as NewDimensionalPriceConfiguration,
+    NewFloatingMinimumCompositePrice as NewFloatingMinimumCompositePrice,
     NewPlanGroupedTieredPackagePrice as NewPlanGroupedTieredPackagePrice,
     NewPlanMatrixWithAllocationPrice as NewPlanMatrixWithAllocationPrice,
     NewPlanThresholdTotalAmountPrice as NewPlanThresholdTotalAmountPrice,
@@ -219,7 +208,6 @@ from .subscription_fetch_costs_params import SubscriptionFetchCostsParams as Sub
 from .subscription_fetch_usage_params import SubscriptionFetchUsageParams as SubscriptionFetchUsageParams
 from .accounting_provider_config_param import AccountingProviderConfigParam as AccountingProviderConfigParam
 from .alert_create_for_customer_params import AlertCreateForCustomerParams as AlertCreateForCustomerParams
-from .new_subscription_bps_price_param import NewSubscriptionBPSPriceParam as NewSubscriptionBPSPriceParam
 from .price_evaluate_multiple_response import PriceEvaluateMultipleResponse as PriceEvaluateMultipleResponse
 from .subscription_change_apply_params import SubscriptionChangeApplyParams as SubscriptionChangeApplyParams
 from .subscription_update_trial_params import SubscriptionUpdateTrialParams as SubscriptionUpdateTrialParams
@@ -250,7 +238,6 @@ from .dimensional_price_group_create_params import (
 from .dimensional_price_group_update_params import (
     DimensionalPriceGroupUpdateParams as DimensionalPriceGroupUpdateParams,
 )
-from .new_subscription_bulk_bps_price_param import NewSubscriptionBulkBPSPriceParam as NewSubscriptionBulkBPSPriceParam
 from .subscription_change_retrieve_response import (
     SubscriptionChangeRetrieveResponse as SubscriptionChangeRetrieveResponse,
 )
@@ -259,9 +246,6 @@ from .price_evaluate_preview_events_response import (
 )
 from .new_accounting_sync_configuration_param import (
     NewAccountingSyncConfigurationParam as NewAccountingSyncConfigurationParam,
-)
-from .new_subscription_tiered_bps_price_param import (
-    NewSubscriptionTieredBPSPriceParam as NewSubscriptionTieredBPSPriceParam,
 )
 from .subscription_schedule_plan_change_params import (
     SubscriptionSchedulePlanChangeParams as SubscriptionSchedulePlanChangeParams,
@@ -278,6 +262,9 @@ from .new_subscription_tiered_package_price_param import (
 from .subscription_update_fixed_fee_quantity_params import (
     SubscriptionUpdateFixedFeeQuantityParams as SubscriptionUpdateFixedFeeQuantityParams,
 )
+from .new_subscription_minimum_composite_price_param import (
+    NewSubscriptionMinimumCompositePriceParam as NewSubscriptionMinimumCompositePriceParam,
+)
 from .new_subscription_unit_with_percent_price_param import (
     NewSubscriptionUnitWithPercentPriceParam as NewSubscriptionUnitWithPercentPriceParam,
 )
@@ -286,9 +273,6 @@ from .new_subscription_grouped_allocation_price_param import (
 )
 from .new_subscription_bulk_with_proration_price_param import (
     NewSubscriptionBulkWithProrationPriceParam as NewSubscriptionBulkWithProrationPriceParam,
-)
-from .new_subscription_tier_with_proration_price_param import (
-    NewSubscriptionTierWithProrationPriceParam as NewSubscriptionTierWithProrationPriceParam,
 )
 from .new_subscription_tiered_with_minimum_price_param import (
     NewSubscriptionTieredWithMinimumPriceParam as NewSubscriptionTieredWithMinimumPriceParam,

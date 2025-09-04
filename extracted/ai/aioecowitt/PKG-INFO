@@ -1,35 +1,22 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aioecowitt
-Version: 2025.3.1
+Version: 2025.9.0
 Summary: Python wrapper for EcoWitt Protocol
-Home-page: https://github.com/home-assistant-libs/aioecowitt
-Download-URL: https://github.com/home-assistant-libs/aioecowitt
-Author: Home Assistant Team
-Author-email: hello@home-assistant.io
+Author-email: Home Assistant Team <hello@home-assistant.io>
+License-Expression: Apache-2.0
+Project-URL: Source code, https://github.com/home-assistant-libs/aioecowitt
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Home Automation
-Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.9
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>3
 Requires-Dist: meteocalc>=1.1.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 # aioEcoWitt
 

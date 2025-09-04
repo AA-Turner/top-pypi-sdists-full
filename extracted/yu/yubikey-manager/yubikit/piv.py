@@ -25,6 +25,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import gzip
 import logging
 import os
@@ -33,7 +35,7 @@ import warnings
 from dataclasses import astuple, dataclass
 from datetime import date
 from enum import Enum, IntEnum, unique
-from typing import Optional, Union, cast, overload
+from typing import TYPE_CHECKING, TypeAlias, cast, overload
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -70,21 +72,26 @@ from .core.smartcard import (
     SmartCardProtocol,
 )
 
+if TYPE_CHECKING:
+    # This type isn't available on cryptography <40.
+    from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
+
+
 logger = logging.getLogger(__name__)
 
 
-PublicKey = Union[
-    rsa.RSAPublicKey,
-    ec.EllipticCurvePublicKey,
-    ed25519.Ed25519PublicKey,
-    x25519.X25519PublicKey,
-]
-PrivateKey = Union[
-    rsa.RSAPrivateKeyWithSerialization,
-    ec.EllipticCurvePrivateKeyWithSerialization,
-    ed25519.Ed25519PrivateKey,
-    x25519.X25519PrivateKey,
-]
+PublicKey: TypeAlias = (
+    rsa.RSAPublicKey
+    | ec.EllipticCurvePublicKey
+    | ed25519.Ed25519PublicKey
+    | x25519.X25519PublicKey
+)
+PrivateKey: TypeAlias = (
+    rsa.RSAPrivateKeyWithSerialization
+    | ec.EllipticCurvePrivateKeyWithSerialization
+    | ed25519.Ed25519PrivateKey
+    | x25519.X25519PrivateKey
+)
 
 
 @unique
@@ -121,7 +128,7 @@ class KEY_TYPE(IntEnum):
         raise ValueError("No bit_len")
 
     @classmethod
-    def from_public_key(cls, key: PublicKey) -> "KEY_TYPE":
+    def from_public_key(cls, key: PublicKeyTypes) -> KEY_TYPE:
         if isinstance(key, rsa.RSAPublicKey):
             try:
                 return getattr(cls, "RSA%d" % key.key_size)
@@ -253,7 +260,7 @@ class OBJECT_ID(IntEnum):
     ATTESTATION = 0x5FFF01
 
     @classmethod
-    def from_slot(cls, slot: SLOT) -> "OBJECT_ID":
+    def from_slot(cls, slot: SLOT) -> OBJECT_ID:
         return getattr(cls, SLOT(slot).name)
 
 
@@ -295,6 +302,7 @@ INS_GET_DATA = 0xCB
 INS_PUT_DATA = 0xDB
 INS_MOVE_KEY = 0xF6
 INS_GET_METADATA = 0xF7
+INS_GET_SERIAL = 0xF8
 INS_ATTEST = 0xF9
 INS_SET_PIN_RETRIES = 0xFA
 INS_RESET = 0xFB
@@ -397,6 +405,12 @@ def _bcd(val, ln=1):
     return bits if ln == 1 else _bcd(val // 10, ln - 1) + bits
 
 
+def _dump_tlv_dict(values: dict[int, bytes | None]) -> bytes:
+    return b"".join(
+        Tlv(tag, value) for tag, value in values.items() if value is not None
+    )
+
+
 BCD_SS = "11010"
 BCD_FS = "10110"
 BCD_ES = "11111"
@@ -453,7 +467,7 @@ class FascN:
         return int2bytes(int(bs, 2) << 5 | lrc)
 
     @classmethod
-    def from_bytes(cls, value: bytes) -> "FascN":
+    def from_bytes(cls, value: bytes) -> FascN:
         bs = f"{bytes2int(value):0200b}"
         ds = [int(bs[i : i + 4][::-1], 2) for i in range(0, 200, 5)]
         args = (
@@ -467,53 +481,46 @@ class FascN:
         return "[%04d-%04d-%06d-%d-%d-%010d%d%04d%d]" % astuple(self)
 
 
-# From Python 3.10 we can use kw_only instead
-_chuid_no_value = object()
-
-
-@dataclass
+@dataclass(kw_only=True)
 class Chuid:
-    buffer_length: Optional[int] = None
-    fasc_n: FascN = cast(FascN, _chuid_no_value)
-    agency_code: Optional[bytes] = None
-    organizational_identifier: Optional[bytes] = None
-    duns: Optional[bytes] = None
-    guid: bytes = cast(bytes, _chuid_no_value)
-    expiration_date: date = cast(date, _chuid_no_value)
-    authentication_key_map: Optional[bytes] = None
-    asymmetric_signature: bytes = cast(bytes, _chuid_no_value)
-    lrc: Optional[int] = None
+    buffer_length: int | None = None
+    fasc_n: FascN
+    agency_code: bytes | None = None
+    organizational_identifier: bytes | None = None
+    duns: bytes | None = None
+    guid: bytes
+    expiration_date: date
+    authentication_key_map: bytes | None = None
+    asymmetric_signature: bytes
+    lrc: int | None = None
 
-    def __post_init__(self):
-        if _chuid_no_value in (
-            self.fasc_n,
-            self.guid,
-            self.expiration_date,
-            self.asymmetric_signature,
-        ):
-            raise ValueError("Missing required field(s)")
+    def _get_bytes(self, include_signature: bool = True) -> bytes:
+        return _dump_tlv_dict(
+            {
+                0xEE: int2bytes(self.buffer_length)
+                if self.buffer_length is not None
+                else None,
+                0x30: bytes(self.fasc_n),
+                0x31: self.agency_code,
+                0x32: self.organizational_identifier,
+                0x33: self.duns,
+                0x34: self.guid,
+                0x35: self.expiration_date.isoformat().replace("-", "").encode(),
+                0x3D: self.authentication_key_map,
+                0x3E: self.asymmetric_signature if include_signature else None,
+                TAG_LRC: bytes([self.lrc]) if self.lrc is not None else b"",
+            }
+        )
+
+    @property
+    def tbs_bytes(self) -> bytes:
+        return self._get_bytes(include_signature=False)
 
     def __bytes__(self):
-        bs = b""
-        if self.buffer_length is not None:
-            bs += Tlv(0xEE, int2bytes(self.buffer_length))
-        bs += Tlv(0x30, bytes(self.fasc_n))
-        if self.agency_code is not None:
-            bs += Tlv(0x31, self.agency_code)
-        if self.organizational_identifier is not None:
-            bs += Tlv(0x32, self.organizational_identifier)
-        if self.duns is not None:
-            bs += Tlv(0x33, self.duns)
-        bs += Tlv(0x34, self.guid)
-        bs += Tlv(0x35, self.expiration_date.isoformat().replace("-", "").encode())
-        if self.authentication_key_map is not None:
-            bs += Tlv(0x3D, self.authentication_key_map)
-        bs += Tlv(0x3E, self.asymmetric_signature)
-        bs += Tlv(TAG_LRC, bytes([self.lrc]) if self.lrc is not None else b"")
-        return bs
+        return self._get_bytes()
 
     @classmethod
-    def from_bytes(cls, value: bytes) -> "Chuid":
+    def from_bytes(cls, value: bytes) -> Chuid:
         data = Tlv.parse_dict(value)
         buffer_length = data.get(0xEE)
         lrc = data.get(TAG_LRC)
@@ -654,7 +661,7 @@ class PivSession:
     def __init__(
         self,
         connection: SmartCardConnection,
-        scp_key_params: Optional[ScpKeyParams] = None,
+        scp_key_params: ScpKeyParams | None = None,
     ):
         self.protocol = SmartCardProtocol(connection)
         self.protocol.select(AID.PIV)
@@ -740,10 +747,18 @@ class PivSession:
 
         logger.info("PIV application data reset performed")
 
+    def get_serial(self) -> int:
+        """Get the serial number of the YubiKey."""
+        logger.debug("Getting serial number")
+        require_version(self.version, (5, 0, 3))
+        response = self.protocol.send_apdu(0, INS_GET_SERIAL, 0, 0)
+        return bytes2int(response)
+
     @overload
     def authenticate(self, management_key: bytes) -> None: ...
 
     @overload
+    # TODO: remove in 6.0
     def authenticate(
         self, key_type: MANAGEMENT_KEY_TYPE, management_key: bytes
     ) -> None: ...
@@ -786,7 +801,7 @@ class PivSession:
 
         backend = default_backend()
         cipher_key = _parse_management_key(key_type, management_key)
-        cipher = Cipher(cipher_key, modes.ECB(), backend)  # nosec
+        cipher = Cipher(cipher_key, modes.ECB(), backend)  # noqa: S305
         decryptor = cipher.decryptor()
         decrypted = decryptor.update(witness) + decryptor.finalize()
 
@@ -854,7 +869,7 @@ class PivSession:
 
     def verify_uv(
         self, temporary_pin: bool = False, check_only: bool = False
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """Verify the user by fingerprint (YubiKey Bio only).
 
         Fingerprint verification will allow usage of private keys which have a PIN
@@ -1071,8 +1086,8 @@ class PivSession:
         slot: SLOT,
         key_type: KEY_TYPE,
         message: bytes,
-        hash_algorithm: hashes.HashAlgorithm,
-        padding: Optional[AsymmetricPadding] = None,
+        hash_algorithm: hashes.HashAlgorithm | None,
+        padding: AsymmetricPadding | None = None,
     ) -> bytes:
         """Sign message with key.
 
@@ -1110,8 +1125,8 @@ class PivSession:
         except AttributeError:
             raise ValueError("Invalid length of ciphertext")
         logger.debug(
-            f"Decrypting data with key in slot {slot} of type {key_type} using ",
-            f"padding={padding}",
+            f"Decrypting data with key in slot {slot} of type {key_type} using "
+            f"padding={padding}"
         )
         padded = self._use_private_key(slot, key_type, cipher_text, False)
         return _unpad_message(padded, padding)
@@ -1119,9 +1134,9 @@ class PivSession:
     def calculate_secret(
         self,
         slot: SLOT,
-        peer_public_key: Union[
-            ec.EllipticCurvePublicKeyWithSerialization, x25519.X25519PublicKey
-        ],
+        peer_public_key: (
+            ec.EllipticCurvePublicKeyWithSerialization | x25519.X25519PublicKey
+        ),
     ) -> bytes:
         """Calculate shared secret using ECDH.
 
@@ -1172,7 +1187,7 @@ class PivSession:
         except ValueError as e:
             raise BadResponseError("Malformed object data", e)
 
-    def put_object(self, object_id: int, data: Optional[bytes] = None) -> None:
+    def put_object(self, object_id: int, data: bytes | None = None) -> None:
         """Write data to PIV object.
 
         Requires authentication with management key.
@@ -1279,7 +1294,7 @@ class PivSession:
         self.check_key_support(key_type, pin_policy, touch_policy, False)
         ln = key_type.bit_len // 8
         if key_type.algorithm == ALGORITHM.RSA:
-            assert isinstance(private_key, rsa.RSAPrivateKey)  # nosec
+            assert isinstance(private_key, rsa.RSAPrivateKey)  # noqa: S101
             numbers = private_key.private_numbers()
             numbers = cast(rsa.RSAPrivateNumbers, numbers)
             if numbers.public_numbers.e != 65537:
@@ -1300,7 +1315,7 @@ class PivSession:
                 ),
             )
         else:
-            assert isinstance(private_key, ec.EllipticCurvePrivateKey)  # nosec
+            assert isinstance(private_key, ec.EllipticCurvePrivateKey)  # noqa: S101
             numbers = private_key.private_numbers()
             numbers = cast(ec.EllipticCurvePrivateNumbers, numbers)
             data = Tlv(0x06, int2bytes(numbers.private_value, ln))

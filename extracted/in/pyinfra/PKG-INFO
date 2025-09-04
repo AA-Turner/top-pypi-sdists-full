@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyinfra
-Version: 3.4.1
+Version: 3.5
 Summary: pyinfra automates/provisions/manages/deploys infrastructure.
 Home-page: https://pyinfra.com
 Author: Nick / Fizzadar
@@ -52,7 +52,7 @@ Requires-Dist: flake8-isort==6.1.2; extra == "test"
 Requires-Dist: pyyaml==6.0.2; extra == "test"
 Requires-Dist: mypy; extra == "test"
 Requires-Dist: types-cryptography; extra == "test"
-Requires-Dist: types-paramiko; extra == "test"
+Requires-Dist: types-paramiko<4; extra == "test"
 Requires-Dist: types-python-dateutil; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Provides-Extra: docs
@@ -73,7 +73,7 @@ Requires-Dist: flake8-isort==6.1.2; extra == "dev"
 Requires-Dist: pyyaml==6.0.2; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: types-cryptography; extra == "dev"
-Requires-Dist: types-paramiko; extra == "dev"
+Requires-Dist: types-paramiko<4; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: pyinfra-guzzle_sphinx_theme==0.17; extra == "dev"

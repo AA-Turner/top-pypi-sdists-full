@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-10 10:41:13
-@LastEditTime: 2025-06-12 19:12:12
+@LastEditTime: 2025-09-04 10:31:30
 @LastEditors: HuangJianYi
 @Description: 
 """
@@ -3722,6 +3722,13 @@ class TaskBaseModel(FrameBaseModel):
                                     try:
                                         #判断是否已经统计过
                                         if order["oid"] not in pay_order_no_list:
+                                            if "payment" not in order.keys():
+                                                buy_order_data = top_base_model.get_taobao_order_info(order['tid'], access_token)
+                                                if buy_order_data:
+                                                    continue
+                                                buy_order_payment = decimal.Decimal(buy_order_data["payment"])
+                                            else:
+                                                buy_order_payment = decimal.Decimal(order['payment'])
                                             appoint_goods_id_list.append(str(order["num_iid"]))
                                             tao_pay_order = TaoPayOrder()
                                             tao_pay_order.app_id = app_id
@@ -3739,15 +3746,16 @@ class TaskBaseModel(FrameBaseModel):
                                                 sku_invoke_result_data = top_base_model.get_sku_name(int(order['num_iid']), int(order['sku_id']), access_token, app_key, app_secret,is_log)
                                                 tao_pay_order.sku_name = sku_invoke_result_data.data if sku_invoke_result_data.success == True else ""
                                             tao_pay_order.buy_num = order['num']
-                                            tao_pay_order.pay_price = order['payment']
+                                            tao_pay_order.pay_price = buy_order_payment
                                             tao_pay_order.order_status = order['status']
                                             tao_pay_order.create_date = SevenHelper.get_now_datetime()
                                             tao_pay_order.pay_date = order['pay_time']
                                             tao_pay_order_list.append(tao_pay_order)
+
                                             if support_presale_order == True:
-                                                payment = decimal.Decimal(order["step_paid_fee"]) if order["type"] == "step" and decimal.Decimal(order["step_paid_fee"]) > 0 else decimal.Decimal(order["payment"])
+                                                payment = decimal.Decimal(order["step_paid_fee"]) if order["type"] == "step" and decimal.Decimal(order["step_paid_fee"]) > 0 else buy_order_payment
                                             else:
-                                                payment = decimal.Decimal(order["payment"])
+                                                payment = buy_order_payment
                                             pay_price = decimal.Decimal(pay_price) + payment
                                             pay_num = pay_num + 1
                                             buy_num = buy_num + order['num']

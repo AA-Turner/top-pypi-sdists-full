@@ -75,10 +75,6 @@ class NetworkLoadBalancerClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("network_load_balancer"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -116,8 +112,6 @@ class NetworkLoadBalancerClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("network_load_balancer", config, signer, network_load_balancer_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -168,15 +162,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/change_network_load_balancer_compartment.py.html>`__ to see an example of how to use change_network_load_balancer_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/change_network_load_balancer_compartment.py.html>`__ to see an example of how to use change_network_load_balancer_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -188,7 +178,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -238,7 +227,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=change_network_load_balancer_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -250,7 +238,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=change_network_load_balancer_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -303,15 +290,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/create_backend.py.html>`__ to see an example of how to use create_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/create_backend.py.html>`__ to see an example of how to use create_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -323,7 +306,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -374,7 +356,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_backend_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -386,7 +367,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_backend_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -434,15 +414,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/create_backend_set.py.html>`__ to see an example of how to use create_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/create_backend_set.py.html>`__ to see an example of how to use create_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -454,7 +430,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -504,7 +479,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_backend_set_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -516,7 +490,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_backend_set_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -564,15 +537,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/create_listener.py.html>`__ to see an example of how to use create_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/create_listener.py.html>`__ to see an example of how to use create_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -584,7 +553,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -634,7 +602,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_listener_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -646,7 +613,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=create_listener_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -682,15 +648,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancer`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/create_network_load_balancer.py.html>`__ to see an example of how to use create_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/create_network_load_balancer.py.html>`__ to see an example of how to use create_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -702,7 +664,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -740,7 +701,6 @@ class NetworkLoadBalancerClient(object):
                 body=create_network_load_balancer_details,
                 response_type="NetworkLoadBalancer",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -752,7 +712,6 @@ class NetworkLoadBalancerClient(object):
                 body=create_network_load_balancer_details,
                 response_type="NetworkLoadBalancer",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -803,15 +762,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/delete_backend.py.html>`__ to see an example of how to use delete_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/delete_backend.py.html>`__ to see an example of how to use delete_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -823,7 +778,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_match"
@@ -871,7 +825,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -882,7 +835,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -927,15 +879,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/delete_backend_set.py.html>`__ to see an example of how to use delete_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/delete_backend_set.py.html>`__ to see an example of how to use delete_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -947,7 +895,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_match"
@@ -994,7 +941,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1005,7 +951,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1048,15 +993,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/delete_listener.py.html>`__ to see an example of how to use delete_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/delete_listener.py.html>`__ to see an example of how to use delete_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -1068,7 +1009,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_match"
@@ -1115,7 +1055,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1126,7 +1065,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1164,15 +1102,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/delete_network_load_balancer.py.html>`__ to see an example of how to use delete_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/delete_network_load_balancer.py.html>`__ to see an example of how to use delete_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -1184,7 +1118,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1230,7 +1163,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1241,7 +1173,6 @@ class NetworkLoadBalancerClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1292,15 +1223,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.Backend`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_backend.py.html>`__ to see an example of how to use get_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_backend.py.html>`__ to see an example of how to use get_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1312,7 +1239,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match"
@@ -1361,7 +1287,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="Backend",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1373,7 +1298,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="Backend",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1417,15 +1341,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendHealth`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_backend_health.py.html>`__ to see an example of how to use get_backend_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_backend_health.py.html>`__ to see an example of how to use get_backend_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1437,7 +1357,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1484,7 +1403,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1496,7 +1414,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1540,15 +1457,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendOperationalStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_backend_operational_status.py.html>`__ to see an example of how to use get_backend_operational_status API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_backend_operational_status.py.html>`__ to see an example of how to use get_backend_operational_status API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1560,7 +1473,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1607,7 +1519,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendOperationalStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1619,7 +1530,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendOperationalStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1662,15 +1572,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendSet`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_backend_set.py.html>`__ to see an example of how to use get_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_backend_set.py.html>`__ to see an example of how to use get_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1682,7 +1588,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match"
@@ -1730,7 +1635,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1742,7 +1646,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1778,15 +1681,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendSetHealth`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_backend_set_health.py.html>`__ to see an example of how to use get_backend_set_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_backend_set_health.py.html>`__ to see an example of how to use get_backend_set_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1798,7 +1697,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1844,7 +1742,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSetHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1856,7 +1753,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSetHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1906,15 +1802,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.HealthChecker`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_health_checker.py.html>`__ to see an example of how to use get_health_checker API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_health_checker.py.html>`__ to see an example of how to use get_health_checker API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1926,7 +1818,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -1977,7 +1868,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="HealthChecker",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1989,7 +1879,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="HealthChecker",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2032,15 +1921,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.Listener`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_listener.py.html>`__ to see an example of how to use get_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_listener.py.html>`__ to see an example of how to use get_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -2052,7 +1937,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match"
@@ -2100,7 +1984,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="Listener",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2112,7 +1995,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="Listener",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2150,15 +2032,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancer`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_network_load_balancer.py.html>`__ to see an example of how to use get_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_network_load_balancer.py.html>`__ to see an example of how to use get_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2170,7 +2048,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_none_match",
             "opc_request_id"
@@ -2217,7 +2094,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancer",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2229,7 +2105,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancer",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2260,15 +2135,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancerHealth`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_network_load_balancer_health.py.html>`__ to see an example of how to use get_network_load_balancer_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_network_load_balancer_health.py.html>`__ to see an example of how to use get_network_load_balancer_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2280,7 +2151,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -2325,7 +2195,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2337,7 +2206,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerHealth",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2366,15 +2234,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.WorkRequest`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2386,7 +2250,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -2431,7 +2294,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2443,7 +2305,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2505,15 +2366,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendSetCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_backend_sets.py.html>`__ to see an example of how to use list_backend_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_backend_sets.py.html>`__ to see an example of how to use list_backend_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2525,7 +2382,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match",
@@ -2599,7 +2455,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSetCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2612,7 +2467,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendSetCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2679,15 +2533,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.BackendCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_backends.py.html>`__ to see an example of how to use list_backends API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_backends.py.html>`__ to see an example of how to use list_backends API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -2699,7 +2549,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match",
@@ -2774,7 +2623,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2787,7 +2635,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="BackendCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2849,15 +2696,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.ListenerCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_listeners.py.html>`__ to see an example of how to use list_listeners API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_listeners.py.html>`__ to see an example of how to use list_listeners API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2869,7 +2712,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_none_match",
@@ -2943,7 +2785,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="ListenerCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2956,7 +2797,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="ListenerCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3011,15 +2851,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancerHealthCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_network_load_balancer_healths.py.html>`__ to see an example of how to use list_network_load_balancer_healths API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_network_load_balancer_healths.py.html>`__ to see an example of how to use list_network_load_balancer_healths API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3031,7 +2867,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "sort_order",
             "sort_by",
@@ -3093,7 +2928,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerHealthCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3105,7 +2939,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerHealthCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3168,15 +3001,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancerCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_network_load_balancers.py.html>`__ to see an example of how to use list_network_load_balancers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_network_load_balancers.py.html>`__ to see an example of how to use list_network_load_balancers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3188,7 +3017,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "lifecycle_state",
             "display_name",
@@ -3261,7 +3089,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3273,7 +3100,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancerCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3323,15 +3149,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancersPolicyCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_network_load_balancers_policies.py.html>`__ to see an example of how to use list_network_load_balancers_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_network_load_balancers_policies.py.html>`__ to see an example of how to use list_network_load_balancers_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3343,7 +3165,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -3404,7 +3225,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancersPolicyCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3416,7 +3236,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancersPolicyCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3467,15 +3286,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.NetworkLoadBalancersProtocolCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_network_load_balancers_protocols.py.html>`__ to see an example of how to use list_network_load_balancers_protocols API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_network_load_balancers_protocols.py.html>`__ to see an example of how to use list_network_load_balancers_protocols API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3487,7 +3302,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -3548,7 +3362,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancersProtocolCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3560,7 +3373,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="NetworkLoadBalancersProtocolCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3607,15 +3419,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.WorkRequestErrorCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -3627,7 +3435,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -3682,7 +3489,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3695,7 +3501,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3742,15 +3547,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.WorkRequestLogEntryCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -3762,7 +3563,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -3817,7 +3617,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3830,7 +3629,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3874,15 +3672,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.network_load_balancer.models.WorkRequestCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3894,7 +3688,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -3938,7 +3731,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3950,7 +3742,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 response_type="WorkRequestCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4011,15 +3802,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_backend.py.html>`__ to see an example of how to use update_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_backend.py.html>`__ to see an example of how to use update_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -4031,7 +3818,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -4083,7 +3869,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_backend_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4095,7 +3880,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_backend_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4148,15 +3932,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_backend_set.py.html>`__ to see an example of how to use update_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_backend_set.py.html>`__ to see an example of how to use update_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -4168,7 +3948,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -4219,7 +3998,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_backend_set_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4231,7 +4009,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_backend_set_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4284,15 +4061,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_health_checker.py.html>`__ to see an example of how to use update_health_checker API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_health_checker.py.html>`__ to see an example of how to use update_health_checker API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -4304,7 +4077,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -4355,7 +4127,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_health_checker_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4367,7 +4138,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_health_checker_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4420,15 +4190,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_listener.py.html>`__ to see an example of how to use update_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_listener.py.html>`__ to see an example of how to use update_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -4440,7 +4206,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -4491,7 +4256,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_listener_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4503,7 +4267,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_listener_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4544,15 +4307,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_network_load_balancer.py.html>`__ to see an example of how to use update_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_network_load_balancer.py.html>`__ to see an example of how to use update_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -4564,7 +4323,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -4611,7 +4369,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_network_load_balancer_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4623,7 +4380,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_network_load_balancer_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4671,15 +4427,11 @@ class NetworkLoadBalancerClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/networkloadbalancer/update_network_security_groups.py.html>`__ to see an example of how to use update_network_security_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/networkloadbalancer/update_network_security_groups.py.html>`__ to see an example of how to use update_network_security_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -4691,7 +4443,6 @@ class NetworkLoadBalancerClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token",
@@ -4741,7 +4492,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_network_security_groups_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4753,7 +4503,6 @@ class NetworkLoadBalancerClient(object):
                 header_params=header_params,
                 body=update_network_security_groups_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

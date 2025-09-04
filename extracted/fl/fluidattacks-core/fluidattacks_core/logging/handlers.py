@@ -17,7 +17,7 @@ class DebuggingHandler(logging.StreamHandler[TextIO]):
     """
 
     def __init__(self) -> None:
-        super().__init__(sys.stdout)
+        super().__init__(sys.stderr)
         self.addFilter(NoProductionFilter())
         self.setFormatter(ColorfulFormatter())
 
@@ -31,7 +31,7 @@ class ProductionSyncHandler(logging.StreamHandler[TextIO]):
     """
 
     def __init__(self) -> None:
-        super().__init__(sys.stdout)
+        super().__init__(sys.stderr)
         self.addFilter(ProductionOnlyFilter())
         self.setFormatter(CustomJsonFormatter())
 
@@ -45,7 +45,7 @@ class ProductionAsyncHandler(QueueHandler):
     """
 
     def __init__(self) -> None:
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler(sys.stderr)
         handler.addFilter(ProductionOnlyFilter())
         handler.setFormatter(CustomJsonFormatter())
 

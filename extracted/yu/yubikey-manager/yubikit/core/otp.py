@@ -30,7 +30,7 @@ import logging
 import struct
 from threading import Event
 from time import sleep
-from typing import Callable, Optional
+from typing import Callable
 
 from yubikit.logging import LOG_LEVEL
 
@@ -108,7 +108,8 @@ SEQUENCE_MASK = 0x1F
 
 STATUS_OFFSET_PROG_SEQ = 0x4
 STATUS_OFFSET_TOUCH_LOW = 0x5
-CONFIG_STATUS_MASK = 0x1F
+
+CONFIG_SLOTS_PROGRAMMED_MASK = 0b00000011  # Slot 1 or 2 programmed
 
 STATUS_PROCESSING = 1
 STATUS_UPNEEDED = 2
@@ -121,6 +122,18 @@ def _should_send(packet, seq):
 
 def _format_frame(slot, payload):
     return payload + struct.pack("<BH", slot, calculate_crc(payload)) + b"\0\0\0"
+
+
+def _is_sequence_updated(report, prev_seq):
+    # Either the sequence number is incremented by 1, or it has been reset to 0 after
+    # deleting the last configuration (the previous sequence was non-zero and both slots
+    # are now empty).
+    next_seq = report[STATUS_OFFSET_PROG_SEQ]
+    return next_seq == prev_seq + 1 or (
+        next_seq == 0
+        and prev_seq > 0
+        and report[STATUS_OFFSET_TOUCH_LOW] & CONFIG_SLOTS_PROGRAMMED_MASK == 0
+    )
 
 
 class OtpProtocol:
@@ -143,9 +156,9 @@ class OtpProtocol:
     def send_and_receive(
         self,
         slot: int,
-        data: Optional[bytes] = None,
-        event: Optional[Event] = None,
-        on_keepalive: Optional[Callable[[int], None]] = None,
+        data: bytes | None = None,
+        event: Event | None = None,
+        on_keepalive: Callable[[int], None] | None = None,
     ) -> bytes:
         """Sends a command to the YubiKey, and reads the response.
 
@@ -232,15 +245,10 @@ class OtpProtocol:
                         self._reset_state()
                         return response
                 elif status_byte == 0:  # Status response
-                    next_prog_seq = report[STATUS_OFFSET_PROG_SEQ]
                     if response:
                         raise Exception("Incomplete transfer")
-                    elif next_prog_seq == prog_seq + 1 or (
-                        prog_seq > 0
-                        and next_prog_seq == 0
-                        and report[STATUS_OFFSET_TOUCH_LOW] & CONFIG_STATUS_MASK == 0
-                    ):  # Note: If no valid configurations exist, prog_seq resets to 0.
-                        # Sequence updated, return status.
+                    elif _is_sequence_updated(report, prog_seq):
+                        # Return the updated status bytes
                         return report[1:-1]
                     elif needs_touch:
                         raise TimeoutError("Timed out waiting for touch")
@@ -254,7 +262,6 @@ class OtpProtocol:
                     else:
                         on_keepalive(STATUS_PROCESSING)
                         timeout = 0.02
-                    sleep(timeout)
                     if event.wait(timeout):
                         self._reset_state()
                         raise TimeoutError("Command cancelled by Event")

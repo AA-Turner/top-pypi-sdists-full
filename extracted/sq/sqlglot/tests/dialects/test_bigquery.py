@@ -1803,6 +1803,29 @@ WHERE
             "OCTET_LENGTH(b'foo')",
             "BYTE_LENGTH(b'foo')",
         )
+        self.validate_identity(
+            """JSON_ARRAY_APPEND(PARSE_JSON('["a", "b", "c"]'), '$', [1, 2], append_each_element => FALSE)"""
+        )
+        self.validate_identity(
+            """JSON_ARRAY_INSERT(PARSE_JSON('["a", "b", "c"]'), '$[1]', [1, 2], insert_each_element => FALSE)"""
+        )
+        self.validate_identity("""JSON_KEYS(PARSE_JSON('{"a": {"b":1}}'))""")
+        self.validate_identity("""JSON_KEYS(PARSE_JSON('{"a": {"b":1}}', 1))""")
+        self.validate_identity("""JSON_KEYS(PARSE_JSON('{"a": {"b":1}}'), 1, mode => 'lax')""")
+        self.validate_identity(
+            """JSON_SET(PARSE_JSON('{"a": 1}'), '$.b', 999, create_if_missing => FALSE)"""
+        )
+        self.validate_identity("""JSON_STRIP_NULLS(PARSE_JSON('[1, null, 2, null, [null]]'))""")
+        self.validate_identity(
+            """JSON_STRIP_NULLS(PARSE_JSON('[1, null, 2, null]'), include_arrays => FALSE)"""
+        )
+        self.validate_identity(
+            """JSON_STRIP_NULLS(PARSE_JSON('{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}'), include_arrays => FALSE, remove_empty => TRUE)"""
+        )
+        self.validate_identity(
+            """JSON_EXTRACT_STRING_ARRAY(PARSE_JSON('{"fruits": ["apples", "oranges", "grapes"]}'), '$.fruits')""",
+            """JSON_VALUE_ARRAY(PARSE_JSON('{"fruits": ["apples", "oranges", "grapes"]}'), '$.fruits')""",
+        )
 
     def test_errors(self):
         with self.assertRaises(ParseError):
@@ -1956,6 +1979,24 @@ WHERE
                 ["FOR record IN (SELECT word FROM shakespeare) DO SELECT record.word", "END FOR"],
             )
             self.assertIn("'END FOR'", cm.output[0])
+
+        with self.assertLogs(parser_logger) as cm:
+            for_in_stmts = parse(
+                'FOR record IN (SELECT word FROM shakespeare) DO BEGIN SET x = "SELECT 1"; EXECUTE IMMEDIATE x; END; END FOR;',
+                read="bigquery",
+            )
+            self.assertEqual(
+                [s.sql(dialect="bigquery") for s in for_in_stmts],
+                [
+                    'FOR record IN (SELECT word FROM shakespeare) DO BEGIN SET x = "SELECT 1"',
+                    "EXECUTE IMMEDIATE x",
+                    "END",
+                    "END FOR",
+                ],
+            )
+            self.assertIn("FOR record", cm.output[0])
+            self.assertIn("EXECUTE IMMEDIATE", cm.output[1])
+            self.assertIn("END FOR", cm.output[2])
 
     def test_user_defined_functions(self):
         self.validate_identity(
@@ -2683,6 +2724,14 @@ OPTIONS (
                 },
             )
 
+    def test_array_concat(self):
+        self.validate_all(
+            "WITH x AS ( SELECT 1 AS id), test_cte AS ( SELECT ARRAY_CONCAT(( SELECT id FROM x WHERE FALSE)) AS result ) SELECT * FROM test_cte;",
+            write={
+                "snowflake": "WITH x AS (SELECT 1 AS id), test_cte AS (SELECT ARRAY_CAT((SELECT id FROM x WHERE FALSE), []) AS result) SELECT * FROM test_cte",
+            },
+        )
+
     def test_select_as_struct(self):
         self.validate_all(
             "SELECT ARRAY(SELECT AS STRUCT x1 AS x1, x2 AS x2 FROM t) AS array_col",
@@ -2818,3 +2867,9 @@ OPTIONS (
         self.validate_identity("APPROX_QUANTILES(foo, 2)")
         self.validate_identity("APPROX_QUANTILES(DISTINCT foo, 2 RESPECT NULLS)")
         self.validate_identity("APPROX_QUANTILES(DISTINCT foo, 2 IGNORE NULLS)")
+
+    def test_json_lax(self):
+        self.validate_identity("LAX_BOOL(PARSE_JSON('true'))")
+        self.validate_identity("LAX_FLOAT64(PARSE_JSON('9.8'))")
+        self.validate_identity("LAX_INT64(PARSE_JSON('10'))")
+        self.validate_identity("""LAX_STRING(PARSE_JSON('"str"'))""")

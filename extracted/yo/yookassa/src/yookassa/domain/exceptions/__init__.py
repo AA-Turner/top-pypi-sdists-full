@@ -2,7 +2,7 @@
 """Top-level package for YooKassa API Python Client Library."""
 
 from yookassa.domain.exceptions.api_error import ApiError
-from yookassa.domain.exceptions.authorize_error import AuthorizeError
+from yookassa.domain.exceptions.gone_error import GoneError
 from yookassa.domain.exceptions.bad_request_error import BadRequestError
 from yookassa.domain.exceptions.forbidden_error import ForbiddenError
 from yookassa.domain.exceptions.not_found_error import NotFoundError

@@ -35,14 +35,9 @@ class PromptStep:
     """Represents a single prompt step"""
     prompt: str
 
-from .data_labelling import (
-    create_model_deployment_client,
-    add_dataset_item_annotations,
-    MatriceDeployClient,
-    Deployment
-)
 @dataclass
 class SyntheticPipelineConfig:
+    """Configuration for synthetic generation pipeline"""
     total_new_images: int
     prompt_pool: List[str]
     generation_id: str
@@ -51,8 +46,6 @@ class SyntheticPipelineConfig:
     target_version: str = 'v1.1'
     auto_generate_prompt: bool = False
     categories: List[str] = field(default_factory=list)
-    project_type: str = 'detection'
-    project_id: str = ''
 
 class PromptManager:
     """
@@ -573,12 +566,12 @@ class UploadURLManager:
             logging.error(f"Error closing UploadURLManager: {e}")
 
 def parse_synthetic_pipeline_config(config_data: Dict, source_dataset_version: str = 'v1.0', target_dataset_version: str = 'v1.1') -> SyntheticPipelineConfig:
+    """Parse synthetic pipeline configuration from input data"""
     total_new_images = config_data.get('TotalNewImages', 0)
     generation_id = config_data.get('generationId', '')
     dataset_id = config_data.get('dataset_id', '')
-    project_id = config_data.get('project_id', '')
     prompt_pool = []
-    prompt_lists = config_data.get('prompts', [])
+    prompt_lists = config_data.get('prompts', [])  # list of lists, each with 1 prompt
     for p in prompt_lists:
         if p:
             prompt_pool.append(PromptStep(prompt=p))
@@ -591,9 +584,7 @@ def parse_synthetic_pipeline_config(config_data: Dict, source_dataset_version: s
         source_version=source_dataset_version,
         target_version=target_dataset_version,
         auto_generate_prompt=config_data.get('autoGeneratePrompt', False),
-        categories=config_data.get('categories', []),
-        project_type=config_data.get('project_type', 'detection'),
-        project_id=project_id
+        categories=config_data.get('categories', [])
     )
 
 def fetch_dataset_items_stage(dataset_item, pipeline_config, prompt_manager, **kwargs):
@@ -708,48 +699,6 @@ def apply_synthetic_generation_stage(dataset_item, pipeline_config, prompt_manag
     except Exception as e:
         logging.error(f"Error in synthetic generation stage: {e}")
         return None
-    
-def annotate_synthetic_image_stage(dataset_item, pipeline_config, prompt_manager, deploy_client, project_type, **kwargs):
-    try:
-        if prompt_manager.is_complete():
-            logging.info(f"Target reached ({prompt_manager.total_generated}/{prompt_manager.target_images}), skipping annotation for item {dataset_item.id}")
-            return None
-        
-        if dataset_item.augmented_image is None:
-            logging.error(f"No generated image found for dataset item {dataset_item.id}")
-            return None
-
-        # Save the augmented image temporarily to a file for prediction
-        temp_image_path = f"temp_{dataset_item.id}.jpg"
-        image_bgr = cv2.cvtColor(dataset_item.augmented_image, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(temp_image_path, image_bgr)
-
-        # Get prediction from the deployed model
-        try:
-            prediction_result = deploy_client.get_prediction(input_path=temp_image_path)
-            logging.debug(f"Prediction result for item {dataset_item.id}: {prediction_result}")
-        except Exception as e:
-            logging.error(f"Error getting prediction for item {dataset_item.id}: {e}")
-            if os.path.exists(temp_image_path):
-                os.remove(temp_image_path)
-            return None
-
-        # Clean up temporary image
-        if os.path.exists(temp_image_path):
-            os.remove(temp_image_path)
-
-        # Add annotations to the dataset item
-        dataset_item.json_data = add_dataset_item_annotations(
-            dataset_item=dataset_item.get_json_data(),
-            prediction_result=prediction_result,
-            project_type=project_type
-        )
-
-        logging.debug(f"Annotated dataset item {dataset_item.id} with annotations: {dataset_item.json_data.get('annotations')}")
-        return dataset_item
-    except Exception as e:
-        logging.error(f"Error in annotate synthetic image stage: {e}")
-        return None
 
 def upload_and_publish_stage(dataset_item, new_items_producer, new_items_topic, pipeline_config, prompt_manager, **kwargs):
     try:
@@ -861,34 +810,20 @@ def get_hugging_face_token_for_data_generation(rpc):
             hugging_face_token = resp["user_access_token"]
             return hugging_face_token
 
-def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfig, kafka_config: Dict[str, Any], rpc: callable, project_type: str, session: callable) -> Optional[Pipeline]:
+def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfig, kafka_config: Dict[str, Any], rpc: callable) -> Optional[Pipeline]:
     try:
         logging.info("Setting up synthetic generation pipeline")
-        
-        # Deploy the model for annotations
-        deploy_client = create_model_deployment_client(
-            session=session,
-            project_type=project_type,
-            project_id=pipeline_config.project_id,
-            model_type="pretrained",
-            checkpoint_type="pretrained",
-            suggested_classes=pipeline_config.categories,  # Use categories from config
-            runtime_framework="Pytorch",
-            model_family="YOLO-World",  
-            model_key="yolo_world_s"
-        )
-        logging.info("Model deployed successfully for annotations")
-
         prompt_manager = PromptManager(pipeline_config)
         try:
             hf_token = get_hugging_face_token_for_data_generation(rpc)
+            logging.info(f"retrieved Hugging Face token: {hf_token}")
             login(token=hf_token)
             logging.info("Successfully logged in to Hugging Face with token")
         except Exception as e:
             logging.error(f"Failed to log in to Hugging Face: {e}")
             raise RuntimeError(f"Failed to authenticate with Hugging Face: {str(e)}")
-
-        # Load diffusion model (unchanged)
+        # Load diffusion model
+        
         model_id = "kandinsky-community/kandinsky-2-2-decoder"
         try:
             pipe = AutoPipelineForImage2Image.from_pretrained(
@@ -899,22 +834,21 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
         except Exception as e:
             logging.error(f"Failed to initialize Stable Diffusion pipeline: {e}")
             raise
-
+        
         if torch.cuda.is_available():
             pipe = pipe.to("cuda")
         else:
             pipe.enable_model_cpu_offload()
-
-        # Queue setup (unchanged)
+        
         dataset_items_queue = Queue(maxsize=1000)
         download_queue = Queue(maxsize=500)
         upload_url_queue = Queue(maxsize=500)
         generation_queue = Queue(maxsize=500)
-        annotation_queue = Queue(maxsize=500)  # New queue for annotation
         upload_queue = Queue(maxsize=500)
         output_queue = Queue(maxsize=1000)
-
+        
         kafka_brokers = kafka_config.get('bootstrap_servers')
+        
         data_manager = PaginatedDataManager(
             request_topic=kafka_config['dataset_request_topic'],
             response_topic=kafka_config['dataset_response_topic'],
@@ -922,73 +856,89 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             consumer_group=f"synthetic_pipeline_{random.randint(1000, 9999)}",
             page_size=kafka_config.get('page_size', 100)
         )
+        
         upload_url_manager = UploadURLManager(
             request_topic=kafka_config['upload_url_request_topic'],
             response_topic=kafka_config['upload_url_response_topic'],
-            bootstrap_servers=kafka_brokers,
+            bootstrap_servers=kafka_config['bootstrap_servers'],
             consumer_group=f"synthetic_pipeline_{random.randint(1000, 9999)}",
         )
+        
         new_items_producer = KafkaProducer(
             bootstrap_servers=kafka_config['bootstrap_servers'],
             value_serializer=lambda x: json.dumps(x).encode('utf-8')
         )
-
-        # Consumer function (unchanged)
+        
         def consume_dataset_items():
             logging.info("Starting dataset items consumer for synthetic pipeline")
             logging.info(f"Target images: {pipeline_config.total_new_images}")
+            
             limited_page_size = min(kafka_config.get('page_size', 100), pipeline_config.total_new_images * 2)
             data_manager.page_size = limited_page_size
+            
             data_manager.request_page(page_number=data_manager.current_page, 
                                     dataset_id=pipeline_config.dataset_id,
                                     generation_id=pipeline_config.generation_id,
                                     source_version=pipeline_config.source_version)
+            
             available_items = []
             queued_count = 0
             target_queue_size = pipeline_config.total_new_images * 3
+            
+            logging.info(f'Prompt manager status: {prompt_manager.is_complete()}')
             while not prompt_manager.is_complete():
                 try:
+                    logging.info(f"expected generation id: {pipeline_config.generation_id}")
                     items = data_manager.check_for_responses(
                         expected_generation_id=pipeline_config.generation_id
                     )
                     available_items.extend(items)
                     for item in items:
                         prompt_manager.add_available_image(item.id)
+                    
                     while (available_items and 
-                           not prompt_manager.is_complete() and 
-                           queued_count < target_queue_size):
+                        not prompt_manager.is_complete() and 
+                        queued_count < target_queue_size):
+                        
                         selected_item = random.choice(available_items)
                         available_items.remove(selected_item)
                         dataset_items_queue.put(selected_item)
                         queued_count += 1
                         logging.info(f"Queued item {selected_item.id} ({queued_count}/{target_queue_size})")
                         prompt_manager.add_available_image(selected_item.id)
+                    
                     if (not available_items and 
                         not prompt_manager.is_complete() and 
                         queued_count < target_queue_size):
+                        
                         if data_manager.total_pages is None or data_manager.current_page >= data_manager.total_pages:
                             logging.info("Resetting to first page to fetch more items")
                             data_manager.current_page = 0
                             data_manager.received_pages.clear()
+                        
                         next_page = data_manager.current_page
                         if next_page not in data_manager.pending_requests and next_page not in data_manager.received_pages:
                             data_manager.request_page(next_page, 
                                                     dataset_id=pipeline_config.dataset_id,
                                                     generation_id=pipeline_config.generation_id)
                             data_manager.current_page = next_page + 1
+                    
                     time.sleep(0.1)
                 except Exception as e:
                     logging.error(f"Error in dataset items consumer: {e}")
                     time.sleep(1)
+            
             logging.info(f"Dataset items consumption complete. Queued {queued_count} items total.")
             dataset_items_queue.put(None)
-
+        
         pipeline = Pipeline()
+        
         pipeline.add_producer(
             process_fn=consume_dataset_items,
             process_params={},
             partition_num=0
         )
+        
         pipeline.add_stage(
             stage_name="Fetch Dataset Items",
             process_fn=fetch_dataset_items_stage,
@@ -1000,6 +950,7 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             },
             num_threads=2
         )
+        
         pipeline.add_stage(
             stage_name="Download Images",
             process_fn=download_images_stage,
@@ -1012,6 +963,7 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             },
             num_threads=10
         )
+        
         pipeline.add_stage(
             stage_name="Fetch Upload URLs",
             process_fn=fetch_upload_urls_stage,
@@ -1024,11 +976,12 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             },
             num_threads=5
         )
+        
         pipeline.add_stage(
             stage_name="Apply Synthetic Generation",
             process_fn=apply_synthetic_generation_stage,
             pull_queue=generation_queue,
-            push_queue=annotation_queue,  # Push to annotation queue
+            push_queue=upload_queue,
             process_params={
                 'pipeline_config': pipeline_config,
                 'prompt_manager': prompt_manager,
@@ -1036,19 +989,7 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             },
             num_threads=8
         )
-        pipeline.add_stage(
-            stage_name="Annotate Synthetic Images",
-            process_fn=annotate_synthetic_image_stage,
-            pull_queue=annotation_queue,
-            push_queue=upload_queue,
-            process_params={
-                'pipeline_config': pipeline_config,
-                'prompt_manager': prompt_manager,
-                'deploy_client': deploy_client,
-                'project_type': project_type
-            },
-            num_threads=5  # Adjust based on compute resources
-        )
+        
         pipeline.add_stage(
             stage_name="Upload and Publish",
             process_fn=upload_and_publish_stage,
@@ -1062,6 +1003,7 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             },
             num_threads=10
         )
+        
         pipeline.add_stage(
             stage_name="Completion Monitor",
             process_fn=completion_monitor_stage,
@@ -1073,6 +1015,7 @@ def create_synthetic_generation_pipeline(pipeline_config: SyntheticPipelineConfi
             num_threads=1,
             is_last_stage=True
         )
+        
         logging.info("Synthetic generation pipeline configuration complete")
         return pipeline
     except Exception as e:

@@ -28,8 +28,8 @@
 import csv as _csv
 import io
 import logging
-from time import sleep
-from typing import Optional, Sequence
+from dataclasses import asdict, replace
+from typing import NoReturn, Sequence
 
 import click
 from fido2.ctap import STATUS, CtapError
@@ -42,16 +42,19 @@ from fido2.ctap2 import (
     Ctap2,
     FPBioEnrollment,
 )
-from smartcard.Exceptions import CardConnectionException, NoCardException
 
 from yubikit.core import TRANSPORT
 from yubikit.core.fido import FidoConnection, SmartCardCtapDevice
 from yubikit.core.smartcard import SW, SmartCardConnection
 from yubikit.management import CAPABILITY
 
-from ..fido import fips_change_pin, fips_reset, fips_verify_pin, is_in_fips_mode
-from ..hid import list_ctap_devices
-from ..pcsc import ScardYubiKeyDevice
+from ..base import REINSERT_STATUS
+from ..fido import (
+    fips_change_pin,
+    fips_reset,
+    fips_verify_pin,
+    is_in_fips_mode,
+)
 from .util import (
     CliFail,
     click_force_option,
@@ -86,20 +89,49 @@ def fido(ctx):
 
     """
     dev = ctx.obj["device"]
+    info = ctx.obj["info"]
+
     resolve_scp = ctx.obj.get("scp")
     if resolve_scp:
         s_conn = dev.open_connection(SmartCardConnection)
         scp_params = resolve_scp(s_conn)
+        ctx.obj["scp_params"] = scp_params
         conn = SmartCardCtapDevice(s_conn, scp_params)
-    else:
+    elif dev.supports_connection(FidoConnection):
         conn = dev.open_connection(FidoConnection)
+    elif (
+        dev.supports_connection(SmartCardConnection)
+        and dev.transport == TRANSPORT.USB
+        and info.config.enabled_capabilities[dev.transport] & 0x1000  # CCID_FIDO
+    ):
+        conn = dev.open_connection(SmartCardCtapDevice)
+    else:
+        raise CliFail("Unsupported connection type")
 
-    ctx.call_on_close(conn.close)
     ctx.obj["conn"] = conn
-    try:
+    # ctx.obj["conn"] might change its target later
+    ctx.call_on_close(lambda: ctx.obj["conn"].close())
+
+    if CAPABILITY.FIDO2 in info.config.enabled_capabilities[dev.transport]:
         ctx.obj["ctap2"] = Ctap2(conn)
-    except (ValueError, CtapError):
-        logger.info("FIDO device does not support CTAP2", exc_info=True)
+    else:
+        supported = CAPABILITY.FIDO2 in info.supported_capabilities[dev.transport]
+        logger.debug(f"CTAP2 not enabled, supported: {supported}")
+
+        if ctx.invoked_subcommand == "info":
+            return  # Don't fail on info command
+        if ctx.invoked_subcommand == "reset" and is_yk4_fips(info):
+            # Reset is supported on YK4 FIPS only
+            return
+
+        # Fail other commands if CTAP2 is not enabled
+        if supported:
+            raise CliFail(
+                "FIDO2 has been disabled on this YubiKey. "
+                "Use 'ykman config' to enable it."
+            )
+        else:
+            raise CliFail("This YubiKey does not support FIDO2.")
 
 
 @fido.command()
@@ -165,9 +197,16 @@ def info(ctx):
         if ep is not None:
             data["Enterprise Attestation"] = "Enabled" if ep else "Disabled"
     else:
-        data["PIN"] = "Not supported"
+        dev = ctx.obj["device"]
+        supported = CAPABILITY.FIDO2 in info.supported_capabilities[dev.transport]
+        data["CTAP2"] = "Disabled" if supported else "Not supported"
+        data["PIN"] = "Disabled" if supported else "Not supported"
 
     click.echo("\n".join(pretty_print(lines)))
+
+
+def _ctap2_fingerprint(info):
+    return asdict(replace(info, enc_identifier=None))
 
 
 @fido.command("reset")
@@ -192,53 +231,24 @@ def reset(ctx, force):
         )
 
     dev = ctx.obj["device"]
-    conn = ctx.obj["conn"]
-    if isinstance(dev, ScardYubiKeyDevice):  # NFC
-        is_fips = False
-
-        conn.close()
-
-        def prompt_re_insert():
-            click.echo(
-                "Remove and re-place your YubiKey on the NFC reader to perform the "
-                "reset..."
+    if CAPABILITY.FIDO2 in info.config.enabled_capabilities[dev.transport]:
+        transports = ctx.obj["ctap2"].info.transports_for_reset
+        if transports and dev.transport not in transports:
+            raise CliFail(
+                "Cannot perform FIDO reset on this YubiKey over the current transport. "
+                f"Allowed transports: {', '.join(transports)}"
             )
 
-            removed = False
-            while True:
-                sleep(0.5)
-                try:
-                    with dev.open_connection(FidoConnection):
-                        if removed:
-                            sleep(1.0)  # Wait for the device to settle
-                            break
-                except CardConnectionException:
-                    pass  # Expected, ignore
-                except NoCardException:
-                    removed = True
-            return dev.open_connection(FidoConnection)
+    conn = ctx.obj["conn"]
+    if dev.transport == TRANSPORT.NFC:
+        is_fips = False
+        remove_msg = "Remove your YubiKey from the NFC reader."
+        insert_msg = "Place your YubiKey back on the NFC reader now..."
 
     else:  # USB
-        n_keys = len(list_ctap_devices())
-        if n_keys > 1:
-            raise CliFail("Only one YubiKey can be connected to perform a reset.")
-        is_fips = is_yk4_fips(ctx.obj["info"])
-
-        ctap2 = ctx.obj.get("ctap2")
-        if not is_fips and not ctap2:
-            raise CliFail("This YubiKey does not support FIDO reset.")
-
-        def prompt_re_insert():
-            click.echo("Remove and re-insert your YubiKey to perform the reset...")
-
-            removed = False
-            while True:
-                sleep(0.5)
-                keys = list_ctap_devices()
-                if not keys:
-                    removed = True
-                if removed and len(keys) == 1:
-                    return keys[0].open_connection(FidoConnection)
+        is_fips = is_yk4_fips(info)
+        remove_msg = "Remove your YubiKey from the USB port."
+        insert_msg = "Re-insert your YubiKey now..."
 
     if not force:
         click.confirm(
@@ -259,19 +269,52 @@ def reset(ctx, force):
             if destroy_input != "OVERWRITE":
                 raise CliFail("Reset aborted by user.")
 
-        conn = prompt_re_insert()
+        conn.close()
+
+        def prompt_reinsert(status):
+            match status:
+                case REINSERT_STATUS.REMOVE:
+                    click.echo(remove_msg)
+                case REINSERT_STATUS.REINSERT:
+                    click.echo(insert_msg)
+
+        dev.reinsert(reinsert_cb=prompt_reinsert)
+
+        # Make sure to re-establish SCP, if used
+        scp_params = ctx.obj.get("scp_params")
+        if scp_params:
+            conn = SmartCardCtapDevice(
+                dev.open_connection(SmartCardConnection), scp_params
+            )
+        else:
+            conn = dev.open_connection(type(conn))
+        ctx.obj["conn"] = conn
 
     try:
         if is_fips:
             with prompt_timeout():
                 fips_reset(conn)
         else:
+            ctap2 = Ctap2(conn)
+            if info.serial is None:
+                # Compare CTAP2 info to ensure we are resetting the same device.
+                if _ctap2_fingerprint(ctx.obj["ctap2"].info) != _ctap2_fingerprint(
+                    ctap2.info
+                ):
+                    raise CliFail("Inserted YubiKey does not match the one removed.")
+            touch_msg = (
+                "Press and hold the YubiKey button for 10 seconds to confirm."
+                if ctap2.info.long_touch_for_reset
+                else "Touch the YubiKey to confirm."
+            )
 
             def on_keepalive(status):
                 if status == STATUS.UPNEEDED:
-                    prompt_for_touch()
+                    prompt_for_touch(touch_msg)
+                elif status == STATUS.PROCESSING:
+                    click.echo("Reset in progress, DO NOT REMOVE YOUR YUBIKEY!")
 
-            Ctap2(conn).reset(on_keepalive=on_keepalive)
+            ctap2.reset(on_keepalive=on_keepalive)
         click.echo("FIDO application data reset.")
     except CtapError as e:
         if e.code == CtapError.ERR.ACTION_TIMEOUT:
@@ -297,7 +340,7 @@ def reset(ctx, force):
         raise CliFail("Reset failed.")
 
 
-def _fail_pin_error(ctx, e, other="%s"):
+def _fail_pin_error(ctx, e, other="%s") -> NoReturn:
     if e.code == CtapError.ERR.PIN_INVALID:
         raise CliFail("Wrong PIN.")
     elif e.code == CtapError.ERR.PIN_AUTH_BLOCKED:
@@ -357,19 +400,48 @@ def change_pin(ctx, pin, new_pin, u2f):
     if is_fips:
         conn = ctx.obj["conn"]
         min_len = 6
+        max_len = 32
+
+        def _fips_change_pin(new_pin):
+            fips_pin = pin or ""
+            try:
+                # Failing this with empty current PIN does not cost a retry
+                fips_change_pin(conn, fips_pin, new_pin)
+            except ApduError as e:
+                if e.code == SW.WRONG_LENGTH:
+                    fips_pin = _prompt_current_pin()
+                    _fail_if_not_valid_pin(fips_pin)
+                    fips_change_pin(conn, fips_pin, new_pin)
+                else:
+                    raise
+
+        do_change = _fips_change_pin
+
     else:
         ctap2 = ctx.obj.get("ctap2")
         if not ctap2:
             raise CliFail("PIN is not supported on this YubiKey.")
         client_pin = ClientPin(ctap2)
         min_len = ctap2.info.min_pin_length
-    if (
-        info._is_bio
-        and CAPABILITY.PIV in info.config.enabled_capabilities[TRANSPORT.USB]
-    ):
-        max_len = 8
-    else:
-        max_len = 63
+        max_len = ctap2.info.max_pin_length
+        if (
+            info._is_bio
+            and CAPABILITY.PIV in info.config.enabled_capabilities[TRANSPORT.USB]
+        ):
+            max_len = 8
+        if ctap2.info.options.get("clientPin"):
+            if not pin:
+                pin = _prompt_current_pin()
+
+            def _ctap2_change_pin(new_pin):
+                client_pin.change_pin(pin, new_pin)
+
+            do_change = _ctap2_change_pin
+        else:
+            if pin:
+                raise CliFail("There is no current PIN set. Use --new-pin to set one.")
+
+            do_change = client_pin.set_pin
 
     def _fail_if_not_valid_pin(pin=None, name="PIN"):
         if not pin or len(pin) < min_len:
@@ -377,72 +449,29 @@ def change_pin(ctx, pin, new_pin, u2f):
         if len(pin) > max_len:
             raise CliFail(f"{name} must be at most {max_len} characters long.")
 
-    def prompt_new_pin():
-        return click_prompt(
+    if not new_pin:
+        new_pin = click_prompt(
             "Enter your new PIN",
             hide_input=True,
             confirmation_prompt=True,
         )
-
-    def change_pin(pin, new_pin):
-        try:
-            if is_fips:
-                try:
-                    # Failing this with empty current PIN does not cost a retry
-                    fips_change_pin(conn, pin or "", new_pin)
-                except ApduError as e:
-                    if e.code == SW.WRONG_LENGTH:
-                        pin = _prompt_current_pin()
-                        _fail_if_not_valid_pin(pin)
-                        fips_change_pin(conn, pin, new_pin)
-                    else:
-                        raise
-
-            else:
-                client_pin.change_pin(pin, new_pin)
-
-        except CtapError as e:
-            if e.code == CtapError.ERR.PIN_POLICY_VIOLATION:
-                raise CliFail("New PIN doesn't meet complexity requirements.")
-            else:
-                _fail_pin_error(ctx, e, "Failed to change PIN: %s.")
-
-        except ApduError as e:
-            if e.code == SW.VERIFY_FAIL_NO_RETRY:
-                raise CliFail("Wrong PIN.")
-            elif e.code == SW.AUTH_METHOD_BLOCKED:
-                raise CliFail("PIN is blocked.")
-            else:
-                raise CliFail(f"Failed to change PIN: SW={e.code:04x}.")
-
-    def set_pin(new_pin):
-        try:
-            client_pin.set_pin(new_pin)
-        except CtapError as e:
-            if e.code == CtapError.ERR.PIN_POLICY_VIOLATION:
-                raise CliFail("New PIN doesn't meet complexity requirements.")
-            else:
-                raise CliFail(f"Failed to set PIN: {e.code}.")
-
-    if not is_fips:
-        if ctap2.info.options.get("clientPin"):
-            if not pin:
-                pin = _prompt_current_pin()
-        else:
-            if pin:
-                raise CliFail("There is no current PIN set. Use --new-pin to set one.")
-
-    if not new_pin:
-        new_pin = prompt_new_pin()
     _fail_if_not_valid_pin(new_pin, "New PIN")
 
-    if is_fips:
-        change_pin(pin, new_pin)
-    else:
-        if ctap2.info.options.get("clientPin"):
-            change_pin(pin, new_pin)
+    try:
+        do_change(new_pin)
+    except CtapError as e:
+        if e.code == CtapError.ERR.PIN_POLICY_VIOLATION:
+            raise CliFail("New PIN doesn't meet complexity requirements.")
         else:
-            set_pin(new_pin)
+            _fail_pin_error(ctx, e, "Failed to change PIN: %s.")
+    except ApduError as e:
+        if e.code == SW.VERIFY_FAIL_NO_RETRY:
+            raise CliFail("Wrong PIN.")
+        elif e.code == SW.AUTH_METHOD_BLOCKED:
+            raise CliFail("PIN is blocked.")
+        else:
+            raise CliFail(f"Failed to change PIN: SW={e.code:04x}.")
+
     click.echo("FIDO PIN updated.")
 
 
@@ -492,7 +521,7 @@ def verify(ctx, pin):
             elif e.code == SW.COMMAND_NOT_ALLOWED:
                 raise CliFail("PIN is not set.")
             else:
-                raise CliFail(f"PIN verification failed: {e.code.name}.")
+                raise CliFail(f"PIN verification failed: {e.code:04x}.")
     else:
         raise CliFail("This YubiKey does not support a FIDO PIN.")
     click.echo("PIN verified.")
@@ -731,6 +760,7 @@ def creds_delete(ctx, credential_id, pin, force):
             f"Delete {rp_id} {user_name} {display_name} ({cred_id['id'].hex()})?"
         ):
             try:
+                click.echo("Deleting credential, DO NOT REMOVE YOUR YUBIKEY!")
                 credman.delete_cred(cred_id)
                 click.echo("Credential deleted.")
             except CtapError:
@@ -884,11 +914,11 @@ def bio_delete(ctx, template_id, pin, force):
     enrollments = bio.enumerate_enrollments()
 
     try:
-        key: Optional[bytes] = bytes.fromhex(template_id)
+        key: bytes | None = bytes.fromhex(template_id)
     except ValueError:
         key = None
 
-    if key not in enrollments:
+    if not key or key not in enrollments:
         # Match using template_id as NAME
         matches = [k for k in enrollments if enrollments[k] == template_id]
         if len(matches) == 0:

@@ -11,6 +11,7 @@ __all__ = [
     "ResponseEngineResponseEngineRetellLm",
     "ResponseEngineResponseEngineCustomLm",
     "ResponseEngineResponseEngineConversationFlow",
+    "PiiConfig",
     "PostCallAnalysisData",
     "PostCallAnalysisDataStringAnalysisData",
     "PostCallAnalysisDataEnumAnalysisData",
@@ -61,6 +62,30 @@ ResponseEngine: TypeAlias = Union[
     ResponseEngineResponseEngineCustomLm,
     ResponseEngineResponseEngineConversationFlow,
 ]
+
+
+class PiiConfig(BaseModel):
+    categories: List[
+        Literal[
+            "person_name",
+            "address",
+            "email",
+            "phone_number",
+            "ssn",
+            "passport",
+            "driver_license",
+            "credit_card",
+            "bank_account",
+            "password",
+            "pin",
+            "medical_id",
+            "date_of_birth",
+        ]
+    ]
+    """List of PII categories to scrub from transcripts and recordings."""
+
+    mode: Literal["post_call"]
+    """The processing mode for PII scrubbing. Currently only post-call is supported."""
 
 
 class PostCallAnalysisDataStringAnalysisData(BaseModel):
@@ -288,6 +313,19 @@ class AgentResponse(BaseModel):
     street, etc.
     """
 
+    data_storage_setting: Optional[Literal["everything", "everything_except_pii", "basic_attributes_only"]] = None
+    """
+    Granular setting to manage how Retell stores sensitive data (transcripts,
+    recordings, logs, etc.). This replaces the deprecated
+    `opt_out_sensitive_data_storage` field.
+
+    - `everything`: Store all data including transcripts, recordings, and logs.
+    - `everything_except_pii`: Store data without PII when PII is detected.
+    - `basic_attributes_only`: Store only basic attributes; no
+      transcripts/recordings/logs. If not set, default value of "everything" will
+      apply.
+    """
+
     denoising_mode: Optional[Literal["noise-cancellation", "noise-and-background-speech-cancellation"]] = None
     """If set, determines what denoising mode to use. Default to noise-cancellation."""
 
@@ -399,12 +437,8 @@ class AgentResponse(BaseModel):
     access and automatically expire after 24 hours.
     """
 
-    opt_out_sensitive_data_storage: Optional[bool] = None
-    """
-    Whether this agent opts out of sensitive data storage like transcript,
-    recording, logging, inbound/outbound phone numbers, etc. These data can still be
-    accessed securely via webhooks. If not set, default value of false will apply.
-    """
+    pii_config: Optional[PiiConfig] = None
+    """Configuration for PII scrubbing from transcripts and recordings."""
 
     post_call_analysis_data: Optional[List[PostCallAnalysisData]] = None
     """Post call analysis data to extract from the call.
@@ -413,11 +447,26 @@ class AgentResponse(BaseModel):
     This will be available after the call ends.
     """
 
-    post_call_analysis_model: Optional[Literal["gpt-4o-mini", "gpt-4o"]] = None
-    """The model to use for post call analysis.
-
-    Currently only supports gpt-4o-mini and gpt-4o. Default to gpt-4o-mini.
-    """
+    post_call_analysis_model: Optional[
+        Literal[
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "claude-4.0-sonnet",
+            "claude-3.7-sonnet",
+            "claude-3.5-haiku",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+    ] = None
+    """The model to use for post call analysis. Default to gpt-4o-mini."""
 
     pronunciation_dictionary: Optional[List[PronunciationDictionary]] = None
     """

@@ -822,6 +822,7 @@ class ConfigLoader:
     run_program_once: str
     mem_gb: int
     flame_graph: bool
+    memray: bool
     continue_previous_job: Optional[str]
     calculate_pareto_front_of_job: Optional[List[str]]
     revert_to_random_when_seemingly_exhausted: bool
@@ -983,6 +984,7 @@ class ConfigLoader:
         debug.add_argument('--verbose_break_run_search_table', help='Verbose logging for break_run_search', action='store_true', default=False)
         debug.add_argument('--debug', help='Enable debugging', action='store_true', default=False)
         debug.add_argument('--flame_graph', help='Enable flame-graphing. Makes everything slower, but creates a flame graph', action='store_true', default=False)
+        debug.add_argument('--memray', help='Use memray to show memory usage', action='store_true', default=False)
         debug.add_argument('--no_sleep', help='Disables sleeping for fast job generation (not to be used on HPC)', action='store_true', default=False)
         debug.add_argument('--tests', help='Run simple internal tests', action='store_true', default=False)
         debug.add_argument('--show_worker_percentage_table_at_end', help='Show a table of percentage of usage of max worker over time', action='store_true', default=False)
@@ -996,7 +998,6 @@ class ConfigLoader:
         debug.add_argument('--runtime_debug', help='Logs which functions use most of the time', action='store_true', default=False)
         debug.add_argument('--debug_stack_regex', help='Only print debug messages if call stack matches any regex', type=str, default='')
         debug.add_argument('--debug_stack_trace_regex', help='Show compact call stack with arrows if any function in stack matches regex', type=str, default=None)
-
         debug.add_argument('--show_func_name', help='Show func name before each execution and when it is done', action='store_true', default=False)
 
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
@@ -7860,32 +7861,32 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         print_red("get_batched_arms: ax_client was None")
         return []
 
-    # Experiment-Status laden
     load_experiment_state()
 
-    while len(batched_arms) != nr_of_jobs_to_get:
+    while len(batched_arms) < nr_of_jobs_to_get:
         if attempts > args.max_attempts_for_generation:
             print_debug(f"get_batched_arms: Stopped after {attempts} attempts: could not generate enough arms "
                         f"(got {len(batched_arms)} out of {nr_of_jobs_to_get}).")
             break
 
-        remaining = nr_of_jobs_to_get - len(batched_arms)
-        print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting {remaining} more arm(s).")
+        print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting 1 more arm")
 
-        print_debug("get pending observations")
         t0 = time.time()
         pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
         dt = time.time() - t0
-        print_debug(f"got pending observations: {pending_observations} (took {dt:.2f} seconds)")
+        print_debug(f"got pending observations (took {dt:.2f} seconds)")
 
-        print_debug("getting global_gs.gen()")
-        print_debug(f"ax_client.experiment: {ax_client.experiment}")
-        batched_generator_run = global_gs.gen(
-            experiment=ax_client.experiment,
-            n=remaining,
-            pending_observations=pending_observations
-        )
-        print_debug(f"got global_gs.gen(): {batched_generator_run}")
+        try:
+            print_debug("getting global_gs.gen() with n=1")
+            batched_generator_run = global_gs.gen(
+                experiment=ax_client.experiment,
+                n=1,
+                pending_observations=pending_observations,
+            )
+            print_debug(f"got global_gs.gen(): {batched_generator_run}")
+        except Exception as e:
+            print_debug(f"global_gs.gen failed: {e}")
+            break
 
         depth = 0
         path = "batched_generator_run"
@@ -7897,15 +7898,13 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
         print_debug(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
 
-        print_debug("got new arms")
-        new_arms = batched_generator_run.arms
-        print_debug(f"new_arms: {new_arms}")
+        new_arms = getattr(batched_generator_run, "arms", [])
         if not new_arms:
             print_debug("get_batched_arms: No new arms were generated in this attempt.")
         else:
-            print_debug(f"get_batched_arms: Generated {len(new_arms)} new arm(s), wanted {nr_of_jobs_to_get}.")
+            print_debug(f"get_batched_arms: Generated {len(new_arms)} new arm(s), now at {len(batched_arms) + len(new_arms)} of {nr_of_jobs_to_get}.")
+            batched_arms.extend(new_arms)
 
-        batched_arms.extend(new_arms)
         attempts += 1
 
     print_debug(f"get_batched_arms: Finished with {len(batched_arms)} arm(s) after {attempts} attempt(s).")
@@ -11179,6 +11178,7 @@ def main_outside() -> None:
 
     fool_linter(args.num_cpus_main_job)
     fool_linter(args.flame_graph)
+    fool_linter(args.memray)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-encryption-sdk
-Version: 4.0.2
+Version: 4.0.3
 Summary: AWS Encryption SDK implementation for Python
 Home-page: https://github.com/aws/aws-encryption-sdk-python
 Author: Amazon Web Services
@@ -28,7 +28,7 @@ Requires-Dist: cryptography>=3.4.6
 Requires-Dist: attrs>=17.4.0
 Requires-Dist: wrapt>=1.10.11
 Provides-Extra: mpl
-Requires-Dist: aws-cryptographic-material-providers<=1.11.0,>=1.7.4; extra == "mpl"
+Requires-Dist: aws-cryptographic-material-providers<=1.11.1,>=1.7.4; extra == "mpl"
 
 ##################
 aws-encryption-sdk

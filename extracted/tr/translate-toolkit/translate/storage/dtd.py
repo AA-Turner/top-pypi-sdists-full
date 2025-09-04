@@ -133,7 +133,7 @@ def quotefordtd(source):
     """Quotes and escapes a line for regular DTD files."""
     source = quote.entityencode(source, _DTD_CODEPOINT2NAME)
     if '"' in source:
-        source = source.replace("'", "&apos;")  # This seems not to runned.
+        source = source.replace("'", "&apos;")  # This seems not to run.
         if '="' not in source:  # Avoid escaping " chars in href attributes.
             source = source.replace('"', "&quot;")
             value = '"' + source + '"'  # Quote using double quotes.
@@ -578,7 +578,7 @@ class dtdfile(base.TranslationStore):
                         self.units.append(newdtd)
                 except Exception as e:
                     warnings.warn(
-                        "%s\nError occured between lines %d and %d:\n%s"
+                        "%s\nError occurred between lines %d and %d:\n%s"
                         % (e, start + 1, end, b"\n".join(lines[start:end]))
                     )
                 start += linesprocessed
@@ -606,7 +606,7 @@ class dtdfile(base.TranslationStore):
         # Android files are invalid DTDs
         if not self.android:
             # #expand is a Mozilla hack and are removed as they are not valid in DTDs
-            input_ = re.sub(rb"#expand", b"", content)
+            input_ = content.replace(rb"#expand", b"")
             try:
                 etree.DTD(BytesIO(input_))
             except etree.DTDParseError as e:

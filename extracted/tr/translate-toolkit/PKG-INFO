@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: translate-toolkit
-Version: 3.15.6
+Version: 3.16.0
 Summary: Tools and API for translation and localization engineering.
 Author-email: Translate <translate-devel@lists.sourceforge.net>
-License: GPL-2.0-or-later
+License-Expression: GPL-2.0-or-later
 Project-URL: Documentation, https://docs.translatehouse.org/projects/translate-toolkit/
 Project-URL: Download, https://github.com/translate/translate/releases/
 Project-URL: Homepage, https://toolkit.translatehouse.org/
@@ -14,7 +14,6 @@ Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent

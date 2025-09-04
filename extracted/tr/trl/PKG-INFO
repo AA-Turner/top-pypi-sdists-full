@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.22.1
+Version: 0.22.2
 Summary: Train transformer language models with reinforcement learning.
 Home-page: https://github.com/huggingface/trl
 Author: Leandro von Werra

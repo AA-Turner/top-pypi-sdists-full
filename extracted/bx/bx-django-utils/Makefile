@@ -31,14 +31,8 @@ update-requirements:  ## Update requirements
 	$(MAKE) pip-audit
 
 .PHONY: lint
-lint: ## Run code formatters and linter
-	.venv/bin/darker --diff --check
-	.venv/bin/flake8 .
-
-.PHONY: fix-code-style
-fix-code-style: ## Fix code formatting
-	.venv/bin/darker
-	.venv/bin/flake8 .
+lint: ## Check/fix code style by run: "ruff check --fix"
+	.venv/bin/ruff check --fix
 
 .PHONY: nox-list
 nox-list:  ## List all available nox sessions
@@ -79,6 +73,10 @@ update-test-migrations:  ## Update migration files from the test project
 	.venv/bin/isort bx_django_utils_tests/test_app/migrations/0001_initial.py
 	.venv/bin/black bx_django_utils_tests/approve_workflow_test_app/migrations/0001_initial.py
 	.venv/bin/isort bx_django_utils_tests/approve_workflow_test_app/migrations/0001_initial.py
+
+.PHONY: update-readme
+update-readme:   ## Update README.md (will be also done in tests)
+	./manage.sh update_readme
 
 .PHONY: mypy
 mypy:  ## Run mypy

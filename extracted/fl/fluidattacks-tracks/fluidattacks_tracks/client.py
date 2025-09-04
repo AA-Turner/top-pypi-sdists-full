@@ -54,6 +54,7 @@ class TracksClient:
                     keepalive_timeout=self._config["keepalive_timeout"],
                     limit=self._config["concurrency_limit"],
                 ),
+                headers={"Accept-Encoding": "gzip"},
             )
         return self._session
 
@@ -75,7 +76,7 @@ class TracksClient:
         """Make a request to the Tracks API."""
 
         @retry(  # type: ignore[misc]
-            retry=retry_if_exception_type(aiohttp.ClientError),
+            retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
             stop=stop_after_attempt(self._config["retry_attempts"]),
             wait=wait_exponential(),
         )
@@ -88,7 +89,7 @@ class TracksClient:
                     middlewares=(
                         [self._config["auth"].sign_request]
                         if authenticated and self._config["auth"]
-                        else []
+                        else None
                     ),
                     **kwargs,  # type: ignore[misc]
                 ) as response:

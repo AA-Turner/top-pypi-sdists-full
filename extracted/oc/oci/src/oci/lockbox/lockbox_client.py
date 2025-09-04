@@ -77,10 +77,6 @@ class LockboxClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("lockbox"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -118,8 +114,6 @@ class LockboxClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("lockbox", config, signer, lockbox_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -154,15 +148,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -174,7 +164,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -220,7 +209,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -231,7 +219,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -276,15 +263,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/change_approval_template_compartment.py.html>`__ to see an example of how to use change_approval_template_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/change_approval_template_compartment.py.html>`__ to see an example of how to use change_approval_template_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['approvalTemplateId']
@@ -296,7 +279,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -346,7 +328,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=change_approval_template_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -358,7 +339,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=change_approval_template_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -403,15 +383,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/change_lockbox_compartment.py.html>`__ to see an example of how to use change_lockbox_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/change_lockbox_compartment.py.html>`__ to see an example of how to use change_lockbox_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['lockboxId']
@@ -423,7 +399,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -473,7 +448,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=change_lockbox_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -485,7 +459,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=change_lockbox_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -520,15 +493,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.AccessRequest`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/create_access_request.py.html>`__ to see an example of how to use create_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/create_access_request.py.html>`__ to see an example of how to use create_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -540,7 +509,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -578,7 +546,6 @@ class LockboxClient(object):
                 body=create_access_request_details,
                 response_type="AccessRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -590,7 +557,6 @@ class LockboxClient(object):
                 body=create_access_request_details,
                 response_type="AccessRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -625,15 +591,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.ApprovalTemplate`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/create_approval_template.py.html>`__ to see an example of how to use create_approval_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/create_approval_template.py.html>`__ to see an example of how to use create_approval_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -645,7 +607,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -683,7 +644,6 @@ class LockboxClient(object):
                 body=create_approval_template_details,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -695,7 +655,6 @@ class LockboxClient(object):
                 body=create_approval_template_details,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -730,15 +689,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.Lockbox`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/create_lockbox.py.html>`__ to see an example of how to use create_lockbox API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/create_lockbox.py.html>`__ to see an example of how to use create_lockbox API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -750,7 +705,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -788,7 +742,6 @@ class LockboxClient(object):
                 body=create_lockbox_details,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -800,7 +753,6 @@ class LockboxClient(object):
                 body=create_lockbox_details,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -835,15 +787,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/delete_approval_template.py.html>`__ to see an example of how to use delete_approval_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/delete_approval_template.py.html>`__ to see an example of how to use delete_approval_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['approvalTemplateId']
@@ -855,7 +803,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -901,7 +848,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -912,7 +858,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -954,15 +899,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/delete_lockbox.py.html>`__ to see an example of how to use delete_lockbox API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/delete_lockbox.py.html>`__ to see an example of how to use delete_lockbox API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['lockboxId']
@@ -974,7 +915,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -1023,7 +963,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1034,7 +973,6 @@ class LockboxClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1100,15 +1038,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type stream
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/export_access_requests.py.html>`__ to see an example of how to use export_access_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/export_access_requests.py.html>`__ to see an example of how to use export_access_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1120,7 +1054,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "id",
@@ -1208,7 +1141,6 @@ class LockboxClient(object):
                 body=export_access_requests_details,
                 response_type="stream",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1221,7 +1153,6 @@ class LockboxClient(object):
                 body=export_access_requests_details,
                 response_type="stream",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1249,15 +1180,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.AccessMaterials`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_access_materials.py.html>`__ to see an example of how to use get_access_materials API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_access_materials.py.html>`__ to see an example of how to use get_access_materials API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1269,7 +1196,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1314,7 +1240,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessMaterials",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1326,7 +1251,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessMaterials",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1354,15 +1278,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.AccessRequest`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_access_request.py.html>`__ to see an example of how to use get_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_access_request.py.html>`__ to see an example of how to use get_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1374,7 +1294,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1419,7 +1338,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1431,7 +1349,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1459,15 +1376,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.AccessRequestExt`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_access_request_internal.py.html>`__ to see an example of how to use get_access_request_internal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_access_request_internal.py.html>`__ to see an example of how to use get_access_request_internal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1479,7 +1392,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1524,7 +1436,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequestExt",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1536,7 +1447,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequestExt",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1564,15 +1474,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.ApprovalTemplate`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_approval_template.py.html>`__ to see an example of how to use get_approval_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_approval_template.py.html>`__ to see an example of how to use get_approval_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['approvalTemplateId']
@@ -1584,7 +1490,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1629,7 +1534,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1641,7 +1545,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1669,15 +1572,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.Lockbox`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_lockbox.py.html>`__ to see an example of how to use get_lockbox API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_lockbox.py.html>`__ to see an example of how to use get_lockbox API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['lockboxId']
@@ -1689,7 +1588,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1734,7 +1632,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1746,7 +1643,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1774,15 +1670,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.WorkRequest`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1794,7 +1686,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1839,7 +1730,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1851,7 +1741,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1896,15 +1785,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/handle_access_request.py.html>`__ to see an example of how to use handle_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/handle_access_request.py.html>`__ to see an example of how to use handle_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1916,7 +1801,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -1966,7 +1850,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=handle_access_request_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1978,7 +1861,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 body=handle_access_request_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2054,15 +1936,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.AccessRequestCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_access_requests.py.html>`__ to see an example of how to use list_access_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_access_requests.py.html>`__ to see an example of how to use list_access_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2074,7 +1952,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "lockbox_id",
@@ -2167,7 +2044,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequestCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2179,7 +2055,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="AccessRequestCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2234,15 +2109,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.ApprovalTemplateCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_approval_templates.py.html>`__ to see an example of how to use list_approval_templates API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_approval_templates.py.html>`__ to see an example of how to use list_approval_templates API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2254,7 +2125,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "compartment_id",
@@ -2330,7 +2200,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="ApprovalTemplateCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2342,7 +2211,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="ApprovalTemplateCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2408,15 +2276,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.LockboxCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_lockboxes.py.html>`__ to see an example of how to use list_lockboxes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_lockboxes.py.html>`__ to see an example of how to use list_lockboxes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2428,7 +2292,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "compartment_id",
             "lifecycle_state",
@@ -2517,7 +2380,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="LockboxCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2529,7 +2391,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="LockboxCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2573,15 +2434,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.WorkRequestErrorCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2593,7 +2450,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -2665,7 +2521,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2678,7 +2533,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2722,15 +2576,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.WorkRequestLogEntryCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2742,7 +2592,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -2814,7 +2663,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2827,7 +2675,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2882,15 +2729,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.WorkRequestSummaryCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2902,7 +2745,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "compartment_id",
             "work_request_id",
@@ -2978,7 +2820,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestSummaryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2990,7 +2831,6 @@ class LockboxClient(object):
                 header_params=header_params,
                 response_type="WorkRequestSummaryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3028,15 +2868,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.ApprovalTemplate`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/update_approval_template.py.html>`__ to see an example of how to use update_approval_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/update_approval_template.py.html>`__ to see an example of how to use update_approval_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['approvalTemplateId']
@@ -3048,7 +2884,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -3096,7 +2931,6 @@ class LockboxClient(object):
                 body=update_approval_template_details,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3109,7 +2943,6 @@ class LockboxClient(object):
                 body=update_approval_template_details,
                 response_type="ApprovalTemplate",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3147,15 +2980,11 @@ class LockboxClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.lockbox.models.Lockbox`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/lockbox/update_lockbox.py.html>`__ to see an example of how to use update_lockbox API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/lockbox/update_lockbox.py.html>`__ to see an example of how to use update_lockbox API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['lockboxId']
@@ -3167,7 +2996,6 @@ class LockboxClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -3215,7 +3043,6 @@ class LockboxClient(object):
                 body=update_lockbox_details,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3228,7 +3055,6 @@ class LockboxClient(object):
                 body=update_lockbox_details,
                 response_type="Lockbox",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

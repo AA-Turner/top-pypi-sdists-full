@@ -1,0 +1,29 @@
+stages:
+  - test
+  - release
+
+cache:
+  key: "$CI_PROJECT_NAME"
+  paths:
+    - $HOME/.cache/pip
+
+include:
+  - component: gitlab.com/thelabnyc/thelab-ci-components/precommit@0.4.0
+  - component: gitlab.com/thelabnyc/thelab-ci-components/publish-gitlab-release@0.4.0
+  - component: gitlab.com/thelabnyc/thelab-ci-components/publish-to-pypi@0.4.0
+
+test:
+  stage: test
+  image: "registry.gitlab.com/thelabnyc/python:${IMAGE}"
+  script:
+    - uv sync
+    - uv run tox
+  coverage: '/^TOTAL.+?(\d+\%)$/'
+  parallel:
+    matrix:
+      - IMAGE: py311
+        TOX_SKIP_ENV: "^(?!py311)"
+      - IMAGE: py312
+        TOX_SKIP_ENV: "^(?!py312)"
+      - IMAGE: py313
+        TOX_SKIP_ENV: "^(?!py313)"

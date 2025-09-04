@@ -912,3 +912,47 @@ class ModelMetadata(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["audience_routes_by_environment", b"audience_routes_by_environment", "audience_routes_grouped_by_environment", b"audience_routes_grouped_by_environment", "build", b"build", "builds", b"builds", "deployment_details", b"deployment_details", "model", b"model"]) -> None: ...
 
 global___ModelMetadata = ModelMetadata
+
+class CheckModelCreationAllowedRequest(google.protobuf.message.Message):
+    """*
+    Checks if creation allowed for the following details
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_ID_FIELD_NUMBER: builtins.int
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    JFROG_PROJECT_KEY_FIELD_NUMBER: builtins.int
+    model_id: builtins.str
+    model_group_name: builtins.str
+    jfrog_project_key: builtins.str
+    def __init__(
+        self,
+        *,
+        model_id: builtins.str = ...,
+        model_group_name: builtins.str = ...,
+        jfrog_project_key: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["jfrog_project_key", b"jfrog_project_key", "model_group_name", b"model_group_name", "model_id", b"model_id"]) -> None: ...
+
+global___CheckModelCreationAllowedRequest = CheckModelCreationAllowedRequest
+
+class CheckModelCreationAllowedResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    IS_CREATABLE_FIELD_NUMBER: builtins.int
+    ERROR_DETAILS_FIELD_NUMBER: builtins.int
+    is_creatable: builtins.bool
+    """set to true if allowed to create, otherwise false"""
+    @property
+    def error_details(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """upon errors, returns a list of errors"""
+    def __init__(
+        self,
+        *,
+        is_creatable: builtins.bool = ...,
+        error_details: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["error_details", b"error_details", "is_creatable", b"is_creatable"]) -> None: ...
+
+global___CheckModelCreationAllowedResponse = CheckModelCreationAllowedResponse

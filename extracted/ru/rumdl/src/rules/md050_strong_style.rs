@@ -67,11 +67,50 @@ impl MD050StrongStyle {
     fn is_in_html_tag(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
         // Check HTML tags
         for html_tag in ctx.html_tags().iter() {
+            // Only consider the position inside the tag if it's between the < and >
+            // Don't include positions after the tag ends
             if html_tag.byte_offset <= byte_pos && byte_pos < html_tag.byte_end {
                 return true;
             }
         }
         false
+    }
+
+    /// Check if a byte position is within HTML code tags (<code>...</code>)
+    /// This is separate from is_in_html_tag because we need to check the content between tags
+    fn is_in_html_code_content(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
+        let html_tags = ctx.html_tags();
+        let mut open_code_pos: Option<usize> = None;
+
+        for tag in html_tags.iter() {
+            // If we've passed our position, check if we're in an open code block
+            if tag.byte_offset > byte_pos {
+                return open_code_pos.is_some();
+            }
+
+            if tag.tag_name == "code" {
+                if tag.is_self_closing {
+                    // Self-closing tags don't create a code context
+                    continue;
+                } else if !tag.is_closing {
+                    // Opening <code> tag
+                    open_code_pos = Some(tag.byte_end);
+                } else if tag.is_closing && open_code_pos.is_some() {
+                    // Closing </code> tag
+                    if let Some(open_pos) = open_code_pos
+                        && byte_pos >= open_pos
+                        && byte_pos < tag.byte_offset
+                    {
+                        // We're between <code> and </code>
+                        return true;
+                    }
+                    open_code_pos = None;
+                }
+            }
+        }
+
+        // Check if we're still in an unclosed code tag
+        open_code_pos.is_some() && byte_pos >= open_code_pos.unwrap()
     }
 
     fn detect_style(&self, ctx: &crate::lint_context::LintContext) -> Option<StrongStyle> {
@@ -91,6 +130,7 @@ impl MD050StrongStyle {
                 && !ctx.is_in_code_block_or_span(m.start())
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
+                && !self.is_in_html_code_content(ctx, m.start())
             {
                 first_asterisk = Some(m);
                 break;
@@ -110,6 +150,7 @@ impl MD050StrongStyle {
                 && !ctx.is_in_code_block_or_span(m.start())
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
+                && !self.is_in_html_code_content(ctx, m.start())
             {
                 first_underscore = Some(m);
                 break;
@@ -197,11 +238,25 @@ impl Rule for MD050StrongStyle {
                 // Calculate the byte position of this match in the document
                 let match_byte_pos = byte_pos + m.start();
 
-                // Skip if this strong text is inside a code block, code span, link, or HTML tag
+                // Skip if this strong text is inside a code block, code span, link, or HTML code content
                 if ctx.is_in_code_block_or_span(match_byte_pos)
                     || self.is_in_link(ctx, match_byte_pos)
-                    || self.is_in_html_tag(ctx, match_byte_pos)
+                    || self.is_in_html_code_content(ctx, match_byte_pos)
                 {
+                    continue;
+                }
+
+                // Only skip HTML tag content if we're actually inside the tag (between < and >)
+                // not just on the same line as a tag
+                let mut inside_html_tag = false;
+                for tag in ctx.html_tags().iter() {
+                    // The emphasis must start after < and before >
+                    if tag.byte_offset < match_byte_pos && match_byte_pos < tag.byte_end - 1 {
+                        inside_html_tag = true;
+                        break;
+                    }
+                }
+                if inside_html_tag {
                     continue;
                 }
 
@@ -285,6 +340,7 @@ impl Rule for MD050StrongStyle {
                 !ctx.is_in_code_block_or_span(m.start())
                     && !self.is_in_link(ctx, m.start())
                     && !self.is_in_html_tag(ctx, m.start())
+                    && !self.is_in_html_code_content(ctx, m.start())
             })
             .filter(|m| !self.is_escaped(content, m.start()))
             .map(|m| (m.start(), m.end()))

@@ -95,6 +95,7 @@ __all__ = (
     "LifecycleSupportNameType",
     "LimitlessDatabaseStatusType",
     "LocalWriteForwardingStatusType",
+    "MasterUserAuthenticationTypeType",
     "PaginatorName",
     "RDSServiceName",
     "RegionName",
@@ -227,6 +228,7 @@ LimitlessDatabaseStatusType = Literal[
 LocalWriteForwardingStatusType = Literal[
     "disabled", "disabling", "enabled", "enabling", "requested"
 ]
+MasterUserAuthenticationTypeType = Literal["iam-db-auth", "password"]
 ReplicaModeType = Literal["mounted", "open-read-only"]
 SourceTypeType = Literal[
     "blue-green-deployment",

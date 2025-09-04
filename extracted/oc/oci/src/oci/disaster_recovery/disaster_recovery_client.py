@@ -78,10 +78,6 @@ class DisasterRecoveryClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("disaster_recovery"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -119,8 +115,6 @@ class DisasterRecoveryClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("disaster_recovery", config, signer, disaster_recovery_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -168,15 +162,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/associate_dr_protection_group.py.html>`__ to see an example of how to use associate_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/associate_dr_protection_group.py.html>`__ to see an example of how to use associate_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -188,7 +178,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -238,7 +227,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=associate_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -250,7 +238,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=associate_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -297,15 +284,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/cancel_dr_plan_execution.py.html>`__ to see an example of how to use cancel_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/cancel_dr_plan_execution.py.html>`__ to see an example of how to use cancel_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -317,7 +300,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -367,7 +349,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=cancel_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -379,7 +360,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=cancel_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -416,15 +396,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -436,7 +412,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -482,7 +457,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -493,7 +467,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -540,15 +513,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/change_dr_protection_group_compartment.py.html>`__ to see an example of how to use change_dr_protection_group_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/change_dr_protection_group_compartment.py.html>`__ to see an example of how to use change_dr_protection_group_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -560,7 +529,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -610,7 +578,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=change_dr_protection_group_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -622,7 +589,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=change_dr_protection_group_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -657,15 +623,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlan`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/create_dr_plan.py.html>`__ to see an example of how to use create_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/create_dr_plan.py.html>`__ to see an example of how to use create_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -677,7 +639,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -715,7 +676,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_plan_details,
                 response_type="DrPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -727,7 +687,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_plan_details,
                 response_type="DrPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -762,15 +721,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlanExecution`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/create_dr_plan_execution.py.html>`__ to see an example of how to use create_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/create_dr_plan_execution.py.html>`__ to see an example of how to use create_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -782,7 +737,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -820,7 +774,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_plan_execution_details,
                 response_type="DrPlanExecution",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -832,7 +785,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_plan_execution_details,
                 response_type="DrPlanExecution",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -867,15 +819,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrProtectionGroup`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/create_dr_protection_group.py.html>`__ to see an example of how to use create_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/create_dr_protection_group.py.html>`__ to see an example of how to use create_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -887,7 +835,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -925,7 +872,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_protection_group_details,
                 response_type="DrProtectionGroup",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -937,7 +883,6 @@ class DisasterRecoveryClient(object):
                 body=create_dr_protection_group_details,
                 response_type="DrProtectionGroup",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -974,15 +919,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/delete_dr_plan.py.html>`__ to see an example of how to use delete_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/delete_dr_plan.py.html>`__ to see an example of how to use delete_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -994,7 +935,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1040,7 +980,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1051,7 +990,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1088,15 +1026,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/delete_dr_plan_execution.py.html>`__ to see an example of how to use delete_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/delete_dr_plan_execution.py.html>`__ to see an example of how to use delete_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1108,7 +1042,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1154,7 +1087,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1165,7 +1097,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1202,15 +1133,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/delete_dr_protection_group.py.html>`__ to see an example of how to use delete_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/delete_dr_protection_group.py.html>`__ to see an example of how to use delete_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1222,7 +1149,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1268,7 +1194,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1279,7 +1204,6 @@ class DisasterRecoveryClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1327,15 +1251,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/disassociate_dr_protection_group.py.html>`__ to see an example of how to use disassociate_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/disassociate_dr_protection_group.py.html>`__ to see an example of how to use disassociate_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1347,7 +1267,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -1397,7 +1316,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=disassociate_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1409,7 +1327,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=disassociate_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1439,15 +1356,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlan`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/get_dr_plan.py.html>`__ to see an example of how to use get_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/get_dr_plan.py.html>`__ to see an example of how to use get_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -1459,7 +1372,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1504,7 +1416,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1516,7 +1427,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1546,15 +1456,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlanExecution`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/get_dr_plan_execution.py.html>`__ to see an example of how to use get_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/get_dr_plan_execution.py.html>`__ to see an example of how to use get_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1566,7 +1472,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1611,7 +1516,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanExecution",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1623,7 +1527,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanExecution",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1653,15 +1556,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrProtectionGroup`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/get_dr_protection_group.py.html>`__ to see an example of how to use get_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/get_dr_protection_group.py.html>`__ to see an example of how to use get_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1673,7 +1572,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1718,7 +1616,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrProtectionGroup",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1730,7 +1627,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrProtectionGroup",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1760,15 +1656,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.WorkRequest`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1780,7 +1672,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -1825,7 +1716,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1837,7 +1727,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequest",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1884,15 +1773,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/ignore_dr_plan_execution.py.html>`__ to see an example of how to use ignore_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/ignore_dr_plan_execution.py.html>`__ to see an example of how to use ignore_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1904,7 +1789,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -1954,7 +1838,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=ignore_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1966,7 +1849,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=ignore_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2045,15 +1927,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlanExecutionCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_dr_plan_executions.py.html>`__ to see an example of how to use list_dr_plan_executions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_dr_plan_executions.py.html>`__ to see an example of how to use list_dr_plan_executions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -2065,7 +1943,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "lifecycle_state",
             "dr_plan_execution_id",
@@ -2140,7 +2017,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanExecutionCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2152,7 +2028,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanExecutionCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2241,15 +2116,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrPlanCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_dr_plans.py.html>`__ to see an example of how to use list_dr_plans API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_dr_plans.py.html>`__ to see an example of how to use list_dr_plans API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -2261,7 +2132,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "lifecycle_state",
             "dr_plan_id",
@@ -2354,7 +2224,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2366,7 +2235,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrPlanCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2455,15 +2323,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.DrProtectionGroupCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_dr_protection_groups.py.html>`__ to see an example of how to use list_dr_protection_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_dr_protection_groups.py.html>`__ to see an example of how to use list_dr_protection_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2475,7 +2339,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "lifecycle_state",
             "dr_protection_group_id",
@@ -2568,7 +2431,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrProtectionGroupCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2580,7 +2442,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="DrProtectionGroupCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2642,15 +2503,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.WorkRequestErrorCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2662,7 +2519,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -2734,7 +2590,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2747,7 +2602,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestErrorCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2809,15 +2663,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.WorkRequestLogEntryCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2829,7 +2679,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -2901,7 +2750,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2914,7 +2762,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestLogEntryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2991,15 +2838,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.disaster_recovery.models.WorkRequestSummaryCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3011,7 +2854,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "compartment_id",
             "work_request_id",
@@ -3087,7 +2929,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestSummaryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3099,7 +2940,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 response_type="WorkRequestSummaryCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3146,15 +2986,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/pause_dr_plan_execution.py.html>`__ to see an example of how to use pause_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/pause_dr_plan_execution.py.html>`__ to see an example of how to use pause_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3166,7 +3002,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -3216,7 +3051,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=pause_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3228,7 +3062,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=pause_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3275,15 +3108,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/refresh_dr_plan.py.html>`__ to see an example of how to use refresh_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/refresh_dr_plan.py.html>`__ to see an example of how to use refresh_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -3295,7 +3124,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -3345,7 +3173,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=refresh_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3357,7 +3184,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=refresh_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3404,15 +3230,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/resume_dr_plan_execution.py.html>`__ to see an example of how to use resume_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/resume_dr_plan_execution.py.html>`__ to see an example of how to use resume_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3424,7 +3246,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -3474,7 +3295,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=resume_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3486,7 +3306,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=resume_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3533,15 +3352,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/retry_dr_plan_execution.py.html>`__ to see an example of how to use retry_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/retry_dr_plan_execution.py.html>`__ to see an example of how to use retry_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3553,7 +3368,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -3603,7 +3417,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=retry_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3615,7 +3428,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=retry_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3655,15 +3467,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/update_dr_plan.py.html>`__ to see an example of how to use update_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/update_dr_plan.py.html>`__ to see an example of how to use update_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -3675,7 +3483,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -3722,7 +3529,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3734,7 +3540,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3774,15 +3579,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/update_dr_plan_execution.py.html>`__ to see an example of how to use update_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/update_dr_plan_execution.py.html>`__ to see an example of how to use update_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3794,7 +3595,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -3841,7 +3641,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3853,7 +3652,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_plan_execution_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3893,15 +3691,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/update_dr_protection_group.py.html>`__ to see an example of how to use update_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/update_dr_protection_group.py.html>`__ to see an example of how to use update_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -3913,7 +3707,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -3960,7 +3753,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -3972,7 +3764,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_protection_group_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4019,15 +3810,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/update_dr_protection_group_role.py.html>`__ to see an example of how to use update_dr_protection_group_role API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/update_dr_protection_group_role.py.html>`__ to see an example of how to use update_dr_protection_group_role API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -4039,7 +3826,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -4089,7 +3875,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_protection_group_role_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4101,7 +3886,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=update_dr_protection_group_role_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4148,15 +3932,11 @@ class DisasterRecoveryClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/disasterrecovery/verify_dr_plan.py.html>`__ to see an example of how to use verify_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/disasterrecovery/verify_dr_plan.py.html>`__ to see an example of how to use verify_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -4168,7 +3948,6 @@ class DisasterRecoveryClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -4218,7 +3997,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=verify_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -4230,7 +4008,6 @@ class DisasterRecoveryClient(object):
                 header_params=header_params,
                 body=verify_dr_plan_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

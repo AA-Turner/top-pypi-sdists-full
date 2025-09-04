@@ -7,7 +7,7 @@ from yookassa.domain.models.payment_data.payment_data import ResponsePaymentData
 
 class PaymentDataCash(ResponsePaymentData):
     """
-    Оплата наличными в терминалах РФ или СНГ.
+    Оплата наличными в терминалах.
     """  # noqa: E501
 
     __phone = None

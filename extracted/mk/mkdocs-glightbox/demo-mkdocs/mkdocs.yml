@@ -1,0 +1,77 @@
+site_name: MkDocs GLightbox
+
+repo_url: https://github.com/blueswen/mkdocs-glightbox
+repo_name: blueswen/mkdocs-glightbox
+site_url: https://blueswen.github.io/mkdocs-glightbox/
+site_dir: ../docs
+edit_uri: ""
+
+theme:
+  name: material
+  icon:
+    logo: material/projector
+  features:
+    - toc.integrate
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+extra:
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - attr_list
+  - meta
+  - md_in_html
+  - admonition
+
+plugins:
+  - glightbox:
+      zoomable: true
+      draggable: true
+      skip_classes:
+        - skip-lightbox
+      auto_themed: true
+
+nav:
+  - Home: index.md
+  - Taiwan:
+    - Sea: taiwan/sea.md
+    - Mountain: taiwan/mountain.md
+  - Caption: caption/caption.md
+  - Gallery: gallery/gallery.md
+  - More Flexibility:
+    - Disable by image: flexibility/disable-by-image.md
+    - Disable by page: flexibility/disable-by-page.md
+    - Enable by image: flexibility/disable-by-page-enable-by-image.md
+    - Disable globally but enable by image or page: flexibility/enable-by-image-or-page.md
+  - Auto Themed: auto-themed/auto-themed.md

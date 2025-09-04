@@ -1,7 +1,7 @@
 r'''
 # `newrelic_events_to_metrics_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_events_to_metrics_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule).
+Refer to the Terraform Registry for docs: [`newrelic_events_to_metrics_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EventsToMetricsRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.eventsToMetricsRule.EventsToMetricsRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule newrelic_events_to_metrics_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule newrelic_events_to_metrics_rule}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class EventsToMetricsRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule newrelic_events_to_metrics_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule newrelic_events_to_metrics_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
-        :param nrql: Explains how to create metrics from events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
-        :param account_id: Account with the event and where the metrics will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
-        :param enabled: True means this rule is enabled. False means the rule is currently not creating metrics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
+        :param nrql: Explains how to create metrics from events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
+        :param account_id: Account with the event and where the metrics will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
+        :param enabled: True means this rule is enabled. False means the rule is currently not creating metrics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class EventsToMetricsRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EventsToMetricsRule to import.
-        :param import_from_id: The id of the existing EventsToMetricsRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EventsToMetricsRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EventsToMetricsRule to import is found.
         '''
         if __debug__:
@@ -316,12 +316,12 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
-        :param nrql: Explains how to create metrics from events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
-        :param account_id: Account with the event and where the metrics will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
-        :param enabled: True means this rule is enabled. False means the rule is currently not creating metrics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
+        :param nrql: Explains how to create metrics from events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
+        :param account_id: Account with the event and where the metrics will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
+        :param enabled: True means this rule is enabled. False means the rule is currently not creating metrics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -435,7 +435,7 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the rule. This must be unique within an account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#name EventsToMetricsRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -445,7 +445,7 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nrql(self) -> builtins.str:
         '''Explains how to create metrics from events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#nrql EventsToMetricsRule#nrql}
         '''
         result = self._values.get("nrql")
         assert result is not None, "Required property 'nrql' is missing"
@@ -455,7 +455,7 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''Account with the event and where the metrics will be put.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#account_id EventsToMetricsRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -464,7 +464,7 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Provides additional information about the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#description EventsToMetricsRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -475,14 +475,14 @@ class EventsToMetricsRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True means this rule is enabled. False means the rule is currently not creating metrics.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#enabled EventsToMetricsRule#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/events_to_metrics_rule#id EventsToMetricsRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

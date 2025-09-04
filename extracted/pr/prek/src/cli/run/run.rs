@@ -1,7 +1,6 @@
-use std::cmp::{Reverse, max};
+use std::cmp::max;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
-use std::hash::Hash;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -15,6 +14,7 @@ use rand::SeedableRng;
 use rand::prelude::{SliceRandom, StdRng};
 use rustc_hash::{FxHashMap, FxHashSet};
 use tokio::io::AsyncWriteExt;
+use tokio::sync::Semaphore;
 use tracing::{debug, trace};
 use unicode_width::UnicodeWidthStr;
 
@@ -28,7 +28,7 @@ use crate::config::{Language, Stage};
 use crate::fs::{CWD, Simplified};
 use crate::hook::{Hook, InstalledHook};
 use crate::printer::{Printer, Stdout};
-use crate::run::USE_COLOR;
+use crate::run::{CONCURRENCY, USE_COLOR};
 use crate::store::{STORE, Store};
 use crate::workspace::Project;
 use crate::{git, warn_user};
@@ -114,6 +114,7 @@ pub(crate) async fn run(
         .into_iter()
         .filter(|h| hook_ids.is_empty() || hook_ids.contains(&h.id) || hook_ids.contains(&h.alias))
         .filter(|h| h.stages.contains(hook_stage))
+        .map(Arc::new)
         .collect();
 
     if filtered_hooks.is_empty() {
@@ -197,7 +198,7 @@ pub(crate) async fn run(
         .into_iter()
         .map(|h| {
             if skips.contains(&h.idx) {
-                HookToRun::Skipped(Arc::new(h))
+                HookToRun::Skipped(h)
             } else {
                 // Find and remove the matching resolved hook
                 let idx = installed_hooks
@@ -309,16 +310,15 @@ fn get_skips() -> Vec<String> {
 }
 
 pub async fn install_hooks(
-    hooks: Vec<Hook>,
+    hooks: Vec<Arc<Hook>>,
     store: &Store,
     reporter: &HookInstallReporter,
 ) -> Result<Vec<InstalledHook>> {
     let num_hooks = hooks.len();
-    let mut new_installed = Vec::with_capacity(hooks.len());
-    let mut group_futures = FuturesUnordered::new();
-    // TODO: how to eliminate the Rc?
-    let installed_hooks = Rc::new(store.installed_hooks().collect::<Vec<_>>());
+    let mut installed_hooks = Vec::with_capacity(hooks.len());
+    let store_hooks = Rc::new(store.installed_hooks().collect::<Vec<_>>());
 
+    // Group hooks by language to enable parallel installation across different languages.
     let mut hooks_by_language = FxHashMap::default();
     for hook in hooks {
         hooks_by_language
@@ -327,31 +327,28 @@ pub async fn install_hooks(
             .push(hook);
     }
 
-    // Group hooks by language to enable parallel installation across different languages.
+    let mut futures = FuturesUnordered::new();
+    let semaphore = Arc::new(Semaphore::new(*CONCURRENCY));
+
     for (_, hooks) in hooks_by_language {
-        // Partition hooks into non-overlapping sets based on their dependencies.
-        // This allows us to install hooks that have no overlapping dependencies in parallel,
-        // while ensuring that hooks with overlapping dependencies are installed sequentially.
-        let partitions = partition_overlapping_sets(&hooks);
+        let semaphore = semaphore.clone();
+        let partitions = partition_hooks(&hooks);
 
-        for mut hooks in partitions {
-            let installed_hooks = installed_hooks.clone();
+        for hooks in partitions {
+            let semaphore = semaphore.clone();
+            let store_hooks = store_hooks.clone();
 
-            // Install hooks from the one with most dependencies to the least dependencies,
-            // the later hooks can reuse the environment of the earlier ones.
-            hooks.sort_unstable_by_key(|h| Reverse(h.dependencies().len()));
-
-            group_futures.push(async move {
+            futures.push(async move {
                 let mut hook_envs = Vec::with_capacity(hooks.len());
                 let mut newly_installed = Vec::new();
 
                 for hook in hooks {
                     // Find a matching installed hook environment.
-                    if let Some(info) = installed_hooks
+                    if let Some(info) = store_hooks
                         .iter()
                         .chain(newly_installed.iter().filter_map(|h| {
                             if let InstalledHook::Installed { info, .. } = h {
-                                Some(info.as_ref())
+                                Some(info)
                             } else {
                                 None
                             }
@@ -364,13 +361,13 @@ pub async fn install_hooks(
                             info.env_path.display()
                         );
                         hook_envs.push(InstalledHook::Installed {
-                            hook: Arc::new(hook),
-                            info: Arc::new(info.clone()),
+                            hook,
+                            info: info.clone(),
                         });
                         continue;
                     }
 
-                    let hook = Arc::new(hook);
+                    let _permit = semaphore.acquire().await.unwrap();
                     debug!("No matching environment found for hook `{hook}`, installing...");
 
                     let installed_hook = hook
@@ -403,50 +400,45 @@ pub async fn install_hooks(
         }
     }
 
-    while let Some(result) = group_futures.next().await {
-        new_installed.extend(result?);
+    while let Some(result) = futures.next().await {
+        installed_hooks.extend(result?);
     }
     reporter.on_complete();
 
     debug_assert_eq!(
         num_hooks,
-        new_installed.len(),
+        installed_hooks.len(),
         "Number of hooks installed should match the number of hooks provided"
     );
 
-    Ok(new_installed)
+    Ok(installed_hooks)
 }
 
-fn sets_disjoint<T>(set1: &FxHashSet<T>, set2: &FxHashSet<T>) -> bool
-where
-    T: Eq + Hash,
-{
-    // Special case: empty sets overlap with each other
-    if set1.is_empty() && set2.is_empty() {
-        return false;
-    }
-
-    set1.is_disjoint(set2)
-}
-
-fn partition_overlapping_sets(sets: &[Hook]) -> Vec<Vec<Hook>> {
-    if sets.is_empty() {
+/// Partition hooks into groups where hooks in the same group have same dependencies.
+/// Hooks in different groups can be installed in parallel.
+fn partition_hooks(hooks: &[Arc<Hook>]) -> Vec<Vec<Arc<Hook>>> {
+    if hooks.is_empty() {
         return vec![];
     }
 
-    let n = sets.len();
+    let n = hooks.len();
     let mut visited = vec![false; n];
     let mut groups = Vec::new();
 
     // DFS to find all connected sets
     #[allow(clippy::items_after_statements)]
-    fn dfs(index: usize, sets: &[Hook], visited: &mut [bool], current_group: &mut Vec<usize>) {
+    fn dfs(
+        index: usize,
+        hooks: &[Arc<Hook>],
+        visited: &mut [bool],
+        current_group: &mut Vec<usize>,
+    ) {
         visited[index] = true;
         current_group.push(index);
 
-        for i in 0..sets.len() {
-            if !visited[i] && !sets_disjoint(sets[index].dependencies(), sets[i].dependencies()) {
-                dfs(i, sets, visited, current_group);
+        for i in 0..hooks.len() {
+            if !visited[i] && hooks[index].dependencies() == hooks[i].dependencies() {
+                dfs(i, hooks, visited, current_group);
             }
         }
     }
@@ -455,12 +447,12 @@ fn partition_overlapping_sets(sets: &[Hook]) -> Vec<Vec<Hook>> {
     for i in 0..n {
         if !visited[i] {
             let mut current_group = Vec::new();
-            dfs(i, sets, &mut visited, &mut current_group);
+            dfs(i, hooks, &mut visited, &mut current_group);
 
             // Convert indices back to actual sets
-            let group_sets: Vec<Hook> = current_group
+            let group_sets: Vec<Arc<Hook>> = current_group
                 .into_iter()
-                .map(|idx| sets[idx].clone())
+                .map(|idx| hooks[idx].clone())
                 .collect();
 
             groups.push(group_sets);

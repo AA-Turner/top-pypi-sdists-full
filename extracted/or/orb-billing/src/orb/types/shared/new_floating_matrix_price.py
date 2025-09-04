@@ -16,8 +16,7 @@ from .new_dimensional_price_configuration import NewDimensionalPriceConfiguratio
 __all__ = ["NewFloatingMatrixPrice", "ConversionRateConfig"]
 
 ConversionRateConfig: TypeAlias = Annotated[
-    Union[UnitConversionRateConfig, TieredConversionRateConfig, None],
-    PropertyInfo(discriminator="conversion_rate_type"),
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
@@ -32,8 +31,10 @@ class NewFloatingMatrixPrice(BaseModel):
     """The id of the item the price will be associated with."""
 
     matrix_config: MatrixConfig
+    """Configuration for matrix pricing"""
 
     price_model_type: Literal["matrix"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
 
     name: str
     """The name of the price."""

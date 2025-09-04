@@ -439,3 +439,249 @@ class TestSingleStore(Validator):
                 "singlestore": "SELECT TIME_BUCKET('1d', '2019-03-14 06:04:12', '2019-03-13 03:00:00')",
             },
         )
+        self.validate_all(
+            "SELECT '2019-03-14 06:04:12' :> DATE",
+            read={
+                "": "SELECT TIME_STR_TO_DATE('2019-03-14 06:04:12')",
+                "singlestore": "SELECT '2019-03-14 06:04:12' :> DATE",
+            },
+        )
+        self.validate_all(
+            "SELECT CONVERT_TZ(NOW() :> TIMESTAMP, 'GMT', 'UTC')",
+            read={
+                "spark2": "SELECT TO_UTC_TIMESTAMP(NOW(), 'GMT')",
+                "singlestore": "SELECT CONVERT_TZ(NOW() :> TIMESTAMP, 'GMT', 'UTC')",
+            },
+        )
+        self.validate_all(
+            "SELECT STR_TO_DATE(20190314, '%Y%m%d')",
+            read={
+                "": "SELECT DI_TO_DATE(20190314)",
+                "singlestore": "SELECT STR_TO_DATE(20190314, '%Y%m%d')",
+            },
+        )
+        self.validate_all(
+            "SELECT (DATE_FORMAT('2019-03-14 06:04:12', '%Y%m%d') :> INT)",
+            read={
+                "singlestore": "SELECT (DATE_FORMAT('2019-03-14 06:04:12', '%Y%m%d') :> INT)",
+                "": "SELECT DATE_TO_DI('2019-03-14 06:04:12')",
+            },
+        )
+        self.validate_all(
+            "SELECT (DATE_FORMAT('2019-03-14 06:04:12', '%Y%m%d') :> INT)",
+            read={
+                "singlestore": "SELECT (DATE_FORMAT('2019-03-14 06:04:12', '%Y%m%d') :> INT)",
+                "": "SELECT TS_OR_DI_TO_DI('2019-03-14 06:04:12')",
+            },
+        )
+        self.validate_all(
+            "SELECT '2019-03-14 06:04:12' :> TIME",
+            read={
+                # zone parameter is not supported in SingleStore, so it is ignored
+                "bigquery": "SELECT TIME('2019-03-14 06:04:12', 'GMT')",
+                "singlestore": "SELECT '2019-03-14 06:04:12' :> TIME",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_ADD(NOW(), INTERVAL '1' MONTH)",
+            read={
+                "bigquery": "SELECT DATETIME_ADD(NOW(), INTERVAL 1 MONTH)",
+                "singlestore": "SELECT DATE_ADD(NOW(), INTERVAL '1' MONTH)",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_TRUNC('MINUTE', '2016-08-08 12:05:31')",
+            read={
+                "bigquery": "SELECT DATETIME_TRUNC('2016-08-08 12:05:31', MINUTE)",
+                "singlestore": "SELECT DATE_TRUNC('MINUTE', '2016-08-08 12:05:31')",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_SUB('2010-04-02', INTERVAL '1' WEEK)",
+            read={
+                "bigquery": "SELECT DATETIME_SUB('2010-04-02', INTERVAL '1' WEEK)",
+                "singlestore": "SELECT DATE_SUB('2010-04-02', INTERVAL '1' WEEK)",
+            },
+        )
+        self.validate_all(
+            "SELECT TIMESTAMPDIFF(QUARTER, '2009-02-13', '2013-09-01')",
+            read={
+                "singlestore": "SELECT TIMESTAMPDIFF(QUARTER, '2009-02-13', '2013-09-01')",
+                "": "SELECT DATETIME_DIFF('2013-09-01', '2009-02-13', QUARTER)",
+            },
+        )
+        self.validate_all(
+            "SELECT TIMESTAMPDIFF(QUARTER, '2009-02-13', '2013-09-01')",
+            read={
+                "singlestore": "SELECT TIMESTAMPDIFF(QUARTER, '2009-02-13', '2013-09-01')",
+                "bigquery": "SELECT DATE_DIFF('2013-09-01', '2009-02-13', QUARTER)",
+                "duckdb": "SELECT DATE_DIFF('QUARTER', '2009-02-13', '2013-09-01')",
+            },
+        )
+        self.validate_all(
+            "SELECT DATEDIFF(DATE('2013-09-01'), DATE('2009-02-13'))",
+            read={
+                "hive": "SELECT DATEDIFF('2013-09-01', '2009-02-13')",
+                "singlestore": "SELECT DATEDIFF(DATE('2013-09-01'), DATE('2009-02-13'))",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE_TRUNC('MINUTE', '2016-08-08 12:05:31')",
+            read={
+                "": "SELECT TIMESTAMP_TRUNC('2016-08-08 12:05:31', MINUTE)",
+                "singlestore": "SELECT DATE_TRUNC('MINUTE', '2016-08-08 12:05:31')",
+            },
+        )
+
+    def test_types(self):
+        self.validate_all(
+            "CREATE TABLE testTypes (a DECIMAL(10, 20))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DECIMAL(10, 20))",
+                "bigquery": "CREATE TABLE testTypes (a BIGDECIMAL(10, 20))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a BOOLEAN)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a BOOLEAN)",
+                "tsql": "CREATE TABLE testTypes (a BIT)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DATE)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DATE)",
+                "clickhouse": "CREATE TABLE testTypes (a DATE32)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DATETIME)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DATETIME)",
+                "clickhouse": "CREATE TABLE testTypes (a DATETIME64)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DECIMAL(9, 3))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DECIMAL(9, 3))",
+                "clickhouse": "CREATE TABLE testTypes (a DECIMAL32(3))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DECIMAL(18, 3))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DECIMAL(18, 3))",
+                "clickhouse": "CREATE TABLE testTypes (a DECIMAL64(3))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DECIMAL(38, 3))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DECIMAL(38, 3))",
+                "clickhouse": "CREATE TABLE testTypes (a DECIMAL128(3))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a DECIMAL(65, 3))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a DECIMAL(65, 3))",
+                "clickhouse": "CREATE TABLE testTypes (a DECIMAL256(3))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a ENUM('a'))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a ENUM('a'))",
+                "clickhouse": "CREATE TABLE testTypes (a ENUM8('a'))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a ENUM('a'))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a ENUM('a'))",
+                "clickhouse": "CREATE TABLE testTypes (a ENUM16('a'))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a TEXT(2))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a TEXT(2))",
+                "clickhouse": "CREATE TABLE testTypes (a FIXEDSTRING(2))",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHY)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHY)",
+                "snowflake": "CREATE TABLE testTypes (a GEOMETRY)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHYPOINT)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHYPOINT)",
+                "clickhouse": "CREATE TABLE testTypes (a POINT)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHY)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHY)",
+                "clickhouse": "CREATE TABLE testTypes (a RING)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHY)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHY)",
+                "clickhouse": "CREATE TABLE testTypes (a LINESTRING)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHY)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHY)",
+                "clickhouse": "CREATE TABLE testTypes (a POLYGON)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a GEOGRAPHY)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a GEOGRAPHY)",
+                "clickhouse": "CREATE TABLE testTypes (a MULTIPOLYGON)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a BSON)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a BSON)",
+                "postgres": "CREATE TABLE testTypes (a JSONB)",
+            },
+        )
+        self.validate_identity("CREATE TABLE testTypes (a TIMESTAMP(6))")
+        self.validate_all(
+            "CREATE TABLE testTypes (a TIMESTAMP)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a TIMESTAMP)",
+                "duckdb": "CREATE TABLE testTypes (a TIMESTAMP_S)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a TIMESTAMP(6))",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a TIMESTAMP(6))",
+                "duckdb": "CREATE TABLE testTypes (a TIMESTAMP_MS)",
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE testTypes (a BLOB)",
+            read={
+                "singlestore": "CREATE TABLE testTypes (a BLOB)",
+                "": "CREATE TABLE testTypes (a VARBINARY)",
+            },
+        )
+
+    def test_column_with_tablename(self):
+        self.validate_identity("SELECT `t0`.`name` FROM `t0`")

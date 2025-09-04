@@ -51,8 +51,8 @@ class SetupFrontend(Command):
 
         return state
 
-    def completion(self, _: ReplState):
-        return {}
+    def completion(self, state: ReplState):
+        return super().completion(state)
 
     def help(self, _: ReplState):
         return f'{SetupFrontend.COMMAND}\t sets up frontend'

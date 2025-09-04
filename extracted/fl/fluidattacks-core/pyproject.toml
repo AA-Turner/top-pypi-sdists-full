@@ -1,6 +1,6 @@
 [project]
 name = "fluidattacks-core"
-version = "2.13.2"
+version = "2.13.3"
 description = "Fluid Attacks Core Library"
 authors = [{ name = "Development", email = "development@fluidattacks.com" }]
 license = { text = "MPL-2.0" }

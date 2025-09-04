@@ -29,6 +29,7 @@ class NaturalDisasterConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
+    usecase: str = "natural_disaster_detection"
 
     #confidence thresholds
     confidence_threshold: float = 0.3
@@ -123,6 +124,8 @@ class NaturalDisasterUseCase(BaseProcessor):
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
+        print(f"config.confidence_threshold: {config.confidence_threshold}")
+        print("Raw data: ", data)
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
@@ -136,6 +139,8 @@ class NaturalDisasterUseCase(BaseProcessor):
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
+        
+        print(f"processed_data: {processed_data}")
 
         if config.target_categories:
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
@@ -195,6 +200,7 @@ class NaturalDisasterUseCase(BaseProcessor):
 
         # Update frame counter
         self._total_frame_counter += 1
+        print(f"processed_data after tracking: {processed_data}")
 
         # Extract frame information from stream_info
         frame_number = None

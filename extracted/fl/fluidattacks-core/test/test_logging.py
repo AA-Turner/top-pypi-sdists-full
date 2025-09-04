@@ -47,7 +47,7 @@ def test_json_formatter_uses_envs_to_fill_keys(
     logger.critical("A critical message")
 
     output = capsys.readouterr()
-    log_entry = json.loads(output.out)
+    log_entry = json.loads(output.err)
 
     assert log_entry["service.name"] == expected_service_name
     assert log_entry["dd.service"] == expected_service_name
@@ -68,7 +68,7 @@ def test_json_formatter_adds_keys_for_exception(
         logger.exception("A exception was caught")
 
     output = capsys.readouterr()
-    log_entry = json.loads(output.out)
+    log_entry = json.loads(output.err)
 
     assert log_entry["level"] == "ERROR"
     assert log_entry["name"] == "product"
@@ -91,7 +91,7 @@ def test_json_formatter_adds_keys_with_extra_fields(
     logger.info("A info message", extra={"trace_id": "111", "span_id": "222", "other.tag": "val"})
 
     output = capsys.readouterr()
-    log_entry = json.loads(output.out)
+    log_entry = json.loads(output.err)
 
     assert log_entry["trace_id"] == "111"
     assert log_entry["span_id"] == "222"
@@ -110,7 +110,7 @@ def test_colorful_formatter_uses_colors_for_warning(
     logger.warning("A warning message")
 
     output = capsys.readouterr()
-    log_message = output.out
+    log_message = output.err
 
     assert "\x1b[33;1m" in log_message
     assert "\x1b[0m" in log_message

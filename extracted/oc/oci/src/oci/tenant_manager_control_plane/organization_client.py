@@ -75,10 +75,6 @@ class OrganizationClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("tenant_manager_control_plane"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -116,8 +112,6 @@ class OrganizationClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("organization", config, signer, tenant_manager_control_plane_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -162,15 +156,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.OrganizationTenancy`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/approve_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use approve_organization_tenancy_for_transfer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/approve_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use approve_organization_tenancy_for_transfer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId', 'compartmentId']
@@ -182,7 +172,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -236,7 +225,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -249,7 +237,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -284,15 +271,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/create_child_tenancy.py.html>`__ to see an example of how to use create_child_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/create_child_tenancy.py.html>`__ to see an example of how to use create_child_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -304,7 +287,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "opc_request_id"
@@ -339,7 +321,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 body=create_child_tenancy_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -350,7 +331,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 body=create_child_tenancy_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -392,15 +372,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/delete_organization_tenancy.py.html>`__ to see an example of how to use delete_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/delete_organization_tenancy.py.html>`__ to see an example of how to use delete_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId']
@@ -412,7 +388,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id",
@@ -459,7 +434,6 @@ class OrganizationClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -470,7 +444,6 @@ class OrganizationClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -498,15 +471,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.Organization`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/get_organization.py.html>`__ to see an example of how to use get_organization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/get_organization.py.html>`__ to see an example of how to use get_organization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']
@@ -518,7 +487,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -561,7 +529,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="Organization",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -573,7 +540,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="Organization",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -604,15 +570,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.OrganizationTenancy`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/get_organization_tenancy.py.html>`__ to see an example of how to use get_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/get_organization_tenancy.py.html>`__ to see an example of how to use get_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId', 'tenancyId']
@@ -624,7 +586,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -668,7 +629,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -680,7 +640,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -714,15 +673,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.OrganizationTenancyCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/list_organization_tenancies.py.html>`__ to see an example of how to use list_organization_tenancies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/list_organization_tenancies.py.html>`__ to see an example of how to use list_organization_tenancies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']
@@ -734,7 +689,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -786,7 +740,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancyCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -799,7 +752,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancyCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -833,15 +785,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.OrganizationCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/list_organizations.py.html>`__ to see an example of how to use list_organizations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/list_organizations.py.html>`__ to see an example of how to use list_organizations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -853,7 +801,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -895,7 +842,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -907,7 +853,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -942,15 +887,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/restore_organization_tenancy.py.html>`__ to see an example of how to use restore_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/restore_organization_tenancy.py.html>`__ to see an example of how to use restore_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId']
@@ -962,7 +903,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_request_id"
@@ -1006,7 +946,6 @@ class OrganizationClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1017,7 +956,6 @@ class OrganizationClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1062,15 +1000,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.tenant_manager_control_plane.models.OrganizationTenancy`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/unapprove_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use unapprove_organization_tenancy_for_transfer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/unapprove_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use unapprove_organization_tenancy_for_transfer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId', 'compartmentId']
@@ -1082,7 +1016,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "if_match",
             "opc_retry_token",
@@ -1136,7 +1069,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1149,7 +1081,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 response_type="OrganizationTenancy",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1194,15 +1125,11 @@ class OrganizationClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/tenantmanagercontrolplane/update_organization.py.html>`__ to see an example of how to use update_organization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/tenantmanagercontrolplane/update_organization.py.html>`__ to see an example of how to use update_organization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']
@@ -1214,7 +1141,6 @@ class OrganizationClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "if_match",
@@ -1262,7 +1188,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 body=update_organization_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1274,7 +1199,6 @@ class OrganizationClient(object):
                 header_params=header_params,
                 body=update_organization_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

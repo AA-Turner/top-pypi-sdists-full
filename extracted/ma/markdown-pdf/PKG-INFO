@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: markdown_pdf
-Version: 1.8
+Version: 1.9
 Summary: Markdown to pdf renderer
 Author-email: Vitaly Bogomolov <mail@vitaly-bogomolov.ru>
 License: GNU Affero General Public License v3
@@ -13,7 +13,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyMuPDF==1.24.6; python_version < "3.9"
-Requires-Dist: PyMuPDF==1.25.3; python_version > "3.8"
+Requires-Dist: PyMuPDF>=1.25.3; python_version > "3.8"
 Requires-Dist: markdown-it-py==3.0.0; python_version >= "3.8"
 Provides-Extra: dev
 Requires-Dist: flake8; extra == "dev"

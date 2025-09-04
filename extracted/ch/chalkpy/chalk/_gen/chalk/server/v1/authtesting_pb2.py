@@ -13,10 +13,11 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.flags.v1 import flags_pb2 as chalk_dot_flags_dot_v1_dot_flags__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n!chalk/server/v1/authtesting.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto" \n\x1eGetUnauthedTestEndpointRequest"\x1e\n\x1cGetAuthedTestEndpointRequest"\x1e\n\x1cGetViewerTestEndpointRequest"%\n#GetDataScientistTestEndpointRequest"!\n\x1fGetDeveloperTestEndpointRequest"\x1d\n\x1bGetAdminTestEndpointRequest"\x1d\n\x1bGetOwnerTestEndpointRequest"!\n\x1fGetUnauthedTestEndpointResponse"\x1f\n\x1dGetAuthedTestEndpointResponse"\x1f\n\x1dGetViewerTestEndpointResponse"&\n$GetDataScientistTestEndpointResponse""\n GetDeveloperTestEndpointResponse"\x1e\n\x1cGetAdminTestEndpointResponse"\x1e\n\x1cGetOwnerTestEndpointResponse2\xb5\x07\n\x12\x41uthTestingService\x12\x84\x01\n\x17GetUnauthedTestEndpoint\x12/.chalk.server.v1.GetUnauthedTestEndpointRequest\x1a\x30.chalk.server.v1.GetUnauthedTestEndpointResponse"\x06\x90\x02\x01\x80}\x01\x12~\n\x15GetAuthedTestEndpoint\x12-.chalk.server.v1.GetAuthedTestEndpointRequest\x1a..chalk.server.v1.GetAuthedTestEndpointResponse"\x06\x90\x02\x01\x80}\x02\x12~\n\x15GetViewerTestEndpoint\x12-.chalk.server.v1.GetViewerTestEndpointRequest\x1a..chalk.server.v1.GetViewerTestEndpointResponse"\x06\x90\x02\x01\x80}\x0b\x12\x93\x01\n\x1cGetDataScientistTestEndpoint\x12\x34.chalk.server.v1.GetDataScientistTestEndpointRequest\x1a\x35.chalk.server.v1.GetDataScientistTestEndpointResponse"\x06\x90\x02\x01\x80}\x03\x12\x87\x01\n\x18GetDeveloperTestEndpoint\x12\x30.chalk.server.v1.GetDeveloperTestEndpointRequest\x1a\x31.chalk.server.v1.GetDeveloperTestEndpointResponse"\x06\x90\x02\x01\x80}\x11\x12{\n\x14GetAdminTestEndpoint\x12,.chalk.server.v1.GetAdminTestEndpointRequest\x1a-.chalk.server.v1.GetAdminTestEndpointResponse"\x06\x90\x02\x01\x80}\x0c\x12{\n\x14GetOwnerTestEndpoint\x12,.chalk.server.v1.GetOwnerTestEndpointRequest\x1a-.chalk.server.v1.GetOwnerTestEndpointResponse"\x06\x90\x02\x01\x80}\nB\x99\x01\n\x13\x63om.chalk.server.v1B\x10\x41uthtestingProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n!chalk/server/v1/authtesting.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/flags/v1/flags.proto" \n\x1eGetUnauthedTestEndpointRequest"\x1e\n\x1cGetAuthedTestEndpointRequest"\x1e\n\x1cGetViewerTestEndpointRequest"%\n#GetDataScientistTestEndpointRequest"!\n\x1fGetDeveloperTestEndpointRequest"\x1d\n\x1bGetAdminTestEndpointRequest"\x1d\n\x1bGetOwnerTestEndpointRequest"#\n!GetFeatureFlagTestEndpointRequest"!\n\x1fGetUnauthedTestEndpointResponse"\x1f\n\x1dGetAuthedTestEndpointResponse"\x1f\n\x1dGetViewerTestEndpointResponse"&\n$GetDataScientistTestEndpointResponse""\n GetDeveloperTestEndpointResponse"\x1e\n\x1cGetAdminTestEndpointResponse"\x1e\n\x1cGetOwnerTestEndpointResponse">\n"GetFeatureFlagTestEndpointResponse\x12\x18\n\x07message\x18\x01 \x01(\tR\x07message2\x86\t\n\x12\x41uthTestingService\x12\x84\x01\n\x17GetUnauthedTestEndpoint\x12/.chalk.server.v1.GetUnauthedTestEndpointRequest\x1a\x30.chalk.server.v1.GetUnauthedTestEndpointResponse"\x06\x90\x02\x01\x80}\x01\x12~\n\x15GetAuthedTestEndpoint\x12-.chalk.server.v1.GetAuthedTestEndpointRequest\x1a..chalk.server.v1.GetAuthedTestEndpointResponse"\x06\x90\x02\x01\x80}\x02\x12~\n\x15GetViewerTestEndpoint\x12-.chalk.server.v1.GetViewerTestEndpointRequest\x1a..chalk.server.v1.GetViewerTestEndpointResponse"\x06\x90\x02\x01\x80}\x0b\x12\x93\x01\n\x1cGetDataScientistTestEndpoint\x12\x34.chalk.server.v1.GetDataScientistTestEndpointRequest\x1a\x35.chalk.server.v1.GetDataScientistTestEndpointResponse"\x06\x90\x02\x01\x80}\x03\x12\x87\x01\n\x18GetDeveloperTestEndpoint\x12\x30.chalk.server.v1.GetDeveloperTestEndpointRequest\x1a\x31.chalk.server.v1.GetDeveloperTestEndpointResponse"\x06\x90\x02\x01\x80}\x11\x12{\n\x14GetAdminTestEndpoint\x12,.chalk.server.v1.GetAdminTestEndpointRequest\x1a-.chalk.server.v1.GetAdminTestEndpointResponse"\x06\x90\x02\x01\x80}\x0c\x12{\n\x14GetOwnerTestEndpoint\x12,.chalk.server.v1.GetOwnerTestEndpointRequest\x1a-.chalk.server.v1.GetOwnerTestEndpointResponse"\x06\x90\x02\x01\x80}\n\x12\xce\x01\n\x1aGetFeatureFlagTestEndpoint\x12\x32.chalk.server.v1.GetFeatureFlagTestEndpointRequest\x1a\x33.chalk.server.v1.GetFeatureFlagTestEndpointResponse"G\x90\x02\x01\x80}\x02\x92\xd3\x0e=\n\x0ctest_feature\x12-Test endpoint to verify feature flag checkingB\x99\x01\n\x13\x63om.chalk.server.v1B\x10\x41uthtestingProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -53,34 +54,44 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\220\002\001\200}\014"
     _globals["_AUTHTESTINGSERVICE"].methods_by_name["GetOwnerTestEndpoint"]._options = None
     _globals["_AUTHTESTINGSERVICE"].methods_by_name["GetOwnerTestEndpoint"]._serialized_options = b"\220\002\001\200}\n"
-    _globals["_GETUNAUTHEDTESTENDPOINTREQUEST"]._serialized_start = 87
-    _globals["_GETUNAUTHEDTESTENDPOINTREQUEST"]._serialized_end = 119
-    _globals["_GETAUTHEDTESTENDPOINTREQUEST"]._serialized_start = 121
-    _globals["_GETAUTHEDTESTENDPOINTREQUEST"]._serialized_end = 151
-    _globals["_GETVIEWERTESTENDPOINTREQUEST"]._serialized_start = 153
-    _globals["_GETVIEWERTESTENDPOINTREQUEST"]._serialized_end = 183
-    _globals["_GETDATASCIENTISTTESTENDPOINTREQUEST"]._serialized_start = 185
-    _globals["_GETDATASCIENTISTTESTENDPOINTREQUEST"]._serialized_end = 222
-    _globals["_GETDEVELOPERTESTENDPOINTREQUEST"]._serialized_start = 224
-    _globals["_GETDEVELOPERTESTENDPOINTREQUEST"]._serialized_end = 257
-    _globals["_GETADMINTESTENDPOINTREQUEST"]._serialized_start = 259
-    _globals["_GETADMINTESTENDPOINTREQUEST"]._serialized_end = 288
-    _globals["_GETOWNERTESTENDPOINTREQUEST"]._serialized_start = 290
-    _globals["_GETOWNERTESTENDPOINTREQUEST"]._serialized_end = 319
-    _globals["_GETUNAUTHEDTESTENDPOINTRESPONSE"]._serialized_start = 321
-    _globals["_GETUNAUTHEDTESTENDPOINTRESPONSE"]._serialized_end = 354
-    _globals["_GETAUTHEDTESTENDPOINTRESPONSE"]._serialized_start = 356
-    _globals["_GETAUTHEDTESTENDPOINTRESPONSE"]._serialized_end = 387
-    _globals["_GETVIEWERTESTENDPOINTRESPONSE"]._serialized_start = 389
-    _globals["_GETVIEWERTESTENDPOINTRESPONSE"]._serialized_end = 420
-    _globals["_GETDATASCIENTISTTESTENDPOINTRESPONSE"]._serialized_start = 422
-    _globals["_GETDATASCIENTISTTESTENDPOINTRESPONSE"]._serialized_end = 460
-    _globals["_GETDEVELOPERTESTENDPOINTRESPONSE"]._serialized_start = 462
-    _globals["_GETDEVELOPERTESTENDPOINTRESPONSE"]._serialized_end = 496
-    _globals["_GETADMINTESTENDPOINTRESPONSE"]._serialized_start = 498
-    _globals["_GETADMINTESTENDPOINTRESPONSE"]._serialized_end = 528
-    _globals["_GETOWNERTESTENDPOINTRESPONSE"]._serialized_start = 530
-    _globals["_GETOWNERTESTENDPOINTRESPONSE"]._serialized_end = 560
-    _globals["_AUTHTESTINGSERVICE"]._serialized_start = 563
-    _globals["_AUTHTESTINGSERVICE"]._serialized_end = 1512
+    _globals["_AUTHTESTINGSERVICE"].methods_by_name["GetFeatureFlagTestEndpoint"]._options = None
+    _globals["_AUTHTESTINGSERVICE"].methods_by_name[
+        "GetFeatureFlagTestEndpoint"
+    ]._serialized_options = (
+        b"\220\002\001\200}\002\222\323\016=\n\014test_feature\022-Test endpoint to verify feature flag checking"
+    )
+    _globals["_GETUNAUTHEDTESTENDPOINTREQUEST"]._serialized_start = 115
+    _globals["_GETUNAUTHEDTESTENDPOINTREQUEST"]._serialized_end = 147
+    _globals["_GETAUTHEDTESTENDPOINTREQUEST"]._serialized_start = 149
+    _globals["_GETAUTHEDTESTENDPOINTREQUEST"]._serialized_end = 179
+    _globals["_GETVIEWERTESTENDPOINTREQUEST"]._serialized_start = 181
+    _globals["_GETVIEWERTESTENDPOINTREQUEST"]._serialized_end = 211
+    _globals["_GETDATASCIENTISTTESTENDPOINTREQUEST"]._serialized_start = 213
+    _globals["_GETDATASCIENTISTTESTENDPOINTREQUEST"]._serialized_end = 250
+    _globals["_GETDEVELOPERTESTENDPOINTREQUEST"]._serialized_start = 252
+    _globals["_GETDEVELOPERTESTENDPOINTREQUEST"]._serialized_end = 285
+    _globals["_GETADMINTESTENDPOINTREQUEST"]._serialized_start = 287
+    _globals["_GETADMINTESTENDPOINTREQUEST"]._serialized_end = 316
+    _globals["_GETOWNERTESTENDPOINTREQUEST"]._serialized_start = 318
+    _globals["_GETOWNERTESTENDPOINTREQUEST"]._serialized_end = 347
+    _globals["_GETFEATUREFLAGTESTENDPOINTREQUEST"]._serialized_start = 349
+    _globals["_GETFEATUREFLAGTESTENDPOINTREQUEST"]._serialized_end = 384
+    _globals["_GETUNAUTHEDTESTENDPOINTRESPONSE"]._serialized_start = 386
+    _globals["_GETUNAUTHEDTESTENDPOINTRESPONSE"]._serialized_end = 419
+    _globals["_GETAUTHEDTESTENDPOINTRESPONSE"]._serialized_start = 421
+    _globals["_GETAUTHEDTESTENDPOINTRESPONSE"]._serialized_end = 452
+    _globals["_GETVIEWERTESTENDPOINTRESPONSE"]._serialized_start = 454
+    _globals["_GETVIEWERTESTENDPOINTRESPONSE"]._serialized_end = 485
+    _globals["_GETDATASCIENTISTTESTENDPOINTRESPONSE"]._serialized_start = 487
+    _globals["_GETDATASCIENTISTTESTENDPOINTRESPONSE"]._serialized_end = 525
+    _globals["_GETDEVELOPERTESTENDPOINTRESPONSE"]._serialized_start = 527
+    _globals["_GETDEVELOPERTESTENDPOINTRESPONSE"]._serialized_end = 561
+    _globals["_GETADMINTESTENDPOINTRESPONSE"]._serialized_start = 563
+    _globals["_GETADMINTESTENDPOINTRESPONSE"]._serialized_end = 593
+    _globals["_GETOWNERTESTENDPOINTRESPONSE"]._serialized_start = 595
+    _globals["_GETOWNERTESTENDPOINTRESPONSE"]._serialized_end = 625
+    _globals["_GETFEATUREFLAGTESTENDPOINTRESPONSE"]._serialized_start = 627
+    _globals["_GETFEATUREFLAGTESTENDPOINTRESPONSE"]._serialized_end = 689
+    _globals["_AUTHTESTINGSERVICE"]._serialized_start = 692
+    _globals["_AUTHTESTINGSERVICE"]._serialized_end = 1850
 # @@protoc_insertion_point(module_scope)

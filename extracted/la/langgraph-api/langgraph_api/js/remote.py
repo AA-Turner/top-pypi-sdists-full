@@ -153,9 +153,9 @@ class RemotePregel(BaseRemotePregel):
 
         async for event in _client_stream("streamEvents", data):
             if event["event"] == "on_custom_event":
-                yield CustomStreamEvent(**event)
+                yield CustomStreamEvent(**event)  # type: ignore[missing-typed-dict-key]
             else:
-                yield StandardStreamEvent(**event)
+                yield StandardStreamEvent(**event)  # type: ignore[missing-typed-dict-key]
 
     async def fetch_state_schema(self):
         return await _client_invoke("getSchema", {"graph_id": self.graph_id})
@@ -187,15 +187,17 @@ class RemotePregel(BaseRemotePregel):
                 )
                 for data in nodes
             },
-            {
-                Edge(
-                    data["source"],
-                    data["target"],
-                    data.get("data"),
-                    data.get("conditional", False),
-                )
-                for data in edges
-            },
+            list(
+                {
+                    Edge(
+                        data["source"],
+                        data["target"],
+                        data.get("data"),
+                        data.get("conditional", False),
+                    )
+                    for data in edges
+                }
+            ),
         )
 
     async def fetch_subgraphs(
@@ -861,6 +863,8 @@ class CustomJsAuthBackend(AuthenticationBackend):
             self.ls_auth = LangsmithAuthBackend()
         self.ttl_cache: LRUCache | None = None
         self.cache_keys: list[str] | None = None
+        if LANGGRAPH_AUTH is None:
+            raise ValueError("LANGGRAPH_AUTH is not set")
         if cache := LANGGRAPH_AUTH.get("cache"):
             keys = cache.get("cache_keys", [])
             if not isinstance(keys, list):

@@ -192,21 +192,42 @@ class ArchiveProjectResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class CreateEnvironmentRequest(_message.Message):
-    __slots__ = ("project_id", "name", "is_default", "source_bundle_bucket")
+    __slots__ = (
+        "project_id",
+        "name",
+        "is_default",
+        "source_bundle_bucket",
+        "kube_cluster_id",
+        "engine_docker_registry_path",
+        "environment_id_override",
+        "managed",
+    )
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     SOURCE_BUNDLE_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_DOCKER_REGISTRY_PATH_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    MANAGED_FIELD_NUMBER: _ClassVar[int]
     project_id: str
     name: str
     is_default: bool
     source_bundle_bucket: str
+    kube_cluster_id: str
+    engine_docker_registry_path: str
+    environment_id_override: str
+    managed: bool
     def __init__(
         self,
         project_id: _Optional[str] = ...,
         name: _Optional[str] = ...,
         is_default: bool = ...,
         source_bundle_bucket: _Optional[str] = ...,
+        kube_cluster_id: _Optional[str] = ...,
+        engine_docker_registry_path: _Optional[str] = ...,
+        environment_id_override: _Optional[str] = ...,
+        managed: bool = ...,
     ) -> None: ...
 
 class CreateEnvironmentResponse(_message.Message):
@@ -223,6 +244,11 @@ class UpdateEnvironmentOperation(_message.Message):
         "online_store_secret",
         "feature_store_secret",
         "is_default",
+        "service_url",
+        "worker_url",
+        "kube_job_namespace",
+        "kube_service_account_name",
+        "environment_buckets",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -238,12 +264,22 @@ class UpdateEnvironmentOperation(_message.Message):
     ONLINE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
     FEATURE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_URL_FIELD_NUMBER: _ClassVar[int]
+    WORKER_URL_FIELD_NUMBER: _ClassVar[int]
+    KUBE_JOB_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    KUBE_SERVICE_ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
     private_pip_repositories: str
     online_store_secret: str
     feature_store_secret: str
     is_default: bool
+    service_url: str
+    worker_url: str
+    kube_job_namespace: str
+    kube_service_account_name: str
+    environment_buckets: _environment_pb2.EnvironmentObjectStorageConfig
     def __init__(
         self,
         specs_config_json: _Optional[str] = ...,
@@ -252,6 +288,11 @@ class UpdateEnvironmentOperation(_message.Message):
         online_store_secret: _Optional[str] = ...,
         feature_store_secret: _Optional[str] = ...,
         is_default: bool = ...,
+        service_url: _Optional[str] = ...,
+        worker_url: _Optional[str] = ...,
+        kube_job_namespace: _Optional[str] = ...,
+        kube_service_account_name: _Optional[str] = ...,
+        environment_buckets: _Optional[_Union[_environment_pb2.EnvironmentObjectStorageConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):
@@ -270,6 +311,27 @@ class UpdateEnvironmentRequest(_message.Message):
     ) -> None: ...
 
 class UpdateEnvironmentResponse(_message.Message):
+    __slots__ = ("environment",)
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: _environment_pb2.Environment
+    def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
+
+class UpdateEnvironmentTeamRequest(_message.Message):
+    __slots__ = ("id", "update", "update_mask")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    update: UpdateEnvironmentOperation
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        update: _Optional[_Union[UpdateEnvironmentOperation, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateEnvironmentTeamResponse(_message.Message):
     __slots__ = ("environment",)
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     environment: _environment_pb2.Environment

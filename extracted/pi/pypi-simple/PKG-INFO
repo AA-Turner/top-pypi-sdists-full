@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypi-simple
-Version: 1.7.0
+Version: 1.8.0
 Summary: PyPI Simple Repository API client library
 Project-URL: Source Code, https://github.com/jwodder/pypi-simple
 Project-URL: Bug Tracker, https://github.com/jwodder/pypi-simple/issues

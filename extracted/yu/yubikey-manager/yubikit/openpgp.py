@@ -25,6 +25,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import abc
 import logging
 import os
@@ -34,10 +36,9 @@ from enum import Enum, IntEnum, IntFlag, unique
 from typing import (
     ClassVar,
     Mapping,
-    Optional,
     Sequence,
     SupportsBytes,
-    Union,
+    TypeAlias,
 )
 
 from cryptography import x509
@@ -58,6 +59,7 @@ from cryptography.hazmat.primitives.serialization import (
 from .core import (
     InvalidPinError,
     NotSupportedError,
+    Oid,
     Tlv,
     Version,
     _override_version,
@@ -264,7 +266,7 @@ class CardholderRelatedData:
     sex: int
 
     @classmethod
-    def parse(cls, encoded) -> "CardholderRelatedData":
+    def parse(cls, encoded) -> CardholderRelatedData:
         data = Tlv.parse_dict(Tlv.unpack(DO.CARDHOLDER_RELATED_DATA, encoded))
         return cls(
             data[DO.NAME],
@@ -279,7 +281,7 @@ class ExtendedLengthInfo:
     response_max_bytes: int
 
     @classmethod
-    def parse(cls, encoded) -> "ExtendedLengthInfo":
+    def parse(cls, encoded) -> ExtendedLengthInfo:
         data = Tlv.parse_list(encoded)
         return cls(
             bytes2int(Tlv.unpack(0x02, data[0])),
@@ -310,7 +312,7 @@ class ExtendedCapabilities:
     mse_command: bool
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "ExtendedCapabilities":
+    def parse(cls, encoded: bytes) -> ExtendedCapabilities:
         return cls(
             EXTENDED_CAPABILITY_FLAGS(encoded[0]),
             encoded[1],
@@ -339,7 +341,7 @@ class PwStatus:
         return getattr(self, f"attempts_{pw.name.lower()}")
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "PwStatus":
+    def parse(cls, encoded: bytes) -> PwStatus:
         try:
             policy = PIN_POLICY(encoded[0])
         except ValueError:
@@ -403,21 +405,16 @@ class KEY_STATUS(IntEnum):
 KeyInformation = Mapping[KEY_REF, KEY_STATUS]
 Fingerprints = Mapping[KEY_REF, bytes]
 GenerationTimes = Mapping[KEY_REF, int]
-EcPublicKey = Union[
-    ec.EllipticCurvePublicKey,
-    ed25519.Ed25519PublicKey,
-    x25519.X25519PublicKey,
-]
-PublicKey = Union[EcPublicKey, rsa.RSAPublicKey]
-EcPrivateKey = Union[
-    ec.EllipticCurvePrivateKeyWithSerialization,
-    ed25519.Ed25519PrivateKey,
-    x25519.X25519PrivateKey,
-]
-PrivateKey = Union[
-    rsa.RSAPrivateKeyWithSerialization,
-    EcPrivateKey,
-]
+EcPublicKey: TypeAlias = (
+    ec.EllipticCurvePublicKey | ed25519.Ed25519PublicKey | x25519.X25519PublicKey
+)
+PublicKey: TypeAlias = EcPublicKey | rsa.RSAPublicKey
+EcPrivateKey: TypeAlias = (
+    ec.EllipticCurvePrivateKeyWithSerialization
+    | ed25519.Ed25519PrivateKey
+    | x25519.X25519PrivateKey
+)
+PrivateKey: TypeAlias = rsa.RSAPrivateKeyWithSerialization | EcPrivateKey
 
 
 # mypy doesn't handle abstract dataclasses well
@@ -429,7 +426,7 @@ class AlgorithmAttributes(abc.ABC):
     algorithm_id: int
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "AlgorithmAttributes":
+    def parse(cls, encoded: bytes) -> AlgorithmAttributes:
         algorithm_id = encoded[0]
         for sub_cls in cls.__subclasses__():
             if algorithm_id in sub_cls._supported_ids:
@@ -442,7 +439,7 @@ class AlgorithmAttributes(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _parse_data(cls, alg: int, encoded: bytes) -> "AlgorithmAttributes":
+    def _parse_data(cls, alg: int, encoded: bytes) -> AlgorithmAttributes:
         raise NotImplementedError()
 
 
@@ -474,11 +471,11 @@ class RsaAttributes(AlgorithmAttributes):
         cls,
         n_len: RSA_SIZE,
         import_format: RSA_IMPORT_FORMAT = RSA_IMPORT_FORMAT.STANDARD,
-    ) -> "RsaAttributes":
+    ) -> RsaAttributes:
         return cls(0x01, n_len, 17, import_format)
 
     @classmethod
-    def _parse_data(cls, alg, encoded) -> "RsaAttributes":
+    def _parse_data(cls, alg, encoded) -> RsaAttributes:
         n, e, f = struct.unpack(">HHB", encoded)
         return cls(alg, n, e, RSA_IMPORT_FORMAT(f))
 
@@ -488,7 +485,7 @@ class RsaAttributes(AlgorithmAttributes):
         )
 
 
-class CurveOid(bytes):
+class CurveOid(Oid):
     def _get_name(self) -> str:
         for oid in OID:
             if self.startswith(oid):
@@ -499,24 +496,22 @@ class CurveOid(bytes):
         return self._get_name()
 
     def __repr__(self) -> str:
-        name = self._get_name()
-        return f"{name}({self.hex()})"
+        return f"{self._get_name()}({self.dotted_string})"
 
 
 class OID(CurveOid, Enum):
-    SECP256R1 = CurveOid(b"\x2a\x86\x48\xce\x3d\x03\x01\x07")
-    SECP256K1 = CurveOid(b"\x2b\x81\x04\x00\x0a")
-    SECP384R1 = CurveOid(b"\x2b\x81\x04\x00\x22")
-    SECP521R1 = CurveOid(b"\x2b\x81\x04\x00\x23")
-    BrainpoolP256R1 = CurveOid(b"\x2b\x24\x03\x03\x02\x08\x01\x01\x07")
-    BrainpoolP384R1 = CurveOid(b"\x2b\x24\x03\x03\x02\x08\x01\x01\x0b")
-    BrainpoolP512R1 = CurveOid(b"\x2b\x24\x03\x03\x02\x08\x01\x01\x0d")
-    X25519 = CurveOid(b"\x2b\x06\x01\x04\x01\x97\x55\x01\x05\x01")
-    Ed25519 = CurveOid(b"\x2b\x06\x01\x04\x01\xda\x47\x0f\x01")
+    SECP256R1 = CurveOid.from_string("1.2.840.10045.3.1.7")
+    SECP256K1 = CurveOid.from_string("1.3.132.0.10")
+    SECP384R1 = CurveOid.from_string("1.3.132.0.34")
+    SECP521R1 = CurveOid.from_string("1.3.132.0.35")
+    BrainpoolP256R1 = CurveOid.from_string("1.3.36.3.3.2.8.1.1.7")
+    BrainpoolP384R1 = CurveOid.from_string("1.3.36.3.3.2.8.1.1.11")
+    BrainpoolP512R1 = CurveOid.from_string("1.3.36.3.3.2.8.1.1.13")
+    X25519 = CurveOid.from_string("1.3.6.1.4.1.3029.1.5.1")
+    Ed25519 = CurveOid.from_string("1.3.6.1.4.1.11591.15.1")
 
     @classmethod
     def _from_key(cls, private_key: EcPrivateKey) -> CurveOid:
-        name = ""
         if isinstance(private_key, ec.EllipticCurvePrivateKey):
             name = private_key.curve.name.lower()
         else:
@@ -550,7 +545,7 @@ class EcAttributes(AlgorithmAttributes):
     import_format: EC_IMPORT_FORMAT
 
     @classmethod
-    def create(cls, key_ref: KEY_REF, oid: CurveOid) -> "EcAttributes":
+    def create(cls, key_ref: KEY_REF, oid: CurveOid) -> EcAttributes:
         if oid == OID.Ed25519:
             alg = 0x16  # EdDSA
         elif key_ref == KEY_REF.DEC:
@@ -560,7 +555,7 @@ class EcAttributes(AlgorithmAttributes):
         return cls(alg, oid, EC_IMPORT_FORMAT.STANDARD)
 
     @classmethod
-    def _parse_data(cls, alg, encoded) -> "EcAttributes":
+    def _parse_data(cls, alg, encoded) -> EcAttributes:
         if encoded[-1] == 0xFF:
             f = EC_IMPORT_FORMAT.STANDARD_W_PUBKEY
             oid = encoded[:-1]
@@ -605,19 +600,19 @@ class DiscretionaryDataObjects:
     attributes_sig: AlgorithmAttributes
     attributes_dec: AlgorithmAttributes
     attributes_aut: AlgorithmAttributes
-    attributes_att: Optional[AlgorithmAttributes]
+    attributes_att: AlgorithmAttributes | None
     pw_status: PwStatus
     fingerprints: Fingerprints
     ca_fingerprints: Fingerprints
     generation_times: GenerationTimes
     key_information: KeyInformation
-    uif_sig: Optional[UIF]
-    uif_dec: Optional[UIF]
-    uif_aut: Optional[UIF]
-    uif_att: Optional[UIF]
+    uif_sig: UIF | None
+    uif_dec: UIF | None
+    uif_aut: UIF | None
+    uif_att: UIF | None
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "DiscretionaryDataObjects":
+    def parse(cls, encoded: bytes) -> DiscretionaryDataObjects:
         data = Tlv.parse_dict(encoded)
         return cls(
             ExtendedCapabilities.parse(data[TAG_EXTENDED_CAPABILITIES]),
@@ -643,7 +638,7 @@ class DiscretionaryDataObjects:
     def get_algorithm_attributes(self, key_ref: KEY_REF) -> AlgorithmAttributes:
         return getattr(self, f"attributes_{key_ref.name.lower()}")
 
-    def get_uif(self, key_ref: KEY_REF) -> Optional[UIF]:
+    def get_uif(self, key_ref: KEY_REF) -> UIF | None:
         return getattr(self, f"uif_{key_ref.name.lower()}")
 
 
@@ -653,12 +648,12 @@ class ApplicationRelatedData:
 
     aid: OpenPgpAid
     historical: bytes
-    extended_length_info: Optional[ExtendedLengthInfo]
-    general_feature_management: Optional[GENERAL_FEATURE_MANAGEMENT]
+    extended_length_info: ExtendedLengthInfo | None
+    general_feature_management: GENERAL_FEATURE_MANAGEMENT | None
     discretionary: DiscretionaryDataObjects
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "ApplicationRelatedData":
+    def parse(cls, encoded: bytes) -> ApplicationRelatedData:
         outer = Tlv.unpack(DO.APPLICATION_RELATED_DATA, encoded)
         data = Tlv.parse_dict(outer)
         return cls(
@@ -686,7 +681,7 @@ class SecuritySupportTemplate:
     signature_counter: int
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "SecuritySupportTemplate":
+    def parse(cls, encoded: bytes) -> SecuritySupportTemplate:
         data = Tlv.parse_dict(Tlv.unpack(DO.SECURITY_SUPPORT_TEMPLATE, encoded))
         return cls(bytes2int(data[TAG_SIGNATURE_COUNTER]))
 
@@ -702,11 +697,11 @@ class Kdf(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _parse_data(cls, data: Mapping[int, bytes]) -> "Kdf":
+    def _parse_data(cls, data: Mapping[int, bytes]) -> Kdf:
         raise NotImplementedError()
 
     @classmethod
-    def parse(cls, encoded: bytes) -> "Kdf":
+    def parse(cls, encoded: bytes) -> Kdf:
         data = Tlv.parse_dict(encoded)
         try:
             algorithm = bytes2int(data[0x81])
@@ -727,7 +722,7 @@ class KdfNone(Kdf):
     algorithm = 0
 
     @classmethod
-    def _parse_data(cls, data) -> "KdfNone":
+    def _parse_data(cls, data) -> KdfNone:
         return cls()
 
     def process(self, pw, pin):
@@ -754,10 +749,10 @@ class KdfIterSaltedS2k(Kdf):
     hash_algorithm: HASH_ALGORITHM
     iteration_count: int
     salt_user: bytes
-    salt_reset: Optional[bytes]
-    salt_admin: Optional[bytes]
-    initial_hash_user: Optional[bytes]
-    initial_hash_admin: Optional[bytes]
+    salt_reset: bytes | None
+    salt_admin: bytes | None
+    initial_hash_user: bytes | None
+    initial_hash_admin: bytes | None
 
     @staticmethod
     def _do_process(hash_algorithm, iteration_count, data):
@@ -776,7 +771,7 @@ class KdfIterSaltedS2k(Kdf):
         cls,
         hash_algorithm: HASH_ALGORITHM = HASH_ALGORITHM.SHA256,
         iteration_count: int = 0x780000,
-    ) -> "KdfIterSaltedS2k":
+    ) -> KdfIterSaltedS2k:
         salt_user = os.urandom(8)
         salt_admin = os.urandom(8)
         return cls(
@@ -794,7 +789,7 @@ class KdfIterSaltedS2k(Kdf):
         )
 
     @classmethod
-    def _parse_data(cls, data) -> "KdfIterSaltedS2k":
+    def _parse_data(cls, data) -> KdfIterSaltedS2k:
         return cls(
             HASH_ALGORITHM(bytes2int(data[0x82])),
             bytes2int(data[0x83]),
@@ -878,7 +873,7 @@ class RsaCrtKeyTemplate(RsaKeyTemplate):
 @dataclass
 class EcKeyTemplate(PrivateKeyTemplate):
     private_key: bytes
-    public_key: Optional[bytes]
+    public_key: bytes | None
 
     def _get_template(self):
         tlvs = [Tlv(0x92, self.private_key)]
@@ -998,7 +993,7 @@ class OpenPgpSession:
     def __init__(
         self,
         connection: SmartCardConnection,
-        scp_key_params: Optional[ScpKeyParams] = None,
+        scp_key_params: ScpKeyParams | None = None,
     ):
         self.protocol = SmartCardProtocol(connection)
         try:
@@ -1075,7 +1070,7 @@ class OpenPgpSession:
         logger.debug(f"Reading Data Object {do.name} ({do:X})")
         return self.protocol.send_apdu(0, INS.GET_DATA, do >> 8, do & 0xFF)
 
-    def put_data(self, do: DO, data: Union[bytes, SupportsBytes]) -> None:
+    def put_data(self, do: DO, data: bytes | SupportsBytes) -> None:
         """Write a Data Object to the YubiKey.
 
         :param do: The Data Object to write to.
@@ -1307,7 +1302,7 @@ class OpenPgpSession:
         self.put_data(DO.RESETTING_CODE, data)
         logger.info("New Reset Code has been set")
 
-    def reset_pin(self, new_pin: str, reset_code: Optional[str] = None) -> None:
+    def reset_pin(self, new_pin: str, reset_code: str | None = None) -> None:
         """Reset the User PIN to a new value.
 
         This command requires Admin PIN verification, or the Reset Code.
@@ -1735,7 +1730,7 @@ class OpenPgpSession:
             )
         return response
 
-    def decrypt(self, value: Union[bytes, EcPublicKey]) -> bytes:
+    def decrypt(self, value: bytes | EcPublicKey) -> bytes:
         """Decrypt a value using the DEC key.
 
         For RSA the `value` should be an encrypted block.

@@ -22,6 +22,7 @@ class PaymentMethodType:
     * yookassa.domain.common.PaymentMethodType.SBP
     * yookassa.domain.common.PaymentMethodType.SBER_LOAN
     * yookassa.domain.common.PaymentMethodType.ELECTRONIC_CERTIFICATE
+    * yookassa.domain.common.PaymentMethodType.SBER_BNPL
     * yookassa.domain.common.PaymentMethodType.UNKNOWN
     """  # noqa: E501
 
@@ -64,5 +65,7 @@ class PaymentMethodType:
     """Прием оплаты с использованием Кредита от СберБанка"""
     ELECTRONIC_CERTIFICATE = 'electronic_certificate'
     """Прием платежей по электронному сертификату, привязанному к карте «Мир»"""
+    SBER_BNPL = 'sber_bnpl'
+    """Прием платежей через сервис «Плати частями»"""
     UNKNOWN = 'unknown'
     """Для неизвестных методов оплаты"""

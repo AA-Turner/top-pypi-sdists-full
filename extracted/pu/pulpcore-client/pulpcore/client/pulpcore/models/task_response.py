@@ -56,7 +56,8 @@ class TaskResponse(BaseModel):
     progress_reports: Optional[List[ProgressReportResponse]] = None
     created_resources: Optional[List[StrictStr]] = Field(default=None, description="Resources created by this task.")
     reserved_resources_record: Optional[List[StrictStr]] = Field(default=None, description="A list of resources required by that task.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "state", "name", "logging_cid", "created_by", "unblocked_at", "started_at", "finished_at", "error", "worker", "parent_task", "child_tasks", "task_group", "progress_reports", "created_resources", "reserved_resources_record"]
+    result: Optional[Any] = None
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "state", "name", "logging_cid", "created_by", "unblocked_at", "started_at", "finished_at", "error", "worker", "parent_task", "child_tasks", "task_group", "progress_reports", "created_resources", "reserved_resources_record", "result"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -130,6 +131,11 @@ class TaskResponse(BaseModel):
                 if _item_progress_reports:
                     _items.append(_item_progress_reports.to_dict())
             _dict['progress_reports'] = _items
+        # set to None if result (nullable) is None
+        # and model_fields_set contains the field
+        if self.result is None and "result" in self.model_fields_set:
+            _dict['result'] = None
+
         return _dict
 
     @classmethod
@@ -160,7 +166,8 @@ class TaskResponse(BaseModel):
             "task_group": obj.get("task_group"),
             "progress_reports": [ProgressReportResponse.from_dict(_item) for _item in obj["progress_reports"]] if obj.get("progress_reports") is not None else None,
             "created_resources": obj.get("created_resources"),
-            "reserved_resources_record": obj.get("reserved_resources_record")
+            "reserved_resources_record": obj.get("reserved_resources_record"),
+            "result": obj.get("result")
         })
         return _obj
 

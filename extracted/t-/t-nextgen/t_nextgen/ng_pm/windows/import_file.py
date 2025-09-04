@@ -411,35 +411,52 @@ class ImportFileWindow(NextGenWindow):
             ).exists(timeout=3, retry_interval=0.001)
         return False
 
+    @retry(tries=4, delay=2)
     def click_columns_button(self) -> None:
         """Click on the Columns button in the Import Window."""
         self.logger.debug("Clicking on Columns button in Import Window.")
-        with contextlib.suppress(_ctypes.COMError):
-            self.enhanced_report_mode_window.child_window(title="Columns", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(title="Columns", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(auto_id="FilterText", control_type="Edit").wait(
+            "ready", timeout=2, retry_interval=0.001
+        )
 
+    @retry(tries=4, delay=2)
     def click_totals_button(self) -> None:
         """Click on the Totals button in the Import Window."""
         self.logger.debug("Clicking on Totals button in Import Window.")
-        with contextlib.suppress(_ctypes.COMError):
-            self.enhanced_report_mode_window.child_window(title="Totals", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(title="Totals", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(auto_id="Totals", control_type="Custom").wait(
+            "ready", timeout=2, retry_interval=0.001
+        )
 
+    @retry(tries=4, delay=2)
     def click_options_button(self) -> None:
         """Click on the Options button in the Import Window."""
         self.logger.debug("Clicking on Options button in Import Window.")
-        with contextlib.suppress(_ctypes.COMError):
-            self.enhanced_report_mode_window.child_window(title="Options", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(title="Options", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(title="Column Text Wrapping", control_type="CheckBox").wait(
+            "ready", timeout=2, retry_interval=0.001
+        )
 
+    @retry(tries=4, delay=2)
     def click_header_footer_button(self) -> None:
         """Click on the Header/Footer button in the Import Window."""
         self.logger.debug("Clicking on Header/Footer button in Import Window.")
-        with contextlib.suppress(_ctypes.COMError):
-            self.enhanced_report_mode_window.child_window(title="Header/Footer", control_type="Button").click_input()
+        header_button = self.enhanced_report_mode_window.child_window(title="Header/Footer", control_type="Button")
+        header_button.wait("ready", timeout=10, retry_interval=0.001)
+        header_button.click_input()
+        self.enhanced_report_mode_window.child_window(title="Header Options", control_type="Group").wait(
+            "ready", timeout=10, retry_interval=0.001
+        )
 
+    @retry(tries=4, delay=2)
     def click_sorting_button(self) -> None:
         """Click on the Sorting button in the Import Window."""
         self.logger.debug("Clicking on Sorting button in Import Window.")
-        with contextlib.suppress(_ctypes.COMError):
-            self.enhanced_report_mode_window.child_window(title="Sorting", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(title="Sorting", control_type="Button").click_input()
+        self.enhanced_report_mode_window.child_window(auto_id="Sorting", control_type="Custom").wait(
+            "exists", timeout=2
+        )
 
     def uncheck_all_group_by_checkboxes(self, max_iterations: int = 10) -> None:
         """Uncheck all checkboxes in the Group By Window.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tablestore
-Version: 6.3.1
+Version: 6.3.2
 Summary: Aliyun TableStore(OTS) SDK
 License: Apache-2.0
 Author: xunjian.sl
@@ -20,7 +20,7 @@ Requires-Dist: crc32c (>=2.7.1)
 Requires-Dist: flatbuffers (>=22.9.24)
 Requires-Dist: future (>=0.16.0)
 Requires-Dist: numpy (>=1.11.0)
-Requires-Dist: protobuf (>=3.20.0,<=5.27.4)
+Requires-Dist: protobuf (>=3.20.0,<6.0.0)
 Requires-Dist: six (>=1.11.0)
 Requires-Dist: urllib3 (>=1.14)
 Project-URL: Homepage, https://www.aliyun.com/product/ots

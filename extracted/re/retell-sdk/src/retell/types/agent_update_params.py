@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import List, Union, Iterable, Optional
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 
 __all__ = [
     "AgentUpdateParams",
+    "PiiConfig",
     "PostCallAnalysisData",
     "PostCallAnalysisDataStringAnalysisData",
     "PostCallAnalysisDataEnumAnalysisData",
@@ -86,7 +88,7 @@ class AgentUpdateParams(TypedDict, total=False):
     apply.
     """
 
-    backchannel_words: Optional[List[str]]
+    backchannel_words: Optional[SequenceNotStr[str]]
     """Only applicable when enable_backchannel is true.
 
     A list of words that the agent would use as backchannel. If not set, default
@@ -104,11 +106,24 @@ class AgentUpdateParams(TypedDict, total=False):
     when agent speaks first.
     """
 
-    boosted_keywords: Optional[List[str]]
+    boosted_keywords: Optional[SequenceNotStr[str]]
     """
     Provide a customized list of keywords to bias the transcriber model, so that
     these words are more likely to get transcribed. Commonly used for names, brands,
     street, etc.
+    """
+
+    data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
+    """
+    Granular setting to manage how Retell stores sensitive data (transcripts,
+    recordings, logs, etc.). This replaces the deprecated
+    `opt_out_sensitive_data_storage` field.
+
+    - `everything`: Store all data including transcripts, recordings, and logs.
+    - `everything_except_pii`: Store data without PII when PII is detected.
+    - `basic_attributes_only`: Store only basic attributes; no
+      transcripts/recordings/logs. If not set, default value of "everything" will
+      apply.
     """
 
     denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"]
@@ -129,7 +144,7 @@ class AgentUpdateParams(TypedDict, total=False):
     (10 min).
     """
 
-    fallback_voice_ids: Optional[List[str]]
+    fallback_voice_ids: Optional[SequenceNotStr[str]]
     """
     When TTS provider for the selected voice is experiencing outages, we would use
     fallback voices listed here for the agent. Voice id and the fallback voice ids
@@ -217,12 +232,8 @@ class AgentUpdateParams(TypedDict, total=False):
     access and automatically expire after 24 hours.
     """
 
-    opt_out_sensitive_data_storage: bool
-    """
-    Whether this agent opts out of sensitive data storage like transcript,
-    recording, logging, inbound/outbound phone numbers, etc. These data can still be
-    accessed securely via webhooks. If not set, default value of false will apply.
-    """
+    pii_config: PiiConfig
+    """Configuration for PII scrubbing from transcripts and recordings."""
 
     post_call_analysis_data: Optional[Iterable[PostCallAnalysisData]]
     """Post call analysis data to extract from the call.
@@ -231,11 +242,24 @@ class AgentUpdateParams(TypedDict, total=False):
     This will be available after the call ends.
     """
 
-    post_call_analysis_model: Literal["gpt-4o-mini", "gpt-4o"]
-    """The model to use for post call analysis.
-
-    Currently only supports gpt-4o-mini and gpt-4o. Default to gpt-4o-mini.
-    """
+    post_call_analysis_model: Literal[
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "claude-4.0-sonnet",
+        "claude-3.7-sonnet",
+        "claude-3.5-haiku",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+    ]
+    """The model to use for post call analysis. Default to gpt-4o-mini."""
 
     pronunciation_dictionary: Optional[Iterable[PronunciationDictionary]]
     """
@@ -362,6 +386,32 @@ class AgentUpdateParams(TypedDict, total=False):
     """
 
 
+class PiiConfig(TypedDict, total=False):
+    categories: Required[
+        List[
+            Literal[
+                "person_name",
+                "address",
+                "email",
+                "phone_number",
+                "ssn",
+                "passport",
+                "driver_license",
+                "credit_card",
+                "bank_account",
+                "password",
+                "pin",
+                "medical_id",
+                "date_of_birth",
+            ]
+        ]
+    ]
+    """List of PII categories to scrub from transcripts and recordings."""
+
+    mode: Required[Literal["post_call"]]
+    """The processing mode for PII scrubbing. Currently only post-call is supported."""
+
+
 class PostCallAnalysisDataStringAnalysisData(TypedDict, total=False):
     description: Required[str]
     """Description of the variable."""
@@ -372,12 +422,12 @@ class PostCallAnalysisDataStringAnalysisData(TypedDict, total=False):
     type: Required[Literal["string"]]
     """Type of the variable to extract."""
 
-    examples: List[str]
+    examples: SequenceNotStr[str]
     """Examples of the variable value to teach model the style and syntax."""
 
 
 class PostCallAnalysisDataEnumAnalysisData(TypedDict, total=False):
-    choices: Required[List[str]]
+    choices: Required[SequenceNotStr[str]]
     """The possible values of the variable, must be non empty array."""
 
     description: Required[str]

@@ -30,11 +30,9 @@ import re
 import struct
 import sys
 from binascii import a2b_hex
-from typing import Optional
 
 import click
 
-from yubikit.core import TRANSPORT
 from yubikit.core.smartcard import (
     AID,
     SW,
@@ -65,7 +63,7 @@ def _hex(data: bytes) -> str:
 
 def _parse_apdu(
     data: str,
-) -> tuple[tuple[int, int, int, int, bytes, int], Optional[int]]:
+) -> tuple[tuple[int, int, int, int, bytes, int], int | None]:
     m = APDU_PATTERN.match(data)
     if not m:
         raise ValueError("Invalid APDU format: " + data)
@@ -75,7 +73,7 @@ def _parse_apdu(
     body = a2b_hex(m.group("body") or "")
     le = int(m.group("le") or "00", 16)
     if m.group("check"):
-        sw: Optional[int] = int(m.group("sw") or "9000", 16)
+        sw: int | None = int(m.group("sw") or "9000", 16)
     else:
         sw = None
     p1, p2 = params >> 8, params & 0xFF
@@ -142,12 +140,11 @@ def apdu(ctx, no_pretty, app, short, apdu, send_apdu):
       Get 8 random bytes from the OpenPGP application:
       $ ykman apdu -a openpgp 84/08=
     """
+    if not send_apdu and not apdu and not app:
+        ctx.fail("No commands provided.")
     if apdu and send_apdu:
         ctx.fail("Cannot mix positional APDUs and -s/--send-apdu.")
-    elif not send_apdu:
-        apdus = [_parse_apdu(data) for data in apdu]
-        if not apdus and not app:
-            ctx.fail("No commands provided.")
+    apdus = [_parse_apdu(data) for data in apdu]
 
     dev = ctx.obj["device"]
 

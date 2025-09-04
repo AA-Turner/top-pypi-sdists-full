@@ -29,6 +29,7 @@ class Monomer:
     _monomer_type: Union[Unset, MonomerType] = UNSET
     _name: Union[Unset, str] = UNSET
     _natural_analog: Union[Unset, str] = UNSET
+    _original_smiles: Union[Unset, None, str] = UNSET
     _polymer_type: Union[Unset, MonomerPolymerType] = UNSET
     _symbol: Union[Unset, str] = UNSET
     _visual_color: Union[Unset, None, str] = UNSET
@@ -48,6 +49,7 @@ class Monomer:
         fields.append("monomer_type={}".format(repr(self._monomer_type)))
         fields.append("name={}".format(repr(self._name)))
         fields.append("natural_analog={}".format(repr(self._natural_analog)))
+        fields.append("original_smiles={}".format(repr(self._original_smiles)))
         fields.append("polymer_type={}".format(repr(self._polymer_type)))
         fields.append("symbol={}".format(repr(self._symbol)))
         fields.append("visual_color={}".format(repr(self._visual_color)))
@@ -82,6 +84,7 @@ class Monomer:
 
         name = self._name
         natural_analog = self._natural_analog
+        original_smiles = self._original_smiles
         polymer_type: Union[Unset, int] = UNSET
         if not isinstance(self._polymer_type, Unset):
             polymer_type = self._polymer_type.value
@@ -117,6 +120,8 @@ class Monomer:
             field_dict["name"] = name
         if natural_analog is not UNSET:
             field_dict["naturalAnalog"] = natural_analog
+        if original_smiles is not UNSET:
+            field_dict["originalSmiles"] = original_smiles
         if polymer_type is not UNSET:
             field_dict["polymerType"] = polymer_type
         if symbol is not UNSET:
@@ -274,6 +279,17 @@ class Monomer:
                 raise
             natural_analog = cast(Union[Unset, str], UNSET)
 
+        def get_original_smiles() -> Union[Unset, None, str]:
+            original_smiles = d.pop("originalSmiles")
+            return original_smiles
+
+        try:
+            original_smiles = get_original_smiles()
+        except KeyError:
+            if strict:
+                raise
+            original_smiles = cast(Union[Unset, None, str], UNSET)
+
         def get_polymer_type() -> Union[Unset, MonomerPolymerType]:
             polymer_type = UNSET
             _polymer_type = d.pop("polymerType")
@@ -344,6 +360,7 @@ class Monomer:
             monomer_type=monomer_type,
             name=name,
             natural_analog=natural_analog,
+            original_smiles=original_smiles,
             polymer_type=polymer_type,
             symbol=symbol,
             visual_color=visual_color,
@@ -535,6 +552,21 @@ class Monomer:
     @natural_analog.deleter
     def natural_analog(self) -> None:
         self._natural_analog = UNSET
+
+    @property
+    def original_smiles(self) -> Optional[str]:
+        """ The original chemical structure supplied by the user in SMILES format. Null if the user did not originally supply SMILES. """
+        if isinstance(self._original_smiles, Unset):
+            raise NotPresentError(self, "original_smiles")
+        return self._original_smiles
+
+    @original_smiles.setter
+    def original_smiles(self, value: Optional[str]) -> None:
+        self._original_smiles = value
+
+    @original_smiles.deleter
+    def original_smiles(self) -> None:
+        self._original_smiles = UNSET
 
     @property
     def polymer_type(self) -> MonomerPolymerType:

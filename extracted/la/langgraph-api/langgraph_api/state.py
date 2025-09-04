@@ -27,7 +27,7 @@ def runnable_config_to_checkpoint(
         return None
 
     configurable = config["configurable"]
-    checkpoint: Checkpoint = {
+    checkpoint: Checkpoint = {  # type: ignore[typed-dict-item]
         "checkpoint_id": configurable["checkpoint_id"],
         "thread_id": configurable["thread_id"],
     }

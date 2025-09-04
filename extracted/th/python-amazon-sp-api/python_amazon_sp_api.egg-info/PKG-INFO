@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-sp-api
-Version: 1.9.47
+Version: 1.9.48
 Summary: Python wrapper for the Amazon Selling-Partner API
 Home-page: https://github.com/saleweaver/python-amazon-sp-api
 Author: Michael

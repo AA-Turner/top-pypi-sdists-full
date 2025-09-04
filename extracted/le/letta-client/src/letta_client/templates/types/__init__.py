@@ -2,11 +2,17 @@
 
 # isort: skip_file
 
+from .templates_create_template_request import TemplatesCreateTemplateRequest
+from .templates_create_template_request_agent_file import TemplatesCreateTemplateRequestAgentFile
+from .templates_create_template_request_agent_id import TemplatesCreateTemplateRequestAgentId
 from .templates_create_template_response import TemplatesCreateTemplateResponse
 from .templates_delete_template_response import TemplatesDeleteTemplateResponse
 from .templates_fork_template_response import TemplatesForkTemplateResponse
 from .templates_get_template_snapshot_response import TemplatesGetTemplateSnapshotResponse
 from .templates_get_template_snapshot_response_agents_item import TemplatesGetTemplateSnapshotResponseAgentsItem
+from .templates_get_template_snapshot_response_agents_item_agent_type import (
+    TemplatesGetTemplateSnapshotResponseAgentsItemAgentType,
+)
 from .templates_get_template_snapshot_response_agents_item_memory_variables import (
     TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariables,
 )
@@ -62,13 +68,18 @@ from .templates_list_template_versions_response import TemplatesListTemplateVers
 from .templates_list_template_versions_response_versions_item import TemplatesListTemplateVersionsResponseVersionsItem
 from .templates_rename_template_response import TemplatesRenameTemplateResponse
 from .templates_save_template_version_response import TemplatesSaveTemplateVersionResponse
+from .templates_update_template_description_response import TemplatesUpdateTemplateDescriptionResponse
 
 __all__ = [
+    "TemplatesCreateTemplateRequest",
+    "TemplatesCreateTemplateRequestAgentFile",
+    "TemplatesCreateTemplateRequestAgentId",
     "TemplatesCreateTemplateResponse",
     "TemplatesDeleteTemplateResponse",
     "TemplatesForkTemplateResponse",
     "TemplatesGetTemplateSnapshotResponse",
     "TemplatesGetTemplateSnapshotResponseAgentsItem",
+    "TemplatesGetTemplateSnapshotResponseAgentsItemAgentType",
     "TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariables",
     "TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariablesDataItem",
     "TemplatesGetTemplateSnapshotResponseAgentsItemProperties",
@@ -94,4 +105,5 @@ __all__ = [
     "TemplatesListTemplateVersionsResponseVersionsItem",
     "TemplatesRenameTemplateResponse",
     "TemplatesSaveTemplateVersionResponse",
+    "TemplatesUpdateTemplateDescriptionResponse",
 ]

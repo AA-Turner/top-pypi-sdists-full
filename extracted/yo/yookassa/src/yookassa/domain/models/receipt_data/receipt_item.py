@@ -11,7 +11,7 @@ from yookassa.domain.models.receipt_data.mark_quantity import MarkQuantity
 
 class ReceiptItem(BaseObject):
     """
-    Информация о товарной позиции в заказе (для формирования чека).
+    Информация о товарной позиции в заказе. Используется для формирования чека.
     """  # noqa: E501
 
     __description = None

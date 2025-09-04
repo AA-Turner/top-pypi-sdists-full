@@ -11,22 +11,22 @@ authors = [
     {name = "Mauricio Villegas", email = "mauricio@omnius.com"},
 ]
 readme = "README.rst"
-license = {file = "LICENSE.rst"}
-requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE.rst"]
+requires-python = ">=3.9"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
@@ -44,7 +44,7 @@ all = [
     "jsonargparse[toml]",
     "jsonargparse[urls]",
     "jsonargparse[fsspec]",
-    "jsonargparse[ruyaml]",
+    "jsonargparse[ruamel]",
     "jsonargparse[omegaconf]",
     "jsonargparse[typing-extensions]",
     "jsonargparse[reconplogger]",
@@ -52,8 +52,7 @@ all = [
 signatures = [
     "jsonargparse[typing-extensions]",
     "docstring-parser>=0.17",
-    "typeshed-client>=2.3.0; python_version == '3.8'",
-    "typeshed-client>=2.8.2; python_version >= '3.9'",
+    "typeshed-client>=2.8.2",
 ]
 jsonschema = [
     "jsonschema>=3.2.0",
@@ -76,8 +75,11 @@ shtab = [
 argcomplete = [
     "argcomplete>=3.5.1",
 ]
+ruamel = [
+    "ruamel.yaml>=0.18.15",
+]
 ruyaml = [
-    "ruyaml>=0.20.0",
+    "jsonargparse[ruamel]",
 ]
 omegaconf = [
     "omegaconf>=2.1.1",
@@ -95,7 +97,7 @@ test = [
     "types-PyYAML>=6.0.11",
     "types-requests>=2.28.9",
     "responses>=0.12.0",
-    "pydantic>=2.3.0",
+    "pydantic>=2.3.0; python_version < '3.14'",  # restricted until pydantic installs correctly in 3.14
     "attrs>=22.2.0",
 ]
 test-no-urls = [
@@ -191,7 +193,7 @@ Villegas = "Villegas"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{38,39,310,311,312,313}-{all,no}-extras,omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
+envlist = py{39,310,311,312,313,314}-{all,no}-extras,omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
 skip_missing_interpreters = true
 
 [testenv]
@@ -236,7 +238,7 @@ commands =
 [testenv:without-pyyaml]
 extras = test,coverage,all
 commands =
-    pip uninstall -y argcomplete omegaconf pyyaml reconplogger responses ruyaml types-PyYAML
+    pip uninstall -y argcomplete omegaconf pyyaml reconplogger responses ruamel.yaml ruamel.yaml.clib types-PyYAML
     python -m pytest {posargs}
 
 [testenv:without-future-annotations]

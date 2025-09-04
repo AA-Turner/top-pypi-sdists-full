@@ -42,6 +42,7 @@ from .literals import (
     GeoRestrictionTypeType,
     HttpVersionType,
     ICPRecordalStatusType,
+    IpAddressTypeType,
     ItemSelectionType,
     ManagedCertificateStatusType,
     MethodType,
@@ -2118,6 +2119,7 @@ class CustomOriginConfigOutputTypeDef(TypedDict):
     OriginSslProtocols: NotRequired[OriginSslProtocolsOutputTypeDef]
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 
 class VpcOriginEndpointConfigOutputTypeDef(TypedDict):
@@ -2916,6 +2918,7 @@ class CustomOriginConfigTypeDef(TypedDict):
     OriginSslProtocols: NotRequired[OriginSslProtocolsUnionTypeDef]
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 
 VpcOriginEndpointConfigUnionTypeDef = Union[

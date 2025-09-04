@@ -12,13 +12,16 @@ class PaymentDataSberLoan(ResponsePaymentData):
     """  # noqa: E501
 
     __loan_option = None
-    """Тариф кредита, который пользователь выбрал при оплате. 
-    Возможные значения:  
-    `loan` — кредит; 
+    """Тариф кредита, который пользователь выбрал при оплате.
+    Возможные значения:
+    `loan` — кредит;
     `installments_XX` — рассрочка, где ~`XX` — количество месяцев для выплаты рассрочки. Например, ~`installments_3` — рассрочка на 3 месяца.  Присутствует для платежей в статусе ~`waiting_for_capture` и ~`succeeded`. """  # noqa: E501
 
     __discount_amount = None
     """Сумма скидки для рассрочки."""  # noqa: E501
+
+    __suspended_until = None
+    """Время, когда заканчивается [период охлаждения](/docs/support/payments/credit-purchases-by-sberbank-with-cooling-off) кредита или рассрочки. Указывается по [UTC](https://ru.wikipedia.org/wiki/Всемирное_координированное_время) и передается в формате [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601).  Присутствует для платежей в статусе ~`pending`, которые по [закону](https://www.consultant.ru/document/cons_doc_LAW_498604/) попадают под процедуру охлаждения. """  # noqa: E501
 
     def __init__(self, *args, **kwargs):
         super(PaymentDataSberLoan, self).__init__(*args, **kwargs)
@@ -73,3 +76,21 @@ class PaymentDataSberLoan(ResponsePaymentData):
             self.__discount_amount = value
         else:
             raise TypeError('Invalid discount_amount value type')
+
+    @property
+    def suspended_until(self):
+        """Возвращает suspended_until модели PaymentDataSberLoan.
+
+        :return: suspended_until модели PaymentDataSberLoan.
+        :rtype: datetime
+        """
+        return self.__suspended_until
+
+    @suspended_until.setter
+    def suspended_until(self, value):
+        """Устанавливает suspended_until модели PaymentDataSberLoan.
+
+        :param value: suspended_until модели PaymentDataSberLoan.
+        :type value: datetime
+        """
+        self.__suspended_until = value

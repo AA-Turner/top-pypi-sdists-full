@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 2.12.0
+Version: 2.12.2
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/jlowin/fastmcp
@@ -22,13 +22,14 @@ Requires-Dist: cyclopts>=3.0.0
 Requires-Dist: exceptiongroup>=1.2.2
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: mcp<2.0.0,>=1.12.4
-Requires-Dist: openai>=1.95.1
 Requires-Dist: openapi-core>=0.19.5
 Requires-Dist: openapi-pydantic>=0.5.1
 Requires-Dist: pydantic[email]>=2.11.7
 Requires-Dist: pyperclip>=1.9.0
 Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: rich>=13.9.4
+Provides-Extra: openai
+Requires-Dist: openai>=1.102.0; extra == 'openai'
 Provides-Extra: websockets
 Requires-Dist: websockets>=15.0.1; extra == 'websockets'
 Description-Content-Type: text/markdown

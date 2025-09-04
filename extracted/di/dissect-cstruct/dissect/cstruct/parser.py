@@ -49,12 +49,19 @@ class TokenParser(Parser):
         self.compiled = compiled
         self.align = align
         self.TOK = self._tokencollection()
+        self._conditionals = []
+        self._conditionals_depth = 0
 
     @staticmethod
     def _tokencollection() -> TokenCollection:
         TOK = TokenCollection()
         TOK.add(r"#\[(?P<values>[^\]]+)\](?=\s*)", "CONFIG_FLAG")
-        TOK.add(r"#define\s+(?P<name>[^\s]+)\s+(?P<value>[^\r\n]+)\s*", "DEFINE")
+        TOK.add(r"#define\s+(?P<name>[^\s]+)(?P<value>[^\r\n]*)", "DEFINE")
+        TOK.add(r"#undef\s+(?P<name>[^\s]+)\s*", "UNDEF")
+        TOK.add(r"#ifdef\s+(?P<name>[^\s]+)\s*", "IFDEF")
+        TOK.add(r"#ifndef\s+(?P<name>[^\s]+)\s*", "IFNDEF")
+        TOK.add(r"#else\s*", "ELSE")
+        TOK.add(r"#endif\s*", "ENDIF")
         TOK.add(r"typedef(?=\s)", "TYPEDEF")
         TOK.add(r"(?:struct|union)(?=\s|{)", "STRUCT")
         TOK.add(
@@ -63,7 +70,8 @@ class TokenParser(Parser):
             "ENUM",
         )
         TOK.add(r"(?<=})\s*(?P<defs>(?:[a-zA-Z0-9_]+\s*,\s*)+[a-zA-Z0-9_]+)\s*(?=;)", "DEFS")
-        TOK.add(r"(?P<name>\**?\s*[a-zA-Z0-9_]+)(?:\s*:\s*(?P<bits>\d+))?(?:\[(?P<count>[^;\n]*)\])?\s*(?=;)", "NAME")
+        TOK.add(r"(?P<name>\**?\s*[a-zA-Z0-9_]+)(?:\s*:\s*(?P<bits>\d+))?(?:\[(?P<count>[^;]*)\])?\s*(?=;)", "NAME")
+        TOK.add(r"#include\s+(?P<name>[^\s]+)\s*", "INCLUDE")
         TOK.add(r"[a-zA-Z_][a-zA-Z0-9_]*", "IDENTIFIER")
         TOK.add(r"[{}]", "BLOCK")
         TOK.add(r"\$(?P<name>[^\s]+) = (?P<value>{[^}]+})\w*[\r\n]+", "LOOKUP")
@@ -79,12 +87,61 @@ class TokenParser(Parser):
             idents.append(tokens.consume())
         return " ".join([i.value for i in idents])
 
+    def _conditional(self, tokens: TokenConsumer) -> None:
+        token = tokens.consume()
+        pattern = self.TOK.patterns[token.token]
+        match = pattern.match(token.value).groupdict()
+
+        value = match["name"]
+
+        if token.token == self.TOK.IFDEF:
+            self._conditionals.append(value in self.cstruct.consts)
+        elif token.token == self.TOK.IFNDEF:
+            self._conditionals.append(value not in self.cstruct.consts)
+
+    def _check_conditional(self, tokens: TokenConsumer) -> bool:
+        """Check and handle conditionals. Return a boolean indicating if we need to continue to the next token."""
+        if self._conditionals and self._conditionals_depth == len(self._conditionals):
+            # If we have a conditional and the depth matches, handle it accordingly
+            if tokens.next == self.TOK.ELSE:
+                # Flip the last conditional
+                tokens.consume()
+                self._conditionals[-1] = not self._conditionals[-1]
+                return True
+
+            if tokens.next == self.TOK.ENDIF:
+                # Pop the last conditional
+                tokens.consume()
+                self._conditionals.pop()
+                self._conditionals_depth -= 1
+                return True
+
+        if tokens.next in (self.TOK.IFDEF, self.TOK.IFNDEF):
+            # If we encounter a new conditional, increase the depth
+            self._conditionals_depth += 1
+
+        if tokens.next == self.TOK.ENDIF:
+            # Similarly, decrease the depth if needed
+            self._conditionals_depth -= 1
+
+        if self._conditionals and not self._conditionals[-1]:
+            # If the last conditional evaluated to False, skip the next token
+            tokens.consume()
+            return True
+
+        if tokens.next in (self.TOK.IFDEF, self.TOK.IFNDEF):
+            # If the next token is a conditional, process it
+            self._conditional(tokens)
+            return True
+
+        return False
+
     def _constant(self, tokens: TokenConsumer) -> None:
         const = tokens.consume()
         pattern = self.TOK.patterns[self.TOK.DEFINE]
         match = pattern.match(const.value).groupdict()
 
-        value = match["value"]
+        value = match["value"].strip()
         try:
             value = ast.literal_eval(value)
         except (ValueError, SyntaxError):
@@ -92,11 +149,21 @@ class TokenParser(Parser):
 
         if isinstance(value, str):
             try:
-                value = Expression(self.cstruct, value).evaluate()
+                value = Expression(value).evaluate(self.cstruct)
             except (ExpressionParserError, ExpressionTokenizerError):
                 pass
 
         self.cstruct.consts[match["name"]] = value
+
+    def _undef(self, tokens: TokenConsumer) -> None:
+        const = tokens.consume()
+        pattern = self.TOK.patterns[self.TOK.UNDEF]
+        match = pattern.match(const.value).groupdict()
+
+        if match["name"] in self.cstruct.consts:
+            del self.cstruct.consts[match["name"]]
+        else:
+            raise ParserError(f"line {self._lineno(const)}: constant {match['name']!r} not defined")
 
     def _enum(self, tokens: TokenConsumer) -> None:
         # We cheat with enums because the entire enum is in the token
@@ -120,7 +187,7 @@ class TokenParser(Parser):
                 if not key:
                     continue
 
-                val = nextval if not val else Expression(self.cstruct, val).evaluate(values)
+                val = nextval if not val else Expression(val).evaluate(self.cstruct, values)
 
                 if enumtype == "flag":
                     high_bit = val.bit_length() - 1
@@ -193,7 +260,7 @@ class TokenParser(Parser):
         if tokens.next == self.TOK.NAME:
             # As part of a struct field
             # struct type_name field_name;
-            if not len(names):
+            if not names:
                 raise ParserError(f"line {self._lineno(tokens.next)}: unexpected anonymous struct")
             return self.cstruct.resolve(names[0])
 
@@ -206,6 +273,9 @@ class TokenParser(Parser):
             if tokens.next == self.TOK.BLOCK and tokens.next.value == "}":
                 tokens.consume()
                 break
+
+            if self._check_conditional(tokens):
+                continue
 
             field = self._parse_field(tokens)
             fields.append(field)
@@ -265,7 +335,7 @@ class TokenParser(Parser):
                 return Field(None, type_, None)
 
         if tokens.next != self.TOK.NAME:
-            raise ParserError(f"line {self._lineno(tokens.next)}: expected name")
+            raise ParserError(f"line {self._lineno(tokens.next)}: expected name, got {tokens.next!r}")
         nametok = tokens.consume()
 
         type_, name, bits = self._parse_field_type(type_, nametok.value)
@@ -293,9 +363,9 @@ class TokenParser(Parser):
                 if count == "":
                     count = None
                 else:
-                    count = Expression(self.cstruct, count)
+                    count = Expression(count)
                     try:
-                        count = count.evaluate()
+                        count = count.evaluate(self.cstruct)
                     except Exception:
                         pass
 
@@ -313,16 +383,23 @@ class TokenParser(Parser):
                 tokens.eol()
                 break
 
-            if tokens.next not in (self.TOK.NAME, self.TOK.DEFS):
+            if tokens.next not in (self.TOK.NAME, self.TOK.DEFS, self.TOK.IDENTIFIER):
                 break
 
             ntoken = tokens.consume()
-            if ntoken == self.TOK.NAME:
+            if ntoken in (self.TOK.NAME, self.TOK.IDENTIFIER):
                 names.append(ntoken.value.strip())
             elif ntoken == self.TOK.DEFS:
                 names.extend([name.strip() for name in ntoken.value.strip().split(",")])
 
         return names
+
+    def _include(self, tokens: TokenConsumer) -> None:
+        include = tokens.consume()
+        pattern = self.TOK.patterns[self.TOK.INCLUDE]
+        match = pattern.match(include.value).groupdict()
+
+        self.cstruct.includes.append(match["name"].strip().strip("'\""))
 
     @staticmethod
     def _remove_comments(string: str) -> str:
@@ -370,10 +447,15 @@ class TokenParser(Parser):
             if token is None:
                 break
 
+            if self._check_conditional(tokens):
+                continue
+
             if token == self.TOK.CONFIG_FLAG:
                 self._config_flag(tokens)
             elif token == self.TOK.DEFINE:
                 self._constant(tokens)
+            elif token == self.TOK.UNDEF:
+                self._undef(tokens)
             elif token == self.TOK.TYPEDEF:
                 self._typedef(tokens)
             elif token == self.TOK.STRUCT:
@@ -382,8 +464,13 @@ class TokenParser(Parser):
                 self._enum(tokens)
             elif token == self.TOK.LOOKUP:
                 self._lookup(tokens)
+            elif token == self.TOK.INCLUDE:
+                self._include(tokens)
             else:
                 raise ParserError(f"line {self._lineno(token)}: unexpected token {token!r}")
+
+        if self._conditionals:
+            raise ParserError(f"line {self._lineno(tokens.previous)}: unclosed conditional statement")
 
 
 class CStyleParser(Parser):
@@ -434,7 +521,7 @@ class CStyleParser(Parser):
                     if not key:
                         continue
 
-                    val = nextval if not val else Expression(self.cstruct, val).evaluate()
+                    val = nextval if not val else Expression(val).evaluate(self.cstruct)
 
                     if enumtype == "flag":
                         high_bit = val.bit_length() - 1
@@ -515,9 +602,9 @@ class CStyleParser(Parser):
                 if d["count"] == "":
                     count = None
                 else:
-                    count = Expression(self.cstruct, d["count"])
+                    count = Expression(d["count"])
                     try:
-                        count = count.evaluate()
+                        count = count.evaluate(self.cstruct)
                     except Exception:
                         pass
 

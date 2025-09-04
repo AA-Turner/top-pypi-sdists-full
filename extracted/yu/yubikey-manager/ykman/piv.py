@@ -25,13 +25,14 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
 
 import logging
 import os
 import re
 import struct
 from datetime import date, datetime
-from typing import Any, Mapping, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Mapping, TypeAlias, cast
 from uuid import uuid4
 
 from cryptography import x509
@@ -59,6 +60,13 @@ from yubikit.piv import (
 )
 
 from .util import display_serial
+
+if TYPE_CHECKING:
+    # These types arent't available on cryptography <40.
+    from cryptography.hazmat.primitives.asymmetric.types import (
+        CertificatePublicKeyTypes,
+        PublicKeyTypes,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +179,7 @@ def derive_management_key(pin: str, salt: bytes) -> bytes:
     :param pin: The PIN.
     :param salt: The salt.
     """
-    kdf = PBKDF2HMAC(hashes.SHA1(), 24, salt, 10000, default_backend())  # nosec
+    kdf = PBKDF2HMAC(hashes.SHA1(), 24, salt, 10000, default_backend())  # noqa: S303
     return kdf.derive(pin.encode("utf-8"))
 
 
@@ -391,7 +399,7 @@ def pivman_set_pin_attempts(
         session.put_object(OBJECT_ID_PIVMAN_DATA, pivman.get_bytes())
 
 
-def list_certificates(session: PivSession) -> Mapping[SLOT, Optional[x509.Certificate]]:
+def list_certificates(session: PivSession) -> Mapping[SLOT, x509.Certificate | None]:
     """Read out and parse stored certificates.
 
     Only certificates which are successfully parsed are returned.
@@ -399,7 +407,8 @@ def list_certificates(session: PivSession) -> Mapping[SLOT, Optional[x509.Certif
     :param session: The PIV session.
     """
     certs = {}
-    for slot in set(SLOT) - {SLOT.ATTESTATION}:
+    slots: list[SLOT] = [s for s in SLOT if s != SLOT.ATTESTATION]
+    for slot in slots:
         try:
             certs[slot] = session.get_certificate(slot)
         except ApduError:
@@ -412,7 +421,8 @@ def list_certificates(session: PivSession) -> Mapping[SLOT, Optional[x509.Certif
 
 def _list_keys(session: PivSession) -> Mapping[SLOT, SlotMetadata]:
     keys = {}
-    for slot in set(SLOT) - {SLOT.ATTESTATION}:
+    slots: list[SLOT] = [s for s in SLOT if s != SLOT.ATTESTATION]
+    for slot in slots:
         try:
             keys[slot] = session.get_slot_metadata(slot)
         except ApduError as e:
@@ -424,7 +434,7 @@ def _list_keys(session: PivSession) -> Mapping[SLOT, SlotMetadata]:
 def check_key(
     session: PivSession,
     slot: SLOT,
-    public_key: Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey],
+    public_key: PublicKeyTypes,
 ) -> bool:
     """Check that a given public key corresponds to the private key in a slot.
 
@@ -459,7 +469,7 @@ def check_key(
         elif isinstance(public_key, ec.EllipticCurvePublicKey):
             public_key.verify(test_sig, test_data, ec.ECDSA(hashes.SHA256()))
         else:
-            raise ValueError("Unknown key type: " + type(public_key))
+            raise ValueError(f"Unknown key type: {type(public_key)}")
         return True
 
     except ApduError as e:
@@ -587,10 +597,9 @@ def get_piv_info(session: PivSession):
         keys = _list_keys(session)
     except NotSupportedError:
         keys = {}
-    for slot in set(SLOT) - {SLOT.ATTESTATION}:
-        if slot not in keys and slot not in certs:
-            continue
 
+    slots = [s for s in SLOT if s in keys or s in certs]
+    for slot in slots:
         cert_data: dict[str, Any] = {}
         objects[f"Slot {slot}"] = cert_data
         if slot in keys:
@@ -616,7 +625,7 @@ def get_piv_info(session: PivSession):
             serial = cert.serial_number
             try:
                 try:  # Prefer timezone-aware variant (cryptography >= 42)
-                    not_before: Optional[datetime] = cert.not_valid_before_utc
+                    not_before: datetime | None = cert.not_valid_before_utc
                 except AttributeError:
                     not_before = cert.not_valid_before
             except ValueError:
@@ -624,7 +633,7 @@ def get_piv_info(session: PivSession):
                 not_before = None
             try:
                 try:  # Prefer timezone-aware variant (cryptography >= 42)
-                    not_after: Optional[datetime] = cert.not_valid_after_utc
+                    not_after: datetime | None = cert.not_valid_after_utc
                 except AttributeError:
                     not_after = cert.not_valid_after
             except ValueError:
@@ -647,16 +656,16 @@ def get_piv_info(session: PivSession):
     return lines
 
 
-_AllowedHashTypes = Union[
-    hashes.SHA224,
-    hashes.SHA256,
-    hashes.SHA384,
-    hashes.SHA512,
-    hashes.SHA3_224,
-    hashes.SHA3_256,
-    hashes.SHA3_384,
-    hashes.SHA3_512,
-]
+_AllowedHashTypes: TypeAlias = (
+    hashes.SHA224
+    | hashes.SHA256
+    | hashes.SHA384
+    | hashes.SHA512
+    | hashes.SHA3_224
+    | hashes.SHA3_256
+    | hashes.SHA3_384
+    | hashes.SHA3_512
+)
 
 
 def _hash(key_type, hash_algorithm):
@@ -682,6 +691,7 @@ def sign_certificate_builder(
     """
     logger.debug("Signing a certificate")
     dummy_key = _dummy_key(key_type)
+    assert not isinstance(dummy_key, x25519.X25519PrivateKey)  # noqa: S101
     cert = builder.sign(dummy_key, _hash(key_type, hash_algorithm), default_backend())
 
     sig = session.sign(
@@ -704,7 +714,7 @@ def sign_certificate_builder(
 def sign_csr_builder(
     session: PivSession,
     slot: SLOT,
-    public_key: Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey],
+    public_key: PublicKeyTypes,
     builder: x509.CertificateSigningRequestBuilder,
     hash_algorithm: type[_AllowedHashTypes] = hashes.SHA256,
 ) -> x509.CertificateSigningRequest:
@@ -720,6 +730,7 @@ def sign_csr_builder(
     logger.debug("Signing a CSR")
     key_type = KEY_TYPE.from_public_key(public_key)
     dummy_key = _dummy_key(key_type)
+    assert not isinstance(dummy_key, x25519.X25519PrivateKey)  # noqa: S101
 
     csr = builder.sign(dummy_key, _hash(key_type, hash_algorithm), default_backend())
     seq = Tlv.parse_list(Tlv.unpack(0x30, csr.public_bytes(Encoding.DER)))
@@ -753,7 +764,7 @@ def sign_csr_builder(
 def generate_self_signed_certificate(
     session: PivSession,
     slot: SLOT,
-    public_key: Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey],
+    public_key: PublicKeyTypes,
     subject_str: str,
     valid_from: datetime,
     valid_to: datetime,
@@ -771,6 +782,8 @@ def generate_self_signed_certificate(
     """
     logger.debug("Generating a self-signed certificate")
     key_type = KEY_TYPE.from_public_key(public_key)
+    if TYPE_CHECKING:
+        public_key = cast(CertificatePublicKeyTypes, public_key)
 
     subject = parse_rfc4514_string(subject_str)
     builder = (
@@ -789,7 +802,7 @@ def generate_self_signed_certificate(
 def generate_csr(
     session: PivSession,
     slot: SLOT,
-    public_key: Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey],
+    public_key: PublicKeyTypes,
     subject_str: str,
     hash_algorithm: type[_AllowedHashTypes] = hashes.SHA256,
 ) -> x509.CertificateSigningRequest:

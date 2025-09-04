@@ -8,6 +8,7 @@ use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects, Style};
 use clap::{Args, Parser, Subcommand};
 
+use uv_auth::Service;
 use uv_cache::CacheArgs;
 use uv_configuration::{
     ExportFormat, IndexStrategy, KeyringProviderType, PackageNameSpecifier, ProjectBuildBackend,
@@ -399,6 +400,13 @@ impl From<ColorChoice> for anstream::ColorChoice {
 #[derive(Subcommand)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
+    /// Manage authentication.
+    #[command(
+        after_help = "Use `uv help auth` for more details.",
+        after_long_help = ""
+    )]
+    Auth(AuthNamespace),
+
     /// Manage Python projects.
     #[command(flatten)]
     Project(Box<ProjectCommand>),
@@ -3308,6 +3316,23 @@ pub struct RunArgs {
     /// If uv reaches the maximum recursion depth, it will exit with an error.
     #[arg(long, hide = true, env = EnvVars::UV_RUN_MAX_RECURSION_DEPTH)]
     pub max_recursion_depth: Option<u32>,
+
+    /// The platform for which requirements should be installed.
+    ///
+    /// Represented as a "target triple", a string that describes the target platform in terms of
+    /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
+    /// `aarch64-apple-darwin`.
+    ///
+    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    ///
+    /// WARNING: When specified, uv will select wheels that are compatible with the _target_
+    /// platform; as a result, the installed distributions may not be compatible with the _current_
+    /// platform. Conversely, any distributions that are built from source may be incompatible with
+    /// the _target_ platform, as they will be built for the _current_ platform. The
+    /// `--python-platform` option is intended for advanced use cases.
+    #[arg(long)]
+    pub python_platform: Option<TargetTriple>,
 }
 
 #[derive(Args)]
@@ -4370,6 +4395,33 @@ pub struct FormatArgs {
 }
 
 #[derive(Args)]
+pub struct AuthNamespace {
+    #[command(subcommand)]
+    pub command: AuthCommand,
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommand {
+    /// Login to a service
+    Login(AuthLoginArgs),
+    /// Logout of a service
+    Logout(AuthLogoutArgs),
+    /// Show the authentication token for a service
+    Token(AuthTokenArgs),
+    /// Show the path to the uv credentials directory.
+    ///
+    /// By default, credentials are stored in the uv data directory at
+    /// `$XDG_DATA_HOME/uv/credentials` or `$HOME/.local/share/uv/credentials` on Unix and
+    /// `%APPDATA%\uv\data\credentials` on Windows.
+    ///
+    /// The credentials directory may be overridden with `$UV_CREDENTIALS_DIR`.
+    ///
+    /// Credentials are only stored in this directory when the plaintext backend is used, as
+    /// opposed to the native backend, which uses the system keyring.
+    Dir(AuthDirArgs),
+}
+
+#[derive(Args)]
 pub struct ToolNamespace {
     #[command(subcommand)]
     pub command: ToolCommand,
@@ -4565,6 +4617,23 @@ pub struct ToolRunArgs {
     #[arg(long, env = EnvVars::UV_SHOW_RESOLUTION, value_parser = clap::builder::BoolishValueParser::new(), hide = true)]
     pub show_resolution: bool,
 
+    /// The platform for which requirements should be installed.
+    ///
+    /// Represented as a "target triple", a string that describes the target platform in terms of
+    /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
+    /// `aarch64-apple-darwin`.
+    ///
+    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    ///
+    /// WARNING: When specified, uv will select wheels that are compatible with the _target_
+    /// platform; as a result, the installed distributions may not be compatible with the _current_
+    /// platform. Conversely, any distributions that are built from source may be incompatible with
+    /// the _target_ platform, as they will be built for the _current_ platform. The
+    /// `--python-platform` option is intended for advanced use cases.
+    #[arg(long)]
+    pub python_platform: Option<TargetTriple>,
+
     #[arg(long, hide = true)]
     pub generate_shell_completion: Option<clap_complete_command::Shell>,
 }
@@ -4669,6 +4738,23 @@ pub struct ToolInstallArgs {
         value_parser = parse_maybe_string,
     )]
     pub python: Option<Maybe<String>>,
+
+    /// The platform for which requirements should be installed.
+    ///
+    /// Represented as a "target triple", a string that describes the target platform in terms of
+    /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
+    /// `aarch64-apple-darwin`.
+    ///
+    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    ///
+    /// WARNING: When specified, uv will select wheels that are compatible with the _target_
+    /// platform; as a result, the installed distributions may not be compatible with the _current_
+    /// platform. Conversely, any distributions that are built from source may be incompatible with
+    /// the _target_ platform, as they will be built for the _current_ platform. The
+    /// `--python-platform` option is intended for advanced use cases.
+    #[arg(long)]
+    pub python_platform: Option<TargetTriple>,
 }
 
 #[derive(Args)]
@@ -4749,6 +4835,23 @@ pub struct ToolUpgradeArgs {
         value_parser = parse_maybe_string,
     )]
     pub python: Option<Maybe<String>>,
+
+    /// The platform for which requirements should be installed.
+    ///
+    /// Represented as a "target triple", a string that describes the target platform in terms of
+    /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
+    /// `aarch64-apple-darwin`.
+    ///
+    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    ///
+    /// WARNING: When specified, uv will select wheels that are compatible with the _target_
+    /// platform; as a result, the installed distributions may not be compatible with the _current_
+    /// platform. Conversely, any distributions that are built from source may be incompatible with
+    /// the _target_ platform, as they will be built for the _current_ platform. The
+    /// `--python-platform` option is intended for advanced use cases.
+    #[arg(long)]
+    pub python_platform: Option<TargetTriple>,
 
     // The following is equivalent to flattening `ResolverInstallerArgs`, with the `--upgrade`, and
     // `--upgrade-package` options hidden, and the `--no-upgrade` option removed.
@@ -5431,6 +5534,86 @@ pub struct PythonPinArgs {
     /// Remove the Python version pin.
     #[arg(long, conflicts_with = "request", conflicts_with = "resolved")]
     pub rm: bool,
+}
+
+#[derive(Args)]
+pub struct AuthLogoutArgs {
+    /// The service to logout of.
+    pub service: Service,
+
+    /// The username to logout.
+    #[arg(long, short)]
+    pub username: Option<String>,
+
+    /// The keyring provider to use for storage of credentials.
+    ///
+    /// Only `--keyring-provider native` is supported for `logout`, which uses the system keyring
+    /// via an integration built into uv.
+    #[arg(
+        long,
+        value_enum,
+        env = EnvVars::UV_KEYRING_PROVIDER,
+    )]
+    pub keyring_provider: Option<KeyringProviderType>,
+}
+
+#[derive(Args)]
+pub struct AuthLoginArgs {
+    /// The service to log into.
+    pub service: Service,
+
+    /// The username to use for the service.
+    #[arg(long, short, conflicts_with = "token")]
+    pub username: Option<String>,
+
+    /// The password to use for the service.
+    ///
+    /// Use `-` to read the password from stdin.
+    #[arg(long, conflicts_with = "token")]
+    pub password: Option<String>,
+
+    /// The token to use for the service.
+    ///
+    /// The username will be set to `__token__`.
+    ///
+    /// Use `-` to read the token from stdin.
+    #[arg(long, short, conflicts_with = "username", conflicts_with = "password")]
+    pub token: Option<String>,
+
+    /// The keyring provider to use for storage of credentials.
+    ///
+    /// Only `--keyring-provider native` is supported for `login`, which uses the system keyring via
+    /// an integration built into uv.
+    #[arg(
+        long,
+        value_enum,
+        env = EnvVars::UV_KEYRING_PROVIDER,
+    )]
+    pub keyring_provider: Option<KeyringProviderType>,
+}
+
+#[derive(Args)]
+pub struct AuthTokenArgs {
+    /// The service to lookup.
+    pub service: Service,
+
+    /// The username to lookup.
+    #[arg(long, short)]
+    pub username: Option<String>,
+
+    /// The keyring provider to use for reading credentials.
+    #[arg(
+        long,
+        value_enum,
+        env = EnvVars::UV_KEYRING_PROVIDER,
+    )]
+    pub keyring_provider: Option<KeyringProviderType>,
+}
+
+#[derive(Args)]
+pub struct AuthDirArgs {
+    /// The service to lookup.
+    pub service: Option<Service>,
 }
 
 #[derive(Args)]
@@ -6287,6 +6470,10 @@ pub struct DisplayTreeArgs {
     /// Show the latest available version of each package in the tree.
     #[arg(long)]
     pub outdated: bool,
+
+    /// Show compressed wheel sizes for packages in the tree.
+    #[arg(long)]
+    pub show_sizes: bool,
 }
 
 #[derive(Args, Debug)]
@@ -6391,6 +6578,13 @@ pub struct PublishArgs {
 
     #[arg(long, hide = true)]
     pub skip_existing: bool,
+
+    /// Perform a dry run without uploading files.
+    ///
+    /// When enabled, the command will check for existing files if `--check-url` is provided,
+    /// and will perform validation against the index if supported, but will not upload any files.
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 /// See [PEP 517](https://peps.python.org/pep-0517/) and

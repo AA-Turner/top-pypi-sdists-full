@@ -315,9 +315,12 @@ DomainAvailabilityType = Literal[
     "UNAVAILABLE_RESTRICTED",
 ]
 ExtraParamNameType = Literal[
+    "AU_ELIGIBILITY_TYPE",
     "AU_ID_NUMBER",
     "AU_ID_TYPE",
+    "AU_POLICY_REASON",
     "AU_PRIORITY_TOKEN",
+    "AU_REGISTRANT_NAME",
     "BIRTH_CITY",
     "BIRTH_COUNTRY",
     "BIRTH_DATE_IN_YYYY_MM_DD",

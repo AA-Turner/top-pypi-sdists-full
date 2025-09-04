@@ -4,7 +4,7 @@ from yookassa.domain.common import BaseObject
 
 class SbpParticipantBank(BaseObject):
     """
-    Участник СБП (Системы быстрых платежей ЦБ РФ)
+    Объект участника СБП (Системы быстрых платежей ЦБ РФ) — актуальная информация о банке или платежном сервисе, подключенном к СБП.
     """  # noqa: E501
 
     __bank_id = None

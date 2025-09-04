@@ -239,18 +239,21 @@ class CloudConfig(_message.Message):
     ) -> None: ...
 
 class EnvironmentObjectStorageConfig(_message.Message):
-    __slots__ = ("dataset_bucket", "plan_stages_bucket", "source_bundle_bucket")
+    __slots__ = ("dataset_bucket", "plan_stages_bucket", "source_bundle_bucket", "model_registry_bucket")
     DATASET_BUCKET_FIELD_NUMBER: _ClassVar[int]
     PLAN_STAGES_BUCKET_FIELD_NUMBER: _ClassVar[int]
     SOURCE_BUNDLE_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    MODEL_REGISTRY_BUCKET_FIELD_NUMBER: _ClassVar[int]
     dataset_bucket: str
     plan_stages_bucket: str
     source_bundle_bucket: str
+    model_registry_bucket: str
     def __init__(
         self,
         dataset_bucket: _Optional[str] = ...,
         plan_stages_bucket: _Optional[str] = ...,
         source_bundle_bucket: _Optional[str] = ...,
+        model_registry_bucket: _Optional[str] = ...,
     ) -> None: ...
 
 class Environment(_message.Message):
@@ -309,6 +312,8 @@ class Environment(_message.Message):
         "grpc_engine_url",
         "kube_cluster_mode",
         "dashboard_url",
+        "kube_cluster_id",
+        "managed",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -390,6 +395,8 @@ class Environment(_message.Message):
     GRPC_ENGINE_URL_FIELD_NUMBER: _ClassVar[int]
     KUBE_CLUSTER_MODE_FIELD_NUMBER: _ClassVar[int]
     DASHBOARD_URL_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    MANAGED_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -444,6 +451,8 @@ class Environment(_message.Message):
     grpc_engine_url: str
     kube_cluster_mode: str
     dashboard_url: str
+    kube_cluster_id: str
+    managed: bool
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -500,4 +509,6 @@ class Environment(_message.Message):
         grpc_engine_url: _Optional[str] = ...,
         kube_cluster_mode: _Optional[str] = ...,
         dashboard_url: _Optional[str] = ...,
+        kube_cluster_id: _Optional[str] = ...,
+        managed: bool = ...,
     ) -> None: ...

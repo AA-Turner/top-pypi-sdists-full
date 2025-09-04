@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for newrelic/newrelic provider version 3.66.0
+# CDKTF prebuilt bindings for newrelic/newrelic provider version 3.67.0
 
-This repo builds and publishes the [Terraform newrelic provider](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform newrelic provider](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform newrelic provider version 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform newrelic provider](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0)
+* [Terraform newrelic provider](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -177,6 +177,7 @@ __all__ = [
     "one_dashboard",
     "one_dashboard_json",
     "one_dashboard_raw",
+    "pipeline_cloud_rule",
     "provider",
     "service_level",
     "synthetics_alert_condition",
@@ -247,6 +248,7 @@ from . import obfuscation_rule
 from . import one_dashboard
 from . import one_dashboard_json
 from . import one_dashboard_raw
+from . import pipeline_cloud_rule
 from . import provider
 from . import service_level
 from . import synthetics_alert_condition

@@ -128,16 +128,19 @@ class AzureHostingConfiguration(google.protobuf.message.Message):
 
     AZURE_AUTH_FIELD_NUMBER: builtins.int
     REGION_FIELD_NUMBER: builtins.int
+    AZURE_TENANT_ID_FIELD_NUMBER: builtins.int
     @property
     def azure_auth(self) -> qwak.administration.runtime_configuration.v0.hosting.azure.auth_pb2.AzureAuthentication: ...
     region: builtins.str
+    azure_tenant_id: builtins.str
     def __init__(
         self,
         *,
         azure_auth: qwak.administration.runtime_configuration.v0.hosting.azure.auth_pb2.AzureAuthentication | None = ...,
         region: builtins.str = ...,
+        azure_tenant_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["azure_auth", b"azure_auth"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["azure_auth", b"azure_auth", "region", b"region"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["azure_auth", b"azure_auth", "azure_tenant_id", b"azure_tenant_id", "region", b"region"]) -> None: ...
 
 global___AzureHostingConfiguration = AzureHostingConfiguration

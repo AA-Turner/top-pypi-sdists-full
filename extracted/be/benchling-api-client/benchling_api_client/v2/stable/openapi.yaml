@@ -30192,7 +30192,7 @@ components:
           nullable: true
         canonicalizedSmiles:
           description: The canonicalized chemical structure in SMILES format.
-          example: Nc1nc(=O)n([H:1])cc1C1CC1
+          example: Nc1nc(=O)n([H])cc1C1CC1
           type: string
         createdAt:
           description: DateTime the Molecule was created.
@@ -30230,7 +30230,7 @@ components:
         originalSmiles:
           description: The original chemical structure supplied by the user in SMILES
             format. Null if the user did not originally supply SMILES.
-          example: Nc1nc(=O)n([H:1])cc1C1CC1
+          example: Nc1nc(=O)n([H])cc1C1CC1
           nullable: true
           type: string
         registrationOrigin:
@@ -30509,6 +30509,12 @@ components:
           description: Symbol for the natural equivalent of the monomer. Acceptable
             natural analog values include IUPAC bases, r, and p.
           example: T
+          type: string
+        originalSmiles:
+          description: The original chemical structure supplied by the user in SMILES
+            format. Null if the user did not originally supply SMILES.
+          example: O[P@@](=S)([OH:1])[OH:2]
+          nullable: true
           type: string
         polymerType:
           allOf:

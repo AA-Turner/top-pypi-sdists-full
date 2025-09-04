@@ -43,6 +43,7 @@ from .literals import (
     LifecycleSupportNameType,
     LimitlessDatabaseStatusType,
     LocalWriteForwardingStatusType,
+    MasterUserAuthenticationTypeType,
     ReplicaModeType,
     SourceTypeType,
     TargetHealthReasonType,
@@ -2179,6 +2180,7 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     EnableLocalWriteForwarding: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
+    MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
     SourceRegion: NotRequired[str]
 
 
@@ -2229,6 +2231,7 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     AwsBackupRecoveryPointArn: NotRequired[str]
     EnableLimitlessDatabase: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
+    MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
 
 
 class RestoreDBClusterFromS3MessageTypeDef(TypedDict):
@@ -2412,6 +2415,7 @@ class CreateDBInstanceMessageTypeDef(TypedDict):
     DedicatedLogVolume: NotRequired[bool]
     MultiTenant: NotRequired[bool]
     EngineLifecycleSupport: NotRequired[str]
+    MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
 
 
 class CreateDBInstanceReadReplicaMessageTypeDef(TypedDict):
@@ -2567,6 +2571,7 @@ class ModifyDBInstanceMessageTypeDef(TypedDict):
     Engine: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
     MultiTenant: NotRequired[bool]
+    MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
 
 
 class PendingModifiedValuesTypeDef(TypedDict):

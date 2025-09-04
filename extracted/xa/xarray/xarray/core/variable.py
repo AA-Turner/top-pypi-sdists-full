@@ -400,7 +400,7 @@ class Variable(NamedArray, AbstractArray, VariableArithmetic):
             dims=dims, data=as_compatible_data(data, fastpath=fastpath), attrs=attrs
         )
 
-        self._encoding = None
+        self._encoding: dict[Any, Any] | None = None
         if encoding is not None:
             self.encoding = encoding
 
@@ -465,7 +465,7 @@ class Variable(NamedArray, AbstractArray, VariableArithmetic):
             return duck_array.array
         return duck_array
 
-    @data.setter
+    @data.setter  # type: ignore[override,unused-ignore]
     def data(self, data: T_DuckArray | ArrayLike) -> None:
         data = as_compatible_data(data)
         self._check_shape(data)
@@ -647,7 +647,10 @@ class Variable(NamedArray, AbstractArray, VariableArithmetic):
             k.item() if isinstance(k, np.ndarray) and k.ndim == 0 else k for k in key
         )
 
-        if all(isinstance(k, BASIC_INDEXING_TYPES) for k in key):
+        if all(
+            (isinstance(k, BASIC_INDEXING_TYPES) and not isinstance(k, bool))
+            for k in key
+        ):
             return self._broadcast_indexes_basic(key)
 
         self._validate_indexers(key)
@@ -903,7 +906,8 @@ class Variable(NamedArray, AbstractArray, VariableArithmetic):
     def encoding(self) -> dict[Any, Any]:
         """Dictionary of encodings on this variable."""
         if self._encoding is None:
-            self._encoding = {}
+            encoding: dict[Any, Any] = {}
+            self._encoding = encoding
         return self._encoding
 
     @encoding.setter
@@ -2950,13 +2954,13 @@ class IndexVariable(Variable):
             return index
 
     @property
-    def level_names(self) -> list[str] | None:
+    def level_names(self) -> list[Hashable | None] | None:
         """Return MultiIndex level names or None if this IndexVariable has no
         MultiIndex.
         """
         index = self.to_index()
         if isinstance(index, pd.MultiIndex):
-            return index.names
+            return list(index.names)
         else:
             return None
 

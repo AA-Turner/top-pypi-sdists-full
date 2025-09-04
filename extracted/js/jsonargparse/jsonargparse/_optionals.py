@@ -22,7 +22,7 @@ jsonnet_support = find_spec("_jsonnet") is not None
 url_support = find_spec("requests") is not None
 docstring_parser_support = find_spec("docstring_parser") is not None
 fsspec_support = find_spec("fsspec") is not None
-ruyaml_support = find_spec("ruyaml") is not None
+ruamel_support = bool(find_spec("ruamel") and find_spec("ruamel.yaml"))
 omegaconf_support = find_spec("omegaconf") is not None
 reconplogger_support = find_spec("reconplogger") is not None
 attrs_support = find_spec("attrs") is not None
@@ -152,10 +152,10 @@ def import_fsspec(importer):
     return fsspec
 
 
-def import_ruyaml(importer):
-    with missing_package_raise("ruyaml", importer):
-        import ruyaml
-    return ruyaml
+def import_ruamel(importer):
+    with missing_package_raise("ruamel.yaml", importer):
+        import ruamel.yaml
+    return ruamel.yaml
 
 
 def import_reconplogger(importer):
@@ -284,6 +284,24 @@ def get_omegaconf_loader():
         return value_pyyaml if value_omegaconf == str_ref else value_omegaconf
 
     return omegaconf_load
+
+
+def omegaconf_apply(parser, cfg):
+    if "${" not in str(cfg):
+        return cfg
+
+    with missing_package_raise("omegaconf", "omegaconf_apply"):
+        from omegaconf import OmegaConf
+
+    from ._common import parser_context
+
+    with parser_context(path_dump_preserve_relative=True):
+        cfg_dict = parser.dump(
+            cfg, format="json_compact", skip_validation=True, skip_none=False, skip_link_targets=False
+        )
+    cfg_omegaconf = OmegaConf.create(cfg_dict)
+    cfg_dict = OmegaConf.to_container(cfg_omegaconf, resolve=True)
+    return parser._apply_actions(cfg_dict)
 
 
 annotated_alias = typing_extensions_import("_AnnotatedAlias")

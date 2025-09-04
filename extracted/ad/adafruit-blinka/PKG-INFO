@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Adafruit-Blinka
-Version: 8.65.0
+Version: 8.66.0
 Summary: CircuitPython APIs for non-CircuitPython versions of Python such as CPython on Linux and MicroPython.
 Home-page: https://github.com/adafruit/Adafruit_Blinka
 Author: Adafruit Industries

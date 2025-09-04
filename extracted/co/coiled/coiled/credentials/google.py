@@ -4,8 +4,6 @@ import logging
 import os
 from typing import Tuple, cast
 
-from distributed import Client
-
 from coiled.utils import supress_logs
 
 
@@ -128,25 +126,8 @@ def get_long_lived_adc_to_forward(scopes=None):
 def send_application_default_credentials(cluster, scopes=None, return_creds: bool = False):
     to_forward = get_long_lived_adc_to_forward(scopes)
 
-    def write_adf_files():
-        for path, content in to_forward["files"].items():
-            abs_path = os.path.expanduser(path)
-            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-            with open(abs_path, "w") as f:
-                f.write(content)
-
-        os.makedirs(os.path.expanduser("~/.config"), exist_ok=True)
-        container_adc_dir = os.path.expanduser("~/.config/gcloud")
-
-        # files are written to /gcloud-config, which is then symlinked to ~/.config/gcloud
-        if not os.path.exists(container_adc_dir):
-            os.symlink("/gcloud-config", container_adc_dir, target_is_directory=True)
-        # otherwise, maybe we should copy the files to both places?
-
     cluster.send_private_envs(to_forward["env"])
-    with Client(cluster, name="non-user-write-gcp-adf") as client:
-        client.run_on_scheduler(write_adf_files)
-        client.run(write_adf_files)
+    cluster.write_files_for_dask(files=to_forward["files"], symlink_dirs={"/gcloud-config": "~/.config/gcloud"})
 
     cluster._queue_cluster_event("credentials", "Google Application Default Credentials forwarded")
     print(

@@ -41,6 +41,7 @@ __all__ = [
     "GeneralToolSendSMSToolSMSContent",
     "GeneralToolSendSMSToolSMSContentSMSContentPredefined",
     "GeneralToolSendSMSToolSMSContentSMSContentInferred",
+    "KBConfig",
     "State",
     "StateEdge",
     "StateEdgeParameters",
@@ -106,6 +107,12 @@ class GeneralToolTransferCallToolTransferDestinationTransferDestinationPredefine
 
     type: Literal["predefined"]
     """The type of transfer destination."""
+
+    extension: Optional[str] = None
+    """Extension digits to dial after the main number connects.
+
+    Sent via DTMF. Allow digits, '\\**', '#'.
+    """
 
 
 class GeneralToolTransferCallToolTransferDestinationTransferDestinationInferred(BaseModel):
@@ -575,11 +582,37 @@ class GeneralToolMcpTool(BaseModel):
 
     type: Literal["mcp"]
 
-    input_schema: Optional[Dict[str, str]] = None
-    """The input schema of the MCP tool."""
+    execution_message_description: Optional[str] = None
+    """The description for the sentence agent say during execution.
+
+    Only applicable when speak_during_execution is true. Can write what to say or
+    even provide examples. The default is "The message you will say to callee when
+    calling this tool. Make sure it fits into the conversation smoothly.".
+    """
 
     mcp_id: Optional[str] = None
     """Unique id of the MCP."""
+
+    response_variables: Optional[Dict[str, str]] = None
+    """
+    Response variables to add to dynamic variables, key is the variable name, value
+    is the path to the variable in the response
+    """
+
+    speak_after_execution: Optional[bool] = None
+    """
+    Determines whether the agent would call LLM another time and speak when the
+    result of function is obtained. Usually this needs to get turned on so user can
+    get update for the function call.
+    """
+
+    speak_during_execution: Optional[bool] = None
+    """
+    Determines whether the agent would say sentence like "One moment, let me check
+    that." when executing the function. Recommend to turn on if your function call
+    takes over 1s (including network) to complete, so that your agent remains
+    responsive.
+    """
 
 
 class GeneralToolSendSMSToolSMSContentSMSContentPredefined(BaseModel):
@@ -636,6 +669,14 @@ GeneralTool: TypeAlias = Union[
     GeneralToolMcpTool,
     GeneralToolSendSMSTool,
 ]
+
+
+class KBConfig(BaseModel):
+    filter_score: Optional[float] = None
+    """Similarity threshold for filtering search results"""
+
+    top_k: Optional[int] = None
+    """Max number of knowledge base chunks to retrieve"""
 
 
 class StateEdgeParameters(BaseModel):
@@ -709,6 +750,12 @@ class StateToolTransferCallToolTransferDestinationTransferDestinationPredefined(
 
     type: Literal["predefined"]
     """The type of transfer destination."""
+
+    extension: Optional[str] = None
+    """Extension digits to dial after the main number connects.
+
+    Sent via DTMF. Allow digits, '\\**', '#'.
+    """
 
 
 class StateToolTransferCallToolTransferDestinationTransferDestinationInferred(BaseModel):
@@ -1176,11 +1223,37 @@ class StateToolMcpTool(BaseModel):
 
     type: Literal["mcp"]
 
-    input_schema: Optional[Dict[str, str]] = None
-    """The input schema of the MCP tool."""
+    execution_message_description: Optional[str] = None
+    """The description for the sentence agent say during execution.
+
+    Only applicable when speak_during_execution is true. Can write what to say or
+    even provide examples. The default is "The message you will say to callee when
+    calling this tool. Make sure it fits into the conversation smoothly.".
+    """
 
     mcp_id: Optional[str] = None
     """Unique id of the MCP."""
+
+    response_variables: Optional[Dict[str, str]] = None
+    """
+    Response variables to add to dynamic variables, key is the variable name, value
+    is the path to the variable in the response
+    """
+
+    speak_after_execution: Optional[bool] = None
+    """
+    Determines whether the agent would call LLM another time and speak when the
+    result of function is obtained. Usually this needs to get turned on so user can
+    get update for the function call.
+    """
+
+    speak_during_execution: Optional[bool] = None
+    """
+    Determines whether the agent would say sentence like "One moment, let me check
+    that." when executing the function. Recommend to turn on if your function call
+    takes over 1s (including network) to complete, so that your agent remains
+    responsive.
+    """
 
 
 class StateToolSendSMSToolSMSContentSMSContentPredefined(BaseModel):
@@ -1313,6 +1386,9 @@ class LlmResponse(BaseModel):
     is_published: Optional[bool] = None
     """Whether the Retell LLM Response Engine is published."""
 
+    kb_config: Optional[KBConfig] = None
+    """Knowledge base configuration for RAG retrieval."""
+
     knowledge_base_ids: Optional[List[str]] = None
     """A list of knowledge base ids to use for this resource.
 
@@ -1321,6 +1397,9 @@ class LlmResponse(BaseModel):
 
     model: Optional[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -1330,9 +1409,11 @@ class LlmResponse(BaseModel):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ] = None
-    """Select the underlying text LLM. If not set, would default to gpt-4o."""
+    """Select the underlying text LLM. If not set, would default to gpt-4.1."""
 
     api_model_high_priority: Optional[bool] = FieldInfo(alias="model_high_priority", default=None)
     """
@@ -1349,7 +1430,7 @@ class LlmResponse(BaseModel):
     tool calling, a lower value is recommended.
     """
 
-    s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]] = None
+    s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] = None
     """Select the underlying speech to speech model.
 
     Can only set this or model, not both.

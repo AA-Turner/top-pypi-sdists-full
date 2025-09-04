@@ -73,7 +73,8 @@ class TestPaginatedTaskResponseList(unittest.TestCase):
                             ], 
                         reserved_resources_record = [
                             ''
-                            ], )
+                            ], 
+                        result = null, )
                     ]
             )
         else:
@@ -113,7 +114,8 @@ class TestPaginatedTaskResponseList(unittest.TestCase):
                             ], 
                         reserved_resources_record = [
                             ''
-                            ], )
+                            ], 
+                        result = null, )
                     ],
         )
         """

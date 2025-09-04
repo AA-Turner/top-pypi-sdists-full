@@ -7,7 +7,8 @@ from urllib3 import Retry
 from yookassa import Configuration
 from yookassa.domain.common import RequestObject, UserAgent
 from yookassa.domain.exceptions import ApiError, BadRequestError, ForbiddenError, NotFoundError, \
-    ResponseProcessingError, TooManyRequestsError, UnauthorizedError, InternalServerError
+    ResponseProcessingError, TooManyRequestsError, UnauthorizedError, InternalServerError, \
+    GoneError
 
 
 class ApiClient:
@@ -154,6 +155,8 @@ class ApiClient:
             raise ResponseProcessingError(raw_response.json())
         elif http_code == InternalServerError.HTTP_CODE:
             raise InternalServerError(raw_response.json())
+        elif http_code == GoneError.HTTP_CODE:
+            raise GoneError(raw_response.json())
         else:
             raise ApiError(raw_response.json())
 

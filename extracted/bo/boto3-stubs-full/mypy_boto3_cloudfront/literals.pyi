@@ -47,6 +47,7 @@ __all__ = (
     "ImportSourceTypeType",
     "InvalidationCompletedWaiterName",
     "InvalidationForDistributionTenantCompletedWaiterName",
+    "IpAddressTypeType",
     "ItemSelectionType",
     "ListCloudFrontOriginAccessIdentitiesPaginatorName",
     "ListConnectionGroupsPaginatorName",
@@ -117,6 +118,7 @@ InvalidationCompletedWaiterName = Literal["invalidation_completed"]
 InvalidationForDistributionTenantCompletedWaiterName = Literal[
     "invalidation_for_distribution_tenant_completed"
 ]
+IpAddressTypeType = Literal["dualstack", "ipv4", "ipv6"]
 ItemSelectionType = Literal["all", "none", "whitelist"]
 ListCloudFrontOriginAccessIdentitiesPaginatorName = Literal[
     "list_cloud_front_origin_access_identities"

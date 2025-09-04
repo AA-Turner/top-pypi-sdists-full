@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import jose.exceptions
-from fastapi import Depends, HTTPException, Security
+from fastapi import Depends, HTTPException, Request, Response, Security
 from fastapi.security import SecurityScopes
 from fastapi_pagination import Page, Params
 from fastapi_pagination.bases import AbstractPage
@@ -59,6 +59,7 @@ from fides.api.schemas.user import (
 )
 from fides.api.service.deps import get_user_service
 from fides.api.util.api_router import APIRouter
+from fides.api.util.rate_limit import fides_limiter
 from fides.common.api.scope_registry import (
     SCOPE_REGISTRY,
     SYSTEM_MANAGER_DELETE,
@@ -207,6 +208,17 @@ def update_user_password(
 
     current_user.update_password(db=db, new_password=data.new_password)
 
+    # Delete the user's associated OAuth client to invalidate all existing sessions
+    if current_user.client:
+        try:
+            current_user.client.delete(db)
+        except Exception as exc:
+            logger.exception(
+                "Unable to delete user client during password reset for user {}: {}",
+                current_user.id,
+                exc,
+            )
+
     logger.info("Updated user with id: '{}'.", current_user.id)
     return current_user
 
@@ -235,6 +247,18 @@ def force_update_password(
         )
 
     user.update_password(db=db, new_password=data.new_password)
+
+    # Delete the user's associated OAuth client to invalidate all existing sessions
+    if user.client:
+        try:
+            user.client.delete(db)
+        except Exception as exc:
+            logger.exception(
+                "Unable to delete user client during admin-forced password reset for user {}: {}",
+                user.id,
+                exc,
+            )
+
     logger.info("Updated user with id: '{}'.", user.id)
     return user
 
@@ -249,6 +273,10 @@ def logout_oauth_client(
     """
     if authorization is None:
         raise AuthenticationError(detail="Authentication Failure")
+
+    # Validate that the token looks like a valid JWE token (5 segments separated by dots)
+    if not authorization or authorization.count(".") != 4:
+        return None
 
     try:
         token_data = json.loads(
@@ -613,8 +641,11 @@ def get_users(
     status_code=HTTP_200_OK,
     response_model=UserLoginResponse,
 )
+@fides_limiter.limit(CONFIG.security.auth_rate_limit)
 def user_login(
     *,
+    request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     config: FidesConfig = Depends(get_config),
     user_data: UserLogin,

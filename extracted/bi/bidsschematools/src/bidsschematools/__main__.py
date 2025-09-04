@@ -150,9 +150,6 @@ def pre_receive_hook(schema, input_, output):
         )
 
     regexes = [rule["regex"] for rule in all_rules]
-    # XXX Hack for phenotype files - this can be removed once we
-    # have a schema definition for them
-    regexes.append(r"phenotype/.*\.(tsv|json)")
 
     output = sys.stdout if output == "-" else open(output, "w")
 
@@ -165,7 +162,9 @@ def pre_receive_hook(schema, input_, output):
                 lgr.debug("Validating files, first file: %s", filename)
                 any_files = True
             filename = filename.strip()
-            if any(_bidsignore_check(pattern, filename, "") for pattern in ignore):
+            if filename.startswith(".") or any(
+                _bidsignore_check(pattern, filename, "") for pattern in ignore
+            ):
                 continue
             if not any(re.match(regex, filename) for regex in regexes):
                 print(filename, file=output)

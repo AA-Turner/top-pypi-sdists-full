@@ -1,15 +1,21 @@
 """Schema loading- and processing-related functions."""
 
+from __future__ import annotations
+
 import json
 import os
 import re
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 from . import data, utils
 from .types import Namespace
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from jsonschema.protocols import Validator as JsonschemaValidator
 
 lgr = utils.get_logger()
 
@@ -97,6 +103,13 @@ def _dereference(namespace, base_schema):
             struct.update({**target, **struct})
 
 
+@cache
+def get_schema_validator() -> JsonschemaValidator:
+    """Get the jsonschema validator for validating BIDS schemas."""
+    metaschema = json.loads(data.load.readable("metaschema.json").read_text())
+    return utils.jsonschema_validator(metaschema, check_format=True)
+
+
 def dereference(namespace, inplace=True):
     """Replace references in namespace with the contents of the referred object.
 
@@ -177,12 +190,12 @@ def flatten_enums(namespace, inplace=True):
 
 @lru_cache
 def load_schema(schema_path=None):
-    """Load the schema into a dictionary.
+    """Load the schema into a dict-like structure.
 
     This function allows the schema, like BIDS itself, to be specified in
     a hierarchy of directories and files.
     Filenames (minus extensions) and directory names become keys
-    in the associative array (dict) of entries composed from content
+    in the associative array (dict) of entries composed of content
     of files and entire directories.
 
     Parameters
@@ -193,8 +206,8 @@ def load_schema(schema_path=None):
 
     Returns
     -------
-    dict
-        Schema in dictionary form.
+    Namespace
+        Schema in a dict-like structure.
 
     Notes
     -----
@@ -303,22 +316,18 @@ def filter_schema(schema, **kwargs):
 
 def validate_schema(schema: Namespace):
     """Validate a schema against the BIDS metaschema."""
+
     try:
-        from jsonschema import ValidationError, validate
+        from jsonschema import ValidationError
     except ImportError as e:
         raise RuntimeError(
             "The `jsonschema` package is required to validate schemas. "
             "Please install it with `pip install jsonschema`."
         ) from e
-
-    from .data import load
-
-    metaschema = json.loads(load.readable("metaschema.json").read_text())
-
     # validate is put in this try/except clause because the error is sometimes too long to
     # print in the terminal
     try:
-        validate(instance=schema.to_dict(), schema=metaschema)
+        get_schema_validator().validate(instance=schema.to_dict())
     except ValidationError as e:
         import tempfile
 

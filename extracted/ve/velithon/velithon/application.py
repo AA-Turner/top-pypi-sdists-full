@@ -28,7 +28,6 @@ from velithon.logging import configure_logger
 from velithon.middleware import Middleware
 from velithon.middleware.context import RequestContextMiddleware
 from velithon.middleware.logging import LoggingMiddleware
-from velithon.middleware.wrapped import WrappedRSGITypeMiddleware
 from velithon.openapi.ui import get_swagger_ui_html
 from velithon.requests import Request
 from velithon.responses import HTMLResponse, JSONResponse, Response
@@ -412,7 +411,6 @@ class Velithon:
 
         """
         middleware = [
-            Middleware(WrappedRSGITypeMiddleware),
             Middleware(RequestContextMiddleware, self),
             Middleware(LoggingMiddleware),
         ]
@@ -460,7 +458,9 @@ class Velithon:
             self.middleware_stack = self.build_middleware_stack()
 
         # Use optimized request context that respects global settings
-        await self.middleware_stack(scope, protocol)
+        wrapped_scope = Scope(scope=scope)
+        wrapped_protocol = Protocol(protocol=protocol)
+        await self.middleware_stack(wrapped_scope, wrapped_protocol)
 
     def setup(self) -> None:
         """Set up the application including memory management."""
@@ -599,7 +599,6 @@ class Velithon:
         *,
         prefix: str = '',
         tags: Sequence[str] | None = None,
-        dependencies: Sequence[Any] | None = None,
     ) -> None:
         """Add a sub-router to the application.
 
@@ -607,11 +606,10 @@ class Velithon:
             router: The Router instance to add
             prefix: Path prefix to add to all routes in the router
             tags: Tags to add to all routes in the router
-            dependencies: Dependencies to add to all routes in the router
 
         """
         self.router.add_router(
-            router, prefix=prefix, tags=tags, dependencies=dependencies
+            router, prefix=prefix, tags=tags
         )
 
     def include_router(
@@ -620,7 +618,6 @@ class Velithon:
         *,
         prefix: str = '',
         tags: Sequence[str] | None = None,
-        dependencies: Sequence[Any] | None = None,
     ) -> None:
         """Include a router in the application.
 
@@ -633,7 +630,7 @@ class Velithon:
             dependencies: Dependencies to add to all routes in the router
 
         """
-        self.add_router(router, prefix=prefix, tags=tags, dependencies=dependencies)
+        self.add_router(router, prefix=prefix, tags=tags)
 
     def get(
         self,

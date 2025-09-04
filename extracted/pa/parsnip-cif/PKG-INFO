@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: parsnip-cif
-Version: 0.3.0
+Version: 0.4.0
 Summary: Minimal library for parsing CIF & mmCIF files in Python.
 Author-email: Jen Bradley <jenbrad@umich.edu>
 Project-URL: Source, https://github.com/glotzerlab/parsnip
 Project-URL: Issues, https://github.com/glotzerlab/parsnip/issues
 Keywords: Development Status :: 4 - Beta,License :: OSI Approved :: BSD License,Programming Language :: Python :: 3.7,Programming Language :: Python :: 3.8,Programming Language :: Python :: 3.9,Programming Language :: Python :: 3.10,Programming Language :: Python :: 3.11,Programming Language :: Python :: 3.12,Topic :: Scientific/Engineering :: Physics,Topic :: Scientific/Engineering :: Chemistry
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy>=1.19
@@ -17,6 +17,7 @@ Requires-Dist: gemmi; extra == "tests"
 Requires-Dist: pycifrw!=5.0.0; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-doctestplus; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
 Requires-Dist: sympy; extra == "tests"
 Provides-Extra: doc
 Requires-Dist: alabaster==1.0.0; extra == "doc"

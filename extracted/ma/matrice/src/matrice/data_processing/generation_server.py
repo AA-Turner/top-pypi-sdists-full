@@ -146,7 +146,7 @@ class ImageGenerationServer:
         try:
             # Ensure image is in RGB mode
             if image_pil.mode != "RGB":
-                image_pil = image_pil.convert("RGB")
+                image_pil = image_pil.convert("RGB")    
 
             # Generate image using Qwen model
             generated_images = self.pipe(

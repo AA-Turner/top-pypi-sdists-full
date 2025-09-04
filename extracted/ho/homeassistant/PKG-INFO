@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homeassistant
-Version: 2025.8.3
+Version: 2025.9.0
 Summary: Open-source home automation platform running on Python 3.
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -22,7 +22,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 License-File: homeassistant/backports/LICENSE.Python
 Requires-Dist: aiodns==3.5.0
-Requires-Dist: aiohasupervisor==0.3.1
+Requires-Dist: aiohasupervisor==0.3.2
 Requires-Dist: aiohttp==3.12.15
 Requires-Dist: aiohttp_cors==0.8.1
 Requires-Dist: aiohttp-fast-zlib==0.3.0
@@ -40,7 +40,7 @@ Requires-Dist: certifi>=2021.5.30
 Requires-Dist: ciso8601==2.3.2
 Requires-Dist: cronsim==2.6
 Requires-Dist: fnv-hash-fast==1.5.0
-Requires-Dist: hass-nabucasa==0.111.2
+Requires-Dist: hass-nabucasa==1.1.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: home-assistant-bluetooth==1.13.1
 Requires-Dist: ifaddr==0.2.0
@@ -51,7 +51,7 @@ Requires-Dist: cryptography==45.0.3
 Requires-Dist: Pillow==11.3.0
 Requires-Dist: propcache==0.3.2
 Requires-Dist: pyOpenSSL==25.1.0
-Requires-Dist: orjson==3.11.1
+Requires-Dist: orjson==3.11.3
 Requires-Dist: packaging>=23.1
 Requires-Dist: psutil-home-assistant==0.0.1
 Requires-Dist: python-slugify==8.0.4
@@ -61,12 +61,12 @@ Requires-Dist: securetar==2025.2.1
 Requires-Dist: SQLAlchemy==2.0.41
 Requires-Dist: standard-aifc==3.13.0
 Requires-Dist: standard-telnetlib==3.13.0
-Requires-Dist: typing-extensions<5.0,>=4.14.0
+Requires-Dist: typing-extensions<5.0,>=4.15.0
 Requires-Dist: ulid-transform==1.4.0
 Requires-Dist: urllib3>=2.0
 Requires-Dist: uv==0.8.9
 Requires-Dist: voluptuous==0.15.2
-Requires-Dist: voluptuous-serialize==2.6.0
+Requires-Dist: voluptuous-serialize==2.7.0
 Requires-Dist: voluptuous-openapi==0.1.0
 Requires-Dist: yarl==1.20.1
 Requires-Dist: webrtc-models==0.3.0

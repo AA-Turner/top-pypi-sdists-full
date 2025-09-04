@@ -266,7 +266,7 @@ class tsunit(lisa.LISAunit):
             return None
 
         # XXX: context_name is not supposed to be able to be None (the <name>
-        # tag is compulsary in the <context> tag)
+        # tag is compulsory in the <context> tag)
         if context_name is not None:
             if self.source:
                 return context_name + self.source
@@ -563,6 +563,8 @@ class tsfile(lisa.LISAfile):
         return lang[1]
 
     def serialize_hook(self, treestring: str) -> bytes:
+        # For conformance with Qt output, post-process etree.tostring output,
+        # replacing ' with &apos; and " with &quot; in text elements
         pos = 0
         out = []
         while pos >= 0:
@@ -578,6 +580,9 @@ class tsfile(lisa.LISAfile):
     def serialize(self, out):
         """Write the XML document to a file."""
         root = self.document.getroot()
+        # Iterate over empty tags without children and force empty text
+        # This will prevent self-closing tags in pretty_print mode
+        # Qt Linguist does self-close the "location" elements though
         for e in root.xpath(
             "//*[not(./node()) and not(text()) and not(name() = 'location')]"
         ):

@@ -28,7 +28,7 @@
 import logging
 import struct
 from threading import Event
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator
 
 from fido2.ctap import STATUS, CtapDevice, CtapError
 from fido2.hid import CAPABILITY, CTAPHID
@@ -54,11 +54,13 @@ Connection.register(FidoConnection)
 
 
 # Use SmartCardConnection for FIDO access, allowing usage of SCP
-class SmartCardCtapDevice(CtapDevice):
+class SmartCardCtapDevice(CtapDevice, Connection):
+    usb_interface = USB_INTERFACE.CCID
+
     def __init__(
         self,
         connection: SmartCardConnection,
-        scp_key_params: Optional[ScpKeyParams] = None,
+        scp_key_params: ScpKeyParams | None = None,
     ):
         self._capabilities = CAPABILITY(0)
 
@@ -68,7 +70,8 @@ class SmartCardCtapDevice(CtapDevice):
             self._capabilities |= CAPABILITY.NMSG
 
         if scp_key_params:
-            # We can at least raise the configuration level to 5.3.0, since SCP is not available before then
+            # We can at least raise the configuration level to 5.3.0,
+            # since SCP is not available before then
             self.protocol.configure(Version(5, 3, 0))
             self.protocol.init_scp(scp_key_params)
 
@@ -92,26 +95,46 @@ class SmartCardCtapDevice(CtapDevice):
         self,
         cmd: int,
         data: bytes = b"",
-        event: Optional[Event] = None,
-        on_keepalive: Optional[Callable[[STATUS], None]] = None,
+        event: Event | None = None,
+        on_keepalive: Callable[[STATUS], None] | None = None,
     ) -> bytes:
-        if cmd == CTAPHID.MSG:
-            cla, ins, p1, p2 = data[:4]
-            if data[4] == 0:
-                ln = struct.unpack(">H", data[5:7])[0]
-                data = data[7 : 7 + ln]
-            else:
-                data = data[5 : 5 + data[4]]
-        elif cmd == CTAPHID.CBOR:
-            # NFCCTAP_MSG
-            cla, ins, p1, p2 = 0x80, 0x10, 0x00, 0x00
-        else:
-            raise CtapError(CtapError.ERR.INVALID_COMMAND)
+        match cmd:
+            case CTAPHID.MSG:
+                cla, ins, p1, p2 = data[:4]
+                if data[4] == 0:
+                    ln = struct.unpack(">H", data[5:7])[0]
+                    data = data[7 : 7 + ln]
+                else:
+                    data = data[5 : 5 + data[4]]
+            case CTAPHID.CBOR:
+                # NFCCTAP_MSG
+                cla, ins, p1, p2 = 0x80, 0x10, 0x80, 0x00
+            case _:
+                raise CtapError(CtapError.ERR.INVALID_COMMAND)
+
+        event = event or Event()
+        last_ka = None
 
         try:
-            return self.protocol.send_apdu(cla, ins, p1, p2, data)
-        except ApduError:
-            raise CtapError(CtapError.ERR.OTHER)  # TODO: Map from SW error
+            while True:
+                try:
+                    return self.protocol.send_apdu(cla, ins, p1, p2, data)
+                except ApduError as e:
+                    if e.sw == 0x9100:
+                        ins, p1 = 0x11, 0x00  # NFCCTAP_GETRESPONSE
+                        ka_status = STATUS(e.data[0])
+                        if on_keepalive and last_ka != ka_status:
+                            last_ka = ka_status
+                            on_keepalive(ka_status)
+                        if event.wait(0.1):
+                            p1 = 0x11  # cancel
+                        continue
+                    raise CtapError(CtapError.ERR.OTHER)  # TODO: Map from SW error
+        except KeyboardInterrupt:
+            if ins == 0x11:
+                logger.debug("Keyboard interrupt, cancelling...")
+                self.protocol.send_apdu(cla, ins, 0x11, p2)
+            raise
 
     @classmethod
     def list_devices(cls) -> Iterator[CtapDevice]:

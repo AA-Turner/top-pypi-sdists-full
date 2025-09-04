@@ -50,6 +50,11 @@ class AuthTestingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.FromString,
         )
+        self.GetFeatureFlagTestEndpoint = channel.unary_unary(
+            "/chalk.server.v1.AuthTestingService/GetFeatureFlagTestEndpoint",
+            request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.FromString,
+        )
 
 
 class AuthTestingServiceServicer(object):
@@ -97,6 +102,12 @@ class AuthTestingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetFeatureFlagTestEndpoint(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AuthTestingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -134,6 +145,11 @@ def add_AuthTestingServiceServicer_to_server(servicer, server):
             servicer.GetOwnerTestEndpoint,
             request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.SerializeToString,
+        ),
+        "GetFeatureFlagTestEndpoint": grpc.unary_unary_rpc_method_handler(
+            servicer.GetFeatureFlagTestEndpoint,
+            request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuthTestingService", rpc_method_handlers)
@@ -337,6 +353,35 @@ class AuthTestingService(object):
             "/chalk.server.v1.AuthTestingService/GetOwnerTestEndpoint",
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetFeatureFlagTestEndpoint(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthTestingService/GetFeatureFlagTestEndpoint",
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.FromString,
             options,
             channel_credentials,
             insecure,

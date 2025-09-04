@@ -1,17 +1,18 @@
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
-use pyo3::types::{PyDict, PySet, PyString, PyType};
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyDict, PySet, PyString, PyType, PyTuple};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex as ParkingLotMutex;
+use std::sync::Arc;
 
-// Global caches
-static SIGNATURE_CACHE: GILOnceCell<Mutex<HashMap<String, PyObject>>> = GILOnceCell::new();
-static PROVIDER_INSTANCES: GILOnceCell<Arc<Mutex<HashMap<String, PyObject>>>> = GILOnceCell::new();
+// Global caches with parking_lot mutex for better performance
+static SIGNATURE_CACHE: PyOnceLock<ParkingLotMutex<HashMap<String, Py<PyAny>>>> = PyOnceLock::new();
+static PROVIDER_INSTANCES: PyOnceLock<Arc<ParkingLotMutex<HashMap<String, Py<PyAny>>>>> = PyOnceLock::new();
 
 #[pyfunction(name = "di_cached_signature")]
-fn cached_signature(py: Python, func: Bound<PyAny>) -> PyResult<PyObject> {
-    let cache_mutex = SIGNATURE_CACHE.get_or_init(py, || Mutex::new(HashMap::new()));
-    let mut cache = cache_mutex.lock().unwrap();
+fn cached_signature(py: Python, func: Bound<PyAny>) -> PyResult<Py<PyAny>> {
+    let cache_mutex = SIGNATURE_CACHE.get_or_init(py, || ParkingLotMutex::new(HashMap::new()));
+    let mut cache = cache_mutex.lock();
 
     let func_obj = func.unbind();
     let func_str = format!("{:?}", func_obj);
@@ -29,12 +30,12 @@ fn cached_signature(py: Python, func: Bound<PyAny>) -> PyResult<PyObject> {
 #[pyclass]
 pub struct Provide {
     #[pyo3(get)]
-    service: PyObject,
+    service: Py<PyAny>,
 }
 
 impl Clone for Provide {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             service: self.service.clone_ref(py),
         })
     }
@@ -43,12 +44,12 @@ impl Clone for Provide {
 #[pymethods]
 impl Provide {
     #[new]
-    fn new(service: PyObject) -> Self {
+    fn new(service: Py<PyAny>) -> Self {
         Self { service }
     }
 
     #[classmethod]
-    fn __class_getitem__(_cls: &Bound<'_, PyType>, service: PyObject) -> PyResult<Self> {
+    fn __class_getitem__(_cls: &Bound<'_, PyType>, service: Py<PyAny>) -> PyResult<Self> {
         Ok(Self::new(service))
     }
 
@@ -70,9 +71,9 @@ impl Provider {
     fn get(
         &self,
         _py: Python,
-        _container: Option<PyObject>,
-        _resolution_stack: Option<PyObject>,
-    ) -> PyResult<PyObject> {
+        _container: Option<Py<PyAny>>,
+        _resolution_stack: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
             "get method must be implemented by subclasses",
         ))
@@ -81,8 +82,8 @@ impl Provider {
 
 #[pyclass(extends = Provider)]
 pub struct SingletonProvider {
-    cls: PyObject,
-    kwargs: PyObject,
+    cls: Py<PyAny>,
+    kwargs: Py<PyAny>,
     lock_key: String,
 }
 
@@ -90,10 +91,10 @@ pub struct SingletonProvider {
 impl SingletonProvider {
     #[new]
     #[pyo3(signature = (cls, **kwargs))]
-    fn new(cls: PyObject, kwargs: Option<Bound<PyDict>>) -> PyResult<(Self, Provider)> {
+    fn new(cls: Py<PyAny>, kwargs: Option<Bound<PyDict>>) -> PyResult<(Self, Provider)> {
         let kwargs_dict = match kwargs {
             Some(k) => k.unbind().into(),
-            None => Python::with_gil(|py| PyDict::new(py).unbind().into()),
+            None => Python::attach(|py| PyDict::new(py).unbind().into()),
         };
 
         let lock_key = format!("{:?}", cls);
@@ -111,76 +112,56 @@ impl SingletonProvider {
     fn get(
         &self,
         py: Python,
-        container: PyObject,
-        resolution_stack: Option<PyObject>,
-    ) -> PyResult<PyObject> {
-        let instances_lock =
-            PROVIDER_INSTANCES.get_or_init(py, || Arc::new(Mutex::new(HashMap::new())));
+        _container: Py<PyAny>,
+        _resolution_stack: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let instances_lock = 
+            PROVIDER_INSTANCES.get_or_init(py, || Arc::new(ParkingLotMutex::new(HashMap::new())));
 
-        // Check if instance already exists
+        // Check if we already have an instance
         {
-            let instances = instances_lock.lock().unwrap();
+            let instances = instances_lock.lock();
             if let Some(instance) = instances.get(&self.lock_key) {
                 return Ok(instance.clone_ref(py));
             }
-        }
+        } // Release lock before creating new instance
 
-        // Create new instance with circular dependency detection
-        let resolution_stack = match resolution_stack {
-            Some(stack) => stack,
-            None => PySet::empty(py)?.unbind().into(),
+        // Create new instance if needed (using optimized kwargs handling)
+        let instance = if self.kwargs.bind(py).len()? == 0 {
+            // No kwargs - fast path
+            self.cls.call0(py)?
+        } else {
+            // Has kwargs - unpack them
+            let kwargs_dict = self.kwargs.bind(py).downcast::<PyDict>()?;
+            let empty_args = PyTuple::empty(py);
+            self.cls.call(py, empty_args, Some(kwargs_dict))?
         };
 
-        let stack_bound = resolution_stack.bind(py);
-        let key_str = PyString::new(py, &self.lock_key);
-
-        if stack_bound.contains(&key_str)? {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Circular dependency detected for {}",
-                self.lock_key
-            )));
-        }
-
-        stack_bound.call_method1("add", (&key_str,))?;
-
-        let result = {
-            let mut instances = instances_lock.lock().unwrap();
-
-            // Double-check after acquiring write lock
-            if let Some(instance) = instances.get(&self.lock_key) {
-                let _ = stack_bound.call_method1("discard", (&key_str,));
-                return Ok(instance.clone_ref(py));
+        // Store the instance
+        {
+            let mut instances = instances_lock.lock();
+            // Double-check in case another thread created it while we were creating ours
+            if let Some(existing) = instances.get(&self.lock_key) {
+                return Ok(existing.clone_ref(py));
+            } else {
+                instances.insert(self.lock_key.clone(), instance.clone_ref(py));
+                return Ok(instance);
             }
-
-            // Get container and create instance
-            let instance = create_instance(
-                py,
-                &self.cls,
-                &self.kwargs,
-                &container,
-                Some(resolution_stack.clone_ref(py)),
-            )?;
-
-            instances.insert(self.lock_key.clone(), instance.clone_ref(py));
-            instance
-        };
-
-        let _ = stack_bound.call_method1("discard", (&key_str,));
-        Ok(result)
+        }
     }
 }
 
 #[pyclass(extends = Provider)]
 pub struct FactoryProvider {
-    cls: PyObject,
-    kwargs: PyObject,
+    cls: Py<PyAny>,
+    kwargs: Py<PyAny>,
 }
 
 #[pymethods]
 impl FactoryProvider {
     #[new]
     #[pyo3(signature = (cls, **kwargs))]
-    fn new(py: Python, cls: PyObject, kwargs: Option<Bound<PyDict>>) -> PyResult<(Self, Provider)> {
+    fn new(py: Python, cls: Py<PyAny>, kwargs: Option<Bound<PyDict>>) -> PyResult<(Self, Provider)> {
         let kwargs_dict = match kwargs {
             Some(k) => k.unbind().into(),
             None => PyDict::new(py).unbind().into(),
@@ -198,9 +179,9 @@ impl FactoryProvider {
     fn get(
         &self,
         py: Python,
-        container: PyObject,
-        resolution_stack: Option<PyObject>,
-    ) -> PyResult<PyObject> {
+        container: Py<PyAny>,
+        resolution_stack: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let resolution_stack = match resolution_stack {
             Some(stack) => stack,
             None => PySet::empty(py)?.unbind().into(),
@@ -235,9 +216,9 @@ impl FactoryProvider {
 
 #[pyclass(extends = Provider)]
 pub struct AsyncFactoryProvider {
-    factory: PyObject,
-    kwargs: PyObject,
-    signature: PyObject,
+    factory: Py<PyAny>,
+    kwargs: Py<PyAny>,
+    signature: Py<PyAny>,
 }
 
 #[pymethods]
@@ -246,7 +227,7 @@ impl AsyncFactoryProvider {
     #[pyo3(signature = (factory, **kwargs))]
     fn new(
         py: Python,
-        factory: PyObject,
+        factory: Py<PyAny>,
         kwargs: Option<Bound<PyDict>>,
     ) -> PyResult<(Self, Provider)> {
         let kwargs_dict = match kwargs {
@@ -269,9 +250,9 @@ impl AsyncFactoryProvider {
     fn get(
         &self,
         py: Python,
-        container: PyObject,
-        resolution_stack: Option<PyObject>,
-    ) -> PyResult<PyObject> {
+        container: Py<PyAny>,
+        resolution_stack: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let resolution_stack = match resolution_stack {
             Some(stack) => stack,
             None => PySet::empty(py)?.unbind().into(),
@@ -325,10 +306,10 @@ impl ServiceContainer {
     fn resolve(
         &self,
         py: Python,
-        provide: PyObject, // Changed from &Provide to PyObject
-        container: PyObject,
-        resolution_stack: Option<PyObject>,
-    ) -> PyResult<PyObject> {
+        provide: Py<PyAny>, // Changed from &Provide to Py<PyAny>
+        container: Py<PyAny>,
+        resolution_stack: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         // Extract the service from the Provide object
         let service = if let Ok(provide_obj) = provide.extract::<Py<Provide>>(py) {
             provide_obj.borrow(py).service.clone_ref(py)
@@ -358,11 +339,11 @@ impl ServiceContainer {
 
 fn create_instance(
     py: Python,
-    cls: &PyObject,
-    kwargs: &PyObject,
-    container: &PyObject,
-    resolution_stack: Option<PyObject>,
-) -> PyResult<PyObject> {
+    cls: &Py<PyAny>,
+    kwargs: &Py<PyAny>,
+    container: &Py<PyAny>,
+    resolution_stack: Option<Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
     let signature = cached_signature(py, cls.bind(py).clone())?;
     let deps = resolve_dependencies(py, &signature, container, kwargs, resolution_stack)?;
 
@@ -374,10 +355,10 @@ fn create_instance(
 
 fn resolve_dependencies<'py>(
     py: Python<'py>,
-    signature: &PyObject,
-    container: &PyObject,
-    kwargs: &PyObject,
-    resolution_stack: Option<PyObject>,
+    signature: &Py<PyAny>,
+    container: &Py<PyAny>,
+    kwargs: &Py<PyAny>,
+    resolution_stack: Option<Py<PyAny>>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let deps = PyDict::new(py);
     let sig_bound = signature.bind(py);
@@ -386,7 +367,7 @@ fn resolve_dependencies<'py>(
 
     for item in parameters.getattr("items")?.call0()?.try_iter()? {
         let item = item?;
-        let (name, param) = item.extract::<(String, PyObject)>()?;
+        let (name, param) = item.extract::<(String, Py<PyAny>)>()?;
 
         // Check if dependency is already provided in kwargs
         if kwargs_bound.contains(&name)? {
@@ -416,11 +397,11 @@ fn resolve_dependencies<'py>(
 fn resolve_param(
     py: Python,
     _name: &str,
-    param: &PyObject,
-    container: &PyObject,
-    // scope: Option<&PyObject>,
-    resolution_stack: &Option<PyObject>,
-) -> PyResult<PyObject> {
+    param: &Py<PyAny>,
+    container: &Py<PyAny>,
+    // scope: Option<&Py<PyAny>>,
+    resolution_stack: &Option<Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
     let param_bound = param.bind(py);
 
     // Check annotation metadata

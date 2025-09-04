@@ -1,5 +1,5 @@
 # This is patched by github actions during release
-__version__ = "0.13.1"
+__version__ = "0.13.3"
 
 # Re-export version functions from version module for backward compatibility
 from .version import (

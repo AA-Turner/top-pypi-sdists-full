@@ -30,16 +30,15 @@ import logging
 import sys
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from contextlib import contextmanager
 from enum import Enum
-from threading import Timer
-from typing import Optional, Sequence
+from typing import Sequence, cast
 
 import click
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 
-from yubikit.core import TRANSPORT, ApplicationNotAvailableError
+from yubikit.core import TRANSPORT, ApplicationNotAvailableError, _timeout
 from yubikit.core.smartcard import ApduError, SmartCardConnection
 from yubikit.core.smartcard.scp import KeyRef, Scp11KeyParams, ScpKeyParams, ScpKid
 from yubikit.management import CAPABILITY, DeviceInfo
@@ -66,6 +65,7 @@ class _YkmanCommand(click.Command):
 
     def get_help_option(self, ctx):
         option = super().get_help_option(ctx)
+        assert option is not None  # noqa: S101
         option.help = "show this message and exit"
         return option
 
@@ -269,22 +269,16 @@ def click_prompt(prompt, err=True, **kwargs):
     return click.prompt(prompt, err=err, **kwargs)
 
 
-def prompt_for_touch():
+def prompt_for_touch(prompt: str = "Touch your YubiKey...") -> None:
     logger.debug("Prompting user to touch YubiKey...")
     try:
-        click.echo("Touch your YubiKey...", err=True)
+        click.echo(prompt, err=True)
     except Exception:
-        sys.stderr.write("Touch your YubiKey...\n")
+        sys.stderr.write(f"{prompt}\n")
 
 
-@contextmanager
 def prompt_timeout(timeout=0.5):
-    timer = Timer(timeout, prompt_for_touch)
-    try:
-        timer.start()
-        yield None
-    finally:
-        timer.cancel()
+    return _timeout(prompt_for_touch, timeout)
 
 
 class CliFail(Exception):
@@ -351,7 +345,7 @@ def log_or_echo(message: str, log: logging.Logger, *files) -> None:
 
 
 def find_scp11_params(
-    connection: SmartCardConnection, kid: int, kvn: int, ca: Optional[bytes] = None
+    connection: SmartCardConnection, kid: int, kvn: int, ca: bytes | None = None
 ) -> Scp11KeyParams:
     try:
         scp = SecurityDomainSession(connection)
@@ -386,8 +380,9 @@ def find_scp11_params(
                 break
         else:
             raise ValueError(f"No SCP key found matching KID=0x{kid:x}")
+
+    ref = KeyRef(kid, kvn)
     try:
-        ref = KeyRef(kid, kvn)
         chain = scp.get_certificate_bundle(ref)
         if not chain:
             raise ValueError(f"No certificate chain stored for {ref}")
@@ -402,7 +397,7 @@ def find_scp11_params(
         else:
             logger.info("No CA supplied, skipping KLCC CA validation")
 
-        pub_key = chain[-1].public_key()
+        pub_key = cast(EllipticCurvePublicKey, chain[-1].public_key())
         return Scp11KeyParams(ref, pub_key)
     except ApduError:
         raise ValueError(f"Unable to get SCP key paramaters ({ref})")
@@ -410,7 +405,7 @@ def find_scp11_params(
 
 def get_scp_params(
     ctx: click.Context, capability: CAPABILITY, connection: SmartCardConnection
-) -> Optional[ScpKeyParams]:
+) -> ScpKeyParams | None:
     # Explicit SCP
     resolve = ctx.obj.get("scp")
     if resolve:
@@ -433,7 +428,7 @@ def get_scp_params(
 def organize_scp11_certificates(
     certificates: Sequence[x509.Certificate],
 ) -> tuple[
-    Optional[x509.Certificate], Sequence[x509.Certificate], Optional[x509.Certificate]
+    x509.Certificate | None, Sequence[x509.Certificate], x509.Certificate | None
 ]:
     if not certificates:
         return None, [], None
@@ -462,7 +457,7 @@ def organize_scp11_certificates(
 
     # Check if leaf has keyAgreement policy:
     if ordered:
-        kue = ordered[-1].extensions.get_extension_for_oid(x509.ExtensionOID.KEY_USAGE)
+        kue = ordered[-1].extensions.get_extension_for_class(x509.KeyUsage)
         if kue.value.key_agreement:
             leaf = ordered.pop()
 

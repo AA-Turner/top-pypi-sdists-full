@@ -408,8 +408,7 @@ class PaymentEntryWindow(NextGenWindow):
         """Clicks the recalc button."""
         if click_recalc_button:
             self.logger.debug("Clicking recalc button in Payment Entry Window.")
-            send_keys("%R")
-            sleep(1)
+            self.desktop_app.click_button_by_element_name(element_name="_cmdAction_6")
         else:
             self.logger.warning("Skipping recalc button click to prevent changes.")
 

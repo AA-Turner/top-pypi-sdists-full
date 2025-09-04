@@ -15,17 +15,20 @@ readme = "README.md"
 [dependencies]
 pyo3 = { workspace = true, features = [] }
 ryo3-macro-rules.workspace = true
-serde = { workspace = true, optional = true, features = ["derive"] }
+ryo3-std = {workspace = true, features = ["std-net"], optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
 url = { workspace = true }
 
 [features]
 default = [
   "serde",
+  "ryo3-std",
 ]
 serde = [
   "dep:serde",
   "url/serde",
 ]
+
 
 [lints]
 workspace = true

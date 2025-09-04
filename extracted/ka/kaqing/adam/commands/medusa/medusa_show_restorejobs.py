@@ -49,4 +49,4 @@ class MedusaShowRestoreJobs(Command):
         return {}
 
     def help(self, _: ReplState):
-        return f'{MedusaShowRestoreJobs.COMMAND}\t start a restore job'
+        return f'{MedusaShowRestoreJobs.COMMAND}\t show restores'

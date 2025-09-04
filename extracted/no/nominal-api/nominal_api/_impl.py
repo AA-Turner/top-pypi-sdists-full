@@ -78124,6 +78124,28 @@ scout_run_api_GetRunsByAssetResponse.__qualname__ = "GetRunsByAssetResponse"
 scout_run_api_GetRunsByAssetResponse.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_InequalityOperator(ConjureEnumType):
+
+    GT = 'GT'
+    '''GT'''
+    GTE = 'GTE'
+    '''GTE'''
+    LT = 'LT'
+    '''LT'''
+    LTE = 'LTE'
+    '''LTE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_run_api_InequalityOperator.__name__ = "InequalityOperator"
+scout_run_api_InequalityOperator.__qualname__ = "InequalityOperator"
+scout_run_api_InequalityOperator.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_Link(ConjureBeanType):
 
     @builtins.classmethod
@@ -78184,6 +78206,86 @@ using a `dataset` ref name for a `connection` data source
 scout_run_api_RefNameAndType.__name__ = "RefNameAndType"
 scout_run_api_RefNameAndType.__qualname__ = "RefNameAndType"
 scout_run_api_RefNameAndType.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_RelativeOrAbsoluteTimestamp(ConjureUnionType):
+    _absolute: Optional["api_Timestamp"] = None
+    _relative: Optional["scout_run_api_Duration"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'absolute': ConjureFieldDefinition('absolute', api_Timestamp),
+            'relative': ConjureFieldDefinition('relative', scout_run_api_Duration)
+        }
+
+    def __init__(
+            self,
+            absolute: Optional["api_Timestamp"] = None,
+            relative: Optional["scout_run_api_Duration"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (absolute is not None) + (relative is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if absolute is not None:
+                self._absolute = absolute
+                self._type = 'absolute'
+            if relative is not None:
+                self._relative = relative
+                self._type = 'relative'
+
+        elif type_of_union == 'absolute':
+            if absolute is None:
+                raise ValueError('a union value must not be None')
+            self._absolute = absolute
+            self._type = 'absolute'
+        elif type_of_union == 'relative':
+            if relative is None:
+                raise ValueError('a union value must not be None')
+            self._relative = relative
+            self._type = 'relative'
+
+    @builtins.property
+    def absolute(self) -> Optional["api_Timestamp"]:
+        return self._absolute
+
+    @builtins.property
+    def relative(self) -> Optional["scout_run_api_Duration"]:
+        """Relative timestamps are relative from the current time use a negative lookback period from the current date.
+A relative timestamp of 7 days implies "7 days ago from current time".
+        """
+        return self._relative
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_run_api_RelativeOrAbsoluteTimestampVisitor):
+            raise ValueError('{} is not an instance of scout_run_api_RelativeOrAbsoluteTimestampVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'absolute' and self.absolute is not None:
+            return visitor._absolute(self.absolute)
+        if self._type == 'relative' and self.relative is not None:
+            return visitor._relative(self.relative)
+
+
+scout_run_api_RelativeOrAbsoluteTimestamp.__name__ = "RelativeOrAbsoluteTimestamp"
+scout_run_api_RelativeOrAbsoluteTimestamp.__qualname__ = "RelativeOrAbsoluteTimestamp"
+scout_run_api_RelativeOrAbsoluteTimestamp.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_RelativeOrAbsoluteTimestampVisitor:
+
+    @abstractmethod
+    def _absolute(self, absolute: "api_Timestamp") -> Any:
+        pass
+
+    @abstractmethod
+    def _relative(self, relative: "scout_run_api_Duration") -> Any:
+        pass
+
+
+scout_run_api_RelativeOrAbsoluteTimestampVisitor.__name__ = "RelativeOrAbsoluteTimestampVisitor"
+scout_run_api_RelativeOrAbsoluteTimestampVisitor.__qualname__ = "RelativeOrAbsoluteTimestampVisitor"
+scout_run_api_RelativeOrAbsoluteTimestampVisitor.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_Run(ConjureBeanType):
@@ -78520,7 +78622,9 @@ scout_run_api_RunWithDataReviewSummary.__module__ = "nominal_api.scout_run_api"
 
 class scout_run_api_SearchQuery(ConjureUnionType):
     _start_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None
+    _start_time: Optional["scout_run_api_TimestampCondition"] = None
     _end_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None
+    _end_time: Optional["scout_run_api_TimestampCondition"] = None
     _time_range: Optional["scout_run_api_TimeRangeFilter"] = None
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
@@ -78543,7 +78647,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'start_time_inclusive': ConjureFieldDefinition('startTimeInclusive', scout_run_api_UtcTimestamp),
+            'start_time': ConjureFieldDefinition('startTime', scout_run_api_TimestampCondition),
             'end_time_inclusive': ConjureFieldDefinition('endTimeInclusive', scout_run_api_UtcTimestamp),
+            'end_time': ConjureFieldDefinition('endTime', scout_run_api_TimestampCondition),
             'time_range': ConjureFieldDefinition('timeRange', scout_run_api_TimeRangeFilter),
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
@@ -78566,7 +78672,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     def __init__(
             self,
             start_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None,
+            start_time: Optional["scout_run_api_TimestampCondition"] = None,
             end_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None,
+            end_time: Optional["scout_run_api_TimestampCondition"] = None,
             time_range: Optional["scout_run_api_TimeRangeFilter"] = None,
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
@@ -78587,15 +78695,21 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (start_time_inclusive is not None) + (end_time_inclusive is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (is_single_asset is not None) + (label is not None) + (property is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (start_time_inclusive is not None) + (start_time is not None) + (end_time_inclusive is not None) + (end_time is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (is_single_asset is not None) + (label is not None) + (property is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if start_time_inclusive is not None:
                 self._start_time_inclusive = start_time_inclusive
                 self._type = 'startTimeInclusive'
+            if start_time is not None:
+                self._start_time = start_time
+                self._type = 'startTime'
             if end_time_inclusive is not None:
                 self._end_time_inclusive = end_time_inclusive
                 self._type = 'endTimeInclusive'
+            if end_time is not None:
+                self._end_time = end_time
+                self._type = 'endTime'
             if time_range is not None:
                 self._time_range = time_range
                 self._type = 'timeRange'
@@ -78653,11 +78767,21 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._start_time_inclusive = start_time_inclusive
             self._type = 'startTimeInclusive'
+        elif type_of_union == 'startTime':
+            if start_time is None:
+                raise ValueError('a union value must not be None')
+            self._start_time = start_time
+            self._type = 'startTime'
         elif type_of_union == 'endTimeInclusive':
             if end_time_inclusive is None:
                 raise ValueError('a union value must not be None')
             self._end_time_inclusive = end_time_inclusive
             self._type = 'endTimeInclusive'
+        elif type_of_union == 'endTime':
+            if end_time is None:
+                raise ValueError('a union value must not be None')
+            self._end_time = end_time
+            self._type = 'endTime'
         elif type_of_union == 'timeRange':
             if time_range is None:
                 raise ValueError('a union value must not be None')
@@ -78749,8 +78873,16 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._start_time_inclusive
 
     @builtins.property
+    def start_time(self) -> Optional["scout_run_api_TimestampCondition"]:
+        return self._start_time
+
+    @builtins.property
     def end_time_inclusive(self) -> Optional["scout_run_api_UtcTimestamp"]:
         return self._end_time_inclusive
+
+    @builtins.property
+    def end_time(self) -> Optional["scout_run_api_TimestampCondition"]:
+        return self._end_time
 
     @builtins.property
     def time_range(self) -> Optional["scout_run_api_TimeRangeFilter"]:
@@ -78831,8 +78963,12 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_run_api_SearchQueryVisitor'.format(visitor.__class__.__name__))
         if self._type == 'startTimeInclusive' and self.start_time_inclusive is not None:
             return visitor._start_time_inclusive(self.start_time_inclusive)
+        if self._type == 'startTime' and self.start_time is not None:
+            return visitor._start_time(self.start_time)
         if self._type == 'endTimeInclusive' and self.end_time_inclusive is not None:
             return visitor._end_time_inclusive(self.end_time_inclusive)
+        if self._type == 'endTime' and self.end_time is not None:
+            return visitor._end_time(self.end_time)
         if self._type == 'timeRange' and self.time_range is not None:
             return visitor._time_range(self.time_range)
         if self._type == 'exactMatch' and self.exact_match is not None:
@@ -78881,7 +79017,15 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
+    def _start_time(self, start_time: "scout_run_api_TimestampCondition") -> Any:
+        pass
+
+    @abstractmethod
     def _end_time_inclusive(self, end_time_inclusive: "scout_run_api_UtcTimestamp") -> Any:
+        pass
+
+    @abstractmethod
+    def _end_time(self, end_time: "scout_run_api_TimestampCondition") -> Any:
         pass
 
     @abstractmethod
@@ -79370,6 +79514,35 @@ class scout_run_api_TimeRangeFilter(ConjureBeanType):
 scout_run_api_TimeRangeFilter.__name__ = "TimeRangeFilter"
 scout_run_api_TimeRangeFilter.__qualname__ = "TimeRangeFilter"
 scout_run_api_TimeRangeFilter.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_TimestampCondition(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', scout_run_api_InequalityOperator),
+            'threshold': ConjureFieldDefinition('threshold', scout_run_api_RelativeOrAbsoluteTimestamp)
+        }
+
+    __slots__: List[str] = ['_operator', '_threshold']
+
+    def __init__(self, operator: "scout_run_api_InequalityOperator", threshold: "scout_run_api_RelativeOrAbsoluteTimestamp") -> None:
+        self._operator = operator
+        self._threshold = threshold
+
+    @builtins.property
+    def operator(self) -> "scout_run_api_InequalityOperator":
+        return self._operator
+
+    @builtins.property
+    def threshold(self) -> "scout_run_api_RelativeOrAbsoluteTimestamp":
+        return self._threshold
+
+
+scout_run_api_TimestampCondition.__name__ = "TimestampCondition"
+scout_run_api_TimestampCondition.__qualname__ = "TimestampCondition"
+scout_run_api_TimestampCondition.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_UnarchiveRunsRequest(ConjureBeanType):

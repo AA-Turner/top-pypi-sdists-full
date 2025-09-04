@@ -87,13 +87,15 @@ def run_script(ctx, site_dir, script, arguments, force):
 
     """
 
-    force or click.confirm(
-        f"{_WARNING}\n"
-        "You can bypass this message by running the command with the --force flag.\n\n"
-        "Run script?",
-        abort=True,
-        err=True,
-    )
+    if not force:
+        click.confirm(
+            f"{_WARNING}\n"
+            "You can bypass this message by running the command with the --force flag."
+            "\n\n"
+            "Run script?",
+            abort=True,
+            err=True,
+        )
 
     for sd in site_dir:
         logger.debug("Add %s to path.", sd)
@@ -102,4 +104,4 @@ def run_script(ctx, site_dir, script, arguments, force):
     script_body = script.read()
 
     sys.argv = [script.name, *arguments]
-    exec(script_body, {})  # nosec
+    exec(script_body, {})  # noqa: S102

@@ -35,8 +35,8 @@ class TearDownFrontend(Command):
 
         return state
 
-    def completion(self, _: ReplState):
-        return {}
+    def completion(self, state: ReplState):
+        return super().completion(state)
 
     def help(self, _: ReplState):
         return f'{TearDownFrontend.COMMAND}\t tear down frontend'

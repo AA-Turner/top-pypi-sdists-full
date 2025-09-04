@@ -4,7 +4,7 @@ import os
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import onnx
@@ -15,6 +15,30 @@ from onnxslim.misc.tabulate import SEPARATING_LINE, tabulate
 from onnxslim.third_party.onnx_graphsurgeon.logger.logger import G_LOGGER
 
 logger = logging.getLogger("onnxslim")
+
+import ml_dtypes
+from onnx.mapping import TensorDtypeMap
+
+TENSOR_TYPE_MAP = {}
+
+candidates = [
+    ("BFLOAT16", "bfloat16", "UINT16"),
+    ("FLOAT8E4M3FN", "float8_e4m3fn", "UINT8"),
+    ("FLOAT8E4M3FNUZ", "float8_e4m3fnuz", "UINT8"),
+    ("FLOAT8E5M2", "float8_e5m2", "UINT8"),
+    ("FLOAT8E5M2FNUZ", "float8_e5m2fnuz", "UINT8"),
+    ("UINT4", "uint4", "INT32"),
+    ("INT4", "int4", "INT32"),
+    ("FLOAT4E2M1", "float4_e2m1fn", "UINT8"),
+]
+
+for onnx_name, ml_name, storage_name in candidates:
+    if hasattr(onnx.TensorProto, onnx_name) and hasattr(ml_dtypes, ml_name):
+        TENSOR_TYPE_MAP[int(getattr(onnx.TensorProto, onnx_name))] = TensorDtypeMap(
+            np.dtype(getattr(ml_dtypes, ml_name)),
+            int(getattr(onnx.TensorProto, storage_name)),
+            f"TensorProto.{onnx_name}",
+        )
 
 
 def init_logging(verbose=False):
@@ -44,7 +68,7 @@ def init_logging(verbose=False):
     return logger
 
 
-def format_bytes(size: Union[int, Tuple[int, ...]]) -> str:
+def format_bytes(size: Union[int, tuple[int, ...]]) -> str:
     """Convert byte sizes into human-readable format with appropriate units (B, KB, MB, GB)."""
     if isinstance(size, int):
         size = (size,)
@@ -71,12 +95,20 @@ def format_bytes(size: Union[int, Tuple[int, ...]]) -> str:
 
 def onnx_dtype_to_numpy(onnx_dtype: int) -> np.dtype:
     """Maps an ONNX dtype to its corresponding NumPy dtype."""
-    return np.dtype(helper.tensor_dtype_to_np_dtype(onnx_dtype))
+    tensor_dtype = TENSOR_TYPE_MAP.get(onnx_dtype)
+
+    if tensor_dtype:
+        return tensor_dtype.np_dtype
+
+    if onnx_dtype in onnx.helper.get_all_tensor_dtypes():
+        return np.dtype(helper.tensor_dtype_to_np_dtype(onnx_dtype))
+
+    return "UNDEFINED"
 
 
 def gen_onnxruntime_input_data(
-    model: onnx.ModelProto, model_check_inputs: Optional[List[str]] = None
-) -> Dict[str, np.ndarray]:
+    model: onnx.ModelProto, model_check_inputs: Optional[list[str]] = None
+) -> dict[str, np.ndarray]:
     """Generate random input data for an ONNX model considering potential specific input shapes and types."""
     input_info = {}
     for input_tensor in model.graph.input:
@@ -130,7 +162,7 @@ def gen_onnxruntime_input_data(
     return input_data_dict
 
 
-def onnxruntime_inference(model: onnx.ModelProto, input_data: dict) -> Dict[str, np.array]:
+def onnxruntime_inference(model: onnx.ModelProto, input_data: dict) -> dict[str, np.array]:
     """Perform inference using ONNX Runtime on the given model and input data."""
     import os
     import tempfile
@@ -167,7 +199,7 @@ def onnxruntime_inference(model: onnx.ModelProto, input_data: dict) -> Dict[str,
     return onnx_output, model
 
 
-def format_model_info(model_info_list: Union[Dict, List[Dict]], elapsed_time: float = None):
+def format_model_info(model_info_list: Union[dict, list[dict]], elapsed_time: float = None):
     assert model_info_list, "model_info_list must contain more than one model info"
     from colorama import Fore, init
 
@@ -243,7 +275,7 @@ def format_model_info(model_info_list: Union[Dict, List[Dict]], elapsed_time: fl
     return final_op_info
 
 
-def print_model_info_as_table(model_info_list: Union[Dict, List[Dict]], elapsed_time: float = None):
+def print_model_info_as_table(model_info_list: Union[dict, list[dict]], elapsed_time: float = None):
     """Prints the model information as a formatted table for the given model name and list of model details."""
     if not isinstance(model_info_list, (list, tuple)):
         model_info_list = [model_info_list]
@@ -267,7 +299,7 @@ def print_model_info_as_table(model_info_list: Union[Dict, List[Dict]], elapsed_
     print(output)
 
 
-def dump_model_info_to_disk(model_info: Dict):
+def dump_model_info_to_disk(model_info: dict):
     """Writes model information to a CSV file for a given model name and dictionary of model info."""
     import csv
 
@@ -283,24 +315,25 @@ def dump_model_info_to_disk(model_info: Dict):
         # Write the data
         for node_name, info in model_info.op_info.items():
             op_type, output_info_list = info.op, info.outputs
-            # Write the first row with actual NodeName and OpType
-            row_data_first = {
-                "NodeName": node_name,
-                "OpType": op_type,
-                "OutputDtype": output_info_list[0].dtype,  # First entry in the list
-                "OutputShape": output_info_list[0].shape,  # First entry in the list
-            }
-            writer.writerow(row_data_first)
-
-            # Write subsequent rows with empty strings for NodeName and OpType
-            for output_dtype, output_shape in output_info_list[1:]:
-                row_data_empty = {
-                    "NodeName": "",
-                    "OpType": "",
-                    "OutputDtype": output_dtype,
-                    "OutputShape": output_shape,
+            if len(output_info_list) >= 1:
+                # Write the first row with actual NodeName and OpType
+                row_data_first = {
+                    "NodeName": node_name,
+                    "OpType": op_type,
+                    "OutputDtype": output_info_list[0].dtype,  # First entry in the list
+                    "OutputShape": output_info_list[0].shape,  # First entry in the list
                 }
-                writer.writerow(row_data_empty)
+                writer.writerow(row_data_first)
+
+                # Write subsequent rows with empty strings for NodeName and OpType
+                for output_dtype, output_shape in output_info_list[1:]:
+                    row_data_empty = {
+                        "NodeName": "",
+                        "OpType": "",
+                        "OutputDtype": output_dtype,
+                        "OutputShape": output_shape,
+                    }
+                    writer.writerow(row_data_empty)
     print(f"Model info written to {csv_file_path}")
 
 
@@ -327,17 +360,13 @@ def get_ir_version(model: onnx.ModelProto) -> int:
 class TensorInfo:
     def __init__(self, tensor):
         self.dtype: np.dtype = np.float32
-        self.shape: Tuple[Union[str, int]] = None
+        self.shape: tuple[Union[str, int]] = None
 
         self._extract_info(tensor)
 
     def _extract_info(self, tensor):
         """Extract the data type and shape of an ONNX tensor."""
-        self.dtype = (
-            onnx.helper.tensor_dtype_to_np_dtype(tensor.type.tensor_type.elem_type)
-            if tensor.type.tensor_type.elem_type in onnx.helper.get_all_tensor_dtypes()
-            else "Unknown"
-        )
+        self.dtype = onnx_dtype_to_numpy(tensor.type.tensor_type.elem_type)
         shape = None
         if tensor.type.tensor_type.HasField("shape"):
             shape = []
@@ -376,10 +405,10 @@ class ModelInfo:
         self.model_size: int = -1
         self.op_set: str = None
         self.ir_version: str = None
-        self.op_type_counts: Dict[str, int] = defaultdict(int)
-        self.op_info: Dict[str, Dict] = {}
-        self.input_info: List[str, Tuple[str, Tuple]] = []
-        self.output_info: List[str, Tuple[str, Tuple]] = []
+        self.op_type_counts: dict[str, int] = defaultdict(int)
+        self.op_info: dict[str, dict] = {}
+        self.input_info: list[str, tuple[str, tuple]] = []
+        self.output_info: list[str, tuple[str, tuple]] = []
 
         self._summarize_model(model)
 
@@ -396,7 +425,7 @@ class ModelInfo:
 
         value_info_dict = {value_info.name: value_info for value_info in model.graph.value_info}
 
-        def get_graph_node_info(graph: onnx.GraphProto) -> Dict[str, List[str]]:
+        def get_graph_node_info(graph: onnx.GraphProto) -> dict[str, list[str]]:
             for node in graph.node:
                 op_type = node.op_type
                 self.op_type_counts[op_type] += 1
@@ -431,7 +460,7 @@ class ModelInfo:
         return self.output_dict
 
 
-def summarize_model(model: Union[str, onnx.ModelProto], tag="OnnxModel") -> Dict:
+def summarize_model(model: Union[str, onnx.ModelProto], tag="OnnxModel") -> dict:
     """Generates a summary of the ONNX model, including model size, operations, and tensor shapes."""
     logger.debug("Start summarizing model.")
     model_info = ModelInfo(model, tag)
@@ -466,24 +495,12 @@ def check_point(model: onnx.ModelProto):
     return gs.import_onnx(model)
 
 
-def is_converged(model: onnx.ModelProto, graph_ckpt, iter: int) -> bool:
-    """Checks if the model optimization has converged by comparing the current graph to the checkpoint."""
-    logger.debug(f"optimization iter: {iter}")
-    graph = gs.import_onnx(model)
-    if graph == graph_ckpt:
-        print(f"converged at iter: {iter}")
-        return None
-    else:
-        graph_ckpt = graph
-        return False
-
-
 def save(
     model: onnx.ModelProto,
     model_path: str,
     model_check: bool = False,
     save_as_external_data: bool = False,
-    model_info: Dict = None,
+    model_info: dict = None,
 ):
     """Save an ONNX model to a specified path, with optional model checking for validity."""
     if model_check:
@@ -541,24 +558,51 @@ def check_result(raw_onnx_output, slimmed_onnx_output):
     return True
 
 
-data_type_sizes = {
-    onnx.TensorProto.FLOAT: 4,
-    onnx.TensorProto.DOUBLE: 8,
-    onnx.TensorProto.INT32: 4,
-    onnx.TensorProto.INT64: 8,
-    onnx.TensorProto.UINT8: 1,
-    onnx.TensorProto.INT8: 1,
-    onnx.TensorProto.UINT16: 2,
-    onnx.TensorProto.INT16: 2,
-    onnx.TensorProto.BOOL: 1,
-}
+def get_numpy_type(onnx_type):
+    if not isinstance(onnx_type, int):
+        # Already a NumPy type
+        return onnx_type
+
+    numpy_unsupported_types = [
+        onnx.TensorProto.BFLOAT16,
+        onnx.TensorProto.FLOAT8E4M3FN,
+        onnx.TensorProto.FLOAT8E4M3FNUZ,
+        onnx.TensorProto.FLOAT8E5M2,
+        onnx.TensorProto.FLOAT8E5M2FNUZ,
+    ]
+
+    # TENSOR_TYPE_TO_NP_TYPE maps types unsupported by NumPy to random other types.
+    # This obviously breaks things, so we need to treat this as a special case.
+    if onnx_type not in numpy_unsupported_types and onnx_type in onnx.helper.get_all_tensor_dtypes():
+        return onnx.helper.tensor_dtype_to_np_dtype(onnx_type)
+    return None
+
+
+def get_itemsize(dtype):
+    np_dtype = get_numpy_type(dtype)
+    if np_dtype is not None:
+        return np.dtype(np_dtype).itemsize
+
+    if dtype == onnx.TensorProto.BFLOAT16:
+        return 2
+
+    if dtype in [
+        onnx.TensorProto.FLOAT8E4M3FN,
+        onnx.TensorProto.FLOAT8E4M3FNUZ,
+        onnx.TensorProto.FLOAT8E5M2,
+        onnx.TensorProto.FLOAT8E5M2FNUZ,
+    ]:
+        return 1
+
+    print(dtype)
+    raise
 
 
 def calculate_tensor_size(tensor):
     """Calculates the size of an ONNX tensor in bytes based on its shape and data type size."""
     shape = tensor.dims
     num_elements = np.prod(shape) if shape else 0
-    element_size = data_type_sizes.get(tensor.data_type, 0)
+    element_size = get_itemsize(tensor.data_type)
     return num_elements * element_size
 
 

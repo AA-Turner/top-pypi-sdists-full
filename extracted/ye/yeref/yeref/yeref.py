@@ -119,7 +119,7 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_tools_has_restricted, l_bot_need_start_add, l_chn_need_boost_for_story, l_bot_need_restart_extra_bot, \
     l_bot_pub_with_payment, l_sub_to_private_channel, l_payment_6_months, l_payment_1_months, l_material, \
     l_payment_success, l_payment_hashtag, l_inline_codex, l_permissions_add_members, l_admin_closed_group_reject, \
-    l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required
+    l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required, l_telegraph_title
 
 # region group links
 payment_link = 'http://bagazhznaniy.ru/wp-content/uploads/2014/03/zhivaya-priroda.jpg'
@@ -14989,7 +14989,7 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
             tgph_ph = user_logo_jpeg
 
         telegraph_ = Telegraph()
-        title = l_telegraph_title[UB_LZ]
+        # title = l_telegraph_title[lz]
         author_url = f"https://t.me/{ENT_USERNAME}"
         tgph_ph = str(tgph_ph).replace('https://telegra.ph', '')
         bio = "💙 verified"
@@ -15008,7 +15008,7 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
                "<b>Info:</b> {4}<br><aside>By</aside>"
                "<aside><a href='https://t.me/{5}'>Link</a></aside>")
         html_ = los.format(tgph_ph, ENT_USERNAME, n, ENT_TID, bio, ENT_USERNAME)
-        page_1 = await telegraph_.create_page(title=title,
+        page_1 = await telegraph_.create_page(title=f"📰 Telegra.ph",
                                               html_content=html_,
                                               author_name=ENT_USERNAME,
                                               author_url=author_url)
@@ -15122,16 +15122,23 @@ async def bots_by_inline(chat_id, message, BASE_P):
 async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
+        url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
+        # url_share = f"https://t.me/FereySupportBot?profile"
+        if random.choice([True, False]):
+            url_share = f"https://t.me/FereySupportBot?profile"
+        else:
+            url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
+        web_app_ = types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')   # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
+        text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
+
         result = [
-            types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
-            # types.InlineKeyboardButton(text="👩🏽‍💼", url=f"https://t.me/FereySupportBot?profile"),
-                  types.InlineKeyboardButton(text="🔗",
-                                             url=f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'),
-                  types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_P))}", callback_data=f"like"),
-                  types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
-                                             web_app=types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')),
-                  types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}"),
-                  types.InlineKeyboardButton(text="ᴬᴾᴾ⁺", switch_inline_query_current_chat=f"~")]
+            types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),
+            types.InlineKeyboardButton(text="🔗", url=url_share),
+            types.InlineKeyboardButton(text=f"♥️{text_like}", callback_data=f"like"),
+            types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  web_app=web_app_),
+            types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}"),
+            types.InlineKeyboardButton(text="ᴬᴾᴾ⁺", switch_inline_query_current_chat=f"~")
+        ]
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))

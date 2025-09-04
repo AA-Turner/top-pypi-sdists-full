@@ -101,7 +101,7 @@ def initialize_and_run_pipeline():
         logging.info("Creating synthetic generation pipeline...")
         pipeline = create_synthetic_generation_pipeline(
             pipeline_config=pipeline_config,
-            kafka_config=kafka_config,
+            kafka_config=kafka_config
         )
         
         if pipeline is None:
@@ -182,9 +182,7 @@ def transform_synthetic_data(input_dict):
         "dataset_id": input_dict.get("dataset_id", ""),
         "prompts": input_dict.get("prompts", []),
         "autoGeneratePrompt": input_dict.get("autoGeneratePrompt", False),
-        "categories": input_dict.get("categories", []),
-        "project_type": input_dict.get("project_type", "detection"),  # Default to 'detection' if not provided
-        "project_id": input_dict.get("project_id", "")
+        "categories": input_dict.get("categories", [])
     }
     return result
 
@@ -281,8 +279,6 @@ class DataGeneration:
                 pipeline_config=self.pipeline_config,
                 kafka_config=self.kafka_config,
                 rpc=self.rpc,
-                project_type=self.pipeline_config.project_type,
-                session=self.session
             )
             self.pipeline.start()
             self.pipeline.wait_to_finish_processing_and_stop()

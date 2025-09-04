@@ -4,7 +4,6 @@ import typing_extensions
 import numpy.typing as npt
 import _bpy_types
 import bl_ui.space_dopesheet
-import bl_ui.utils
 import bpy.types
 
 class NLA_HT_header(_bpy_types.Header):
@@ -449,27 +448,6 @@ class NLA_PT_filters(
         """
 
         :param context:
-        """
-
-class NLA_PT_playhead_snapping(bl_ui.utils.PlayheadSnappingPanel, _bpy_types.Panel):
-    bl_label: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NLA_PT_snapping(_bpy_types.Panel):

@@ -71,13 +71,25 @@ class ChattyAIAgentAssignedToChat(AssignedAssetToChat):
     last_call_started_at: Optional[datetime] = Field(default=None)
     last_call_cot_id: Optional[StrObjectId] = Field(default=None)
 
-    def new_call(self, cot_id: StrObjectId) -> None:
+    @property
+    def orphan_call_id(self) -> Optional[StrObjectId]:
+        if self.is_processing and self.last_call_cot_id is not None and self.last_call_started_at is None:
+            return self.last_call_cot_id
+        return None
+
+    def new_call(self, cot_id: StrObjectId) -> Optional[StrObjectId]:
+        last_call_cot_id = self.last_call_cot_id
         self.is_processing = True
         self.last_call_started_at = datetime.now(ZoneInfo("UTC"))
         self.last_call_cot_id = cot_id
+        return last_call_cot_id
 
     def is_call_valid(self, cot_id: StrObjectId) -> bool:
         return self.last_call_cot_id == cot_id and self.is_processing
+
+    def manual_trigger(self, cot_id: StrObjectId) -> None:
+        self.is_processing = True
+        self.last_call_cot_id = cot_id
 
     def end_call(self) -> None:
         self.is_processing = False

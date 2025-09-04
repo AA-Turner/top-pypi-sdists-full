@@ -412,7 +412,6 @@ class CreateBrokerRequestTypeDef(TypedDict):
     EngineType: EngineTypeType
     HostInstanceType: str
     PubliclyAccessible: bool
-    Users: Sequence[UserTypeDef]
     AuthenticationStrategy: NotRequired[AuthenticationStrategyType]
     AutoMinorVersionUpgrade: NotRequired[bool]
     Configuration: NotRequired[ConfigurationIdTypeDef]
@@ -426,6 +425,7 @@ class CreateBrokerRequestTypeDef(TypedDict):
     StorageType: NotRequired[BrokerStorageTypeType]
     SubnetIds: NotRequired[Sequence[str]]
     Tags: NotRequired[Mapping[str, str]]
+    Users: NotRequired[Sequence[UserTypeDef]]
     DataReplicationMode: NotRequired[DataReplicationModeType]
     DataReplicationPrimaryBrokerArn: NotRequired[str]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.65.0
+Version: 0.69.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.165.1
+Requires-Dist: crewai>=0.175.0
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
@@ -35,6 +35,9 @@ Provides-Extra: browserbase
 Requires-Dist: browserbase>=1.0.5; extra == 'browserbase'
 Provides-Extra: composio-core
 Requires-Dist: composio-core>=0.6.11.post1; extra == 'composio-core'
+Provides-Extra: contextual
+Requires-Dist: contextual-client>=0.1.0; extra == 'contextual'
+Requires-Dist: nest-asyncio>=1.6.0; extra == 'contextual'
 Provides-Extra: couchbase
 Requires-Dist: couchbase>=4.3.5; extra == 'couchbase'
 Provides-Extra: databricks-sdk

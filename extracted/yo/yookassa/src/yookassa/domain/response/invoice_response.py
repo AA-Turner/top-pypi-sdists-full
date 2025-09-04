@@ -8,7 +8,7 @@ from yookassa.domain.models.invoice_data.delivery_method_factory import Delivery
 
 
 class InvoiceResponse(ResponseObject):
-    """Данные о счете."""  # noqa: E501
+    """Объект счета (Invoice) — актуальная информация о счете."""  # noqa: E501
 
     __id = None
     """Идентификатор счета в ЮКасса."""  # noqa: E501

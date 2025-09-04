@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 from unittest.mock import patch
@@ -308,10 +309,17 @@ def test_add_class_conditional_kwargs(parser):
         expected += [
             "help for func (required, type: str)",
             "help for kmg1 (type: int, default: 1)",
-            "help for kmg2 (type: Union[str, float], default: Conditional<ast-resolver> {-, 2.3})",
             "help for kmg3 (type: bool, default: Conditional<ast-resolver> {True, False})",
             "help for kmg4 (type: int, default: Conditional<ast-resolver> {4, NOT_ACCEPTED})",
         ]
+        if sys.version_info < (3, 14):
+            expected += [
+                "help for kmg2 (type: Union[str, float], default: Conditional<ast-resolver> {-, 2.3})",
+            ]
+        else:
+            expected += [
+                "help for kmg2 (type: str | float, default: Conditional<ast-resolver> {-, 2.3})",
+            ]
     for value in expected:
         assert value in help_str
 
@@ -689,3 +697,19 @@ def test_add_function_param_conflict(parser):
     with pytest.raises(ValueError) as ctx:
         parser.add_function_arguments(func_param_conflict)
     ctx.match("Unable to add parameter 'cfg' from")
+
+
+def func_positional_and_keyword_only(a: int, /, b: int, *, c: int, d: int = 1):
+    pass
+
+
+def test_add_function_positional_and_keyword_only_parameters(parser):
+    parser.add_function_arguments(func_positional_and_keyword_only, as_positional=True)
+
+    # Test that we can parse with both parameters
+    cfg = parser.parse_args(["1", "2", "--c=3", "--d=4"])
+    assert cfg == Namespace(a=1, b=2, c=3, d=4)
+    with pytest.raises(ArgumentError, match="Unrecognized arguments: --b=2"):
+        parser.parse_args(["1", "--b=2", "--c=3", "--d=4"])
+    with pytest.raises(ArgumentError, match='Key "c" is required'):
+        parser.parse_args(["1", "2", "--d=4"])

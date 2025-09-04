@@ -26,6 +26,8 @@ from yookassa.domain.models.payment_data.request.payment_data_sber_loan import \
     PaymentDataSberLoan as RequestPaymentDataSberLoan
 from yookassa.domain.models.payment_data.request.payment_data_electronic_certificate import \
     PaymentDataElectronicCertificate as RequestPaymentDataElectronicCertificate
+from yookassa.domain.models.payment_data.request.payment_data_sber_bnpl import \
+    PaymentDataSberBnpl as RequestPaymentDataSberBnpl
 # responses
 from yookassa.domain.models.payment_data.response.payment_data_alfabank import \
     PaymentDataAlfabank as ResponsePaymentDataAlfabank
@@ -63,6 +65,8 @@ from yookassa.domain.models.payment_data.response.payment_data_sber_loan import 
     PaymentDataSberLoan as ResponsePaymentDataSberLoan
 from yookassa.domain.models.payment_data.response.payment_data_electronic_certificate import \
     PaymentDataElectronicCertificate as ResponsePaymentDataElectronicCertificate
+from yookassa.domain.models.payment_data.response.payment_data_sber_bnpl import \
+    PaymentDataSberBnpl as ResponsePaymentDataSberBnpl
 from yookassa.domain.models.payment_data.response.payment_data_unknown import \
     PaymentDataUnknown as ResponsePaymentDataUnknown
 
@@ -90,6 +94,7 @@ class PaymentDataClassMap(DataContext):
             PaymentMethodType.SBP: RequestPaymentDataSbp,
             PaymentMethodType.SBER_LOAN: RequestPaymentDataSberLoan,
             PaymentMethodType.ELECTRONIC_CERTIFICATE: RequestPaymentDataElectronicCertificate,
+            PaymentMethodType.SBER_BNPL: RequestPaymentDataSberBnpl,
         }
 
     @property
@@ -113,5 +118,6 @@ class PaymentDataClassMap(DataContext):
             PaymentMethodType.SBP: ResponsePaymentDataSbp,
             PaymentMethodType.SBER_LOAN: ResponsePaymentDataSberLoan,
             PaymentMethodType.ELECTRONIC_CERTIFICATE: ResponsePaymentDataElectronicCertificate,
+            PaymentMethodType.SBER_BNPL: ResponsePaymentDataSberBnpl,
             PaymentMethodType.UNKNOWN: ResponsePaymentDataUnknown,
         }

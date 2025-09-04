@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_mq.literals import AuthenticationStrategyType
 
-    data: AuthenticationStrategyType = "LDAP"
+    data: AuthenticationStrategyType = "CONFIG_MANAGED"
     ```
 """
 
@@ -40,7 +40,7 @@ __all__ = (
     "ServiceName",
 )
 
-AuthenticationStrategyType = Literal["LDAP", "SIMPLE"]
+AuthenticationStrategyType = Literal["CONFIG_MANAGED", "LDAP", "SIMPLE"]
 BrokerStateType = Literal[
     "CREATION_FAILED",
     "CREATION_IN_PROGRESS",
@@ -348,8 +348,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -482,16 +480,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_brokers"]
 RegionName = Literal[

@@ -50,6 +50,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ReactivateUserResponse,
     UpdateEnvironmentRequest,
     UpdateEnvironmentResponse,
+    UpdateEnvironmentTeamRequest,
+    UpdateEnvironmentTeamResponse,
     UpdateProjectRequest,
     UpdateProjectResponse,
     UpdateScimGroupSettingsRequest,
@@ -108,6 +110,11 @@ class TeamServiceStub:
         CreateEnvironmentRequest,
         CreateEnvironmentResponse,
     ]
+    UpdateEnvironmentTeam: UnaryUnaryMultiCallable[
+        UpdateEnvironmentTeamRequest,
+        UpdateEnvironmentTeamResponse,
+    ]
+    """ This is a hack around our team permissions"""
     UpdateEnvironment: UnaryUnaryMultiCallable[
         UpdateEnvironmentRequest,
         UpdateEnvironmentResponse,
@@ -235,6 +242,13 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: CreateEnvironmentRequest,
         context: ServicerContext,
     ) -> CreateEnvironmentResponse: ...
+    @abstractmethod
+    def UpdateEnvironmentTeam(
+        self,
+        request: UpdateEnvironmentTeamRequest,
+        context: ServicerContext,
+    ) -> UpdateEnvironmentTeamResponse:
+        """This is a hack around our team permissions"""
     @abstractmethod
     def UpdateEnvironment(
         self,

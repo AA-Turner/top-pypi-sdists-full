@@ -3,11 +3,15 @@
 # isort: skip_file
 
 from .types import (
+    TemplatesCreateTemplateRequest,
+    TemplatesCreateTemplateRequestAgentFile,
+    TemplatesCreateTemplateRequestAgentId,
     TemplatesCreateTemplateResponse,
     TemplatesDeleteTemplateResponse,
     TemplatesForkTemplateResponse,
     TemplatesGetTemplateSnapshotResponse,
     TemplatesGetTemplateSnapshotResponseAgentsItem,
+    TemplatesGetTemplateSnapshotResponseAgentsItemAgentType,
     TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariables,
     TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariablesDataItem,
     TemplatesGetTemplateSnapshotResponseAgentsItemProperties,
@@ -33,6 +37,7 @@ from .types import (
     TemplatesListTemplateVersionsResponseVersionsItem,
     TemplatesRenameTemplateResponse,
     TemplatesSaveTemplateVersionResponse,
+    TemplatesUpdateTemplateDescriptionResponse,
 )
 from . import agents
 from .agents import (
@@ -45,11 +50,15 @@ __all__ = [
     "AgentsCreateRequestInitialMessageSequenceItem",
     "AgentsCreateRequestInitialMessageSequenceItemRole",
     "AgentsCreateResponse",
+    "TemplatesCreateTemplateRequest",
+    "TemplatesCreateTemplateRequestAgentFile",
+    "TemplatesCreateTemplateRequestAgentId",
     "TemplatesCreateTemplateResponse",
     "TemplatesDeleteTemplateResponse",
     "TemplatesForkTemplateResponse",
     "TemplatesGetTemplateSnapshotResponse",
     "TemplatesGetTemplateSnapshotResponseAgentsItem",
+    "TemplatesGetTemplateSnapshotResponseAgentsItemAgentType",
     "TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariables",
     "TemplatesGetTemplateSnapshotResponseAgentsItemMemoryVariablesDataItem",
     "TemplatesGetTemplateSnapshotResponseAgentsItemProperties",
@@ -75,5 +84,6 @@ __all__ = [
     "TemplatesListTemplateVersionsResponseVersionsItem",
     "TemplatesRenameTemplateResponse",
     "TemplatesSaveTemplateVersionResponse",
+    "TemplatesUpdateTemplateDescriptionResponse",
     "agents",
 ]

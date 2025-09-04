@@ -1,16 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mkdocs-glightbox
-Version: 0.4.0
+Version: 0.5.0
 Summary: MkDocs plugin supports image lightbox with GLightbox.
-Home-page: https://blueswen.github.io/mkdocs-glightbox
-Author: Blueswen
-Author-email: blueswen.tw@gmail.com
-License: MIT
-Project-URL: Source, https://github.com/Blueswen/mkdocs-glightbox
-Keywords: mkdocs,plugin,lightbox
-Platform: UNKNOWN
-Description-Content-Type: text/markdown
+Project-URL: Homepage, https://blueswen.github.io/mkdocs-glightbox/
+Project-URL: Source, https://github.com/blueswen/mkdocs-glightbox
+Project-URL: Issues, https://github.com/blueswen/mkdocs-glightbox/issues
+Project-URL: History, https://github.com/blueswen/mkdocs-glightbox/blob/main/CHANGELOG
+Author-email: Blueswen <blueswen.tw@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
+Keywords: glightbox,mkdocs,plugin
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Documentation
+Classifier: Topic :: Text Processing
+Requires-Python: >=3.8
+Requires-Dist: selectolax>=0.3.29
+Description-Content-Type: text/markdown
 
 # MkDocs GLightbox
 
@@ -29,7 +47,7 @@ GLightbox is a pure javascript lightbox library with mobile support.
 ## Dependency
 
 1. GLightbox javascript file and CSS file
-   1. GLightbox==3.2.0
+   1. GLightbox==3.3.1
 
 ## Usage
 
@@ -63,6 +81,7 @@ GLightbox is a pure javascript lightbox library with mobile support.
            draggable: true
            skip_classes:
              - custom-skip-class-name
+           auto_themed: false
            auto_caption: false
            caption_position: bottom
            background: white
@@ -81,6 +100,7 @@ GLightbox is a pure javascript lightbox library with mobile support.
     | zoomable | true | Enable or disable zoomable images. |
     | draggable | true | Enable or disable mouse drag to go prev and next slide. |
     | skip_classes | [ ] | Disable lightbox of those image with specific custom class name. |
+    | auto_themed | false | Enable or disable supporting light and dark mode of mkdocs material. |
     | auto_caption | false | Enable or disable using alt of image as caption title automatically. |
     | caption_position | bottom | Default captions position. (bottom, top, left, right) |
     | background | white | The background CSS of lightbox image. The background will shown when the image is transparent. You can use any CSS value for the background for example `#74b9ff` or `Gainsboro` or `none` for nothing. |
@@ -90,10 +110,10 @@ GLightbox is a pure javascript lightbox library with mobile support.
     Check more options information on [GLightbox Docs](https://github.com/biati-digital/glightbox#lightbox-options).
 
 5. For more flexibility:
-      1. [Disable by image](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-image.md): Disable the lightbox for specific images. Suitable for a few amount of images that don't need the lightbox effect.
-      2. [Disable by page](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-page.md): Disable the lightbox for specific pages. Suitable for a few amount of pages that don't need the lightbox effect.
-      3. [Enable by image](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-page-enable-by-image.md): Disable the lightbox for specific pages but enable some images on those pages. Suitable for a few amount of images that need the lightbox effect.
-      4. [Disable globally but enable by image or page](https://blueswen.github.io/mkdocs-glightbox/flexibility/enable-by-image-or-page.md): Disable the lightbox globally but enable specific images or specific pages. Suitable for a large number of images or pages that don't need the lightbox effect.
+      1. [Disable by image](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-image/): Disable the lightbox for specific images. Suitable for a few amount of images that don't need the lightbox effect.
+      2. [Disable by page](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-page/): Disable the lightbox for specific pages. Suitable for a few amount of pages that don't need the lightbox effect.
+      3. [Enable by image](https://blueswen.github.io/mkdocs-glightbox/flexibility/disable-by-page-enable-by-image/): Disable the lightbox for specific pages but enable some images on those pages. Suitable for a few amount of images that need the lightbox effect.
+      4. [Disable globally but enable by image or page](https://blueswen.github.io/mkdocs-glightbox/flexibility/enable-by-image-or-page/): Disable the lightbox globally but enable specific images or specific pages. Suitable for a large number of images or pages that don't need the lightbox effect.
 6. Support lightbox image caption, check more details on [Caption](https://blueswen.github.io/mkdocs-glightbox/caption/caption/).
 7. Support grouping images as galleries, check more details on [Gallery](https://blueswen.github.io/mkdocs-glightbox/gallery/gallery/).
 
@@ -109,5 +129,3 @@ GLightbox is a pure javascript lightbox library with mobile support.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/Blueswen/mkdocs-glightbox/blob/main/LICENSE) file for details.
-
-

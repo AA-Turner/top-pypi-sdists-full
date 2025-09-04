@@ -2533,6 +2533,7 @@ type PropDynamicpaintTypeItems = typing.Literal[
     "BRUSH",  # Brush.
 ]
 type PropertyFlagEnumItems = typing.Literal[
+    "READ_ONLY",  # Read Only.When set, the property cannot be edited.
     "HIDDEN",  # Hidden.For operators: hide from places in the user interface where Blender would add the property automatically, like Adjust Last Operation. Also this property is not written to presets..
     "SKIP_SAVE",  # Skip Save.For operators: the value of this property will not be remembered between invocations of the operator; instead, each invocation will start by using the default value. Also this property is not written to presets..
     "ANIMATABLE",  # Animatable.
@@ -2540,6 +2541,7 @@ type PropertyFlagEnumItems = typing.Literal[
     "ENUM_FLAG",  # Enum Flag.
 ]
 type PropertyFlagItems = typing.Literal[
+    "READ_ONLY",  # Read Only.When set, the property cannot be edited.
     "HIDDEN",  # Hidden.For operators: hide from places in the user interface where Blender would add the property automatically, like Adjust Last Operation. Also this property is not written to presets..
     "SKIP_SAVE",  # Skip Save.For operators: the value of this property will not be remembered between invocations of the operator; instead, each invocation will start by using the default value. Also this property is not written to presets..
     "SKIP_PRESET",  # Skip Preset.Do not write in presets.

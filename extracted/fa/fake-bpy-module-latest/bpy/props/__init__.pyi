@@ -116,6 +116,12 @@ def BoolProperty(
     | None = None,
     get: collections.abc.Callable[[bpy.types.bpy_struct], bool] | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, bool], None] | None = None,
+    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool]
+    | None = None,
+    set_transform: collections.abc.Callable[
+        [bpy.types.bpy_struct, bool, bool, bool], bool
+    ]
+    | None = None,
 ) -> None:
     """Returns a new boolean property definition.
 
@@ -136,12 +142,35 @@ def BoolProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], bool] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, bool], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool, bool], bool] | None
     """
 
 def BoolVectorProperty(
@@ -162,6 +191,21 @@ def BoolVectorProperty(
     ]
     | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[bool, ...]], None]
+    | None = None,
+    get_transform: collections.abc.Callable[
+        [bpy.types.bpy_struct, collections.abc.Sequence[bool], bool],
+        collections.abc.Sequence[bool],
+    ]
+    | None = None,
+    set_transform: collections.abc.Callable[
+        [
+            bpy.types.bpy_struct,
+            collections.abc.Sequence[bool],
+            collections.abc.Sequence[bool],
+            bool,
+        ],
+        collections.abc.Sequence[bool],
+    ]
     | None = None,
 ) -> None:
     """Returns a new vector boolean property definition.
@@ -187,12 +231,35 @@ def BoolVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[bool]] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[bool, ...]], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[bool], bool], collections.abc.Sequence[bool]] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[bool], collections.abc.Sequence[bool], bool], collections.abc.Sequence[bool]] | None
     """
 
 def CollectionProperty(
@@ -252,6 +319,10 @@ def EnumProperty(
     | None = None,
     get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None = None,
+    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
+    | None = None,
+    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
+    | None = None,
 ) -> None:
     """Returns a new enumerator property definition.
 
@@ -317,12 +388,35 @@ def EnumProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
 def FloatProperty(
@@ -346,6 +440,12 @@ def FloatProperty(
     | None = None,
     get: collections.abc.Callable[[bpy.types.bpy_struct], float] | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, float], None] | None = None,
+    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float]
+    | None = None,
+    set_transform: collections.abc.Callable[
+        [bpy.types.bpy_struct, float, float, bool], float
+    ]
+    | None = None,
 ) -> None:
     """Returns a new float (single precision) property definition.
 
@@ -380,12 +480,35 @@ def FloatProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], float] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, float], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, float, bool], float] | None
     """
 
 def FloatVectorProperty(
@@ -452,11 +575,17 @@ def FloatVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[float]] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[float, ...]], None] | None
     """
 
@@ -479,6 +608,10 @@ def IntProperty(
     | None = None,
     get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None = None,
+    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
+    | None = None,
+    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
+    | None = None,
 ) -> None:
     """Returns a new int property definition.
 
@@ -509,12 +642,35 @@ def IntProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
 def IntVectorProperty(
@@ -538,6 +694,21 @@ def IntVectorProperty(
     get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[int]]
     | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[int, ...]], None]
+    | None = None,
+    get_transform: collections.abc.Callable[
+        [bpy.types.bpy_struct, collections.abc.Sequence[int], bool],
+        collections.abc.Sequence[int],
+    ]
+    | None = None,
+    set_transform: collections.abc.Callable[
+        [
+            bpy.types.bpy_struct,
+            collections.abc.Sequence[int],
+            collections.abc.Sequence[int],
+            bool,
+        ],
+        collections.abc.Sequence[int],
+    ]
     | None = None,
 ) -> None:
     """Returns a new vector int property definition.
@@ -573,12 +744,35 @@ def IntVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[int]] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[int, ...]], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[int], bool], collections.abc.Sequence[int]] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[int], collections.abc.Sequence[int], bool], collections.abc.Sequence[int]] | None
     """
 
 def PointerProperty(
@@ -645,6 +839,10 @@ def StringProperty(
     | None = None,
     get: collections.abc.Callable[[bpy.types.bpy_struct], str] | None = None,
     set: collections.abc.Callable[[bpy.types.bpy_struct, str], None] | None = None,
+    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str]
+    | None = None,
+    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str]
+    | None = None,
     search: collections.abc.Callable[
         [bpy.types.bpy_struct, bpy.types.Context, str],
         collections.abc.Iterable[str | tuple[str, str]],
@@ -675,12 +873,35 @@ def StringProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is read,
+        :param get: Function to be called when this value is read, and the default,
+    system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
+
+    Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], str] | None
-        :param set: Function to be called when this value is written,
+        :param set: Function to be called when this value is written, and the default,
+    system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
+
+    Defining this callback without a matching get one is invalid.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, str], None] | None
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str] | None
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str] | None
         :param search: Function to be called to show candidates for this string (shown in the UI).
     This function must take 3 values (self, context, edit_text)
     and return a sequence, iterator or generator where each item must be:

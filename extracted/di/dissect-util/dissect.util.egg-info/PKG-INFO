@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dissect.util
-Version: 3.21
+Version: 3.22
 Summary: A Dissect module implementing various utility functions for the other Dissect modules
 Author-email: Dissect Team <dissect@fox-it.com>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: homepage, https://dissect.tools
 Project-URL: documentation, https://docs.dissect.tools/en/latest/projects/dissect.util
 Project-URL: repository, https://github.com/fox-it/dissect.util
@@ -11,7 +11,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet :: Log Analysis
@@ -22,10 +21,6 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT
-Provides-Extra: lzo
-Requires-Dist: python-lzo; (platform_system != "Windows" or platform_python_implementation != "PyPy") and extra == "lzo"
-Provides-Extra: lz4
-Requires-Dist: lz4; extra == "lz4"
 Dynamic: license-file
 
 # dissect.util
@@ -47,17 +42,16 @@ Information on the supported Python versions can be found in the Getting Started
 pip install dissect.util
 ```
 
-`dissect.util` includes pure Python implementations of the lz4 and lzo decompression algorithms. To automatically use
-the faster, native (C-based) lz4 and lzo implementations in other Dissect projects, install the package with the lz4 and
-lzo extras:
+`dissect.util` includes both a pure Python implementation as well as a faster native Rust implementation of the LZ4 and LZO decompression algorithms.
+Pre-build wheels are available for most common platforms and the native implementation will automatically be used.
+In the rare case that a pre-build wheel is not available, the pure Python implementation will automatically be used instead.
+If you wish to build your own wheel in the case a pre-build one is not available for your platform, you can do so by running the following command:
 
 ```bash
-pip install "dissect.util[lz4,lzo]"
+tox -e build-native
 ```
 
-Unfortunately there is no binary `python-lzo` wheel for PyPy installations on Windows, so it won't be installed there.
-
-This module including the lz4 and lzo extras is also automatically installed if you install the `dissect` package.
+Note that you'll need to bring your own Rust toolchain for the target platform you wish to build a wheel for. For example, using [rustup](https://rustup.rs).
 
 ## Build and test instructions
 

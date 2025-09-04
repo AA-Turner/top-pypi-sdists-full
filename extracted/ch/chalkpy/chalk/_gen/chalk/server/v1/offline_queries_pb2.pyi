@@ -95,6 +95,8 @@ class OfflineQueryMeta(_message.Message):
         "dataset_revision",
         "time_series",
         "evaluation_run_id",
+        "query_name",
+        "query_name_version",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -132,6 +134,8 @@ class OfflineQueryMeta(_message.Message):
     DATASET_REVISION_FIELD_NUMBER: _ClassVar[int]
     TIME_SERIES_FIELD_NUMBER: _ClassVar[int]
     EVALUATION_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     id: int
     operation_id: str
     environment_id: str
@@ -168,6 +172,8 @@ class OfflineQueryMeta(_message.Message):
     dataset_revision: _datasets_pb2.DatasetRevisionMeta
     time_series: _containers.RepeatedCompositeFieldContainer[_service_pb2.PlanAggregateBackfillResponse]
     evaluation_run_id: str
+    query_name: str
+    query_name_version: str
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -206,6 +212,8 @@ class OfflineQueryMeta(_message.Message):
         dataset_revision: _Optional[_Union[_datasets_pb2.DatasetRevisionMeta, _Mapping]] = ...,
         time_series: _Optional[_Iterable[_Union[_service_pb2.PlanAggregateBackfillResponse, _Mapping]]] = ...,
         evaluation_run_id: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        query_name_version: _Optional[str] = ...,
     ) -> None: ...
 
 class ListOfflineQueriesRequest(_message.Message):

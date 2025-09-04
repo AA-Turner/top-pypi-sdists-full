@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dissect.vmfs
-Version: 3.11
+Version: 3.12
 Summary: A Dissect module implementing a parser for the VMFS file system, used by VMware virtualization software
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3
@@ -27,6 +27,7 @@ Requires-Dist: dissect.util<4,>=3
 Provides-Extra: dev
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
 Requires-Dist: dissect.util<4.0.dev,>=3.0.dev; extra == "dev"
+Dynamic: license-file
 
 # dissect.vmfs
 

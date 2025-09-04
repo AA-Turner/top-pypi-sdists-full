@@ -74,6 +74,11 @@ class ModelsManagementServiceStub(object):
                 request_serializer=qwak_dot_models_dot_models__pb2.GetModelMetadataRequest.SerializeToString,
                 response_deserializer=qwak_dot_models_dot_models__pb2.GetModelMetadataResponse.FromString,
                 )
+        self.CheckModelCreationAllowed = channel.unary_unary(
+                '/qwak.models.management.ModelsManagementService/CheckModelCreationAllowed',
+                request_serializer=qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedRequest.SerializeToString,
+                response_deserializer=qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedResponse.FromString,
+                )
 
 
 class ModelsManagementServiceServicer(object):
@@ -158,6 +163,13 @@ class ModelsManagementServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckModelCreationAllowed(self, request, context):
+        """Check if model creation allowed for the provided information: model group name, jfrog project key and model id
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ModelsManagementServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -220,6 +232,11 @@ def add_ModelsManagementServiceServicer_to_server(servicer, server):
                     servicer.GetModelMetadata,
                     request_deserializer=qwak_dot_models_dot_models__pb2.GetModelMetadataRequest.FromString,
                     response_serializer=qwak_dot_models_dot_models__pb2.GetModelMetadataResponse.SerializeToString,
+            ),
+            'CheckModelCreationAllowed': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckModelCreationAllowed,
+                    request_deserializer=qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedRequest.FromString,
+                    response_serializer=qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -432,5 +449,22 @@ class ModelsManagementService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.models.management.ModelsManagementService/GetModelMetadata',
             qwak_dot_models_dot_models__pb2.GetModelMetadataRequest.SerializeToString,
             qwak_dot_models_dot_models__pb2.GetModelMetadataResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CheckModelCreationAllowed(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.models.management.ModelsManagementService/CheckModelCreationAllowed',
+            qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedRequest.SerializeToString,
+            qwak_dot_models_dot_models__pb2.CheckModelCreationAllowedResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

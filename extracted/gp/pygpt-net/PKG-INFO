@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.34
+Version: 2.6.35
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -118,7 +118,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.34** | build: **2025-09-03** | Python: **>=3.10, <3.14**
+Release: **2.6.35** | build: **2025-09-04** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -3564,6 +3564,13 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.35 (2025-09-04)**
+
+- Improved responsiveness in chat streaming.
+- Added zoom, fit, and auto-scroll on crop in Painter.
+- Added a scroll-up button in the chat window.
+- Optimized memory usage.
 
 **2.6.34 (2025-09-03)**
 

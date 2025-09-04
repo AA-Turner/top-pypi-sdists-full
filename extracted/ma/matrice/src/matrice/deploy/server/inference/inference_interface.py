@@ -175,6 +175,8 @@ class InferenceInterface:
                 # Already a config instance
                 config = config
             elif isinstance(config, dict):
+                if not config:
+                    return None
                 usecase = config.get("usecase")
                 if not usecase:
                     raise ValueError("Configuration dict must contain 'usecase' key")

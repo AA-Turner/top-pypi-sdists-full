@@ -9,7 +9,7 @@ class ChattyAIMode(StrEnum):
 
     @classmethod
     def is_implemented(cls, mode: 'ChattyAIMode') -> bool:
-        return mode in [cls.AUTONOMOUS, cls.OFF]
+        return mode in [cls.AUTONOMOUS, cls.SUGGESTIONS, cls.OFF]
 
     @classmethod
     def get_description(cls, mode: 'ChattyAIMode') -> str:

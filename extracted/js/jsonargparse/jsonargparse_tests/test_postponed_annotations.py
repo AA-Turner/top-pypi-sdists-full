@@ -3,8 +3,7 @@ from __future__ import annotations  # keep
 import dataclasses
 import os
 import sys
-from random import Random
-from typing import TYPE_CHECKING, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
 
 import pytest
 
@@ -19,47 +18,6 @@ from jsonargparse.typing import Path_drw
 from jsonargparse_tests.conftest import capture_logs, source_unavailable
 
 
-def function_pep585_dict(p1: dict[str, int], p2: dict[int, str] = {1: "a"}):
-    return p1
-
-
-def function_pep585_list(p1: list[str], p2: list[float] = [0.1, 2.3]):
-    return p1
-
-
-def function_pep585_set(p1: set[str], p2: set[int] = {1, 2}):
-    return p1
-
-
-def function_pep585_frozenset(p1: frozenset[str], p2: frozenset[int] = frozenset(range(3))):
-    return p1
-
-
-def function_pep585_tuple(p1: tuple[str, float], p2: tuple[int, ...] = (1, 2)):
-    return p1
-
-
-def function_pep585_type(p1: type[Random], p2: type[Random] = Random):
-    return p1
-
-
-@pytest.mark.skipif(sys.version_info >= (3, 9, 0), reason="python<3.9 is required")
-@pytest.mark.parametrize(
-    ["function", "expected"],
-    [
-        (function_pep585_dict, {"p1": Dict[str, int], "p2": Dict[int, str]}),
-        (function_pep585_list, {"p1": List[str], "p2": List[float]}),
-        (function_pep585_set, {"p1": Set[str], "p2": Set[int]}),
-        (function_pep585_frozenset, {"p1": FrozenSet[str], "p2": FrozenSet[int]}),
-        (function_pep585_tuple, {"p1": Tuple[str, float], "p2": Tuple[int, ...]}),
-        (function_pep585_type, {"p1": Type[Random], "p2": Type[Random]}),
-    ],
-)
-def test_get_types_pep585(function, expected):
-    types = get_types(function)
-    assert types == expected
-
-
 def function_pep604(p1: str | None, p2: int | float | bool = 1):
     return p1
 
@@ -67,14 +25,6 @@ def function_pep604(p1: str | None, p2: int | float | bool = 1):
 def test_get_types_pep604():
     types = get_types(function_pep604)
     assert types == {"p1": Union[str, None], "p2": Union[int, float, bool]}
-
-
-@pytest.mark.skipif(sys.version_info >= (3, 9, 0), reason="python<3.9 is required")
-def test_get_types_pep604_source_unavailable(logger):
-    with source_unavailable(), pytest.raises(TypeError) as ctx, capture_logs(logger) as logs:
-        get_types(function_pep604, logger)
-    ctx.match("mock source code not available")
-    assert "Failed to parse to source code" in logs.getvalue()
 
 
 class NeedsBackport:
@@ -223,8 +173,12 @@ def function_type_checking_union(p1: Union[bool, TypeCheckingClass1, int], p2: U
 def test_get_types_type_checking_union():
     types = get_types(function_type_checking_union)
     assert list(types) == ["p1", "p2"]
-    assert str(types["p1"]) == f"typing.Union[bool, {__name__}.TypeCheckingClass1, int]"
-    assert str(types["p2"]) == f"typing.Union[float, {__name__}.TypeCheckingClass2]"
+    if sys.version_info < (3, 14):
+        assert str(types["p1"]) == f"typing.Union[bool, {__name__}.TypeCheckingClass1, int]"
+        assert str(types["p2"]) == f"typing.Union[float, {__name__}.TypeCheckingClass2]"
+    else:
+        assert str(types["p1"]) == f"bool | {__name__}.TypeCheckingClass1 | int"
+        assert str(types["p2"]) == f"float | {__name__}.TypeCheckingClass2"
 
 
 def function_type_checking_alias(p1: type_checking_alias, p2: "type_checking_alias"):
@@ -234,8 +188,12 @@ def function_type_checking_alias(p1: type_checking_alias, p2: "type_checking_ali
 def test_get_types_type_checking_alias():
     types = get_types(function_type_checking_alias)
     assert list(types) == ["p1", "p2"]
-    assert str(types["p1"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str]]"
-    assert str(types["p2"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str]]"
+    if sys.version_info < (3, 14):
+        assert str(types["p1"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str]]"
+        assert str(types["p2"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str]]"
+    else:
+        assert str(types["p1"]) == f"int | {__name__}.TypeCheckingClass2 | typing.List[str]"
+        assert str(types["p2"]) == f"int | {__name__}.TypeCheckingClass2 | typing.List[str]"
 
 
 def function_type_checking_optional_alias(p1: type_checking_alias | None, p2: Optional["type_checking_alias"]):
@@ -245,8 +203,12 @@ def function_type_checking_optional_alias(p1: type_checking_alias | None, p2: Op
 def test_get_types_type_checking_optional_alias():
     types = get_types(function_type_checking_optional_alias)
     assert list(types) == ["p1", "p2"]
-    assert str(types["p1"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str], NoneType]"
-    assert str(types["p2"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str], NoneType]"
+    if sys.version_info < (3, 14):
+        assert str(types["p1"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str], NoneType]"
+        assert str(types["p2"]) == f"typing.Union[int, {__name__}.TypeCheckingClass2, typing.List[str], NoneType]"
+    else:
+        assert str(types["p1"]) == f"int | {__name__}.TypeCheckingClass2 | typing.List[str] | None"
+        assert str(types["p2"]) == f"int | {__name__}.TypeCheckingClass2 | typing.List[str] | None"
 
 
 def function_type_checking_list(p1: List[Union["TypeCheckingClass1", TypeCheckingClass2]]):
@@ -257,7 +219,10 @@ def test_get_types_type_checking_list():
     types = get_types(function_type_checking_list)
     assert list(types) == ["p1"]
     lst = "typing.List"
-    assert str(types["p1"]) == f"{lst}[typing.Union[{__name__}.TypeCheckingClass1, {__name__}.TypeCheckingClass2]]"
+    if sys.version_info < (3, 14):
+        assert str(types["p1"]) == f"{lst}[typing.Union[{__name__}.TypeCheckingClass1, {__name__}.TypeCheckingClass2]]"
+    else:
+        assert str(types["p1"]) == f"{lst}[{__name__}.TypeCheckingClass1 | {__name__}.TypeCheckingClass2]"
 
 
 def function_type_checking_tuple(p1: Tuple[TypeCheckingClass1, "TypeCheckingClass2"]):
@@ -290,7 +255,13 @@ def test_get_types_type_checking_dict():
     types = get_types(function_type_checking_dict)
     assert list(types) == ["p1"]
     dct = "typing.Dict"
-    assert str(types["p1"]) == f"{dct}[str, typing.Union[{__name__}.TypeCheckingClass1, {__name__}.TypeCheckingClass2]]"
+    if sys.version_info < (3, 14):
+        assert (
+            str(types["p1"])
+            == f"{dct}[str, typing.Union[{__name__}.TypeCheckingClass1, {__name__}.TypeCheckingClass2]]"
+        )
+    else:
+        assert str(types["p1"]) == f"{dct}[str, {__name__}.TypeCheckingClass1 | {__name__}.TypeCheckingClass2]"
 
 
 def function_type_checking_undefined_forward_ref(p1: List["Undefined"], p2: bool):  # type: ignore  # noqa: F821
@@ -311,7 +282,6 @@ class DataclassForwardRef:
     p2: Optional["xml.dom.Node"] = None
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="not working in python 3.8")
 def test_get_types_type_checking_dataclass_init_forward_ref():
     import xml.dom
 
@@ -323,11 +293,11 @@ def function_source_unavailable(p1: List["TypeCheckingClass1"]):
     return p1
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 9, 0), reason="python<3.9 is required")
-def test_get_types_source_unavailable():
-    with source_unavailable():
-        types = get_types(function_source_unavailable)
-    assert types == {"p1": List["TypeCheckingClass1"]}
+def test_get_types_source_unavailable(logger):
+    with source_unavailable(function_source_unavailable), pytest.raises(NameError) as ctx, capture_logs(logger) as logs:
+        get_types(function_source_unavailable, logger)
+    ctx.match("'TypeCheckingClass1' is not defined")
+    assert "source code not available" in logs.getvalue()
 
 
 @dataclasses.dataclass
@@ -338,8 +308,7 @@ class Data585:
 
 def test_get_types_dataclass_pep585(parser):
     types = get_types(Data585)
-    list_int = List[int] if sys.version_info < (3, 9) else list[int]
-    assert types == {"a": list_int, "b": str}
+    assert types == {"a": list[int], "b": str}
     parser.add_class_arguments(Data585, "data")
     cfg = parser.parse_args(["--data.a=[1, 2]"])
     assert cfg.data == Namespace(a=[1, 2], b="x")

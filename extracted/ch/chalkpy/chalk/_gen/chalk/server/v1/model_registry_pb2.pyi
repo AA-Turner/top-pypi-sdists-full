@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -213,13 +214,13 @@ class UpdateModelOperation(_message.Message):
     model_name: str
     description: str
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
-    archived_at: _field_mask_pb2.FieldMask
+    archived_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         model_name: _Optional[str] = ...,
         description: _Optional[str] = ...,
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
-        archived_at: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateModelRequest(_message.Message):
@@ -458,15 +459,21 @@ class GetModelReferencesResponse(_message.Message):
     def __init__(self, model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...) -> None: ...
 
 class GetModelReferenceRequest(_message.Message):
-    __slots__ = ("model_id", "model_version", "deployment_id")
+    __slots__ = ("model_id", "model_name", "model_version", "deployment_id")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     model_id: str
+    model_name: str
     model_version: int
     deployment_id: str
     def __init__(
-        self, model_id: _Optional[str] = ..., model_version: _Optional[int] = ..., deployment_id: _Optional[str] = ...
+        self,
+        model_id: _Optional[str] = ...,
+        model_name: _Optional[str] = ...,
+        model_version: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetModelReferenceResponse(_message.Message):

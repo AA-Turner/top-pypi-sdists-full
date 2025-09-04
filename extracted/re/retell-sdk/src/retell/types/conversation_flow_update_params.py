@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
+
+from .._types import SequenceNotStr
 
 __all__ = [
     "ConversationFlowUpdateParams",
     "BeginTagDisplayPosition",
+    "KBConfig",
     "Mcp",
     "ModelChoice",
     "Node",
@@ -301,7 +304,10 @@ class ConversationFlowUpdateParams(TypedDict, total=False):
     global_prompt: Optional[str]
     """Global prompt used in every node of the conversation flow."""
 
-    knowledge_base_ids: Optional[List[str]]
+    kb_config: KBConfig
+    """Knowledge base configuration for RAG retrieval."""
+
+    knowledge_base_ids: Optional[SequenceNotStr[str]]
     """Knowledge base IDs for RAG (Retrieval-Augmented Generation)."""
 
     mcps: Optional[Iterable[Mcp]]
@@ -341,6 +347,14 @@ class BeginTagDisplayPosition(TypedDict, total=False):
     y: float
 
 
+class KBConfig(TypedDict, total=False):
+    filter_score: float
+    """Similarity threshold for filtering search results"""
+
+    top_k: int
+    """Max number of knowledge base chunks to retrieve"""
+
+
 class Mcp(TypedDict, total=False):
     name: Required[str]
 
@@ -363,6 +377,9 @@ class Mcp(TypedDict, total=False):
 class ModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -372,6 +389,8 @@ class ModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -421,10 +440,14 @@ class NodeConversationNodeEdgeTransitionConditionEquationConditionEquation(Typed
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeConversationNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -618,6 +641,9 @@ class NodeConversationNodeGlobalNodeSetting(TypedDict, total=False):
 class NodeConversationNodeModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -627,6 +653,8 @@ class NodeConversationNodeModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -649,10 +677,14 @@ class NodeConversationNodeSkipResponseEdgeTransitionConditionEquationConditionEq
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeConversationNodeSkipResponseEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -711,6 +743,9 @@ class NodeConversationNode(TypedDict, total=False):
     global_node_setting: NodeConversationNodeGlobalNodeSetting
 
     interruption_sensitivity: float
+
+    knowledge_base_ids: Optional[SequenceNotStr[str]]
+    """Knowledge base IDs for RAG (Retrieval-Augmented Generation)."""
 
     model_choice: NodeConversationNodeModelChoice
 
@@ -842,10 +877,14 @@ class NodeFunctionNodeEdgeTransitionConditionEquationConditionEquation(TypedDict
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeFunctionNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1020,6 +1059,9 @@ NodeFunctionNodeInstruction: TypeAlias = Union[
 class NodeFunctionNodeModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -1029,6 +1071,8 @@ class NodeFunctionNodeModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -1089,10 +1133,14 @@ class NodeTransferCallNodeEdgeTransitionConditionEquationConditionEquation(Typed
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeTransferCallNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1139,6 +1187,12 @@ class NodeTransferCallNodeTransferDestinationTransferDestinationPredefined(Typed
 
     type: Required[Literal["predefined"]]
     """The type of transfer destination."""
+
+    extension: str
+    """Extension digits to dial after the main number connects.
+
+    Sent via DTMF. Allow digits, '\\**', '#'.
+    """
 
 
 class NodeTransferCallNodeTransferDestinationTransferDestinationInferred(TypedDict, total=False):
@@ -1356,6 +1410,9 @@ class NodeTransferCallNodeGlobalNodeSetting(TypedDict, total=False):
 class NodeTransferCallNodeModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -1365,6 +1422,8 @@ class NodeTransferCallNodeModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -1428,10 +1487,14 @@ class NodePressDigitNodeEdgeTransitionConditionEquationConditionEquation(TypedDi
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodePressDigitNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1585,6 +1648,9 @@ class NodePressDigitNodeGlobalNodeSetting(TypedDict, total=False):
 class NodePressDigitNodeModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -1594,6 +1660,8 @@ class NodePressDigitNodeModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -1643,10 +1711,14 @@ class NodeBranchNodeElseEdgeTransitionConditionEquationConditionEquation(TypedDi
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeBranchNodeElseEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1701,10 +1773,14 @@ class NodeBranchNodeEdgeTransitionConditionEquationConditionEquation(TypedDict, 
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeBranchNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1888,10 +1964,14 @@ class NodeSMSNodeFailedEdgeTransitionConditionEquationConditionEquation(TypedDic
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeSMSNodeFailedEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -1961,10 +2041,14 @@ class NodeSMSNodeSuccessEdgeTransitionConditionEquationConditionEquation(TypedDi
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeSMSNodeSuccessEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -2123,12 +2207,12 @@ class NodeExtractDynamicVariablesNodeVariableStringAnalysisData(TypedDict, total
     type: Required[Literal["string"]]
     """Type of the variable to extract."""
 
-    examples: List[str]
+    examples: SequenceNotStr[str]
     """Examples of the variable value to teach model the style and syntax."""
 
 
 class NodeExtractDynamicVariablesNodeVariableEnumAnalysisData(TypedDict, total=False):
-    choices: Required[List[str]]
+    choices: Required[SequenceNotStr[str]]
     """The possible values of the variable, must be non empty array."""
 
     description: Required[str]
@@ -2188,10 +2272,14 @@ class NodeExtractDynamicVariablesNodeEdgeTransitionConditionEquationConditionEqu
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeExtractDynamicVariablesNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -2358,6 +2446,9 @@ class NodeExtractDynamicVariablesNodeGlobalNodeSetting(TypedDict, total=False):
 class NodeExtractDynamicVariablesNodeModelChoice(TypedDict, total=False):
     model: Required[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -2367,6 +2458,8 @@ class NodeExtractDynamicVariablesNodeModelChoice(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
     """The LLM model to use"""
@@ -2413,10 +2506,14 @@ class NodeAgentSwapNodeEdgeTransitionConditionEquationConditionEquation(TypedDic
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeAgentSwapNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -2591,10 +2688,14 @@ class NodeMcpNodeEdgeTransitionConditionEquationConditionEquation(TypedDict, tot
     left: Required[str]
     """Left side of the equation"""
 
-    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains"]]
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
 
-    right: Required[str]
-    """Right side of the equation"""
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
 
 
 class NodeMcpNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
@@ -2833,7 +2934,7 @@ class ToolConversationFlowCustomToolParameters(TypedDict, total=False):
     type: Required[Literal["object"]]
     """Type must be "object" for a JSON Schema object."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of names of required property when generating this parameter.
 
     LLM will do its best to generate the required properties in its function

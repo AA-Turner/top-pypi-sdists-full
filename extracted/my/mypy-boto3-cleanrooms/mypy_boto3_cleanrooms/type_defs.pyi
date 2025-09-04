@@ -29,6 +29,7 @@ from .literals import (
     AnalysisTemplateValidationStatusType,
     AnalysisTypeType,
     AnalyticsEngineType,
+    ChangeRequestStatusType,
     CollaborationJobLogStatusType,
     CollaborationQueryLogStatusType,
     ConfiguredTableAnalysisRuleTypeType,
@@ -109,8 +110,15 @@ __all__ = (
     "BatchGetSchemaOutputTypeDef",
     "BilledJobResourceUtilizationTypeDef",
     "BilledResourceUtilizationTypeDef",
+    "ChangeInputTypeDef",
+    "ChangeSpecificationOutputTypeDef",
+    "ChangeSpecificationTypeDef",
+    "ChangeSpecificationUnionTypeDef",
+    "ChangeTypeDef",
     "CollaborationAnalysisTemplateSummaryTypeDef",
     "CollaborationAnalysisTemplateTypeDef",
+    "CollaborationChangeRequestSummaryTypeDef",
+    "CollaborationChangeRequestTypeDef",
     "CollaborationConfiguredAudienceModelAssociationSummaryTypeDef",
     "CollaborationConfiguredAudienceModelAssociationTypeDef",
     "CollaborationIdNamespaceAssociationSummaryTypeDef",
@@ -154,6 +162,8 @@ __all__ = (
     "ConsolidatedPolicyV1TypeDef",
     "CreateAnalysisTemplateInputTypeDef",
     "CreateAnalysisTemplateOutputTypeDef",
+    "CreateCollaborationChangeRequestInputTypeDef",
+    "CreateCollaborationChangeRequestOutputTypeDef",
     "CreateCollaborationInputTypeDef",
     "CreateCollaborationOutputTypeDef",
     "CreateConfiguredAudienceModelAssociationInputTypeDef",
@@ -206,6 +216,8 @@ __all__ = (
     "GetAnalysisTemplateOutputTypeDef",
     "GetCollaborationAnalysisTemplateInputTypeDef",
     "GetCollaborationAnalysisTemplateOutputTypeDef",
+    "GetCollaborationChangeRequestInputTypeDef",
+    "GetCollaborationChangeRequestOutputTypeDef",
     "GetCollaborationConfiguredAudienceModelAssociationInputTypeDef",
     "GetCollaborationConfiguredAudienceModelAssociationOutputTypeDef",
     "GetCollaborationIdNamespaceAssociationInputTypeDef",
@@ -261,6 +273,9 @@ __all__ = (
     "ListCollaborationAnalysisTemplatesInputPaginateTypeDef",
     "ListCollaborationAnalysisTemplatesInputTypeDef",
     "ListCollaborationAnalysisTemplatesOutputTypeDef",
+    "ListCollaborationChangeRequestsInputPaginateTypeDef",
+    "ListCollaborationChangeRequestsInputTypeDef",
+    "ListCollaborationChangeRequestsOutputTypeDef",
     "ListCollaborationConfiguredAudienceModelAssociationsInputPaginateTypeDef",
     "ListCollaborationConfiguredAudienceModelAssociationsInputTypeDef",
     "ListCollaborationConfiguredAudienceModelAssociationsOutputTypeDef",
@@ -318,6 +333,9 @@ __all__ = (
     "MLMemberAbilitiesTypeDef",
     "MLMemberAbilitiesUnionTypeDef",
     "MLPaymentConfigTypeDef",
+    "MemberChangeSpecificationOutputTypeDef",
+    "MemberChangeSpecificationTypeDef",
+    "MemberChangeSpecificationUnionTypeDef",
     "MemberSpecificationTypeDef",
     "MemberSummaryTypeDef",
     "MembershipJobComputePaymentConfigTypeDef",
@@ -574,6 +592,11 @@ class BilledJobResourceUtilizationTypeDef(TypedDict):
 
 class BilledResourceUtilizationTypeDef(TypedDict):
     units: float
+
+class MemberChangeSpecificationOutputTypeDef(TypedDict):
+    accountId: str
+    memberAbilities: List[MemberAbilityType]
+    displayName: NotRequired[str]
 
 CollaborationAnalysisTemplateSummaryTypeDef = TypedDict(
     "CollaborationAnalysisTemplateSummaryTypeDef",
@@ -915,6 +938,10 @@ class GetCollaborationAnalysisTemplateInputTypeDef(TypedDict):
     collaborationIdentifier: str
     analysisTemplateArn: str
 
+class GetCollaborationChangeRequestInputTypeDef(TypedDict):
+    collaborationIdentifier: str
+    changeRequestIdentifier: str
+
 class GetCollaborationConfiguredAudienceModelAssociationInputTypeDef(TypedDict):
     collaborationIdentifier: str
     configuredAudienceModelAssociationIdentifier: str
@@ -1013,6 +1040,12 @@ class ListAnalysisTemplatesInputTypeDef(TypedDict):
 
 class ListCollaborationAnalysisTemplatesInputTypeDef(TypedDict):
     collaborationIdentifier: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListCollaborationChangeRequestsInputTypeDef(TypedDict):
+    collaborationIdentifier: str
+    status: NotRequired[ChangeRequestStatusType]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -1150,6 +1183,11 @@ class ModelInferencePaymentConfigTypeDef(TypedDict):
 
 class ModelTrainingPaymentConfigTypeDef(TypedDict):
     isResponsible: bool
+
+class MemberChangeSpecificationTypeDef(TypedDict):
+    accountId: str
+    memberAbilities: Sequence[MemberAbilityType]
+    displayName: NotRequired[str]
 
 class MembershipJobComputePaymentConfigTypeDef(TypedDict):
     isResponsible: bool
@@ -1362,6 +1400,9 @@ class ProtectedQueryStatisticsTypeDef(TypedDict):
     totalDurationInMillis: NotRequired[int]
     billedResourceUtilization: NotRequired[BilledResourceUtilizationTypeDef]
 
+class ChangeSpecificationOutputTypeDef(TypedDict):
+    member: NotRequired[MemberChangeSpecificationOutputTypeDef]
+
 class ListCollaborationAnalysisTemplatesOutputTypeDef(TypedDict):
     collaborationAnalysisTemplateSummaries: List[CollaborationAnalysisTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1495,6 +1536,7 @@ CollaborationTypeDef = TypedDict(
         "dataEncryptionMetadata": NotRequired[DataEncryptionMetadataTypeDef],
         "jobLogStatus": NotRequired[CollaborationJobLogStatusType],
         "analyticsEngine": NotRequired[AnalyticsEngineType],
+        "autoApprovedChangeTypes": NotRequired[List[Literal["ADD_MEMBER"]]],
     },
 )
 
@@ -1629,6 +1671,11 @@ class ListCollaborationAnalysisTemplatesInputPaginateTypeDef(TypedDict):
     collaborationIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListCollaborationChangeRequestsInputPaginateTypeDef(TypedDict):
+    collaborationIdentifier: str
+    status: NotRequired[ChangeRequestStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListCollaborationConfiguredAudienceModelAssociationsInputPaginateTypeDef(TypedDict):
     collaborationIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1717,6 +1764,10 @@ class MLPaymentConfigTypeDef(TypedDict):
     modelTraining: NotRequired[ModelTrainingPaymentConfigTypeDef]
     modelInference: NotRequired[ModelInferencePaymentConfigTypeDef]
 
+MemberChangeSpecificationUnionTypeDef = Union[
+    MemberChangeSpecificationTypeDef, MemberChangeSpecificationOutputTypeDef
+]
+
 class MembershipMLPaymentConfigTypeDef(TypedDict):
     modelTraining: NotRequired[MembershipModelTrainingPaymentConfigTypeDef]
     modelInference: NotRequired[MembershipModelInferencePaymentConfigTypeDef]
@@ -1783,6 +1834,15 @@ class AnalysisTemplateArtifactsTypeDef(TypedDict):
     entryPoint: AnalysisTemplateArtifactTypeDef
     roleArn: str
     additionalArtifacts: NotRequired[Sequence[AnalysisTemplateArtifactTypeDef]]
+
+ChangeTypeDef = TypedDict(
+    "ChangeTypeDef",
+    {
+        "specificationType": Literal["MEMBER"],
+        "specification": ChangeSpecificationOutputTypeDef,
+        "types": List[Literal["ADD_MEMBER"]],
+    },
+)
 
 class ListCollaborationIdNamespaceAssociationsOutputTypeDef(TypedDict):
     collaborationIdNamespaceAssociationSummaries: List[
@@ -1944,6 +2004,9 @@ class PaymentConfigurationTypeDef(TypedDict):
     machineLearning: NotRequired[MLPaymentConfigTypeDef]
     jobCompute: NotRequired[JobComputePaymentConfigTypeDef]
 
+class ChangeSpecificationTypeDef(TypedDict):
+    member: NotRequired[MemberChangeSpecificationUnionTypeDef]
+
 class MembershipPaymentConfigurationTypeDef(TypedDict):
     queryCompute: MembershipQueryComputePaymentConfigTypeDef
     machineLearning: NotRequired[MembershipMLPaymentConfigTypeDef]
@@ -2010,6 +2073,30 @@ class AnalysisSourceTypeDef(TypedDict):
     text: NotRequired[str]
     artifacts: NotRequired[AnalysisTemplateArtifactsTypeDef]
 
+CollaborationChangeRequestSummaryTypeDef = TypedDict(
+    "CollaborationChangeRequestSummaryTypeDef",
+    {
+        "id": str,
+        "collaborationId": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "status": ChangeRequestStatusType,
+        "isAutoApproved": bool,
+        "changes": List[ChangeTypeDef],
+    },
+)
+CollaborationChangeRequestTypeDef = TypedDict(
+    "CollaborationChangeRequestTypeDef",
+    {
+        "id": str,
+        "collaborationId": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "status": ChangeRequestStatusType,
+        "isAutoApproved": bool,
+        "changes": List[ChangeTypeDef],
+    },
+)
 ProtectedQuerySummaryTypeDef = TypedDict(
     "ProtectedQuerySummaryTypeDef",
     {
@@ -2166,6 +2253,9 @@ class MemberSummaryTypeDef(TypedDict):
     membershipId: NotRequired[str]
     membershipArn: NotRequired[str]
 
+ChangeSpecificationUnionTypeDef = Union[
+    ChangeSpecificationTypeDef, ChangeSpecificationOutputTypeDef
+]
 MembershipSummaryTypeDef = TypedDict(
     "MembershipSummaryTypeDef",
     {
@@ -2342,6 +2432,19 @@ CollaborationAnalysisTemplateTypeDef = TypedDict(
 )
 AnalysisSourceUnionTypeDef = Union[AnalysisSourceTypeDef, AnalysisSourceOutputTypeDef]
 
+class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
+    collaborationChangeRequestSummaries: List[CollaborationChangeRequestSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListProtectedQueriesOutputTypeDef(TypedDict):
     protectedQueries: List[ProtectedQuerySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2412,11 +2515,16 @@ class CreateCollaborationInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     creatorPaymentConfiguration: NotRequired[PaymentConfigurationTypeDef]
     analyticsEngine: NotRequired[AnalyticsEngineType]
+    autoApprovedChangeRequestTypes: NotRequired[Sequence[Literal["ADD_MEMBER"]]]
 
 class ListMembersOutputTypeDef(TypedDict):
     memberSummaries: List[MemberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ChangeInputTypeDef(TypedDict):
+    specificationType: Literal["MEMBER"]
+    specification: ChangeSpecificationUnionTypeDef
 
 class ListMembershipsOutputTypeDef(TypedDict):
     membershipSummaries: List[MembershipSummaryTypeDef]
@@ -2528,6 +2636,11 @@ ConfiguredTableAnalysisRuleTypeDef = TypedDict(
 ConfiguredTableAnalysisRulePolicyUnionTypeDef = Union[
     ConfiguredTableAnalysisRulePolicyTypeDef, ConfiguredTableAnalysisRulePolicyOutputTypeDef
 ]
+
+class CreateCollaborationChangeRequestInputTypeDef(TypedDict):
+    collaborationIdentifier: str
+    changes: Sequence[ChangeInputTypeDef]
+
 ProtectedQueryTypeDef = TypedDict(
     "ProtectedQueryTypeDef",
     {

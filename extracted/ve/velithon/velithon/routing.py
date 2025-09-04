@@ -17,7 +17,6 @@ from velithon._velithon import (
     _UnifiedRouteOptimizer,
     compile_path,
 )
-from velithon.cache import CacheConfig
 from velithon.convertors import CONVERTOR_TYPES
 from velithon.ctx import get_or_create_request, has_request_context
 from velithon.datastructures import Protocol, Scope
@@ -216,7 +215,7 @@ class Route(BaseRoute):
             path_format=self.path_format,
             param_convertors=self.param_convertors,
             methods=methods_list,
-            max_cache_size=CacheConfig.get_cache_size('route'),
+            max_cache_size=4096,  # Route cache size
         )
 
     def matches(self, scope: Scope) -> tuple[Match, Scope]:
@@ -463,7 +462,7 @@ class Router:
                     self.routes.append(route)
 
         # Initialize unified Rust routing optimization
-        cache_size = CacheConfig.get_cache_size('route') * 2  # Larger unified cache
+        cache_size = 4096 * 2  # Larger unified cache (8192)
         self._unified_optimizer = _UnifiedRouteOptimizer(max_cache_size=cache_size)
         self._rebuild_rust_optimizations()
 
@@ -494,7 +493,7 @@ class Router:
             for route_index, route in enumerate(self.routes):
                 if hasattr(route, 'path') and hasattr(route, 'methods'):
                     methods = list(route.methods) if route.methods else ['GET']
-                    
+
                     # Check if this is an exact path (no parameters)
                     if '{' not in route.path:
                         # Add as exact route for fastest matching
@@ -553,7 +552,7 @@ class Router:
                         )
                     else:
                         scope._path_params = {}
-                    
+
                     if match_type == Match.FULL:
                         await route.handle(scope, protocol)
                         return
@@ -561,7 +560,7 @@ class Router:
                         # Method not allowed
                         await route.handle(scope, protocol)
                         return
-                
+
                 # If route_index is -1, no route found
                 await self.default(scope, protocol)
                 return
@@ -986,7 +985,6 @@ class Router:
         *,
         prefix: str = '',
         tags: Sequence[str] | None = None,
-        dependencies: Sequence[Any] | None = None,
     ) -> None:
         """Add a sub-router to this router.
 
@@ -994,7 +992,6 @@ class Router:
             router: The Router instance to add
             prefix: Path prefix to add to all routes in the router
             tags: Tags to add to all routes in the router
-            dependencies: Dependencies to add to all routes in the router
 
         """
         # Create new routes with the combined prefix

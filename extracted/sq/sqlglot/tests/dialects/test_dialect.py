@@ -4083,3 +4083,176 @@ FROM subquery2""",
                 "trino": "TO_BASE32(x)",
             },
         )
+
+    def test_regexp_instr(self):
+        self.validate_all(
+            "REGEXP_INSTR(src, reg)",
+            read={
+                "": "REGEXP_INSTR(src, reg)",
+                "bigquery": "REGEXP_INSTR(src, reg)",
+                "snowflake": "REGEXP_INSTR(src, reg)",
+                "oracle": "REGEXP_INSTR(src, reg)",
+                "spark": "REGEXP_INSTR(src, reg)",
+                "databricks": "REGEXP_INSTR(src, reg)",
+                "tsql": "REGEXP_INSTR(src, reg)",
+                "mysql": "REGEXP_INSTR(src, reg)",
+                "postgres": "REGEXP_INSTR(src, reg)",
+                "redshift": "REGEXP_INSTR(src, reg)",
+            },
+            write={
+                "bigquery": "REGEXP_INSTR(src, reg)",
+                "snowflake": "REGEXP_INSTR(src, reg)",
+                "oracle": "REGEXP_INSTR(src, reg)",
+                "spark": "REGEXP_INSTR(src, reg)",
+                "databricks": "REGEXP_INSTR(src, reg)",
+                "tsql": "REGEXP_INSTR(src, reg)",
+                "mysql": "REGEXP_INSTR(src, reg)",
+                "postgres": "REGEXP_INSTR(src, reg)",
+                "redshift": "REGEXP_INSTR(src, reg)",
+            },
+        )
+        self.validate_all(
+            "REGEXP_INSTR(src, reg, pos, occ, opt)",
+            read={
+                "": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "bigquery": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "mysql": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "redshift": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+            },
+            write={
+                "bigquery": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "mysql": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+                "redshift": "REGEXP_INSTR(src, reg, pos, occ, opt)",
+            },
+        )
+        self.validate_all(
+            "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+            read={
+                "": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "mysql": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "redshift": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+            },
+            write={
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "mysql": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+                "redshift": "REGEXP_INSTR(src, reg, pos, occ, opt, par)",
+            },
+        )
+        self.validate_all(
+            "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+            read={
+                "": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+            },
+            write={
+                "snowflake": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "oracle": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "tsql": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+                "postgres": "REGEXP_INSTR(src, reg, pos, occ, opt, par, grp)",
+            },
+        )
+
+    def test_format(self):
+        self.validate_all(
+            "FORMAT('str fmt1 fmt2', 1, 'a')",
+            read={
+                "": "FORMAT('str fmt1 fmt2', 1, 'a')",
+                "bigquery": "FORMAT('str fmt1 fmt2', 1, 'a')",
+                "postgres": "FORMAT('str fmt1 fmt2', 1, 'a')",
+                "duckdb": "FORMAT('str fmt1 fmt2', 1, 'a')",
+            },
+            write={
+                "bigquery": "FORMAT('str fmt1 fmt2', 1, 'a')",
+                "postgres": "FORMAT('str fmt1 fmt2', 1, 'a')",
+                "spark2": "FORMAT_STRING('str fmt1 fmt2', 1, 'a')",
+                "spark": "FORMAT_STRING('str fmt1 fmt2', 1, 'a')",
+                "databricks": "FORMAT_STRING('str fmt1 fmt2', 1, 'a')",
+                "duckdb": "FORMAT('str fmt1 fmt2', 1, 'a')",
+            },
+        )
+
+    def test_json_array_append(self):
+        self.validate_all(
+            """JSON_ARRAY_APPEND(PARSE_JSON('["a", "b", "c"]'), '$', 1)""",
+            read={
+                "": """JSON_ARRAY_APPEND(PARSE_JSON('["a", "b", "c"]'), '$', 1)""",
+                "bigquery": """JSON_ARRAY_APPEND(PARSE_JSON('["a", "b", "c"]'), '$', 1)""",
+            },
+            write={
+                "bigquery": """JSON_ARRAY_APPEND(PARSE_JSON('["a", "b", "c"]'), '$', 1)""",
+                "mysql": """JSON_ARRAY_APPEND('["a", "b", "c"]', '$', 1)""",
+            },
+        )
+
+    def test_json_array_insert(self):
+        self.validate_all(
+            """JSON_ARRAY_INSERT(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', 1)""",
+            read={
+                "": """JSON_ARRAY_INSERT(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', 1)""",
+                "bigquery": """JSON_ARRAY_INSERT(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', 1)""",
+            },
+            write={
+                "bigquery": """JSON_ARRAY_INSERT(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', 1)""",
+                "mysql": """JSON_ARRAY_INSERT('["a", ["b", "c"], "d"]', '$[1]', 1)""",
+            },
+        )
+
+    def test_json_remove(self):
+        self.validate_all(
+            """JSON_REMOVE(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', '$[1]')""",
+            read={
+                "": """JSON_REMOVE(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', '$[1]')""",
+                "bigquery": """JSON_REMOVE(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', '$[1]')""",
+            },
+            write={
+                "bigquery": """JSON_REMOVE(PARSE_JSON('["a", ["b", "c"], "d"]'), '$[1]', '$[1]')""",
+                "mysql": """JSON_REMOVE('["a", ["b", "c"], "d"]', '$[1]', '$[1]')""",
+                "sqlite": """JSON_REMOVE('["a", ["b", "c"], "d"]', '$[1]', '$[1]')""",
+            },
+        )
+
+    def test_json_set(self):
+        self.validate_all(
+            """JSON_SET(PARSE_JSON('{"a": 1}'), '$', PARSE_JSON('{"b": 2, "c": 3}'))""",
+            read={
+                "": """JSON_SET(PARSE_JSON('{"a": 1}'), '$', PARSE_JSON('{"b": 2, "c": 3}'))""",
+                "bigquery": """JSON_SET(PARSE_JSON('{"a": 1}'), '$', PARSE_JSON('{"b": 2, "c": 3}'))""",
+            },
+            write={
+                "bigquery": """JSON_SET(PARSE_JSON('{"a": 1}'), '$', PARSE_JSON('{"b": 2, "c": 3}'))""",
+                "mysql": """JSON_SET('{"a": 1}', '$', '{"b": 2, "c": 3}')""",
+                "sqlite": """JSON_SET('{"a": 1}', '$', '{"b": 2, "c": 3}')""",
+                "doris": """JSON_SET('{"a": 1}', '$', '{"b": 2, "c": 3}')""",
+            },
+        )
+
+    def test_json_strip_nulls(self):
+        self.validate_all(
+            """JSON_STRIP_NULLS(PARSE_JSON('[{"f1":1,"f2":null},2,null,3]'))""",
+            read={
+                "": """JSON_STRIP_NULLS(PARSE_JSON('[{"f1":1,"f2":null},2,null,3]'))""",
+                "bigquery": """JSON_STRIP_NULLS(PARSE_JSON('[{"f1":1,"f2":null},2,null,3]'))""",
+            },
+            write={
+                "bigquery": """JSON_STRIP_NULLS(PARSE_JSON('[{"f1":1,"f2":null},2,null,3]'))""",
+                "postgres": """JSON_STRIP_NULLS(CAST('[{"f1":1,"f2":null},2,null,3]' AS JSON))""",
+            },
+        )

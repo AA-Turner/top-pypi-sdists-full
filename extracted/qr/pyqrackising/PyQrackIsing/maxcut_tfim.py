@@ -162,7 +162,7 @@ def local_repulsion_choice(adjacency, degrees, weights, n, m):
 
     weights = weights.copy()
     chosen = np.zeros(m, dtype=np.int32)   # store chosen indices
-    available = np.ones(n, dtype=np.int32) # 1 = available, 0 = not
+    available = np.ones(n, dtype=np.bool_) # True = available, False = not
     mask = np.zeros(n, dtype=np.bool_)
     chosen_count = 0
 
@@ -170,7 +170,7 @@ def local_repulsion_choice(adjacency, degrees, weights, n, m):
         # Count available
         total_w = 0.0
         for i in range(n):
-            if available[i] == 1:
+            if available[i]:
                 total_w += weights[i]
         if total_w <= 0:
             break
@@ -180,7 +180,7 @@ def local_repulsion_choice(adjacency, degrees, weights, n, m):
         cum = 0.0
         node = -1
         for i in range(n):
-            if available[i] == 1:
+            if available[i]:
                 cum += weights[i] / total_w
                 if r < cum:
                     node = i
@@ -192,14 +192,15 @@ def local_repulsion_choice(adjacency, degrees, weights, n, m):
         # Select node
         chosen[chosen_count] = node
         chosen_count += 1
-        available[node] = 0
-        mask[node] = 1
+        available[node] = False
+        mask[node] = True
 
         # Repulsion: penalize neighbors
-        deg = degrees[node]
-        for j in range(deg):
+        for j in range(degrees[node]):
             nbr = adjacency[node, j]
-            if nbr >= 0 and available[nbr] == 1:
+            if nbr < 0:
+                break
+            if available[nbr]:
                 weights[nbr] *= 0.5  # tunable penalty factor
 
     return mask
@@ -217,7 +218,10 @@ def compute_energy(sample, G_m, n_qubits):
 
 
 @njit(parallel=True)
-def sample_for_solution(G_m, shots, thresholds, adjacency, degrees, weights, n):
+def sample_for_solution(G_m, shots, thresholds, degrees, J_eff, n):
+    adjacency = compute_adjacency(G_m, degrees.max())
+    weights = 1.0 / (1.0 + (2 ** -52) - J_eff)
+
     best_solution = np.zeros(n, dtype=np.bool_)
     best_energy = compute_energy(best_solution, G_m, n)
 
@@ -303,11 +307,11 @@ def init_theta(delta_t, tot_t, h_mult, n_qubits, J_eff, degrees):
 
     return theta
 
-@njit
-def compute_adjacency(G_m):
+@njit(parallel=True)
+def compute_adjacency(G_m, max_degree):
     n_qubits = len(G_m)
-    adjacency = np.full((n_qubits, n_qubits), -1, dtype=np.int32)
-    for i in range(n_qubits):
+    adjacency = np.full((n_qubits, max_degree), -1, dtype=np.int32)
+    for i in prange(n_qubits):
         k = 0
         for j in range(n_qubits):
             if i == j:
@@ -383,9 +387,7 @@ def maxcut_tfim(
     else:
         maxcut_hamming_cdf(n_qubits, J_eff, degrees, quality, thresholds)
 
-    adjacency = compute_adjacency(G_m)
-    weights = 1.0 / (1.0 + (2 ** -52) - J_eff)
-    best_solution, best_value = sample_for_solution(G_m, shots, thresholds, adjacency, degrees, weights, n_qubits)
+    best_solution, best_value = sample_for_solution(G_m, shots, thresholds, degrees, J_eff, n_qubits)
 
     bit_string = "".join(["1" if b else "0" for b in best_solution])
     bit_list = list(bit_string)

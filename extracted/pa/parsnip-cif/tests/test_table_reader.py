@@ -5,12 +5,12 @@ import pytest
 from ase.io import cif as asecif
 from conftest import (
     _arrstrip,
+    _gemmi_read_table,
     all_files_mark,
     bad_cif,
     cif_files_mark,
-    pycifrw_or_xfail,
+    pycifrw_or_skip,
 )
-from gemmi import cif
 from more_itertools import flatten
 
 STR_WIDTH_MAX = 128
@@ -21,16 +21,9 @@ Used to simplify processing of structured arrays.
 # TODO: update to verify the number and shape of tables is correct
 
 
-def _gemmi_read_table(filename, keys):
-    try:
-        return np.array(cif.read_file(filename).sole_block().find(keys))
-    except (RuntimeError, ValueError):
-        pytest.xfail("Gemmi failed to read file!")
-
-
 @all_files_mark
 def test_reads_all_keys(cif_data):
-    pycif = pycifrw_or_xfail(cif_data)
+    pycif = pycifrw_or_skip(cif_data)
     loop_keys = [*flatten(pycif.loops.values())]
     all_keys = [key for key in pycif.true_case.values() if key.lower() in loop_keys]
 
@@ -38,8 +31,7 @@ def test_reads_all_keys(cif_data):
     for key in all_keys:
         assert key in found_labels, f"Missing label: {key}"
 
-    if "A2BC_tP16" in cif_data.filename:
-        print(cif_data.filename)
+    if "A2BC_tP16_76" in cif_data.filename:  # TODO: this can be supported
         pytest.xfail("Double single quote at EOL is not supported.")
 
     for loop in pycif.loops.values():
@@ -64,15 +56,13 @@ def test_read_atom_sites(cif_data):
     np.testing.assert_array_equal(parsnip_data, gemmi_data)
     assert (key in cif_data.file.loop_labels for key in cif_data.atom_site_keys)
 
-    if not any(
-        s in cif_data.filename for s in ["CCDC", "PDB", "AMCSD", "zeolite", "no42"]
-    ):
-        import sys
+    if "CCDC" in cif_data.filename:
+        pytest.xfail("Occupancy data would need to be tiled to match ASE.")
 
-        if sys.version_info < (3, 8):
-            return
-
-        warnings.filterwarnings("ignore", category=UserWarning)
+    if cif_data.file["_atom_site_occupancy"] is not None:
+        warnings.filterwarnings(
+            "ignore", category=UserWarning, message="crystal system"
+        )
 
         atoms = asecif.read_cif(cif_data.filename)
 
@@ -89,7 +79,40 @@ def test_read_atom_sites(cif_data):
 
 @cif_files_mark
 @pytest.mark.parametrize(
-    "subset", [[0], [1, 2, 3], [4, 0]], ids=["single_el", "slice", "end_and_beginning"]
+    "keys",
+    [
+        "*",
+        "**",
+        "*?*",
+        "?" * 18,  # Length of '_atom_site_fract_?'
+        "_space*",
+        "*space*",
+        "_atom_site?",
+        "_atom?site*",
+        "_atom_site*_?",
+    ],
+)
+def test_wildcard_keys_loops(cif_data, keys):
+    parsnip_data = cif_data.file[keys]
+    raw_keys = cif_data.file._wildcard_mapping.get(keys, [keys])
+
+    if not isinstance(parsnip_data, list):
+        gemmi_data = _gemmi_read_table(cif_data.filename, raw_keys)
+        np.testing.assert_array_equal(parsnip_data, gemmi_data)
+        return
+
+    start_idx = 0
+    for sublist in parsnip_data:
+        sublist_length = sublist.shape[1] if isinstance(sublist, np.ndarray) else 1
+        keys_slice = raw_keys[start_idx : start_idx + sublist_length]
+        start_idx += len(keys_slice)
+        gemmi_data = _gemmi_read_table(cif_data.filename, keys_slice)
+        np.testing.assert_array_equal(sublist, gemmi_data)
+
+
+@cif_files_mark
+@pytest.mark.parametrize(
+    "subset", [[0], [1, 2, 3], [-1, 0]], ids=["single_el", "slice", "end_and_beginning"]
 )
 def test_partial_table_read(cif_data, subset):
     subset_of_keys = tuple(np.array(cif_data.atom_site_keys)[subset])
@@ -100,9 +123,8 @@ def test_partial_table_read(cif_data, subset):
 
 
 @pytest.mark.skip("Would be nice to pass, but we are at least as good as gemmi here.")
-def test_bad_cif_symop(cif_data=bad_cif):
-    # This file is thouroughly cooked - gemmi will not even read it.
-    parsnip_data = cif_data.file.get_from_loops(cif_data.symop_keys)
+def test_bad_cif_symop():
+    parsnip_data = bad_cif.file.get_from_loops(bad_cif.symop_keys)
     correct_data = [
         ["1", "x,y,z"],
         ["2", "-x,y,-z*1/2"],
@@ -115,26 +137,3 @@ def test_bad_cif_symop(cif_data=bad_cif):
     ]
 
     np.testing.assert_array_equal(parsnip_data, correct_data)
-
-
-@pytest.mark.skip("Too corrupted to be read")
-def test_bad_cif_atom_sites(cif_data=bad_cif):
-    parsnip_data = cif_data.file[cif_data.atom_site_keys]
-    np.testing.assert_array_equal(
-        parsnip_data[:, 0],
-        np.array(["Aa(3)", "SL", "Oo", "O0f"]),
-    )
-    # "_atom_site_type_symbol"
-    np.testing.assert_array_equal(parsnip_data[:, 1], ["Bb", "SM", "O", "O"])
-
-    # "_atom_site_symmetry_multiplicity"
-    np.testing.assert_array_equal(parsnip_data[:, 2], ["1", "3", "5", "7"])
-
-    # "_atom_si te"
-    np.testing.assert_array_equal(
-        parsnip_data[:, 3], ["0.00000(1)", "0.00000", "0.19180", "0.09390"]
-    )
-    # "_atom_site_fract_z"
-    np.testing.assert_array_equal(
-        parsnip_data[:, 4], ["0.25000", "0.(28510)", "0.05170", "0.41220"]
-    )

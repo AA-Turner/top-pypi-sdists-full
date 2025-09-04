@@ -290,7 +290,12 @@ async def patch_thread(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadPatch)
     async with connect() as conn:
-        thread = await Threads.patch(conn, thread_id, metadata=payload["metadata"])
+        thread = await Threads.patch(
+            conn,
+            thread_id,
+            metadata=payload.get("metadata", {}),
+            ttl=payload.get("ttl"),
+        )
     return ApiResponse(await fetchone(thread))
 
 

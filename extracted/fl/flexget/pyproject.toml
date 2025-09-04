@@ -237,6 +237,7 @@ skip = [
 
 [tool.pyproject-fmt]
 max_supported_python = '3.14'
+keep_full_version = true
 
 [tool.pytest.ini_options]
 addopts = '-p no:legacypath --strict-markers'

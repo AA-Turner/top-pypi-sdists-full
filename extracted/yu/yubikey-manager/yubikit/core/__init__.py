@@ -30,15 +30,15 @@ from __future__ import annotations
 import abc
 import logging
 import re
+from contextlib import contextmanager
 from enum import Enum, IntEnum, IntFlag, unique
+from threading import Timer
 from typing import (
     Callable,
     ClassVar,
     Hashable,
     NamedTuple,
-    Optional,
     TypeVar,
-    Union,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,7 +151,7 @@ class PID(IntEnum):
         return USB_INTERFACE(sum(USB_INTERFACE[x] for x in self.name.split("_")[1:]))
 
     @classmethod
-    def of(cls, key_type: YUBIKEY, interfaces: USB_INTERFACE) -> "PID":
+    def of(cls, key_type: YUBIKEY, interfaces: USB_INTERFACE) -> PID:
         suffix = "_".join(t.name or str(t) for t in USB_INTERFACE if t in interfaces)
         return cls[key_type.name + "_" + suffix]
 
@@ -180,7 +180,7 @@ class YubiKeyDevice(abc.ABC):
 
     # mypy will not accept abstract types in type[T_Connection]
     def open_connection(
-        self, connection_type: Union[type[T_Connection], Callable[..., T_Connection]]
+        self, connection_type: type[T_Connection] | Callable[..., T_Connection]
     ) -> T_Connection:
         """Opens a connection to the YubiKey"""
         raise ValueError("Unsupported Connection type")
@@ -230,14 +230,14 @@ class InvalidPinError(CommandError, ValueError):
     version of the library.
     """
 
-    def __init__(self, attempts_remaining: int, message: Optional[str] = None):
+    def __init__(self, attempts_remaining: int, message: str | None = None):
         super().__init__(message or f"Invalid PIN/PUK, {attempts_remaining} remaining")
         self.attempts_remaining = attempts_remaining
 
 
 class _OverrideVersion:
     def __init__(self):
-        self._version: Optional[Version] = None
+        self._version: Version | None = None
 
     def __call__(self, value: Version) -> None:
         logger.info(f"Overriding version check for development devices with {value}")
@@ -318,7 +318,7 @@ class Tlv(bytes):
     def value(self) -> bytes:
         return self[self._value_offset : self._value_offset + self._value_ln]
 
-    def __new__(cls, tag_or_data: Union[int, bytes], value: Optional[bytes] = None):
+    def __new__(cls, tag_or_data: int | bytes, value: bytes | None = None):
         """This allows creation by passing either binary data, or tag and value."""
         if isinstance(tag_or_data, int):  # Tag and (optional) value
             tag = tag_or_data
@@ -343,7 +343,7 @@ class Tlv(bytes):
 
         return super(Tlv, cls).__new__(cls, data)
 
-    def __init__(self, tag_or_data: Union[int, bytes], value: Optional[bytes] = None):
+    def __init__(self, tag_or_data: int | bytes, value: bytes | None = None):
         self._tag, self._value_offset, self._value_ln, end = _tlv_parse(self)
         if len(self) != end:
             raise ValueError("Incorrect TLV length")
@@ -374,3 +374,54 @@ class Tlv(bytes):
         if tlv.tag != tag:
             raise ValueError(f"Wrong tag, got 0x{tlv.tag:02x} expected 0x{tag:02x}")
         return tlv.value
+
+
+class Oid(bytes):
+    @property
+    def dotted_string(self) -> str:
+        parts = [self[0] // 40, self[0] % 40]
+        num = 0
+        for x in self[1:]:
+            num = (num << 7) | (x & 0x7F)
+            if not 0x80 & x:
+                parts.append(num)
+                num = 0
+
+        return ".".join(str(x) for x in parts)
+
+    @classmethod
+    def from_string(cls, data: str) -> Oid:
+        parts = [int(x) for x in data.split(".")]
+        if len(parts) < 2:
+            raise ValueError("OID must have at least two arcs")
+
+        buf = bytearray([(parts[0] * 40) + parts[1]])
+
+        for part in parts[2:]:
+            if part < 0:
+                raise ValueError("OID parts must be non-negative")
+            partbuf = bytearray()
+            while part > 0x7F:
+                partbuf.insert(0, part & 0x7F)
+                part >>= 7
+            partbuf.insert(0, part)
+            buf.extend(0x80 | b for b in partbuf)
+            buf[-1] ^= 0x80
+
+        return cls(buf)
+
+    def __repr__(self) -> str:
+        return f"Oid({self.dotted_string})"
+
+    def __str__(self) -> str:
+        return self.dotted_string
+
+
+@contextmanager
+def _timeout(f, timeout):
+    timer = Timer(timeout, f)
+    try:
+        timer.start()
+        yield None
+    finally:
+        timer.cancel()

@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_mq.literals import AuthenticationStrategyType
 
-    data: AuthenticationStrategyType = "LDAP"
+    data: AuthenticationStrategyType = "CONFIG_MANAGED"
     ```
 """
 
@@ -42,7 +42,7 @@ __all__ = (
 )
 
 
-AuthenticationStrategyType = Literal["LDAP", "SIMPLE"]
+AuthenticationStrategyType = Literal["CONFIG_MANAGED", "LDAP", "SIMPLE"]
 BrokerStateType = Literal[
     "CREATION_FAILED",
     "CREATION_IN_PROGRESS",

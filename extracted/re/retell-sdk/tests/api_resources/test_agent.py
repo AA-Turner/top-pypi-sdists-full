@@ -49,6 +49,7 @@ class TestAgent:
             backchannel_words=["yeah", "uh-huh"],
             begin_message_delay_ms=1000,
             boosted_keywords=["retell", "kroger"],
+            data_storage_setting="everything",
             denoising_mode="noise-cancellation",
             enable_backchannel=True,
             end_call_after_silence_ms=600000,
@@ -58,7 +59,10 @@ class TestAgent:
             max_call_duration_ms=3600000,
             normalize_for_speech=True,
             opt_in_signed_url=True,
-            opt_out_sensitive_data_storage=True,
+            pii_config={
+                "categories": ["person_name"],
+                "mode": "post_call",
+            },
             post_call_analysis_data=[
                 {
                     "description": "The name of the customer.",
@@ -199,6 +203,7 @@ class TestAgent:
             backchannel_words=["yeah", "uh-huh"],
             begin_message_delay_ms=1000,
             boosted_keywords=["retell", "kroger"],
+            data_storage_setting="everything",
             denoising_mode="noise-cancellation",
             enable_backchannel=True,
             end_call_after_silence_ms=600000,
@@ -208,7 +213,10 @@ class TestAgent:
             max_call_duration_ms=3600000,
             normalize_for_speech=True,
             opt_in_signed_url=True,
-            opt_out_sensitive_data_storage=True,
+            pii_config={
+                "categories": ["person_name"],
+                "mode": "post_call",
+            },
             post_call_analysis_data=[
                 {
                     "description": "The name of the customer.",
@@ -432,6 +440,7 @@ class TestAsyncAgent:
             backchannel_words=["yeah", "uh-huh"],
             begin_message_delay_ms=1000,
             boosted_keywords=["retell", "kroger"],
+            data_storage_setting="everything",
             denoising_mode="noise-cancellation",
             enable_backchannel=True,
             end_call_after_silence_ms=600000,
@@ -441,7 +450,10 @@ class TestAsyncAgent:
             max_call_duration_ms=3600000,
             normalize_for_speech=True,
             opt_in_signed_url=True,
-            opt_out_sensitive_data_storage=True,
+            pii_config={
+                "categories": ["person_name"],
+                "mode": "post_call",
+            },
             post_call_analysis_data=[
                 {
                     "description": "The name of the customer.",
@@ -582,6 +594,7 @@ class TestAsyncAgent:
             backchannel_words=["yeah", "uh-huh"],
             begin_message_delay_ms=1000,
             boosted_keywords=["retell", "kroger"],
+            data_storage_setting="everything",
             denoising_mode="noise-cancellation",
             enable_backchannel=True,
             end_call_after_silence_ms=600000,
@@ -591,7 +604,10 @@ class TestAsyncAgent:
             max_call_duration_ms=3600000,
             normalize_for_speech=True,
             opt_in_signed_url=True,
-            opt_out_sensitive_data_storage=True,
+            pii_config={
+                "categories": ["person_name"],
+                "mode": "post_call",
+            },
             post_call_analysis_data=[
                 {
                     "description": "The name of the customer.",

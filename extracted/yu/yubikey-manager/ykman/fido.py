@@ -25,14 +25,17 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 import struct
-import time
-from typing import Optional
+from time import sleep
 
 from fido2.ctap1 import ApduError, Ctap1
 
 from yubikit.core.fido import FidoConnection
 from yubikit.core.smartcard import SW
+
+logger = logging.getLogger(__name__)
+
 
 U2F_VENDOR_FIRST = 0x40
 
@@ -59,9 +62,7 @@ def is_in_fips_mode(fido_connection: FidoConnection) -> bool:
         raise
 
 
-def fips_change_pin(
-    fido_connection: FidoConnection, old_pin: Optional[str], new_pin: str
-):
+def fips_change_pin(fido_connection: FidoConnection, old_pin: str | None, new_pin: str):
     """Change the PIN on a YubiKey 4 FIPS.
 
     If no PIN is set, pass None or an empty string as old_pin.
@@ -107,6 +108,6 @@ def fips_reset(fido_connection: FidoConnection):
             return
         except ApduError as e:
             if e.code == SW.CONDITIONS_NOT_SATISFIED:
-                time.sleep(0.5)
+                sleep(0.5)
             else:
                 raise e

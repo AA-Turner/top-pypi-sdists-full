@@ -2,21 +2,22 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex as ParkingLotMutex;
 use tokio::sync::Semaphore;
 
 /// A high-performance background task implementation in Rust
 #[pyclass]
 pub struct BackgroundTask {
-    func: PyObject,
-    args: PyObject,
-    kwargs: PyObject,
+    func: Py<PyAny>,
+    args: Py<PyAny>,
+    kwargs: Py<PyAny>,
     is_async: bool,
 }
 
 impl Clone for BackgroundTask {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             Self {
                 func: self.func.clone_ref(py),
                 args: self.args.clone_ref(py),
@@ -33,7 +34,7 @@ impl BackgroundTask {
     #[pyo3(signature = (func, args = None, kwargs = None))]
     fn new(
         py: Python<'_>,
-        func: PyObject,
+        func: Py<PyAny>,
         args: Option<&Bound<'_, PyTuple>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
@@ -65,7 +66,7 @@ impl BackgroundTask {
         future_into_py(py, async move {
             if is_async {
                 // For async functions, create the coroutine and properly await it
-                let coroutine = Python::with_gil(|py| -> PyResult<PyObject> {
+                let coroutine = Python::attach(|py| -> PyResult<Py<PyAny>> {
                     let func_bound = func.bind(py);
                     let args_bound = args.bind(py).downcast::<PyTuple>()?;
                     let kwargs_bound = kwargs.bind(py).downcast::<PyDict>()?;
@@ -74,7 +75,7 @@ impl BackgroundTask {
                 })?;
 
                 // Use pyo3_asyncio to properly await the Python coroutine
-                let future_result = Python::with_gil(|py| {
+                let future_result = Python::attach(|py| {
                     let coro_bound = coroutine.bind(py);
                     pyo3_async_runtimes::tokio::into_future(coro_bound.clone())
                 });
@@ -87,7 +88,7 @@ impl BackgroundTask {
                 match result {
                     Ok(py_result) => Ok(py_result.into()),
                     Err(py_err) => {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let type_name = py_err.get_type(py).name().map(|s| s.to_string()).unwrap_or_else(|_| "UnknownError".to_string());
                             Err(pyo3::exceptions::PyRuntimeError::new_err(
                                 format!("{}: {}", type_name, py_err)
@@ -98,7 +99,7 @@ impl BackgroundTask {
             } else {
                 // For sync functions, run them in a thread pool to avoid blocking
                 let result = tokio::task::spawn_blocking(move || {
-                    Python::with_gil(|py| -> PyResult<PyObject> {
+                    Python::attach(|py| -> PyResult<Py<PyAny>> {
                         let func_bound = func.bind(py);
                         let args_bound = args.bind(py).downcast::<PyTuple>()?;
                         let kwargs_bound = kwargs.bind(py).downcast::<PyDict>()?;
@@ -110,7 +111,7 @@ impl BackgroundTask {
                 match result {
                     Ok(Ok(py_result)) => Ok(py_result),
                     Ok(Err(py_err)) => {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let type_name = py_err.get_type(py).name().map(|s| s.to_string()).unwrap_or_else(|_| "UnknownError".to_string());
                             Err(pyo3::exceptions::PyRuntimeError::new_err(
                                 format!("{}: {}", type_name, py_err)
@@ -128,7 +129,7 @@ impl BackgroundTask {
 
 impl BackgroundTask {
     /// Check if a Python callable is async
-    fn is_async_callable(py: Python<'_>, func: &PyObject) -> PyResult<bool> {
+    fn is_async_callable(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {
         let inspect = py.import("inspect")?;
         let is_coroutine_function = inspect.getattr("iscoroutinefunction")?;
         let result = is_coroutine_function.call1((func,))?;
@@ -139,7 +140,7 @@ impl BackgroundTask {
 /// High-performance background tasks manager
 #[pyclass]
 pub struct BackgroundTasks {
-    tasks: Arc<Mutex<VecDeque<BackgroundTask>>>,
+    tasks: Arc<ParkingLotMutex<VecDeque<BackgroundTask>>>,
     max_concurrent: usize,
 }
 
@@ -160,7 +161,7 @@ impl BackgroundTasks {
         };
 
         Ok(Self {
-            tasks: Arc::new(Mutex::new(task_queue)),
+            tasks: Arc::new(ParkingLotMutex::new(task_queue)),
             max_concurrent: max_concurrent.unwrap_or(10),
         })
     }
@@ -170,16 +171,16 @@ impl BackgroundTasks {
     fn add_task(
         &self,
         py: Python<'_>,
-        func: PyObject,
+        func: Py<PyAny>,
         args: Option<&Bound<'_, PyTuple>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
         let task = BackgroundTask::new(py, func, args, kwargs)?;
         
-        // Use standard mutex for simple synchronous access
+        // Use ParkingLot mutex for thread-safe access without GIL issues
         let tasks = self.tasks.clone();
-        py.allow_threads(|| {
-            let mut task_queue = tasks.lock().unwrap();
+        py.detach(|| {
+            let mut task_queue = tasks.lock();
             task_queue.push_back(task);
         });
         
@@ -198,7 +199,7 @@ impl BackgroundTasks {
 
         future_into_py(py, async move {
             let task_queue = {
-                let mut queue = tasks.lock().unwrap();
+                let mut queue = tasks.lock();
                 let mut extracted_tasks = Vec::with_capacity(queue.len());
                 // Extract all tasks and clear the queue
                 while let Some(task) = queue.pop_front() {
@@ -209,7 +210,7 @@ impl BackgroundTasks {
             };
 
             if task_queue.is_empty() {
-                return Python::with_gil(|py| {
+                return Python::attach(|py| {
                     Ok(py.None())
                 });
             }
@@ -224,7 +225,7 @@ impl BackgroundTasks {
             for task in task_queue {
                 if task.is_async {
                     // Create the coroutine immediately in the main context
-                    let coroutine_result = Python::with_gil(|py| -> PyResult<PyObject> {
+                    let coroutine_result = Python::attach(|py| -> PyResult<Py<PyAny>> {
                         let func = task.func.clone_ref(py);
                         let args = task.args.clone_ref(py);
                         let kwargs = task.kwargs.clone_ref(py);
@@ -262,7 +263,7 @@ impl BackgroundTasks {
                 let handle = tokio::spawn(async move {
                     let _permit = permit;
                     
-                    Python::with_gil(|py| -> Result<(), String> {
+                    Python::attach(|py| -> Result<(), String> {
                         let func = task.func.clone_ref(py);
                         let args = task.args.clone_ref(py);
                         let kwargs = task.kwargs.clone_ref(py);
@@ -283,7 +284,7 @@ impl BackgroundTasks {
                 let permit = semaphore.clone().acquire_owned().await.unwrap();
                 
                 // Convert coroutine to future and execute it
-                let future_result = Python::with_gil(|py| {
+                let future_result = Python::attach(|py| {
                     let coro_bound = coroutine.bind(py);
                     pyo3_async_runtimes::tokio::into_future(coro_bound.clone())
                 });
@@ -328,7 +329,7 @@ impl BackgroundTasks {
                 }
             }
 
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 if !errors.is_empty() {
                     // Print errors
                     for error in &errors {
@@ -363,7 +364,7 @@ impl BackgroundTasks {
         let tasks = self.tasks.clone();
         
         future_into_py(py, async move {
-            let task_queue = tasks.lock().unwrap();
+            let task_queue = tasks.lock();
             let count = task_queue.len();
             // Return the count as a regular integer - PyO3 will handle the conversion
             Ok(count)
@@ -375,9 +376,9 @@ impl BackgroundTasks {
         let tasks = self.tasks.clone();
         
         future_into_py(py, async move {
-            let mut task_queue = tasks.lock().unwrap();
+            let mut task_queue = tasks.lock();
             task_queue.clear();
-            Python::with_gil(|py| Ok(py.None()))
+            Python::attach(|py| Ok(py.None()))
         })
     }
 }

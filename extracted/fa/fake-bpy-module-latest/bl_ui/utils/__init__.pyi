@@ -3,23 +3,6 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 
-class PlayheadSnappingPanel:
-    bl_label: typing.Any
-    bl_region_type: typing.Any
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 class PresetPanel:
     bl_label: typing.Any
     bl_region_type: typing.Any

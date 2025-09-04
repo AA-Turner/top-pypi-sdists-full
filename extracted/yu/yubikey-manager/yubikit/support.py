@@ -27,7 +27,6 @@
 
 import logging
 from dataclasses import replace
-from typing import Optional
 
 from .core import (
     PID,
@@ -77,7 +76,7 @@ _BASE_NEO_APPS = CAPABILITY.OTP | CAPABILITY.OATH | CAPABILITY.PIV | CAPABILITY.
 
 
 def _read_info_ccid(conn, key_type, interfaces):
-    version: Optional[Version] = None
+    version: Version | None = None
     try:
         mgmt = ManagementSession(conn)
         version = mgmt.version
@@ -234,7 +233,7 @@ def _read_info_ctap(conn, key_type, interfaces):
         )
 
 
-def read_info(conn: Connection, pid: Optional[PID] = None) -> DeviceInfo:
+def read_info(conn: Connection, pid: PID | None = None) -> DeviceInfo:
     """Reads out DeviceInfo from a YubiKey, or attempts to synthesize the data.
 
     Reading DeviceInfo from a ManagementSession is only supported for newer YubiKeys.
@@ -250,7 +249,7 @@ def read_info(conn: Connection, pid: Optional[PID] = None) -> DeviceInfo:
 
     logger.debug(f"Attempting to read device info, using {type(conn).__name__}")
     if pid:
-        key_type: Optional[YUBIKEY] = pid.yubikey_type
+        key_type: YUBIKEY | None = pid.yubikey_type
         interfaces = pid.usb_interfaces
     elif isinstance(conn, SmartCardConnection) and conn.transport == TRANSPORT.NFC:
         # No PID for NFC connections
@@ -354,7 +353,7 @@ def _is_preview(version):
     return False
 
 
-def get_name(info: DeviceInfo, key_type: Optional[YUBIKEY]) -> str:
+def get_name(info: DeviceInfo, key_type: YUBIKEY | None) -> str:
     """Determine the product name of a YubiKey
 
     :param info: The device info.
@@ -410,32 +409,43 @@ def get_name(info: DeviceInfo, key_type: Optional[YUBIKEY]) -> str:
                 FORM_FACTOR.USB_C_BIO,
             )
 
+            # Base name
             if info.is_sky:
                 name_parts = ["Security Key"]
             else:
                 name_parts = ["YubiKey"]
                 if not is_bio:
                     name_parts.append("5")
+
+            # Form factor additions
             if is_c:
                 name_parts.append("C")
             elif info.form_factor == FORM_FACTOR.USB_C_LIGHTNING:
                 name_parts.append("Ci")
+
             if is_nano:
                 name_parts.append("Nano")
-            if info.has_transport(TRANSPORT.NFC):
+            elif info.has_transport(TRANSPORT.NFC):
                 name_parts.append("NFC")
             elif info.form_factor == FORM_FACTOR.USB_A_KEYCHAIN:
                 name_parts.append("A")  # Only for non-NFC A Keychain.
-            if is_bio:
+            elif is_bio:
                 name_parts.append("Bio")
+
+            # Extra suffixes
+            if info.is_fips:
+                name_parts.append("FIPS")
+            elif is_bio:
                 if _fido_only(usb_supported):
                     name_parts.append("- FIDO Edition")
                 elif CAPABILITY.PIV in usb_supported:
                     name_parts.append("- Multi-protocol Edition")
-            if info.is_fips:
-                name_parts.append("FIPS")
-            if info.is_sky and info.serial:
+            elif info.is_sky and info.serial:
                 name_parts.append("- Enterprise Edition")
+            elif info.pin_complexity and not info.is_sky:
+                name_parts.append("- Enhanced PIN")
+
+            # Combine parts into a name and make final adjustments
             device_name = " ".join(name_parts).replace("5 C", "5C").replace("5 A", "5A")
 
     return device_name

@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.authtesting_pb2 import (
     GetDataScientistTestEndpointResponse,
     GetDeveloperTestEndpointRequest,
     GetDeveloperTestEndpointResponse,
+    GetFeatureFlagTestEndpointRequest,
+    GetFeatureFlagTestEndpointResponse,
     GetOwnerTestEndpointRequest,
     GetOwnerTestEndpointResponse,
     GetUnauthedTestEndpointRequest,
@@ -59,6 +61,10 @@ class AuthTestingServiceStub:
     GetOwnerTestEndpoint: UnaryUnaryMultiCallable[
         GetOwnerTestEndpointRequest,
         GetOwnerTestEndpointResponse,
+    ]
+    GetFeatureFlagTestEndpoint: UnaryUnaryMultiCallable[
+        GetFeatureFlagTestEndpointRequest,
+        GetFeatureFlagTestEndpointResponse,
     ]
 
 class AuthTestingServiceServicer(metaclass=ABCMeta):
@@ -104,5 +110,11 @@ class AuthTestingServiceServicer(metaclass=ABCMeta):
         request: GetOwnerTestEndpointRequest,
         context: ServicerContext,
     ) -> GetOwnerTestEndpointResponse: ...
+    @abstractmethod
+    def GetFeatureFlagTestEndpoint(
+        self,
+        request: GetFeatureFlagTestEndpointRequest,
+        context: ServicerContext,
+    ) -> GetFeatureFlagTestEndpointResponse: ...
 
 def add_AuthTestingServiceServicer_to_server(servicer: AuthTestingServiceServicer, server: Server) -> None: ...

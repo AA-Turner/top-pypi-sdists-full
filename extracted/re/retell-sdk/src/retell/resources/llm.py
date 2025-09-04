@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Iterable, Optional
+from typing import Dict, Iterable, Optional
 from typing_extensions import Literal
 
 import httpx
 
 from ..types import llm_list_params, llm_create_params, llm_update_params, llm_retrieve_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven, SequenceNotStr
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -52,9 +52,13 @@ class LlmResource(SyncAPIResource):
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         general_prompt: Optional[str] | NotGiven = NOT_GIVEN,
         general_tools: Optional[Iterable[llm_create_params.GeneralTool]] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: Optional[llm_create_params.KBConfig] | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         model: Optional[
             Literal[
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-4o",
                 "gpt-4o-mini",
                 "gpt-4.1",
@@ -64,12 +68,14 @@ class LlmResource(SyncAPIResource):
                 "claude-3.5-haiku",
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
             ]
         ]
         | NotGiven = NOT_GIVEN,
         model_high_priority: bool | NotGiven = NOT_GIVEN,
         model_temperature: float | NotGiven = NOT_GIVEN,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]] | NotGiven = NOT_GIVEN,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | NotGiven = NOT_GIVEN,
         starting_state: Optional[str] | NotGiven = NOT_GIVEN,
         states: Optional[Iterable[llm_create_params.State]] | NotGiven = NOT_GIVEN,
         tool_call_strict_mode: bool | NotGiven = NOT_GIVEN,
@@ -108,10 +114,12 @@ class LlmResource(SyncAPIResource):
 
               - Tools of LLM (no state) = general tools
 
+          kb_config: Knowledge base configuration for RAG retrieval.
+
           knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
               knowledge bases.
 
-          model: Select the underlying text LLM. If not set, would default to gpt-4o.
+          model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
           model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
               dedicated resource to ensure lower and more consistent latency, default to
@@ -156,6 +164,7 @@ class LlmResource(SyncAPIResource):
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "model": model,
                     "model_high_priority": model_high_priority,
@@ -223,9 +232,13 @@ class LlmResource(SyncAPIResource):
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         general_prompt: Optional[str] | NotGiven = NOT_GIVEN,
         general_tools: Optional[Iterable[llm_update_params.GeneralTool]] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: Optional[llm_update_params.KBConfig] | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         model: Optional[
             Literal[
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-4o",
                 "gpt-4o-mini",
                 "gpt-4.1",
@@ -235,12 +248,14 @@ class LlmResource(SyncAPIResource):
                 "claude-3.5-haiku",
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
             ]
         ]
         | NotGiven = NOT_GIVEN,
         model_high_priority: bool | NotGiven = NOT_GIVEN,
         model_temperature: float | NotGiven = NOT_GIVEN,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]] | NotGiven = NOT_GIVEN,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | NotGiven = NOT_GIVEN,
         starting_state: Optional[str] | NotGiven = NOT_GIVEN,
         states: Optional[Iterable[llm_update_params.State]] | NotGiven = NOT_GIVEN,
         tool_call_strict_mode: bool | NotGiven = NOT_GIVEN,
@@ -279,10 +294,12 @@ class LlmResource(SyncAPIResource):
 
               - Tools of LLM (no state) = general tools
 
+          kb_config: Knowledge base configuration for RAG retrieval.
+
           knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
               knowledge bases.
 
-          model: Select the underlying text LLM. If not set, would default to gpt-4o.
+          model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
           model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
               dedicated resource to ensure lower and more consistent latency, default to
@@ -329,6 +346,7 @@ class LlmResource(SyncAPIResource):
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "model": model,
                     "model_high_priority": model_high_priority,
@@ -468,9 +486,13 @@ class AsyncLlmResource(AsyncAPIResource):
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         general_prompt: Optional[str] | NotGiven = NOT_GIVEN,
         general_tools: Optional[Iterable[llm_create_params.GeneralTool]] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: Optional[llm_create_params.KBConfig] | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         model: Optional[
             Literal[
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-4o",
                 "gpt-4o-mini",
                 "gpt-4.1",
@@ -480,12 +502,14 @@ class AsyncLlmResource(AsyncAPIResource):
                 "claude-3.5-haiku",
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
             ]
         ]
         | NotGiven = NOT_GIVEN,
         model_high_priority: bool | NotGiven = NOT_GIVEN,
         model_temperature: float | NotGiven = NOT_GIVEN,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]] | NotGiven = NOT_GIVEN,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | NotGiven = NOT_GIVEN,
         starting_state: Optional[str] | NotGiven = NOT_GIVEN,
         states: Optional[Iterable[llm_create_params.State]] | NotGiven = NOT_GIVEN,
         tool_call_strict_mode: bool | NotGiven = NOT_GIVEN,
@@ -524,10 +548,12 @@ class AsyncLlmResource(AsyncAPIResource):
 
               - Tools of LLM (no state) = general tools
 
+          kb_config: Knowledge base configuration for RAG retrieval.
+
           knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
               knowledge bases.
 
-          model: Select the underlying text LLM. If not set, would default to gpt-4o.
+          model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
           model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
               dedicated resource to ensure lower and more consistent latency, default to
@@ -572,6 +598,7 @@ class AsyncLlmResource(AsyncAPIResource):
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "model": model,
                     "model_high_priority": model_high_priority,
@@ -639,9 +666,13 @@ class AsyncLlmResource(AsyncAPIResource):
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         general_prompt: Optional[str] | NotGiven = NOT_GIVEN,
         general_tools: Optional[Iterable[llm_update_params.GeneralTool]] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: Optional[llm_update_params.KBConfig] | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         model: Optional[
             Literal[
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-4o",
                 "gpt-4o-mini",
                 "gpt-4.1",
@@ -651,12 +682,14 @@ class AsyncLlmResource(AsyncAPIResource):
                 "claude-3.5-haiku",
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
             ]
         ]
         | NotGiven = NOT_GIVEN,
         model_high_priority: bool | NotGiven = NOT_GIVEN,
         model_temperature: float | NotGiven = NOT_GIVEN,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]] | NotGiven = NOT_GIVEN,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | NotGiven = NOT_GIVEN,
         starting_state: Optional[str] | NotGiven = NOT_GIVEN,
         states: Optional[Iterable[llm_update_params.State]] | NotGiven = NOT_GIVEN,
         tool_call_strict_mode: bool | NotGiven = NOT_GIVEN,
@@ -695,10 +728,12 @@ class AsyncLlmResource(AsyncAPIResource):
 
               - Tools of LLM (no state) = general tools
 
+          kb_config: Knowledge base configuration for RAG retrieval.
+
           knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
               knowledge bases.
 
-          model: Select the underlying text LLM. If not set, would default to gpt-4o.
+          model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
           model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
               dedicated resource to ensure lower and more consistent latency, default to
@@ -745,6 +780,7 @@ class AsyncLlmResource(AsyncAPIResource):
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "model": model,
                     "model_high_priority": model_high_priority,

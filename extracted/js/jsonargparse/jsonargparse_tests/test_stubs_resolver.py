@@ -10,7 +10,6 @@ from importlib.util import find_spec
 from ipaddress import ip_network
 from random import Random, SystemRandom, uniform
 from tarfile import TarFile
-from typing import Any
 from unittest.mock import patch
 from uuid import UUID, uuid5
 
@@ -134,10 +133,8 @@ def test_get_params_conditional_python_version():
     assert ["a", "version"] == get_param_names(params)
     if sys.version_info >= (3, 10):
         assert "int | float | str | bytes | bytearray | None" == str(params[0].annotation)
-    elif sys.version_info[:2] == (3, 9):
-        assert "typing.Union[int, float, str, bytes, bytearray, NoneType]" == str(params[0].annotation)
     else:
-        assert Any is params[0].annotation
+        assert "typing.Union[int, float, str, bytes, bytearray, NoneType]" == str(params[0].annotation)
     assert int is params[1].annotation
     with mock_stubs_missing_types():
         params = get_params(Random, "seed")
@@ -168,12 +165,16 @@ def test_get_params_classmethod():
         "debug",
         "errorlevel",
     ]
-    if sys.version_info >= (3, 12):
+    if sys.version_info >= (3, 14):
+        expected = expected[:4] + ["compresslevel", "preset"] + expected[4:]
+    elif sys.version_info >= (3, 12):
         expected = expected[:4] + ["compresslevel"] + expected[4:]
     assert expected == get_param_names(params)[: len(expected)]
     if sys.version_info >= (3, 10):
         assert all(
-            p.annotation is not inspect._empty for p in params if p.name not in {"fileobj", "compresslevel", "stream"}
+            p.annotation is not inspect._empty
+            for p in params
+            if p.name not in {"fileobj", "compresslevel", "stream", "preset"}
         )
     with mock_stubs_missing_types():
         params = get_params(TarFile, "open")

@@ -42,11 +42,11 @@ def _create_test_image() -> None:
 
 def test_model_prediction(
     session: Any,
-    deployment_class: Any,
+    deployment_class: Deployment,
     max_tries: int = 5,
     initial_wait: int = 180,
     retry_wait: int = 180,
-) -> Union[MatriceDeployClient, Deployment]:
+) -> MatriceDeployClient:
     """Test model prediction with retries
 
     Args:
@@ -65,40 +65,39 @@ def test_model_prediction(
         initial_wait,
     )
     time.sleep(initial_wait)
-    
+    deployment_client = MatriceDeployClient(
+        session,
+        deployment_class.deployment_id,
+    )
+    deployment_client.create_auth_key_if_not_exists()
+
     for try_num in range(max_tries):
         prediction_successful = False
-        
+
         try:
             logging.info(
                 "Prediction attempt %s/%s",
                 try_num + 1,
                 max_tries,
             )
-            
+
             # Try with deployment class first
+            # try:
+            #    # _ = deployment_class.get_prediction("simple_image.png")
+            #     logging.info("Prediction successful with deployment class")
+            #     prediction_successful = True
+            #     if os.path.exists("simple_image.png"):
+            #         os.remove("simple_image.png")
+            #     return deployment_class
+            # except Exception as e:
+            #     logging.error(
+            #         "Error using deployment class: %s",
+            #         str(e),
+            #     )
+
             try:
-                _ = deployment_class.get_prediction("simple_image.png")
-                logging.info("Prediction successful with deployment class")
-                prediction_successful = True
-                if os.path.exists("simple_image.png"):
-                    os.remove("simple_image.png")
-                return deployment_class
-            except Exception as e:
-                logging.error(
-                    "Error using deployment class: %s",
-                    str(e),
-                )
-            
-            # Try with deployment client if first attempt failed
-            try:
-                deployment_client = MatriceDeployClient(
-                    session,
-                    deployment_class.deployment_id,
-                    "",
-                )
                 deployment_client.get_prediction(input_path="simple_image.png")
-                logging.info("Prediction successful with deployment client")
+                logging.warning("Prediction successful with deployment client")
                 prediction_successful = True
                 if os.path.exists("simple_image.png"):
                     os.remove("simple_image.png")
@@ -108,7 +107,7 @@ def test_model_prediction(
                     "Error using deploy client: %s",
                     str(e),
                 )
-            
+
             # If we reach here, both attempts failed for this try
             if not prediction_successful:
                 if try_num == max_tries - 1:
@@ -129,7 +128,7 @@ def test_model_prediction(
                         retry_wait,
                     )
                     time.sleep(retry_wait)
-                    
+
         except Exception as e:
             logging.error(
                 "Unexpected error in prediction attempt %s: %s",
@@ -141,7 +140,7 @@ def test_model_prediction(
                     os.remove("simple_image.png")
                 return None
             time.sleep(retry_wait)
-    
+
     # Fallback - should not reach here
     if os.path.exists("simple_image.png"):
         os.remove("simple_image.png")

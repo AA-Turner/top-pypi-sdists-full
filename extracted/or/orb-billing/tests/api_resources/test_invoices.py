@@ -54,7 +54,10 @@ class TestInvoices:
                     "name": "Line Item Name",
                     "quantity": 1,
                     "start_date": parse_date("2023-09-22"),
-                    "unit_config": {"unit_amount": "unit_amount"},
+                    "unit_config": {
+                        "unit_amount": "unit_amount",
+                        "scaling_factor": 0,
+                    },
                 }
             ],
             customer_id="4khy3nwzktxv7",
@@ -71,6 +74,7 @@ class TestInvoices:
                 ],
                 "reason": "reason",
             },
+            due_date=parse_date("2023-09-22"),
             external_customer_id="external-customer-id",
             memo="An optional memo for my invoice.",
             metadata={"foo": "string"},
@@ -138,7 +142,9 @@ class TestInvoices:
     def test_method_update_with_all_params(self, client: Orb) -> None:
         invoice = client.invoices.update(
             invoice_id="invoice_id",
+            due_date=parse_date("2023-09-22"),
             metadata={"foo": "string"},
+            net_terms=0,
         )
         assert_matches_type(Invoice, invoice, path=["response"])
 
@@ -504,7 +510,10 @@ class TestAsyncInvoices:
                     "name": "Line Item Name",
                     "quantity": 1,
                     "start_date": parse_date("2023-09-22"),
-                    "unit_config": {"unit_amount": "unit_amount"},
+                    "unit_config": {
+                        "unit_amount": "unit_amount",
+                        "scaling_factor": 0,
+                    },
                 }
             ],
             customer_id="4khy3nwzktxv7",
@@ -521,6 +530,7 @@ class TestAsyncInvoices:
                 ],
                 "reason": "reason",
             },
+            due_date=parse_date("2023-09-22"),
             external_customer_id="external-customer-id",
             memo="An optional memo for my invoice.",
             metadata={"foo": "string"},
@@ -588,7 +598,9 @@ class TestAsyncInvoices:
     async def test_method_update_with_all_params(self, async_client: AsyncOrb) -> None:
         invoice = await async_client.invoices.update(
             invoice_id="invoice_id",
+            due_date=parse_date("2023-09-22"),
             metadata={"foo": "string"},
+            net_terms=0,
         )
         assert_matches_type(Invoice, invoice, path=["response"])
 

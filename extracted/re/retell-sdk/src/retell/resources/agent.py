@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Iterable, Optional
+from typing import Iterable, Optional
 from typing_extensions import Literal
 
 import httpx
 
 from ..types import agent_list_params, agent_create_params, agent_update_params, agent_retrieve_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven, SequenceNotStr
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -61,14 +61,16 @@ class AgentResource(SyncAPIResource):
         | NotGiven = NOT_GIVEN,
         ambient_sound_volume: float | NotGiven = NOT_GIVEN,
         backchannel_frequency: float | NotGiven = NOT_GIVEN,
-        backchannel_words: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        backchannel_words: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         begin_message_delay_ms: int | NotGiven = NOT_GIVEN,
-        boosted_keywords: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        boosted_keywords: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
+        data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
+        | NotGiven = NOT_GIVEN,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"]
         | NotGiven = NOT_GIVEN,
         enable_backchannel: bool | NotGiven = NOT_GIVEN,
         end_call_after_silence_ms: int | NotGiven = NOT_GIVEN,
-        fallback_voice_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        fallback_voice_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         interruption_sensitivity: float | NotGiven = NOT_GIVEN,
         language: Literal[
             "en-US",
@@ -112,9 +114,26 @@ class AgentResource(SyncAPIResource):
         max_call_duration_ms: int | NotGiven = NOT_GIVEN,
         normalize_for_speech: bool | NotGiven = NOT_GIVEN,
         opt_in_signed_url: bool | NotGiven = NOT_GIVEN,
-        opt_out_sensitive_data_storage: bool | NotGiven = NOT_GIVEN,
+        pii_config: agent_create_params.PiiConfig | NotGiven = NOT_GIVEN,
         post_call_analysis_data: Optional[Iterable[agent_create_params.PostCallAnalysisData]] | NotGiven = NOT_GIVEN,
-        post_call_analysis_model: Literal["gpt-4o-mini", "gpt-4o"] | NotGiven = NOT_GIVEN,
+        post_call_analysis_model: Literal[
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "claude-4.0-sonnet",
+            "claude-3.7-sonnet",
+            "claude-3.5-haiku",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+        | NotGiven = NOT_GIVEN,
         pronunciation_dictionary: Optional[Iterable[agent_create_params.PronunciationDictionary]]
         | NotGiven = NOT_GIVEN,
         reminder_max_count: int | NotGiven = NOT_GIVEN,
@@ -214,6 +233,16 @@ class AgentResource(SyncAPIResource):
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
 
+          data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
+              recordings, logs, etc.). This replaces the deprecated
+              `opt_out_sensitive_data_storage` field.
+
+              - `everything`: Store all data including transcripts, recordings, and logs.
+              - `everything_except_pii`: Store data without PII when PII is detected.
+              - `basic_attributes_only`: Store only basic attributes; no
+                transcripts/recordings/logs. If not set, default value of "everything" will
+                apply.
+
           denoising_mode: If set, determines what denoising mode to use. Default to noise-cancellation.
 
           enable_backchannel: Controls whether the agent would backchannel (agent interjects the speaker with
@@ -257,16 +286,13 @@ class AgentResource(SyncAPIResource):
               enabled, the generated URLs will include security signatures that restrict
               access and automatically expire after 24 hours.
 
-          opt_out_sensitive_data_storage: Whether this agent opts out of sensitive data storage like transcript,
-              recording, logging, inbound/outbound phone numbers, etc. These data can still be
-              accessed securely via webhooks. If not set, default value of false will apply.
+          pii_config: Configuration for PII scrubbing from transcripts and recordings.
 
           post_call_analysis_data: Post call analysis data to extract from the call. This data will augment the
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Currently only supports gpt-4o-mini and
-              gpt-4o. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -348,6 +374,7 @@ class AgentResource(SyncAPIResource):
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
@@ -357,7 +384,7 @@ class AgentResource(SyncAPIResource):
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
                     "opt_in_signed_url": opt_in_signed_url,
-                    "opt_out_sensitive_data_storage": opt_out_sensitive_data_storage,
+                    "pii_config": pii_config,
                     "post_call_analysis_data": post_call_analysis_data,
                     "post_call_analysis_model": post_call_analysis_model,
                     "pronunciation_dictionary": pronunciation_dictionary,
@@ -440,14 +467,16 @@ class AgentResource(SyncAPIResource):
         | NotGiven = NOT_GIVEN,
         ambient_sound_volume: float | NotGiven = NOT_GIVEN,
         backchannel_frequency: float | NotGiven = NOT_GIVEN,
-        backchannel_words: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        backchannel_words: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         begin_message_delay_ms: int | NotGiven = NOT_GIVEN,
-        boosted_keywords: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        boosted_keywords: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
+        data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
+        | NotGiven = NOT_GIVEN,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"]
         | NotGiven = NOT_GIVEN,
         enable_backchannel: bool | NotGiven = NOT_GIVEN,
         end_call_after_silence_ms: int | NotGiven = NOT_GIVEN,
-        fallback_voice_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        fallback_voice_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         interruption_sensitivity: float | NotGiven = NOT_GIVEN,
         language: Literal[
             "en-US",
@@ -491,9 +520,26 @@ class AgentResource(SyncAPIResource):
         max_call_duration_ms: int | NotGiven = NOT_GIVEN,
         normalize_for_speech: bool | NotGiven = NOT_GIVEN,
         opt_in_signed_url: bool | NotGiven = NOT_GIVEN,
-        opt_out_sensitive_data_storage: bool | NotGiven = NOT_GIVEN,
+        pii_config: agent_update_params.PiiConfig | NotGiven = NOT_GIVEN,
         post_call_analysis_data: Optional[Iterable[agent_update_params.PostCallAnalysisData]] | NotGiven = NOT_GIVEN,
-        post_call_analysis_model: Literal["gpt-4o-mini", "gpt-4o"] | NotGiven = NOT_GIVEN,
+        post_call_analysis_model: Literal[
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "claude-4.0-sonnet",
+            "claude-3.7-sonnet",
+            "claude-3.5-haiku",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+        | NotGiven = NOT_GIVEN,
         pronunciation_dictionary: Optional[Iterable[agent_update_params.PronunciationDictionary]]
         | NotGiven = NOT_GIVEN,
         reminder_max_count: int | NotGiven = NOT_GIVEN,
@@ -590,6 +636,16 @@ class AgentResource(SyncAPIResource):
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
 
+          data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
+              recordings, logs, etc.). This replaces the deprecated
+              `opt_out_sensitive_data_storage` field.
+
+              - `everything`: Store all data including transcripts, recordings, and logs.
+              - `everything_except_pii`: Store data without PII when PII is detected.
+              - `basic_attributes_only`: Store only basic attributes; no
+                transcripts/recordings/logs. If not set, default value of "everything" will
+                apply.
+
           denoising_mode: If set, determines what denoising mode to use. Default to noise-cancellation.
 
           enable_backchannel: Controls whether the agent would backchannel (agent interjects the speaker with
@@ -633,16 +689,13 @@ class AgentResource(SyncAPIResource):
               enabled, the generated URLs will include security signatures that restrict
               access and automatically expire after 24 hours.
 
-          opt_out_sensitive_data_storage: Whether this agent opts out of sensitive data storage like transcript,
-              recording, logging, inbound/outbound phone numbers, etc. These data can still be
-              accessed securely via webhooks. If not set, default value of false will apply.
+          pii_config: Configuration for PII scrubbing from transcripts and recordings.
 
           post_call_analysis_data: Post call analysis data to extract from the call. This data will augment the
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Currently only supports gpt-4o-mini and
-              gpt-4o. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -731,6 +784,7 @@ class AgentResource(SyncAPIResource):
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
@@ -740,7 +794,7 @@ class AgentResource(SyncAPIResource):
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
                     "opt_in_signed_url": opt_in_signed_url,
-                    "opt_out_sensitive_data_storage": opt_out_sensitive_data_storage,
+                    "pii_config": pii_config,
                     "post_call_analysis_data": post_call_analysis_data,
                     "post_call_analysis_model": post_call_analysis_model,
                     "pronunciation_dictionary": pronunciation_dictionary,
@@ -932,14 +986,16 @@ class AsyncAgentResource(AsyncAPIResource):
         | NotGiven = NOT_GIVEN,
         ambient_sound_volume: float | NotGiven = NOT_GIVEN,
         backchannel_frequency: float | NotGiven = NOT_GIVEN,
-        backchannel_words: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        backchannel_words: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         begin_message_delay_ms: int | NotGiven = NOT_GIVEN,
-        boosted_keywords: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        boosted_keywords: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
+        data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
+        | NotGiven = NOT_GIVEN,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"]
         | NotGiven = NOT_GIVEN,
         enable_backchannel: bool | NotGiven = NOT_GIVEN,
         end_call_after_silence_ms: int | NotGiven = NOT_GIVEN,
-        fallback_voice_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        fallback_voice_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         interruption_sensitivity: float | NotGiven = NOT_GIVEN,
         language: Literal[
             "en-US",
@@ -983,9 +1039,26 @@ class AsyncAgentResource(AsyncAPIResource):
         max_call_duration_ms: int | NotGiven = NOT_GIVEN,
         normalize_for_speech: bool | NotGiven = NOT_GIVEN,
         opt_in_signed_url: bool | NotGiven = NOT_GIVEN,
-        opt_out_sensitive_data_storage: bool | NotGiven = NOT_GIVEN,
+        pii_config: agent_create_params.PiiConfig | NotGiven = NOT_GIVEN,
         post_call_analysis_data: Optional[Iterable[agent_create_params.PostCallAnalysisData]] | NotGiven = NOT_GIVEN,
-        post_call_analysis_model: Literal["gpt-4o-mini", "gpt-4o"] | NotGiven = NOT_GIVEN,
+        post_call_analysis_model: Literal[
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "claude-4.0-sonnet",
+            "claude-3.7-sonnet",
+            "claude-3.5-haiku",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+        | NotGiven = NOT_GIVEN,
         pronunciation_dictionary: Optional[Iterable[agent_create_params.PronunciationDictionary]]
         | NotGiven = NOT_GIVEN,
         reminder_max_count: int | NotGiven = NOT_GIVEN,
@@ -1085,6 +1158,16 @@ class AsyncAgentResource(AsyncAPIResource):
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
 
+          data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
+              recordings, logs, etc.). This replaces the deprecated
+              `opt_out_sensitive_data_storage` field.
+
+              - `everything`: Store all data including transcripts, recordings, and logs.
+              - `everything_except_pii`: Store data without PII when PII is detected.
+              - `basic_attributes_only`: Store only basic attributes; no
+                transcripts/recordings/logs. If not set, default value of "everything" will
+                apply.
+
           denoising_mode: If set, determines what denoising mode to use. Default to noise-cancellation.
 
           enable_backchannel: Controls whether the agent would backchannel (agent interjects the speaker with
@@ -1128,16 +1211,13 @@ class AsyncAgentResource(AsyncAPIResource):
               enabled, the generated URLs will include security signatures that restrict
               access and automatically expire after 24 hours.
 
-          opt_out_sensitive_data_storage: Whether this agent opts out of sensitive data storage like transcript,
-              recording, logging, inbound/outbound phone numbers, etc. These data can still be
-              accessed securely via webhooks. If not set, default value of false will apply.
+          pii_config: Configuration for PII scrubbing from transcripts and recordings.
 
           post_call_analysis_data: Post call analysis data to extract from the call. This data will augment the
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Currently only supports gpt-4o-mini and
-              gpt-4o. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -1219,6 +1299,7 @@ class AsyncAgentResource(AsyncAPIResource):
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
@@ -1228,7 +1309,7 @@ class AsyncAgentResource(AsyncAPIResource):
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
                     "opt_in_signed_url": opt_in_signed_url,
-                    "opt_out_sensitive_data_storage": opt_out_sensitive_data_storage,
+                    "pii_config": pii_config,
                     "post_call_analysis_data": post_call_analysis_data,
                     "post_call_analysis_model": post_call_analysis_model,
                     "pronunciation_dictionary": pronunciation_dictionary,
@@ -1311,14 +1392,16 @@ class AsyncAgentResource(AsyncAPIResource):
         | NotGiven = NOT_GIVEN,
         ambient_sound_volume: float | NotGiven = NOT_GIVEN,
         backchannel_frequency: float | NotGiven = NOT_GIVEN,
-        backchannel_words: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        backchannel_words: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         begin_message_delay_ms: int | NotGiven = NOT_GIVEN,
-        boosted_keywords: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        boosted_keywords: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
+        data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"]
+        | NotGiven = NOT_GIVEN,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"]
         | NotGiven = NOT_GIVEN,
         enable_backchannel: bool | NotGiven = NOT_GIVEN,
         end_call_after_silence_ms: int | NotGiven = NOT_GIVEN,
-        fallback_voice_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        fallback_voice_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         interruption_sensitivity: float | NotGiven = NOT_GIVEN,
         language: Literal[
             "en-US",
@@ -1362,9 +1445,26 @@ class AsyncAgentResource(AsyncAPIResource):
         max_call_duration_ms: int | NotGiven = NOT_GIVEN,
         normalize_for_speech: bool | NotGiven = NOT_GIVEN,
         opt_in_signed_url: bool | NotGiven = NOT_GIVEN,
-        opt_out_sensitive_data_storage: bool | NotGiven = NOT_GIVEN,
+        pii_config: agent_update_params.PiiConfig | NotGiven = NOT_GIVEN,
         post_call_analysis_data: Optional[Iterable[agent_update_params.PostCallAnalysisData]] | NotGiven = NOT_GIVEN,
-        post_call_analysis_model: Literal["gpt-4o-mini", "gpt-4o"] | NotGiven = NOT_GIVEN,
+        post_call_analysis_model: Literal[
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "claude-4.0-sonnet",
+            "claude-3.7-sonnet",
+            "claude-3.5-haiku",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+        | NotGiven = NOT_GIVEN,
         pronunciation_dictionary: Optional[Iterable[agent_update_params.PronunciationDictionary]]
         | NotGiven = NOT_GIVEN,
         reminder_max_count: int | NotGiven = NOT_GIVEN,
@@ -1461,6 +1561,16 @@ class AsyncAgentResource(AsyncAPIResource):
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
 
+          data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
+              recordings, logs, etc.). This replaces the deprecated
+              `opt_out_sensitive_data_storage` field.
+
+              - `everything`: Store all data including transcripts, recordings, and logs.
+              - `everything_except_pii`: Store data without PII when PII is detected.
+              - `basic_attributes_only`: Store only basic attributes; no
+                transcripts/recordings/logs. If not set, default value of "everything" will
+                apply.
+
           denoising_mode: If set, determines what denoising mode to use. Default to noise-cancellation.
 
           enable_backchannel: Controls whether the agent would backchannel (agent interjects the speaker with
@@ -1504,16 +1614,13 @@ class AsyncAgentResource(AsyncAPIResource):
               enabled, the generated URLs will include security signatures that restrict
               access and automatically expire after 24 hours.
 
-          opt_out_sensitive_data_storage: Whether this agent opts out of sensitive data storage like transcript,
-              recording, logging, inbound/outbound phone numbers, etc. These data can still be
-              accessed securely via webhooks. If not set, default value of false will apply.
+          pii_config: Configuration for PII scrubbing from transcripts and recordings.
 
           post_call_analysis_data: Post call analysis data to extract from the call. This data will augment the
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Currently only supports gpt-4o-mini and
-              gpt-4o. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -1602,6 +1709,7 @@ class AsyncAgentResource(AsyncAPIResource):
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
@@ -1611,7 +1719,7 @@ class AsyncAgentResource(AsyncAPIResource):
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
                     "opt_in_signed_url": opt_in_signed_url,
-                    "opt_out_sensitive_data_storage": opt_out_sensitive_data_storage,
+                    "pii_config": pii_config,
                     "post_call_analysis_data": post_call_analysis_data,
                     "post_call_analysis_model": post_call_analysis_model,
                     "pronunciation_dictionary": pronunciation_dictionary,

@@ -1,4 +1,13 @@
-# controller/painter/painter.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# ================================================== #
+# This file is a part of PYGPT package               #
+# Website: https://pygpt.net                         #
+# GitHub:  https://github.com/szczyglis-dev/py-gpt   #
+# MIT License                                        #
+# Created By  : Marcin Szczygliński                  #
+# Updated Date: 2025.09.02 15:00:00                  #
+# ================================================== #
 
 import os
 
@@ -51,7 +60,7 @@ class Painter:
         if not hasattr(self.window.ui, 'painter'):
             return
         path = os.path.join(self.common.get_capture_dir(), '_current.png')
-        self.window.ui.painter.image.save(path)
+        self.window.ui.painter.save_base(path, include_drawing=True)
 
     def save_all(self):
         """Save all (on exit)"""

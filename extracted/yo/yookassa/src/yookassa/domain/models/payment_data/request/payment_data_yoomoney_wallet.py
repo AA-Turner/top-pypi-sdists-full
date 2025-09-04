@@ -5,7 +5,7 @@ from yookassa.domain.models.payment_data.payment_data import PaymentData
 
 class PaymentDataYooMoneyWallet(PaymentData):
     """
-    Данные для проведения оплаты через ЮMoney.
+    Данные для проведения оплаты из кошелька ЮMoney.
     """  # noqa: E501
 
     def __init__(self, *args, **kwargs):

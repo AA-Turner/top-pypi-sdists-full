@@ -21,6 +21,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Protocol,
     Sequence,
     Set,
     Tuple,
@@ -207,16 +208,14 @@ def test_type_any_dump(parser):
 
 
 def test_type_typehint_without_arg(parser):
-    type_class = Type if sys.version_info < (3, 9) else type
-    parser.add_argument("--type", type=type_class)
+    parser.add_argument("--type", type=type)
     cfg = parser.parse_args(["--type=uuid.UUID"])
     assert cfg.type is uuid.UUID
     assert json_or_yaml_load(parser.dump(cfg)) == {"type": "uuid.UUID"}
 
 
 def test_type_typehint_with_arg(parser):
-    type_class = Type if sys.version_info < (3, 9) else type
-    parser.add_argument("--cal", type=type_class[Calendar])
+    parser.add_argument("--cal", type=type[Calendar])
     cfg = parser.parse_args(["--cal=calendar.Calendar"])
     assert cfg.cal is Calendar
     assert json_or_yaml_load(parser.dump(cfg)) == {"cal": "calendar.Calendar"}
@@ -347,7 +346,10 @@ def test_tuple_union(parser, tmp_cwd):
     pytest.raises(ArgumentError, lambda: parser.parse_args(['--tuple=[2, "a"]']))
     pytest.raises(ArgumentError, lambda: parser.parse_args(['--tuple={"a":1, "b":"2"}']))
     help_str = get_parser_help(parser, strip=True)
-    assert "--tuple [ITEM,...] (type: Tuple[Union[int, EnumABC], Path_fc, NotEmptyStr], default: null)" in help_str
+    if sys.version_info < (3, 14):
+        assert "--tuple [ITEM,...] (type: Tuple[Union[int, EnumABC], Path_fc, NotEmptyStr], default: null)" in help_str
+    else:
+        assert "--tuple [ITEM,...] (type: Tuple[int | EnumABC, Path_fc, NotEmptyStr], default: null)" in help_str
 
 
 # list tests
@@ -753,19 +755,18 @@ def test_invalid_inherited_unpack_typeddict(parser, init_args):
         parser.parse_args([f"--testclass={json.dumps(test_config)}"])
 
 
-if sys.version_info >= (3, 9):
-
-    class BottomDict(TypedDict, total=True):
-        a: int
-
-    class MiddleDict(BottomDict, total=False):
-        b: int
-
-    class TopDict(MiddleDict, total=True):
-        c: int
+class BottomDict(TypedDict, total=True):
+    a: int
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="Python 3.8 lacked runtime inspection of TypedDict required keys")
+class MiddleDict(BottomDict, total=False):
+    b: int
+
+
+class TopDict(MiddleDict, total=True):
+    c: int
+
+
 def test_typeddict_totality_inheritance(parser):
     parser.add_argument("--middledict", type=MiddleDict, required=False)
     parser.add_argument("--topdict", type=TopDict, required=False)
@@ -804,7 +805,6 @@ def test_mapping_default_mapping_proxy_type(parser):
     assert parser.dump(cfg, format="json") == '{"mapping":{"x":1}}'
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="OrderedDict subscriptable since python 3.9")
 def test_ordered_dict(parser):
     parser.add_argument("--odict", type=eval("OrderedDict[str, int]"))
     cfg = parser.parse_args(['--odict={"a":1, "b":2}'])
@@ -1057,6 +1057,94 @@ def test_callable_args_return_type_class(parser, subtests):
         assert f"Help for --optimizer.help={__name__}.Adam" in help_str
         assert "--optimizer.lr" in help_str
         assert "--optimizer.params" not in help_str
+
+
+class OptimizerFactory(Protocol):
+    def __call__(self, params: List[float]) -> Optimizer: ...
+
+
+class DifferentParamsOrder(Optimizer):
+    def __init__(self, lr: float, params: List[float], momentum: float = 0.0):
+        super().__init__(lr=lr, params=params, momentum=momentum)
+
+
+def test_callable_protocol_instance_factory(parser, subtests):
+    parser.add_argument("--optimizer", type=OptimizerFactory, default=SGD)
+
+    with subtests.test("default"):
+        cfg = parser.get_defaults()
+        assert cfg.optimizer.class_path == f"{__name__}.SGD"
+        init = parser.instantiate_classes(cfg)
+        optimizer = init.optimizer(params=[1, 2])
+        assert isinstance(optimizer, SGD)
+        assert optimizer.params == [1, 2]
+        assert optimizer.lr == 1e-3
+        assert optimizer.momentum == 0.0
+
+    with subtests.test("parse dict"):
+        value = {
+            "class_path": "Adam",
+            "init_args": {
+                "lr": 0.01,
+                "momentum": 0.9,
+            },
+        }
+        cfg = parser.parse_args([f"--optimizer={json.dumps(value)}"])
+        init = parser.instantiate_classes(cfg)
+        optimizer = init.optimizer(params=[3, 2, 1])
+        assert isinstance(optimizer, Adam)
+        assert optimizer.params == [3, 2, 1]
+        assert optimizer.lr == 0.01
+        assert optimizer.momentum == 0.9
+
+    with subtests.test("params order"):
+        value = {
+            "class_path": "DifferentParamsOrder",
+            "init_args": {
+                "lr": 0.1,
+                "momentum": 0.8,
+            },
+        }
+        cfg = parser.parse_args([f"--optimizer={json.dumps(value)}"])
+        init = parser.instantiate_classes(cfg)
+        optimizer = init.optimizer(params=[3, 2])
+        assert isinstance(optimizer, DifferentParamsOrder)
+        assert optimizer.params == [3, 2]
+        assert optimizer.lr == 0.1
+        assert optimizer.momentum == 0.8
+        dump = parser.dump(cfg)
+        assert json_or_yaml_load(dump) == cfg.as_dict()
+
+    with subtests.test("help"):
+        help_str = get_parser_help(parser)
+        assert "--optimizer.help" in help_str
+        assert "Show the help for the given subclass or implementer of protocol {Optimizer,OptimizerFactory" in help_str
+        help_str = get_parse_args_stdout(parser, [f"--optimizer.help={__name__}.DifferentParamsOrder"])
+        assert f"Help for --optimizer.help={__name__}.DifferentParamsOrder" in help_str
+        assert "--optimizer.lr" in help_str
+        assert "--optimizer.params" not in help_str
+
+
+class OptimizerFactoryPositionalAndKeyword(Protocol):
+    def __call__(self, lr: float, /, params: List[float]) -> Optimizer: ...
+
+
+def test_callable_protocol_instance_factory_with_positional(parser):
+    parser.add_argument("--optimizer", type=OptimizerFactoryPositionalAndKeyword)
+
+    value = {
+        "class_path": "DifferentParamsOrder",
+        "init_args": {
+            "momentum": 0.9,
+        },
+    }
+    cfg = parser.parse_args([f"--optimizer={json.dumps(value)}"])
+    init = parser.instantiate_classes(cfg)
+    optimizer = init.optimizer(0.2, params=[0, 1])
+    assert optimizer.lr == 0.2
+    assert optimizer.params == [0, 1]
+    assert optimizer.momentum == 0.9
+    assert isinstance(optimizer, DifferentParamsOrder)
 
 
 def test_optional_callable_return_type_help(parser):
@@ -1408,6 +1496,8 @@ def test_lazy_instance_callable():
     optimizer = lazy_optimizer([1, 2])
     assert optimizer.lr == 0.2
     assert optimizer.params == [1, 2]
+    optimizer = lazy_optimizer([3, 4])
+    assert optimizer.params == [3, 4]
 
 
 # other tests

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import pickle
+import sys
 from calendar import Calendar
 from contextlib import redirect_stderr
 from io import StringIO
@@ -26,7 +27,7 @@ from jsonargparse import (
 )
 from jsonargparse._formatters import get_env_var
 from jsonargparse._namespace import NSKeyError
-from jsonargparse._optionals import jsonnet_support, jsonschema_support, pyyaml_available, ruyaml_support
+from jsonargparse._optionals import jsonnet_support, jsonschema_support, pyyaml_available, ruamel_support
 from jsonargparse.typing import Path_fc, Path_fr, path_type
 from jsonargparse_tests.conftest import (
     capture_logs,
@@ -190,6 +191,18 @@ def test_parse_object_simple(parser):
     pytest.raises(ArgumentError, lambda: parser.parse_object({"undefined": True}))
 
 
+def test_parse_object_config(parser):
+    parser.add_argument("--cfg", action="config")
+    parser.add_argument("--a", type=int)
+    parser.add_argument("--b", type=int)
+    path = Path("config.json")
+    path.write_text('{"a": 1, "b": 2}')
+    cfg = parser.parse_object({"b": 0, "cfg": str(path), "a": 3})
+    popped_cfg = cfg.pop("cfg")
+    assert popped_cfg[0].relative == "config.json"
+    assert cfg == Namespace(a=3, b=2)
+
+
 def test_parse_object_nested(parser):
     parser.add_argument("--l1.l2.op", type=float)
     assert parser.parse_object({"l1": {"l2": {"op": 2.1}}}).l1.l2.op == 2.1
@@ -225,6 +238,15 @@ def test_parse_env_config(parser):
     assert cfg.cfg == [None]
     assert cfg.l1 == Namespace(num=1)
     pytest.raises(ArgumentError, lambda: parser.parse_env({"APP_CFG": '{"undefined": True}'}))
+
+
+def test_parse_env_positional():
+    parser = ArgumentParser(prog="app", exit_on_error=False, default_env=True)
+    parser.add_argument("pos", type=int)
+    with patch.dict(os.environ, {"APP_POS": "1"}):
+        assert parser.parse_env() == Namespace(pos=1)
+    with pytest.raises(ArgumentError, match="Got value: 1.1"):
+        parser.parse_env({"APP_POS": "1.1"})
 
 
 def test_parse_env_positional_nargs_plus(parser):
@@ -266,16 +288,17 @@ def test_default_env_override_false():
 
 
 def test_env_prefix_true():
-    parser = ArgumentParser(env_prefix=True, default_env=True, exit_on_error=False)
-    parser.add_argument("--test_arg", type=str, required=True)
+    with patch("sys.argv", ["fake.py"]), patch.dict(sys.modules, {"__main__": {}}):
+        parser = ArgumentParser(env_prefix=True, default_env=True, exit_on_error=False)
+        assert parser.prog == "fake.py"
+        parser.add_argument("--test_arg", type=str, required=True)
 
-    with patch.dict(os.environ, {"TEST_ARG": "one"}):
-        pytest.raises(ArgumentError, lambda: parser.parse_args([]))
+        with patch.dict(os.environ, {"TEST_ARG": "one"}):
+            pytest.raises(ArgumentError, lambda: parser.parse_args([]))
 
-    prefix = os.path.splitext(parser.prog)[0].upper()
-    with patch.dict(os.environ, {f"{prefix}_TEST_ARG": "one"}):
-        cfg = parser.parse_args([])
-    assert "one" == cfg.test_arg
+        with patch.dict(os.environ, {"FAKE_TEST_ARG": "one"}):
+            cfg = parser.parse_args([])
+        assert "one" == cfg.test_arg
 
 
 def test_env_prefix_false():
@@ -756,13 +779,23 @@ def test_print_config_skip_null(print_parser):
     assert json_or_yaml_load(out) == {"g1": {"v2": "2"}, "g2": {}, "v1": 1}
 
 
-@pytest.mark.skipif(not ruyaml_support, reason="ruyaml package is required")
+@pytest.mark.skipif(not ruamel_support, reason="ruamel.yaml package is required")
 @skip_if_docstring_parser_unavailable
 def test_print_config_comments(print_parser):
+    help_str = get_parser_help(print_parser)
+    assert "comments," in help_str
     out = get_parse_args_stdout(print_parser, ["--print_config=comments"])
     assert "# cli tool" in out
     assert "# Option v1. (default: 1)" in out
     assert "# Option v2. (default: 2)" in out
+
+
+@pytest.mark.skipif(ruamel_support, reason="ruamel.yaml package should not be installed")
+def test_print_config_comments_unavailable(print_parser):
+    help_str = get_parser_help(print_parser)
+    assert "comments," not in help_str
+    with pytest.raises(ArgumentError, match='Invalid option "comments"'):
+        get_parse_args_stdout(print_parser, ["--print_config=comments"])
 
 
 def test_print_config_invalid_flag(print_parser):

@@ -40,7 +40,11 @@ class ResponsePaymentData(PaymentData):
     """Идентификатор способа оплаты."""  # noqa: E501
 
     __saved = None
-    """С помощью сохраненного способа оплаты можно проводить %[безакцептные списания](/developers/payment-acceptance/scenario-extensions/recurring-payments)."""  # noqa: E501
+    """
+    Признак сохранения способа оплаты для %[автоплатежей](/developers/payment-acceptance/scenario-extensions/recurring-payments/pay-with-saved). Возможные значения:
+    ~`true` — способ оплаты сохранен для автоплатежей и выплат;
+    ~`false` — способ оплаты не сохранен.
+    """  # noqa: E501
 
     __title = None
     """Название способа оплаты."""  # noqa: E501

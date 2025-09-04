@@ -469,7 +469,7 @@ class NODE_OT_tree_path_parent(_bpy_types.Operator):
         """
 
 class NODE_OT_viewer_shortcut_get(_bpy_types.Operator):
-    """Activate a specific compositor viewer node using 1,2,..,9 keys"""
+    """Activate a specific viewer node using 1,2,..,9 keys"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -505,7 +505,7 @@ class NODE_OT_viewer_shortcut_get(_bpy_types.Operator):
         """
 
 class NODE_OT_viewer_shortcut_set(_bpy_types.Operator):
-    """Create a compositor viewer shortcut for the selected node by pressing ctrl+1,2,..9"""
+    """Create a viewer shortcut for the selected node by pressing ctrl+1,2,..9"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

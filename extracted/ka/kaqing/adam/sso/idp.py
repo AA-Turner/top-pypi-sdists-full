@@ -34,15 +34,16 @@ class Idp:
         if use_token_from_env:
             if l0 := session.login_from_env_var():
                 return l0
-        if port := os.getenv("SERVER_PORT"):
-            token_server = Config().get('app.login.token-server-url', 'http://localhost:{port}').replace('{port}', port)
-            res: requests.Response = requests.get(token_server)
-            if res.status_code == 200 and res.text:
-                try:
-                    # may fail if the idp token is not complete
-                    return session.login_from_token(res.text)
-                except:
-                    pass
+
+            if port := os.getenv("SERVER_PORT"):
+                token_server = Config().get('app.login.token-server-url', 'http://localhost:{port}').replace('{port}', port)
+                res: requests.Response = requests.get(token_server)
+                if res.status_code == 200 and res.text:
+                    try:
+                        # may fail if the idp token is not complete
+                        return session.login_from_token(res.text)
+                    except:
+                        pass
 
         r: IdpLogin = None
         try:
@@ -56,7 +57,7 @@ class Idp:
                 default_user: str = None
                 if use_cached_creds:
                     default_user = CredCache().get_username()
-                    log2(f'User read from cache: {default_user}')
+                    Config().debug(f'User read from cache: {default_user}')
 
                 if from_env := os.getenv('USERNAME'):
                     default_user = from_env

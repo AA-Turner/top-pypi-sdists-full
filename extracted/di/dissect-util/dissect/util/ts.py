@@ -1,26 +1,24 @@
 from __future__ import annotations
 
 import struct
-import sys
 from datetime import datetime, timedelta, timezone
 
-if sys.platform in ("win32", "emscripten"):
-    _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-    def _calculate_timestamp(ts: float) -> datetime:
-        """Calculate timestamps relative from Unix epoch.
-
-        Python on Windows and WASM (Emscripten) have problems calculating timestamps before 1970 (Unix epoch).
-        Calculating relatively from the epoch is required to correctly calculate those timestamps.
-        This method is slower, so we split the implementation between Windows, WASM and other platforms.
-        """
-        return _EPOCH + timedelta(seconds=ts)
-
-else:
+# Python on Windows and WASM (Emscripten) have problems calculating timestamps before 1970 (Unix epoch)
+# Calculating relatively from the epoch is required on these platforms
+# This method is slower, so we split the implementation between Windows, WASM and other platforms
+# This used to be a platform comparison, but that was not reliable enough, so ducktype it instead
+try:
+    datetime.fromtimestamp(-6969696969, tz=timezone.utc)
 
     def _calculate_timestamp(ts: float) -> datetime:
         """Calculate timestamps normally."""
         return datetime.fromtimestamp(ts, tz=timezone.utc)
+except (OSError, OverflowError):
+    _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+    def _calculate_timestamp(ts: float) -> datetime:
+        """Calculate timestamps relative from Unix epoch."""
+        return _EPOCH + timedelta(seconds=ts)
 
 
 def now() -> datetime:
@@ -169,16 +167,24 @@ def xfstimestamp(seconds: int, nano: int) -> datetime:
 ufstimestamp = xfstimestamp
 
 
-def wintimestamp(ts: int) -> datetime:
-    """Converts Windows timestamps to aware datetime objects in UTC.
+def wintimestamp(ts: int | tuple[int, int]) -> datetime:
+    """Converts Windows ``FILETIME`` timestamps to aware datetime objects in UTC.
 
     Args:
-        ts: The Windows timestamp.
+        ts: The Windows timestamp integer or a tuple of integers (``dwLowDateTime``, ``dwHighDateTime``)
 
     Returns:
         Datetime object from the passed timestamp.
+
+    Resources:
+        - https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-filetime
     """
-    return _calculate_timestamp(float(ts) * 1e-7 - 11644473600)  # Thanks FireEye
+    if isinstance(ts, tuple):
+        if len(ts) != 2:
+            raise ValueError(f"Expected (dwLowDateTime, dwHighDateTime) tuple but got {ts!r}")
+        ts = (ts[1] << 32) + ts[0]
+
+    return _calculate_timestamp(float(ts) * 1e-7 - 11_644_473_600)  # Thanks FireEye
 
 
 def oatimestamp(ts: float) -> datetime:

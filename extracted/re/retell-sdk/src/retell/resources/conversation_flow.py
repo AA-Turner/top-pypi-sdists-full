@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Iterable, Optional
+from typing import Dict, Iterable, Optional
 from typing_extensions import Literal
 
 import httpx
@@ -13,7 +13,7 @@ from ..types import (
     conversation_flow_update_params,
     conversation_flow_retrieve_params,
 )
-from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven, SequenceNotStr
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -60,7 +60,8 @@ class ConversationFlowResource(SyncAPIResource):
         | NotGiven = NOT_GIVEN,
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         global_prompt: Optional[str] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: conversation_flow_create_params.KBConfig | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         mcps: Optional[Iterable[conversation_flow_create_params.Mcp]] | NotGiven = NOT_GIVEN,
         model_temperature: Optional[float] | NotGiven = NOT_GIVEN,
         start_node_id: Optional[str] | NotGiven = NOT_GIVEN,
@@ -91,6 +92,8 @@ class ConversationFlowResource(SyncAPIResource):
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          kb_config: Knowledge base configuration for RAG retrieval.
 
           knowledge_base_ids: Knowledge base IDs for RAG (Retrieval-Augmented Generation).
 
@@ -124,6 +127,7 @@ class ConversationFlowResource(SyncAPIResource):
                     "begin_tag_display_position": begin_tag_display_position,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
                     "model_temperature": model_temperature,
@@ -190,7 +194,8 @@ class ConversationFlowResource(SyncAPIResource):
         | NotGiven = NOT_GIVEN,
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         global_prompt: Optional[str] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: conversation_flow_update_params.KBConfig | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         mcps: Optional[Iterable[conversation_flow_update_params.Mcp]] | NotGiven = NOT_GIVEN,
         model_choice: conversation_flow_update_params.ModelChoice | NotGiven = NOT_GIVEN,
         model_temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -218,6 +223,8 @@ class ConversationFlowResource(SyncAPIResource):
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          kb_config: Knowledge base configuration for RAG retrieval.
 
           knowledge_base_ids: Knowledge base IDs for RAG (Retrieval-Augmented Generation).
 
@@ -258,6 +265,7 @@ class ConversationFlowResource(SyncAPIResource):
                     "begin_tag_display_position": begin_tag_display_position,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
                     "model_choice": model_choice,
@@ -406,7 +414,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         | NotGiven = NOT_GIVEN,
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         global_prompt: Optional[str] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: conversation_flow_create_params.KBConfig | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         mcps: Optional[Iterable[conversation_flow_create_params.Mcp]] | NotGiven = NOT_GIVEN,
         model_temperature: Optional[float] | NotGiven = NOT_GIVEN,
         start_node_id: Optional[str] | NotGiven = NOT_GIVEN,
@@ -437,6 +446,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          kb_config: Knowledge base configuration for RAG retrieval.
 
           knowledge_base_ids: Knowledge base IDs for RAG (Retrieval-Augmented Generation).
 
@@ -470,6 +481,7 @@ class AsyncConversationFlowResource(AsyncAPIResource):
                     "begin_tag_display_position": begin_tag_display_position,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
                     "model_temperature": model_temperature,
@@ -536,7 +548,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         | NotGiven = NOT_GIVEN,
         default_dynamic_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         global_prompt: Optional[str] | NotGiven = NOT_GIVEN,
-        knowledge_base_ids: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        kb_config: conversation_flow_update_params.KBConfig | NotGiven = NOT_GIVEN,
+        knowledge_base_ids: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
         mcps: Optional[Iterable[conversation_flow_update_params.Mcp]] | NotGiven = NOT_GIVEN,
         model_choice: conversation_flow_update_params.ModelChoice | NotGiven = NOT_GIVEN,
         model_temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -564,6 +577,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          kb_config: Knowledge base configuration for RAG retrieval.
 
           knowledge_base_ids: Knowledge base IDs for RAG (Retrieval-Augmented Generation).
 
@@ -604,6 +619,7 @@ class AsyncConversationFlowResource(AsyncAPIResource):
                     "begin_tag_display_position": begin_tag_display_position,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
                     "model_choice": model_choice,

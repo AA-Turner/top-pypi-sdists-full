@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyobvector
-Version: 0.2.15
+Version: 0.2.16
 Summary: A python SDK for OceanBase Vector Store, based on SQLAlchemy, compatible with Milvus API.
 Author: shanhaikang.shk
 Author-email: shanhaikang.shk@oceanbase.com
@@ -36,7 +36,7 @@ poetry install
 - install with pip:
 
 ```shell
-pip install pyobvector==0.2.14
+pip install pyobvector==0.2.16
 ```
 
 ## Build Doc

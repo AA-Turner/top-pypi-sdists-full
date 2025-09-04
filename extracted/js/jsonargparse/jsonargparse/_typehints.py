@@ -39,6 +39,7 @@ from typing import (
 from ._actions import (
     Action,
     ActionConfigFile,
+    ActionFail,
     _ActionHelpClassPath,
     _ActionPrintConfig,
     _find_action,
@@ -53,6 +54,7 @@ from ._common import (
     get_unaliased_type,
     is_dataclass_like,
     is_subclass,
+    lenient_check,
     nested_links,
     parent_parser,
     parser_context,
@@ -271,14 +273,14 @@ class ActionTypeHint(Action):
             default = default.name
         elif is_callable_type(self._typehint) and callable(default) and not inspect.isclass(default):
             default = get_import_path(default)
+        elif ActionTypeHint.is_return_subclass_typehint(self._typehint) and inspect.isclass(default):
+            default = {"class_path": get_import_path(default)}
         elif is_subclass_type and not allow_default_instance.get():
             from ._parameter_resolvers import UnknownDefault
 
             default_type = type(default)
             if not is_subclass(default_type, UnknownDefault) and self.is_subclass_typehint(default_type):
                 raise ValueError("Subclass types require as default either a dict with class_path or a lazy instance.")
-        elif ActionTypeHint.is_return_subclass_typehint(self._typehint) and inspect.isclass(default):
-            default = {"class_path": get_import_path(default)}
         return default
 
     @staticmethod
@@ -352,7 +354,7 @@ class ActionTypeHint(Action):
     def is_return_subclass_typehint(typehint):
         typehint = get_unaliased_type(get_optional_arg(get_unaliased_type(typehint)))
         typehint_origin = get_typehint_origin(typehint)
-        if typehint_origin in callable_origin_types:
+        if typehint_origin in callable_origin_types or is_instance_factory_protocol(typehint):
             return_type = get_callable_return_type(typehint)
             if ActionTypeHint.is_subclass_typehint(return_type):
                 return True
@@ -405,7 +407,7 @@ class ActionTypeHint(Action):
                 action = _find_parent_action(parser, arg_base[2:])
 
         typehint = typehint_from_action(action)
-        if typehint:
+        if typehint or isinstance(action, ActionFail):
             if parse_optional_num_return == 4:
                 return action, arg_base, sep, explicit_arg
             elif parse_optional_num_return == 1:
@@ -523,7 +525,7 @@ class ActionTypeHint(Action):
             if "nargs" in kwargs and kwargs["nargs"] == 0:
                 raise ValueError("ActionTypeHint does not allow nargs=0.")
             return ActionTypeHint(**kwargs)
-        cfg, val, opt_str = args[1:]
+        parser, cfg, val, opt_str = args
         if not (self.nargs == "?" and val is None):
             if isinstance(opt_str, str) and opt_str.startswith(f"--{self.dest}."):
                 if opt_str.startswith(f"--{self.dest}.init_args."):
@@ -532,7 +534,7 @@ class ActionTypeHint(Action):
                     sub_opt = opt_str[len(f"--{self.dest}.") :]
                 val = NestedArg(key=sub_opt, val=val)
             append = opt_str == f"--{self.dest}+"
-            val = self._check_type_(val, append=append, cfg=cfg)
+            val = self._check_type_(val, append=append, cfg=cfg, mode=parser.parser_mode)
             if is_subclass_spec(val):
                 prev_val = cfg.get(self.dest)
                 if is_subclass_spec(prev_val) and "init_args" in prev_val:
@@ -544,7 +546,7 @@ class ActionTypeHint(Action):
         cfg.update(val, self.dest)
         return None
 
-    def _check_type(self, value, append=False, cfg=None):
+    def _check_type(self, value, append=False, cfg=None, mode=None):
         islist = _is_action_value_list(self)
         if not islist:
             value = [value]
@@ -583,7 +585,14 @@ class ActionTypeHint(Action):
                                 val = adapt_typehints(orig_val, self._typehint, default=self.default, **kwargs)
                             ex = None
                     except ValueError:
-                        if self._enable_path and config_path is None and isinstance(orig_val, str):
+                        if (
+                            lenient_check.get()
+                            and mode == "omegaconf+"
+                            and isinstance(orig_val, str)
+                            and "${" in orig_val
+                        ):
+                            ex = None
+                        elif self._enable_path and config_path is None and isinstance(orig_val, str):
                             msg = f"\n- Expected a config path but {orig_val} either not accessible or invalid\n- "
                             raise type(ex)(msg + str(ex)) from ex
                     if ex:
@@ -626,15 +635,18 @@ class ActionTypeHint(Action):
         return value if islist else value[0]
 
     @staticmethod
-    def get_class_parser(val_class, sub_add_kwargs=None, skip_args=0):
+    def get_class_parser(val_class, sub_add_kwargs=None, skip_args=None):
         if isinstance(val_class, str):
             val_class = import_object(val_class)
         kwargs = dict(sub_add_kwargs) if sub_add_kwargs else {}
         if skip_args:
-            kwargs.setdefault("skip", set()).add(skip_args)
+            kwargs.setdefault("skip", set()).update(skip_args)
         if is_subclass_spec(kwargs.get("default")):
             kwargs["default"] = kwargs["default"].get("init_args")
         parser = parent_parser.get()
+        from ._core import ArgumentParser
+
+        assert isinstance(parser, ArgumentParser)
         parser = type(parser)(exit_on_error=False, logger=parser.logger, parser_mode=parser.parser_mode)
         remove_actions(parser, (ActionConfigFile, _ActionPrintConfig))
         if inspect.isclass(val_class) or inspect.isclass(get_typehint_origin(val_class)):
@@ -658,11 +670,10 @@ class ActionTypeHint(Action):
     def extra_help(self):
         extra = ""
         typehint = get_optional_arg(self._typehint)
-        if self.is_subclass_typehint(typehint, all_subtypes=False) or get_typehint_origin(
-            typehint
-        ) in callable_origin_types.union({Type, type}):
-            if self.is_callable_typehint(typehint) and getattr(typehint, "__args__", None):
-                typehint = get_callable_return_type(get_optional_arg(typehint))
+        typehint = get_callable_return_type(typehint) or typehint
+        if get_typehint_origin(typehint) is type:
+            typehint = typehint.__args__[0]
+        if self.is_subclass_typehint(typehint, all_subtypes=False):
             class_paths = get_all_subclass_paths(typehint)
             if class_paths:
                 extra = ", known subclasses: " + ", ".join(class_paths)
@@ -947,17 +958,6 @@ def adapt_typehints(
                 required_keys.difference_update(
                     {k for k, v in typehint.__annotations__.items() if get_typehint_origin(v) in not_required_types}
                 )
-            # The standard library TypedDict in Python 3.8 does not store runtime information
-            # about which (if any) keys are optional. See https://bugs.python.org/issue38834.
-            # Thus, fall back to totality and explicitly Required keys
-            elif typehint.__total__:
-                required_keys = {
-                    k for k, v in typehint.__annotations__.items() if get_typehint_origin(v) not in not_required_types
-                }
-            else:
-                required_keys = {
-                    k for k, v in typehint.__annotations__.items() if get_typehint_origin(v) in required_types
-                }
             missing_keys = required_keys - val.keys()
             if missing_keys:
                 raise_unexpected_value(f"Missing required keys: {missing_keys}", val)
@@ -978,11 +978,15 @@ def adapt_typehints(
         val = adapt_typehints(val, subtypehints[0], **adapt_kwargs)
 
     # Callable
-    elif typehint_origin in callable_origin_types or typehint in callable_origin_types:
+    elif (
+        typehint_origin in callable_origin_types
+        or typehint in callable_origin_types
+        or is_instance_factory_protocol(typehint, logger)
+    ):
         if serialize:
             if is_subclass_spec(val):
-                val, _, num_partial_args = adapt_partial_callable_class(typehint, val)
-                val = adapt_class_type(val, True, False, sub_add_kwargs, skip_args=num_partial_args)
+                val, partial_skip_args = adapt_partial_callable_class(typehint, val)
+                val = adapt_class_type(val, True, False, sub_add_kwargs, partial_skip_args=partial_skip_args)
             else:
                 val = object_path_serializer(val)
         else:
@@ -1011,12 +1015,13 @@ def adapt_typehints(
                         raise ImportError(
                             f"Dict must include a class_path and optionally init_args, but got {val_input}"
                         )
-                    val, partial_classes, num_partial_args = adapt_partial_callable_class(typehint, val)
+                    val, partial_skip_args = adapt_partial_callable_class(typehint, val)
                     val_class = import_object(val["class_path"])
-                    if inspect.isclass(val_class) and not (partial_classes or callable_instances(val_class)):
+                    if inspect.isclass(val_class) and not (partial_skip_args or callable_instances(val_class)):
+                        base_type = get_callable_return_type(typehint) or typehint
                         raise ImportError(
                             f"Expected '{val['class_path']}' to be a class that instantiates into callable "
-                            f"or a subclass of {partial_classes}."
+                            f"or a subclass of {base_type}."
                         )
                     val["class_path"] = get_import_path(val_class)
                     val = adapt_class_type(
@@ -1024,8 +1029,7 @@ def adapt_typehints(
                         False,
                         instantiate_classes,
                         sub_add_kwargs,
-                        skip_args=num_partial_args,
-                        partial_classes=partial_classes,
+                        partial_skip_args=partial_skip_args,
                         prev_val=prev_val,
                     )
             except (ImportError, AttributeError, ArgumentError) as ex:
@@ -1118,8 +1122,6 @@ def adapt_typehints(
         return adapt_typehints(val, get_alias_target(typehint), **adapt_kwargs)
 
     else:
-        if str(typehint) == "+VT_co":
-            return val  # required for typing.Mapping in python 3.8
         raise RuntimeError(f"The code should never reach here: typehint={typehint}")  # pragma: no cover
 
     return val
@@ -1185,6 +1187,15 @@ def is_instance_or_supports_protocol(value, class_type):
     return isinstance(value, class_type)
 
 
+def is_instance_factory_protocol(class_type, logger=None):
+    if not is_protocol(class_type) or not callable_instances(class_type):
+        return False
+    from ._postponed_annotations import get_return_type
+
+    return_type = get_return_type(class_type.__call__, logger)
+    return ActionTypeHint.is_subclass_typehint(return_type)
+
+
 def is_subclass_spec(val):
     is_class = isinstance(val, (dict, Namespace)) and "class_path" in val
     if is_class:
@@ -1227,9 +1238,14 @@ def subclass_spec_as_namespace(val, prev_val=None):
 
 def get_callable_return_type(typehint):
     return_type = None
-    args = getattr(typehint, "__args__", None)
-    if isinstance(args, tuple) and len(args) > 0:
-        return_type = args[-1]
+    if is_instance_factory_protocol(typehint):
+        from ._postponed_annotations import get_return_type
+
+        return_type = get_return_type(typehint.__call__)
+    elif get_typehint_origin(typehint) in callable_origin_types:
+        args = getattr(typehint, "__args__", None)
+        if isinstance(args, tuple) and len(args) > 0:
+            return_type = args[-1]
     return return_type
 
 
@@ -1251,7 +1267,7 @@ def yield_subclass_types(typehint, also_lists=False, callable_return=False):
         return
     typehint = get_unaliased_type(get_optional_arg(get_unaliased_type(typehint)))
     typehint_origin = get_typehint_origin(typehint)
-    if callable_return and typehint_origin in callable_origin_types:
+    if callable_return and (typehint_origin in callable_origin_types or is_instance_factory_protocol(typehint)):
         return_type = get_callable_return_type(typehint)
         if return_type:
             k = {"also_lists": also_lists, "callable_return": callable_return}
@@ -1274,8 +1290,7 @@ def get_subclass_names(typehint, callable_return=False):
 
 
 def adapt_partial_callable_class(callable_type, subclass_spec):
-    partial_classes = False
-    num_partial_args = 0
+    partial_skip_args = None
     return_type = get_callable_return_type(callable_type)
     if return_type:
         subclass_types = get_subclass_types(return_type)
@@ -1283,9 +1298,18 @@ def adapt_partial_callable_class(callable_type, subclass_spec):
         if subclass_types and is_subclass(class_type, subclass_types):
             subclass_spec = subclass_spec.clone()
             subclass_spec["class_path"] = get_import_path(class_type)
-            partial_classes = True
-            num_partial_args = len(callable_type.__args__) - 1
-    return subclass_spec, partial_classes, num_partial_args
+            if is_protocol(callable_type):
+                from ._parameter_resolvers import get_signature_parameters
+
+                params = get_signature_parameters(callable_type, "__call__")
+                partial_skip_args = set()
+                positionals = [p for p in params if "POSITIONAL_ONLY" in str(p.kind)]
+                if positionals:
+                    partial_skip_args.add(len(positionals))
+                partial_skip_args.update(p.name for p in params if "POSITIONAL_ONLY" not in str(p.kind))
+            else:
+                partial_skip_args = {len(callable_type.__args__) - 1}
+    return subclass_spec, partial_skip_args
 
 
 def get_all_subclass_paths(cls: Type) -> List[str]:
@@ -1317,8 +1341,6 @@ def get_all_subclass_paths(cls: Type) -> List[str]:
             add_subclasses(subclass)
 
     if get_typehint_origin(cls) in callable_origin_types:
-        if len(getattr(cls, "__args__", [])) < 2:
-            return subclass_list
         cls = cls.__args__[-1]
 
     if get_typehint_origin(cls) in {Union, Type, type}:
@@ -1331,9 +1353,15 @@ def get_all_subclass_paths(cls: Type) -> List[str]:
     return subclass_list
 
 
-def resolve_class_path_by_name(cls: Type, name: str) -> str:
+def resolve_class_path_by_name(cls: Union[Type, Tuple[Type]], name: str) -> str:
     class_path = name
     if "." not in class_path:
+        if isinstance(cls, tuple):
+            for cls_n in cls:
+                class_path = resolve_class_path_by_name(cls_n, name)
+                if "." in class_path:
+                    break
+            return class_path
         subclass_dict = defaultdict(list)
         for subclass in get_all_subclass_paths(cls):
             subclass_name = subclass.rsplit(".", 1)[1]
@@ -1389,13 +1417,11 @@ def discard_init_args_on_class_path_change(parser_or_action, prev_val, value):
             )
 
 
-def adapt_class_type(
-    value, serialize, instantiate_classes, sub_add_kwargs, prev_val=None, skip_args=0, partial_classes=False
-):
+def adapt_class_type(value, serialize, instantiate_classes, sub_add_kwargs, prev_val=None, partial_skip_args=None):
     prev_val = subclass_spec_as_namespace(prev_val)
     value = subclass_spec_as_namespace(value)
     val_class = import_object(value.class_path)
-    parser = ActionTypeHint.get_class_parser(val_class, sub_add_kwargs, skip_args=skip_args)
+    parser = ActionTypeHint.get_class_parser(val_class, sub_add_kwargs, skip_args=partial_skip_args)
 
     # No need to re-create the linked arg but just "inform" the corresponding parser actions that it exists upstream.
     for target in sub_add_kwargs.get("linked_targets", []):
@@ -1428,7 +1454,7 @@ def adapt_class_type(
 
         instantiator_fn = get_class_instantiator()
 
-        if partial_classes:
+        if partial_skip_args:
             return partial(
                 instantiator_fn,
                 val_class,
@@ -1628,9 +1654,10 @@ class LazyInitBaseClass:
                 self.__dict__[name] = seen_methods[id(member)]
             else:
                 lazy_method = partial(self._lazy_init_then_call_method, name)
-                self.__dict__[name] = lazy_method
                 if name == "__call__":
+                    lazy_method = staticmethod(lazy_method)  # type: ignore[assignment]
                     self._lazy.__call__ = lazy_method  # type: ignore[method-assign]
+                self.__dict__[name] = lazy_method
                 seen_methods[id(member)] = lazy_method
 
     def _lazy_init(self):

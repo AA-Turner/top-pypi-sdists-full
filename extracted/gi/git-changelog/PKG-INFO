@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: git-changelog
-Version: 2.6.1
+Version: 2.6.2
 Summary: Automatic Changelog generator using Jinja2 templates.
 Keywords: git,changelog,changelog-generator,commit-style,commit-convention
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
@@ -31,10 +31,10 @@ Project-URL: Discussions, https://github.com/pawamoy/git-changelog/discussions
 Project-URL: Gitter, https://gitter.im/git-changelog/community
 Project-URL: Funding, https://github.com/sponsors/pawamoy
 Requires-Python: >=3.9
-Requires-Dist: appdirs>=1.4
-Requires-Dist: Jinja2>=2.10
+Requires-Dist: Jinja2>=3.0
 Requires-Dist: packaging>=24.0
-Requires-Dist: semver>=2.13
+Requires-Dist: platformdirs>=4.4
+Requires-Dist: semver>=3.0
 Requires-Dist: tomli>=2.0; python_version < "3.11"
 Requires-Dist: typing-extensions>=4.9; python_version < "3.13"
 Description-Content-Type: text/markdown

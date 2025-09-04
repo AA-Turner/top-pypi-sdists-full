@@ -22,10 +22,14 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateClusterTimescaleDBResponse,
     CreateDeploymentRequest,
     CreateDeploymentResponse,
+    CreateEnvironmentCloudResourcesRequest,
+    CreateEnvironmentCloudResourcesResponse,
     CreateKafkaTopicsRequest,
     CreateKafkaTopicsResponse,
     DeleteClusterTimescaleDBRequest,
     DeleteClusterTimescaleDBResponse,
+    DeleteEnvironmentCloudResourcesRequest,
+    DeleteEnvironmentCloudResourcesResponse,
     DeleteKarpenterNodepoolRequest,
     DeleteKarpenterNodepoolResponse,
     DeleteNodepoolRequest,
@@ -172,6 +176,14 @@ class BuilderServiceStub:
     DeleteClusterTimescaleDB: UnaryUnaryMultiCallable[
         DeleteClusterTimescaleDBRequest,
         DeleteClusterTimescaleDBResponse,
+    ]
+    CreateEnvironmentCloudResources: UnaryUnaryMultiCallable[
+        CreateEnvironmentCloudResourcesRequest,
+        CreateEnvironmentCloudResourcesResponse,
+    ]
+    DeleteEnvironmentCloudResources: UnaryUnaryMultiCallable[
+        DeleteEnvironmentCloudResourcesRequest,
+        DeleteEnvironmentCloudResourcesResponse,
     ]
     MigrateClusterTimescaleDB: UnaryUnaryMultiCallable[
         MigrateClusterTimescaleDBRequest,
@@ -364,6 +376,18 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: DeleteClusterTimescaleDBRequest,
         context: ServicerContext,
     ) -> DeleteClusterTimescaleDBResponse: ...
+    @abstractmethod
+    def CreateEnvironmentCloudResources(
+        self,
+        request: CreateEnvironmentCloudResourcesRequest,
+        context: ServicerContext,
+    ) -> CreateEnvironmentCloudResourcesResponse: ...
+    @abstractmethod
+    def DeleteEnvironmentCloudResources(
+        self,
+        request: DeleteEnvironmentCloudResourcesRequest,
+        context: ServicerContext,
+    ) -> DeleteEnvironmentCloudResourcesResponse: ...
     @abstractmethod
     def MigrateClusterTimescaleDB(
         self,

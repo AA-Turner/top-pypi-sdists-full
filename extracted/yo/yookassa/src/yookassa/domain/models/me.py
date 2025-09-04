@@ -7,7 +7,7 @@ from yookassa.domain.models.settings import FiscalizationData
 
 class Me(BaseObject):
     """
-    Информация о настройках магазина или шлюза.
+    Объект настроек магазина или шлюза (Me) — актуальная информация о настройках магазина или шлюза.
     """  # noqa: E501
 
     __account_id = None

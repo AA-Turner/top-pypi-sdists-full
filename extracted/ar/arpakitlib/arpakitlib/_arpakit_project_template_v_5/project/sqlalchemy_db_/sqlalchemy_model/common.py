@@ -1,8 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-import sqlalchemy
+import sqlalchemy.dialects.postgresql
 from sqlalchemy import func
 from sqlalchemy.orm import mapped_column, Mapped, validates
 
@@ -28,6 +29,15 @@ def make_slug_from_string(string: str) -> str:
 class SimpleDBM(BaseDBM):
     __abstract__ = True
 
+    class ColumnNames:
+        id = "id"
+        long_id = "long_id"
+        uuid = "uuid"
+        slug = "slug"
+        creation_dt = "creation_dt"
+        detail_data = "detail_data"
+        extra_data = "extra_data"
+
     id: Mapped[int] = mapped_column(
         sqlalchemy.BIGINT,
         nullable=False,
@@ -40,6 +50,14 @@ class SimpleDBM(BaseDBM):
         nullable=False,
         unique=True,
         insert_default=generate_default_long_id,
+        server_default=func.gen_random_uuid(),
+        sort_order=-102,
+    )
+    uuid: Mapped[sqlalchemy.dialects.postgresql.UUID] = mapped_column(
+        sqlalchemy.UUID(as_uuid=True),
+        nullable=False,
+        unique=True,
+        insert_default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
         sort_order=-102,
     )
@@ -98,6 +116,14 @@ class SimpleDBM(BaseDBM):
     @property
     def entity_name(self) -> str:
         return self.__class__.__name__.removesuffix("DBM")
+
+    @property
+    def uuid_as_str(self) -> str:
+        return str(self.uuid)
+
+    @classmethod
+    def get_mapped_column_names(cls) -> list[str]:
+        return [k for k, v in SimpleDBM.__dict__.items() if isinstance(v, Mapped)]
 
     # ---SDP---
 

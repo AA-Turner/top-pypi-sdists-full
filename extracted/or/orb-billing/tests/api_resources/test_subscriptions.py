@@ -87,7 +87,10 @@ class TestSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -206,7 +209,10 @@ class TestSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -652,7 +658,10 @@ class TestSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -684,6 +693,7 @@ class TestSubscriptions:
             ],
             add_adjustments=[
                 {
+                    "start_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "adjustment": {
                         "adjustment_type": "percentage_discount",
                         "percentage_discount": 0,
@@ -701,7 +711,7 @@ class TestSubscriptions:
                         "is_invoice_level": True,
                         "price_type": "usage",
                     },
-                    "start_date": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "adjustment_id": "h74gfhdjvn7ujokd",
                     "end_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                 }
             ],
@@ -887,7 +897,10 @@ class TestSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -999,7 +1012,10 @@ class TestSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -1411,7 +1427,10 @@ class TestAsyncSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -1530,7 +1549,10 @@ class TestAsyncSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -1976,7 +1998,10 @@ class TestAsyncSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -2008,6 +2033,7 @@ class TestAsyncSubscriptions:
             ],
             add_adjustments=[
                 {
+                    "start_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "adjustment": {
                         "adjustment_type": "percentage_discount",
                         "percentage_discount": 0,
@@ -2025,7 +2051,7 @@ class TestAsyncSubscriptions:
                         "is_invoice_level": True,
                         "price_type": "usage",
                     },
-                    "start_date": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "adjustment_id": "h74gfhdjvn7ujokd",
                     "end_date": parse_datetime("2019-12-27T18:11:19.117Z"),
                 }
             ],
@@ -2211,7 +2237,10 @@ class TestAsyncSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {
@@ -2323,7 +2352,10 @@ class TestAsyncSubscriptions:
                         "item_id": "item_id",
                         "model_type": "unit",
                         "name": "Annual fee",
-                        "unit_config": {"unit_amount": "unit_amount"},
+                        "unit_config": {
+                            "unit_amount": "unit_amount",
+                            "scaling_factor": 0,
+                        },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
                         "billing_cycle_configuration": {

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+from collections import ChainMap
+from collections.abc import MutableMapping
 from contextlib import contextmanager
 from enum import Enum
 from functools import lru_cache
@@ -21,7 +23,7 @@ from dissect.cstruct.types.enum import EnumMetaType
 from dissect.cstruct.types.pointer import Pointer
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping
     from types import FunctionType
 
     from typing_extensions import Self
@@ -60,6 +62,7 @@ class StructureMetaType(MetaType):
     __anonymous__: bool
     __updating__ = False
     __compiled__ = False
+    __static_sizes__: dict[str, int]  # Cache of static sizes by field name
 
     def __new__(metacls, name: str, bases: tuple[type, ...], classdict: dict[str, Any]) -> Self:  # type: ignore
         if (fields := classdict.pop("fields", None)) is not None:
@@ -79,8 +82,7 @@ class StructureMetaType(MetaType):
             return type.__call__(cls, *args, **kwargs)
         if not args and not kwargs:
             obj = type.__call__(cls)
-            object.__setattr__(obj, "_values", {})
-            object.__setattr__(obj, "_sizes", {})
+            object.__setattr__(obj, "__dynamic_sizes__", {})
             return obj
 
         return super().__call__(*args, **kwargs)
@@ -93,9 +95,13 @@ class StructureMetaType(MetaType):
         lookup = {}
         raw_lookup = {}
         field_names = []
+        static_sizes = {}
         for field in fields:
             if field._name in lookup and field._name != "_":
                 raise ValueError(f"Duplicate field name: {field._name}")
+
+            if not field.type.dynamic:
+                static_sizes[field._name] = field.type.size
 
             if isinstance(field.type, StructureMetaType) and field.name is None:
                 for anon_field in field.type.fields.values():
@@ -112,6 +118,7 @@ class StructureMetaType(MetaType):
         classdict["fields"] = lookup
         classdict["lookup"] = raw_lookup
         classdict["__fields__"] = fields
+        classdict["__static_sizes__"] = static_sizes
         classdict["__bool__"] = _generate__bool__(field_names)
 
         if issubclass(cls, UnionMetaType) or isinstance(cls, UnionMetaType):
@@ -132,7 +139,7 @@ class StructureMetaType(MetaType):
 
         if cls.__compiled__:
             # If the previous class was compiled try to compile this too
-            from dissect.cstruct import compiler
+            from dissect.cstruct import compiler  # noqa: PLC0415
 
             try:
                 classdict["_read"] = compiler.Compiler(cls.cs).compile_read(fields, cls.__name__, align=cls.__align__)
@@ -271,8 +278,9 @@ class StructureMetaType(MetaType):
 
             value = field.type._read(stream, result)
 
-            sizes[field._name] = stream.tell() - offset
             result[field._name] = value
+            if field.type.dynamic:
+                sizes[field._name] = stream.tell() - offset
 
         if cls.__align__:
             # Align the stream
@@ -281,8 +289,7 @@ class StructureMetaType(MetaType):
         # Using type.__call__ directly calls the __init__ method of the class
         # This is faster than calling cls() and bypasses the metaclass __call__ method
         obj = type.__call__(cls, **result)
-        obj._sizes = sizes
-        obj._values = result
+        obj.__dynamic_sizes__ = sizes
         return obj
 
     def _read_0(cls, stream: BinaryIO, context: dict[str, Any] | None = None) -> list[Self]:  # type: ignore
@@ -375,10 +382,13 @@ class StructureMetaType(MetaType):
 
 
 class Structure(BaseType, metaclass=StructureMetaType):
-    """Base class for cstruct structure type classes."""
+    """Base class for cstruct structure type classes.
 
-    _values: dict[str, Any]
-    _sizes: dict[str, int]
+    Note that setting attributes which do not correspond to a field in the structure results in undefined behavior.
+    For performance reasons, the structure does not check if the field exists when writing to an attribute.
+    """
+
+    __dynamic_sizes__: dict[str, int]
 
     def __len__(self) -> int:
         return len(self.dumps())
@@ -400,6 +410,47 @@ class Structure(BaseType, metaclass=StructureMetaType):
             values.append(f"{name}={value}")
 
         return f"<{self.__class__.__name__} {' '.join(values)}>"
+
+    @property
+    def __values__(self) -> MutableMapping[str, Any]:
+        return StructureValuesProxy(self)
+
+    @property
+    def __sizes__(self) -> Mapping[str, int | None]:
+        return ChainMap(self.__class__.__static_sizes__, self.__dynamic_sizes__)
+
+
+class StructureValuesProxy(MutableMapping):
+    """A proxy for the values of fields of a Structure."""
+
+    def __init__(self, struct: Structure):
+        self._struct: Structure = struct
+
+    def __getitem__(self, key: str) -> Any:
+        if key in self:
+            return getattr(self._struct, key)
+        raise KeyError(key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if key in self:
+            return setattr(self._struct, key, value)
+        raise KeyError(key)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._struct.__class__.fields
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._struct.__class__.fields)
+
+    def __len__(self) -> int:
+        return len(self._struct.__class__.fields)
+
+    def __repr__(self) -> str:
+        return repr(dict(self))
+
+    def __delitem__(self, _: str):
+        # Is abstract in base, but deleting is not supported.
+        raise NotImplementedError("Cannot delete fields from a Structure")
 
 
 class UnionMetaType(StructureMetaType):
@@ -473,8 +524,9 @@ class UnionMetaType(StructureMetaType):
             buf.seek(offset + start)
             value = field_type._read(buf, result)
 
-            sizes[field._name] = buf.tell() - start
             result[field._name] = value
+            if field.type.dynamic:
+                sizes[field._name] = buf.tell() - start
 
         return result, sizes
 
@@ -496,8 +548,7 @@ class UnionMetaType(StructureMetaType):
         # It also makes it easier to differentiate between user-initialization of the class
         # and initialization from a stream read
         obj: Union = type.__call__(cls, **result)
-        object.__setattr__(obj, "_values", result)
-        object.__setattr__(obj, "_sizes", sizes)
+        object.__setattr__(obj, "__dynamic_sizes__", sizes)
         object.__setattr__(obj, "_buf", buf)
 
         if cls.size is not None:
@@ -579,8 +630,7 @@ class Union(Structure, metaclass=UnionMetaType):
     def _update(self) -> None:
         result, sizes = self.__class__._read_fields(io.BytesIO(self._buf))
         self.__dict__.update(result)
-        object.__setattr__(self, "_values", result)
-        object.__setattr__(self, "_sizes", sizes)
+        object.__setattr__(self, "__dynamic_sizes__", sizes)
 
     def _proxify(self) -> None:
         def _proxy_structure(value: Structure) -> None:
@@ -778,13 +828,13 @@ def _generate_structure__init__(fields: list[Field]) -> FunctionType:
     Args:
         fields: List of field names.
     """
-    field_names = [field._name for field in fields]
+    mapping = _generate_co_mapping(fields)
 
-    template: FunctionType = _make_structure__init__(len(field_names))
+    template: FunctionType = _make_structure__init__(len(fields))
     return type(template)(
         template.__code__.replace(
-            co_names=tuple(chain.from_iterable(zip((f"__{name}_default__" for name in field_names), field_names))),
-            co_varnames=("self", *field_names),
+            co_names=_remap_co_values(template.__code__.co_names, mapping),
+            co_varnames=_remap_co_values(template.__code__.co_varnames, mapping),
         ),
         template.__globals__ | {f"__{field._name}_default__": field.type.__default__() for field in fields},
         argdefs=template.__defaults__,
@@ -797,18 +847,48 @@ def _generate_union__init__(fields: list[Field]) -> FunctionType:
     Args:
         fields: List of field names.
     """
-    field_names = [field._name for field in fields]
+    mapping = _generate_co_mapping(fields)
 
-    template: FunctionType = _make_union__init__(len(field_names))
+    template: FunctionType = _make_union__init__(len(fields))
     return type(template)(
         template.__code__.replace(
-            co_consts=(None, *field_names),
-            co_names=("object", "__setattr__", *(f"__{name}_default__" for name in field_names)),
-            co_varnames=("self", *field_names),
+            co_consts=_remap_co_values(template.__code__.co_consts, mapping),
+            co_names=_remap_co_values(template.__code__.co_names, mapping),
+            co_varnames=_remap_co_values(template.__code__.co_varnames, mapping),
         ),
         template.__globals__ | {f"__{field._name}_default__": field.type.__default__() for field in fields},
         argdefs=template.__defaults__,
     )
+
+
+def _generate_co_mapping(fields: list[Field]) -> dict[str, str]:
+    """Generates a mapping of generated code object names to field names.
+
+    The generated code uses names like ``_0``, ``_1``, etc. for fields, and ``_0_default``, ``_1_default``, etc.
+    for default initializer values. Return a mapping of these names to the actual field names.
+
+    Args:
+        fields: List of field names.
+    """
+    return {
+        key: value
+        for i, field in enumerate(fields)
+        for key, value in [(f"_{i}", field._name), (f"_{i}_default", f"__{field._name}_default__")]
+    }
+
+
+def _remap_co_values(value: tuple[Any, ...], mapping: dict[str, str]) -> tuple[Any, ...]:
+    """Remaps code object values using a mapping.
+
+    This is used to replace generated code object names with actual field names.
+
+    Args:
+        value: The original code object values.
+        mapping: A mapping of generated code object names to field names.
+    """
+    # Only attempt to remap if the value is a string, otherwise return it as is
+    # This is to avoid issues with trying to remap non-hashable types, and we only need to replace strings anyway
+    return tuple(mapping.get(v, v) if isinstance(v, str) else v for v in value)
 
 
 def _generate__eq__(fields: list[str]) -> FunctionType:

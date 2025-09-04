@@ -1248,6 +1248,104 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/GetAuthorizationUrlRequest'
+  /{connector_id}/get_data_recency:
+    post:
+      operationId: get_data_recency
+      description: |-
+        Retrieve the recency information for data surfaced by standard capabilities.
+
+        This operation enables connectors to indicate how "fresh" the data is that they
+        surface through their standard capabilities. This is particularly important for
+        connectors that source data from scheduled dumps, snapshots, or other non-real-time
+        data sources.
+
+        ## Use Cases
+
+        - **Data Freshness Assessment**: Understand how current the data is from each capability
+        - **Scheduled Data Sources**: Handle connectors that read from CSV files, database
+        snapshots, or other periodically updated data sources
+        - **Data Quality Monitoring**: Track data staleness for compliance and accuracy
+
+        ## Capability Recency Mapping
+
+        The response maps each standard capability to an optional datetime indicating when
+        the data for that capability was last updated:
+
+        - **Non-null datetime**: Indicates the data for this capability is current as of
+        the specified timestamp
+        - **null datetime**: Indicates the connector cannot determine or does not track
+        recency for this capability
+
+        ## Connector Implementation
+
+        Connectors should implement this capability when:
+        - They source data from scheduled dumps or snapshots
+        - They can provide meaningful recency information
+
+        Connectors that always provide "live" data may return null for all capabilities
+        or omit this capability entirely.
+
+        ## Data Reconciliation
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetDataRecencyResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/GetDataRecency'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/get_last_activity:
     post:
       operationId: get_last_activity
@@ -3543,6 +3641,49 @@ components:
         - string
         - user
       description: Enum representing the types of custom attributes.
+    DataRecency:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          additionalProperties:
+            type: string
+            format: date-time
+            nullable: true
+          description: |-
+            Map of standard capability names to their data recency timestamps.
+
+            Each entry in this map represents a standard capability and its associated
+            data recency information:
+
+            - **Key**: The name of a standard capability (e.g., "list_accounts", "list_entitlements")
+            - **Value**: Datetime indicating when the data for this capability
+            was last updated (may be null if recency information is not available)
+
+            ## Capability Coverage
+
+            The map should include entries for all standard capabilities that the connector
+            supports and for which it can provide meaningful recency information.
+
+            ## Data Freshness Interpretation
+
+            - **non-null timestamp**: Data is current as of the specified time
+            - **null value**: Connector cannot determine due to an unexpected error
+            - **missing key**: If the a StandardCapabilityName doesn't have a key in the map, then the connector
+            doesn't support surfacing data recency for that capability.
+
+            ## Common Use Cases
+
+            - **list_accounts**: When the account data was last synchronized
+            - **list_entitlements**: When permission/role data was last updated
+            - **list_updated_accounts**: When the change tracking data was last refreshed
+      description: |-
+        Response model containing data recency information for standard capabilities.
+
+        This model maps each standard capability to an optional datetime indicating
+        when the data for that capability was last updated or refreshed.
     DeactivateAccount:
       type: object
       required:
@@ -4439,6 +4580,35 @@ components:
       description: |-
         Response containing the connected info of the connector.
         This should have the same structure as the info response.
+    GetDataRecency:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EmptyButCreateAnyway'
+      description: |-
+        Request parameters for getting data recency information.
+
+        This is a simple request model as the capability doesn't require
+        any specific parameters - it returns recency information for all
+        standard capabilities that the connector supports.
+      x-capability-level: read
+    GetDataRecencyResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/DataRecency'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: |-
+        Response containing data recency information for standard capabilities.
+
+        This response model wraps the DataRecency data and provides standard
+        response metadata including success status and any error information.
     GetLastActivity:
       type: object
       required:
@@ -5639,6 +5809,7 @@ components:
         - list_accounts
         - list_updated_accounts
         - get_account
+        - get_data_recency
         - list_activity_records
         - list_custom_attributes_schema
         - list_entitlements

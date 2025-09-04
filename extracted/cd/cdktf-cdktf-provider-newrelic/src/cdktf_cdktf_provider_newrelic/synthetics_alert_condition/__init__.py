@@ -1,7 +1,7 @@
 r'''
 # `newrelic_synthetics_alert_condition`
 
-Refer to the Terraform Registry for docs: [`newrelic_synthetics_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition).
+Refer to the Terraform Registry for docs: [`newrelic_synthetics_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsAlertCondition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.syntheticsAlertCondition.SyntheticsAlertCondition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition newrelic_synthetics_alert_condition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition newrelic_synthetics_alert_condition}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SyntheticsAlertCondition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition newrelic_synthetics_alert_condition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition newrelic_synthetics_alert_condition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param monitor_id: The ID of the Synthetics monitor to be referenced in the alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
-        :param name: The title of this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
-        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
-        :param enabled: Set whether to enable the alert condition. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
+        :param monitor_id: The ID of the Synthetics monitor to be referenced in the alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
+        :param name: The title of this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
+        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
+        :param enabled: Set whether to enable the alert condition. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SyntheticsAlertCondition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsAlertCondition to import.
-        :param import_from_id: The id of the existing SyntheticsAlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsAlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsAlertCondition to import is found.
         '''
         if __debug__:
@@ -312,12 +312,12 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param monitor_id: The ID of the Synthetics monitor to be referenced in the alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
-        :param name: The title of this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
-        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
-        :param enabled: Set whether to enable the alert condition. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
+        :param monitor_id: The ID of the Synthetics monitor to be referenced in the alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
+        :param name: The title of this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
+        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
+        :param enabled: Set whether to enable the alert condition. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -430,7 +430,7 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor_id(self) -> builtins.str:
         '''The ID of the Synthetics monitor to be referenced in the alert condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#monitor_id SyntheticsAlertCondition#monitor_id}
         '''
         result = self._values.get("monitor_id")
         assert result is not None, "Required property 'monitor_id' is missing"
@@ -440,7 +440,7 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The title of this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#name SyntheticsAlertCondition#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -450,7 +450,7 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_id(self) -> jsii.Number:
         '''The ID of the policy where this condition should be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#policy_id SyntheticsAlertCondition#policy_id}
         '''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
@@ -462,14 +462,14 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set whether to enable the alert condition. Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#enabled SyntheticsAlertCondition#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#id SyntheticsAlertCondition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -481,7 +481,7 @@ class SyntheticsAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runbook_url(self) -> typing.Optional[builtins.str]:
         '''Runbook URL to display in notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/synthetics_alert_condition#runbook_url SyntheticsAlertCondition#runbook_url}
         '''
         result = self._values.get("runbook_url")
         return typing.cast(typing.Optional[builtins.str], result)

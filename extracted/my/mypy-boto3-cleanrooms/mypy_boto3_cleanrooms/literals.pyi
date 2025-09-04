@@ -32,6 +32,10 @@ __all__ = (
     "AnalysisTemplateValidationTypeType",
     "AnalysisTypeType",
     "AnalyticsEngineType",
+    "AutoApprovedChangeTypeType",
+    "ChangeRequestStatusType",
+    "ChangeSpecificationTypeType",
+    "ChangeTypeType",
     "CleanRoomsServiceServiceName",
     "CollaborationJobLogStatusType",
     "CollaborationQueryLogStatusType",
@@ -46,6 +50,7 @@ __all__ = (
     "JoinRequiredOptionType",
     "ListAnalysisTemplatesPaginatorName",
     "ListCollaborationAnalysisTemplatesPaginatorName",
+    "ListCollaborationChangeRequestsPaginatorName",
     "ListCollaborationConfiguredAudienceModelAssociationsPaginatorName",
     "ListCollaborationIdNamespaceAssociationsPaginatorName",
     "ListCollaborationPrivacyBudgetTemplatesPaginatorName",
@@ -102,6 +107,10 @@ AnalysisTemplateValidationStatusType = Literal["INVALID", "UNABLE_TO_VALIDATE", 
 AnalysisTemplateValidationTypeType = Literal["DIFFERENTIAL_PRIVACY"]
 AnalysisTypeType = Literal["ADDITIONAL_ANALYSIS", "DIRECT_ANALYSIS"]
 AnalyticsEngineType = Literal["CLEAN_ROOMS_SQL", "SPARK"]
+AutoApprovedChangeTypeType = Literal["ADD_MEMBER"]
+ChangeRequestStatusType = Literal["APPROVED", "CANCELLED", "COMMITTED", "DENIED", "PENDING"]
+ChangeSpecificationTypeType = Literal["MEMBER"]
+ChangeTypeType = Literal["ADD_MEMBER"]
 CollaborationJobLogStatusType = Literal["DISABLED", "ENABLED"]
 CollaborationQueryLogStatusType = Literal["DISABLED", "ENABLED"]
 ConfiguredTableAnalysisRuleTypeType = Literal["AGGREGATION", "CUSTOM", "LIST"]
@@ -115,6 +124,7 @@ JoinOperatorType = Literal["AND", "OR"]
 JoinRequiredOptionType = Literal["QUERY_RUNNER"]
 ListAnalysisTemplatesPaginatorName = Literal["list_analysis_templates"]
 ListCollaborationAnalysisTemplatesPaginatorName = Literal["list_collaboration_analysis_templates"]
+ListCollaborationChangeRequestsPaginatorName = Literal["list_collaboration_change_requests"]
 ListCollaborationConfiguredAudienceModelAssociationsPaginatorName = Literal[
     "list_collaboration_configured_audience_model_associations"
 ]
@@ -518,8 +528,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -652,20 +660,12 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_analysis_templates",
     "list_collaboration_analysis_templates",
+    "list_collaboration_change_requests",
     "list_collaboration_configured_audience_model_associations",
     "list_collaboration_id_namespace_associations",
     "list_collaboration_privacy_budget_templates",

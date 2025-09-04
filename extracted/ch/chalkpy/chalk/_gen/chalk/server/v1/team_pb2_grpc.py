@@ -65,6 +65,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentResponse.FromString,
         )
+        self.UpdateEnvironmentTeam = channel.unary_unary(
+            "/chalk.server.v1.TeamService/UpdateEnvironmentTeam",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamResponse.FromString,
+        )
         self.UpdateEnvironment = channel.unary_unary(
             "/chalk.server.v1.TeamService/UpdateEnvironment",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentRequest.SerializeToString,
@@ -201,6 +206,12 @@ class TeamServiceServicer(object):
 
     def CreateEnvironment(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateEnvironmentTeam(self, request, context):
+        """This is a hack around our team permissions"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -352,6 +363,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.CreateEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentResponse.SerializeToString,
+        ),
+        "UpdateEnvironmentTeam": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateEnvironmentTeam,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamResponse.SerializeToString,
         ),
         "UpdateEnvironment": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateEnvironment,
@@ -717,6 +733,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/CreateEnvironment",
             chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateEnvironmentTeam(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/UpdateEnvironmentTeam",
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentTeamResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -8,7 +8,7 @@ from yookassa.domain.models.receipt_data.receipt_item import ReceiptItem
 
 class Receipt(BaseObject):
     """
-    Данные о чеке.
+    Объект чека (Receipt) — актуальная информация о чеке.
     """  # noqa: E501
 
     __customer = None

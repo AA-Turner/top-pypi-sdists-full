@@ -29,9 +29,11 @@ class DaskSchedulerWriteFiles(SchedulerPlugin):
             target_dir = os.path.abspath(os.path.expanduser(target_dir))
             if not os.path.exists(target_dir):
                 try:
+                    os.makedirs(os.path.dirname(target_dir), exist_ok=True)
                     os.symlink(source_dir, target_dir)
                 except Exception:
                     logger.exception(f"Error creating symlink from {source_dir} to {target_dir}")
+
         if self._symlink_dirs == {"/mount": "./mount"}:
             timeout = parse_timedelta(dask.config.get("coiled.mount-bucket.timeout", "30 s"))
             await wait_for_bucket_mounting(timeout=timeout, logger=logger)
@@ -58,6 +60,7 @@ class DaskWorkerWriteFiles(WorkerPlugin):
             target_dir = os.path.abspath(os.path.expanduser(target_dir))
             if not os.path.exists(target_dir):
                 try:
+                    os.makedirs(os.path.dirname(target_dir), exist_ok=True)
                     os.symlink(source_dir, target_dir)
                 except Exception:
                     logger.exception(f"Error creating symlink from {source_dir} to {target_dir}")

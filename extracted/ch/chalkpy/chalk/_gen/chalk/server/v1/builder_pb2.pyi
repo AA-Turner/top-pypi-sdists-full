@@ -553,10 +553,16 @@ class ClusterTimescaleSpecs(_message.Message):
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
-    __slots__ = ("cluster_timescale_id",)
+    __slots__ = ("cluster_timescale_id", "specs")
     CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
     cluster_timescale_id: str
-    def __init__(self, cluster_timescale_id: _Optional[str] = ...) -> None: ...
+    specs: ClusterTimescaleSpecs
+    def __init__(
+        self,
+        cluster_timescale_id: _Optional[str] = ...,
+        specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...,
+    ) -> None: ...
 
 class MigrateClusterTimescaleDBRequest(_message.Message):
     __slots__ = ("cluster_timescale_id", "migration_image", "environment_ids")
@@ -1360,6 +1366,26 @@ class GetKarpenterInstallationMetadataResponse(_message.Message):
     DEPLOYMENT_LABELS_FIELD_NUMBER: _ClassVar[int]
     deployment_labels: _containers.ScalarMap[str, str]
     def __init__(self, deployment_labels: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class CreateEnvironmentCloudResourcesRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class CreateEnvironmentCloudResourcesResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteEnvironmentCloudResourcesRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class DeleteEnvironmentCloudResourcesResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class DeploymentTag(_message.Message):
     __slots__ = ("tag", "weight", "deployment_id", "mirror_weight")

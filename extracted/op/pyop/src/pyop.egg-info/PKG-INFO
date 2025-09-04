@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyop
-Version: 3.4.1
+Version: 3.4.2
 Summary: OpenID Connect Provider (OP) library in Python.
 Home-page: https://github.com/IdentityPython/pyop
 Author: Rebecka Gulliksson

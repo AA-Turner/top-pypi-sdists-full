@@ -36,6 +36,7 @@ import bigframes
 import bigframes.dataframe
 import bigframes.dtypes
 import bigframes.ml.linear_model
+import bigframes.session.execution_spec
 from bigframes.testing import utils
 
 all_write_engines = pytest.mark.parametrize(
@@ -113,7 +114,10 @@ def test_read_gbq_tokyo(
 
     # use_explicit_destination=True, otherwise might use path with no query_job
     exec_result = session_tokyo._executor.execute(
-        df._block.expr, use_explicit_destination=True
+        df._block.expr,
+        bigframes.session.execution_spec.ExecutionSpec(
+            bigframes.session.execution_spec.CacheSpec(()), promise_under_10gb=False
+        ),
     )
     assert exec_result.query_job is not None
     assert exec_result.query_job.location == tokyo_location
@@ -619,7 +623,7 @@ def test_read_gbq_wildcard(
         pytest.param(
             {"query": {"useQueryCache": False, "maximumBytesBilled": "100"}},
             marks=pytest.mark.xfail(
-                raises=google.api_core.exceptions.InternalServerError,
+                raises=google.api_core.exceptions.BadRequest,
                 reason="Expected failure when the query exceeds the maximum bytes billed limit.",
             ),
         ),
@@ -896,7 +900,10 @@ def test_read_pandas_tokyo(
     expected = scalars_pandas_df_index
 
     result = session_tokyo._executor.execute(
-        df._block.expr, use_explicit_destination=True
+        df._block.expr,
+        bigframes.session.execution_spec.ExecutionSpec(
+            bigframes.session.execution_spec.CacheSpec(()), promise_under_10gb=False
+        ),
     )
     assert result.query_job is not None
     assert result.query_job.location == tokyo_location
@@ -1285,6 +1292,32 @@ def test_read_csv_raises_error_for_invalid_index_col(
         match=error_msg,
     ):
         session.read_csv(path, engine="bigquery", index_col=index_col)
+
+
+def test_read_csv_for_gcs_wildcard_path(session, df_and_gcs_csv):
+    scalars_pandas_df, path = df_and_gcs_csv
+    path = path.replace(".csv", "*.csv")
+
+    index_col = "rowindex"
+    bf_df = session.read_csv(path, engine="bigquery", index_col=index_col)
+
+    # Convert default pandas dtypes to match BigQuery DataFrames dtypes.
+    # Also, `expand=True` is needed to read from wildcard paths. See details:
+    # https://github.com/fsspec/gcsfs/issues/616,
+    if not pd.__version__.startswith("1."):
+        storage_options = {"expand": True}
+    else:
+        storage_options = None
+    pd_df = session.read_csv(
+        path,
+        index_col=index_col,
+        dtype=scalars_pandas_df.dtypes.to_dict(),
+        storage_options=storage_options,
+    )
+
+    assert bf_df.shape == pd_df.shape
+    assert bf_df.columns.tolist() == pd_df.columns.tolist()
+    pd.testing.assert_frame_equal(bf_df.to_pandas(), pd_df.to_pandas())
 
 
 def test_read_csv_for_names(session, df_and_gcs_csv_for_two_columns):

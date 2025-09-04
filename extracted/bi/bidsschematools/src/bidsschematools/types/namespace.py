@@ -276,7 +276,10 @@ def _read_yaml_dir(path: Path) -> dict:
         elif subpath.name.endswith("yaml"):
             import yaml
 
-            mapping[subpath.stem] = yaml.safe_load(subpath.read_text())
+            try:
+                mapping[subpath.stem] = yaml.safe_load(subpath.read_text())
+            except Exception as e:
+                raise ValueError(f"There was an error reading the file: {subpath}") from e
     return mapping
 
 

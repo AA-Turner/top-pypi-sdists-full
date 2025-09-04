@@ -28,10 +28,9 @@
 import logging
 import struct
 from time import time
-from typing import Optional
 
 from yubikit.core.smartcard import SW, ApduError
-from yubikit.oath import OATH_TYPE, Credential, OathSession
+from yubikit.oath import OATH_TYPE, Credential, CredentialData, OathSession
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +43,13 @@ def is_hidden(credential: Credential) -> bool:
     return credential.issuer == "_hidden"
 
 
-def is_steam(credential: Credential) -> bool:
+def is_steam(credential: Credential | CredentialData) -> bool:
     """Check if OATH credential is steam."""
     return credential.oath_type == OATH_TYPE.TOTP and credential.issuer == "Steam"
 
 
 def calculate_steam(
-    app: OathSession, credential: Credential, timestamp: Optional[int] = None
+    app: OathSession, credential: Credential, timestamp: int | None = None
 ) -> str:
     """Calculate steam codes."""
     timestamp = int(timestamp or time())

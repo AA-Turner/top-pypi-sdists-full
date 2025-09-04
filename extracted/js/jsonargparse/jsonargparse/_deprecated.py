@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Optional, Set
 from ._common import Action, null_logger
 from ._common import LoggerProperty as InternalLoggerProperty
 from ._namespace import Namespace
-from ._type_checking import ArgumentParser
+from ._type_checking import ArgumentParser, ruamelCommentedMap
 
 __all__ = [
     "ActionEnum",
@@ -22,7 +22,9 @@ __all__ = [
     "ActionOperators",
     "ActionPath",
     "ActionPathList",
+    "HelpFormatterDeprecations",
     "LoggerProperty",
+    "ParserDeprecations",
     "ParserError",
     "get_config_read_mode",
     "namespace_to_dict",
@@ -167,29 +169,6 @@ def parse_as_dict_patch():
 
     ArgumentParser._unpatched_save = ArgumentParser.save
     ArgumentParser.save = patched_save
-
-
-@deprecated(
-    """
-    instantiate_subclasses was deprecated in v4.0.0 and will be removed in v5.0.0.
-"""
-)
-def instantiate_subclasses(self, cfg: Namespace) -> Namespace:
-    """Calls instantiate_classes with instantiate_groups=False.
-
-    Args:
-        cfg: The configuration object to use.
-
-    Returns:
-        A configuration object with all subclasses instantiated.
-    """
-    return self.instantiate_classes(cfg, instantiate_groups=False)
-
-
-def instantiate_subclasses_patch():
-    from ._core import ArgumentParser
-
-    ArgumentParser.instantiate_subclasses = instantiate_subclasses
 
 
 @deprecated(
@@ -462,6 +441,8 @@ path_immutable_attrs_message = """
 
 
 class PathDeprecations:
+    """Deprecated methods for Path."""
+
     @property
     def rel_path(self):
         deprecation_warning("Path attr get", path_immutable_attrs_message)
@@ -548,11 +529,14 @@ def deprecation_warning_error_handler(stacklevel):
 
 
 class ParserDeprecations:
+    """Helper class for ArgumentParser deprecations. Will be removed in v5.0.0."""
+
     def __init__(self, *args, error_handler=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.error_handler = error_handler
 
     @property
+    @deprecated("error_handler property is deprecated and will be removed in v5.0.0.")
     def error_handler(self) -> Optional[Callable[[ArgumentParser, str], None]]:
         """Property for the error_handler function that is called when there are parsing errors.
 
@@ -576,6 +560,15 @@ class ParserDeprecations:
             self._error_handler = error_handler
         else:
             raise ValueError("error_handler can be either a Callable or None.")
+
+    @deprecated(
+        """
+        instantiate_subclasses was deprecated in v4.0.0 and will be removed in v5.0.0.
+        Instead use instantiate_classes.
+    """
+    )
+    def instantiate_subclasses(self, cfg: Namespace) -> Namespace:
+        return self.instantiate_classes(cfg, instantiate_groups=False)  # type: ignore[attr-defined]
 
     @deprecated(
         """
@@ -701,3 +694,52 @@ class LoggerProperty(InternalLoggerProperty):
 def namespace_to_dict(namespace: Namespace) -> Dict[str, Any]:
     """Returns a copy of a nested namespace converted into a nested dictionary."""
     return namespace.clone().as_dict()
+
+
+class HelpFormatterDeprecations:
+    """Helper class for DefaultHelpFormatter deprecations. Will be removed in v5.0.0."""
+
+    def __init__(self, *args, **kwargs):
+        from jsonargparse._formatters import YAMLCommentFormatter
+
+        super().__init__(*args, **kwargs)
+        self._yaml_formatter = YAMLCommentFormatter(self)
+
+    @deprecated("The add_yaml_comments method is deprecated and will be removed in v5.0.0.")
+    def add_yaml_comments(self, cfg: str) -> str:
+        """Adds help text as yaml comments."""
+        return self._yaml_formatter.add_yaml_comments(cfg)
+
+    @deprecated("The set_yaml_start_comment method is deprecated and will be removed in v5.0.0.")
+    def set_yaml_start_comment(self, text: str, cfg: ruamelCommentedMap):
+        """Sets the start comment to a ruamel.yaml object.
+
+        Args:
+            text: The content to use for the comment.
+            cfg: The ruamel.yaml object.
+        """
+        self._yaml_formatter.set_yaml_start_comment(text, cfg)
+
+    @deprecated("The set_yaml_group_comment method is deprecated and will be removed in v5.0.0.")
+    def set_yaml_group_comment(self, text: str, cfg: ruamelCommentedMap, key: str, depth: int):
+        """Sets the comment for a group to a ruamel.yaml object.
+
+        Args:
+            text: The content to use for the comment.
+            cfg: The parent ruamel.yaml object.
+            key: The key of the group.
+            depth: The nested level of the group.
+        """
+        self._yaml_formatter.set_yaml_group_comment(text, cfg, key, depth)
+
+    @deprecated("The set_yaml_argument_comment method is deprecated and will be removed in v5.0.0.")
+    def set_yaml_argument_comment(self, text: str, cfg: ruamelCommentedMap, key: str, depth: int):
+        """Sets the comment for an argument to a ruamel.yaml object.
+
+        Args:
+            text: The content to use for the comment.
+            cfg: The parent ruamel.yaml object.
+            key: The key of the argument.
+            depth: The nested level of the argument.
+        """
+        self._yaml_formatter.set_yaml_argument_comment(text, cfg, key, depth)

@@ -31,6 +31,9 @@ class PayoutResponse(ResponseObject):
     __created_at = None
     """Время создания выплаты. Указывается по [UTC](https://ru.wikipedia.org/wiki/Всемирное_координированное_время) и передается в формате [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601). Пример: ~`2017-11-03T11:52:31.827Z` """  # noqa: E501
 
+    __succeeded_at = None
+    """Время успешного проведения выплаты. Указывается по [UTC](https://ru.wikipedia.org/wiki/Всемирное_координированное_время) и передается в формате [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601). Пример: ~`2017-11-03T11:52:42.312Z`  Обязательный параметр для выплат в статусе ~`succeeded`. """  # noqa: E501
+
     __deal = None
     """Сделка, в рамках которой нужно провести выплату."""  # noqa: E501
 
@@ -170,6 +173,24 @@ class PayoutResponse(ResponseObject):
         :type value: datetime
         """
         self.__created_at = value
+
+    @property
+    def succeeded_at(self):
+        """Возвращает succeeded_at модели PayoutResponse.
+
+        :return: succeeded_at модели PayoutResponse.
+        :rtype: datetime
+        """
+        return self.__succeeded_at
+
+    @succeeded_at.setter
+    def succeeded_at(self, value):
+        """Устанавливает succeeded_at модели PayoutResponse.
+
+        :param value: succeeded_at модели PayoutResponse.
+        :type value: datetime
+        """
+        self.__succeeded_at = value
 
     @property
     def deal(self):

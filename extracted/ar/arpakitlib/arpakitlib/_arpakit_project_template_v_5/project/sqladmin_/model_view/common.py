@@ -8,6 +8,8 @@ from openpyxl import Workbook
 from sqladmin import ModelView
 
 from arpakitlib.ar_datetime_util import now_utc_dt
+from project.sqladmin_.util.etc import format_json_for_preview_, format_datetime_, format_json_
+from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
 
 
 class SimpleMV(ModelView):
@@ -22,6 +24,57 @@ class SimpleMV(ModelView):
     save_as_continue = True
     export_types = ["xlsx"]
     form_include_pk = True
+
+    column_default_sort = [
+        (SimpleDBM.ColumnNames.creation_dt, True)
+    ]
+
+    @classmethod
+    def get_default_column_searchable_list(cls) -> list[str]:
+        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
+        return [SimpleDBM.ColumnNames.id, SimpleDBM.ColumnNames.long_id, SimpleDBM.ColumnNames.uuid]
+
+    @classmethod
+    def get_default_column_list(cls) -> list[str]:
+        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
+        return SimpleDBM.get_mapped_column_names()
+
+    @classmethod
+    def get_default_column_details_list(cls) -> list[str]:
+        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
+        return SimpleDBM.get_mapped_column_names()
+
+    @classmethod
+    def get_default_form_columns(cls) -> list[str]:
+        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
+        res = SimpleDBM.get_mapped_column_names()
+        if SimpleDBM.ColumnNames.id in res:
+            res.remove(SimpleDBM.ColumnNames.id)
+        if SimpleDBM.ColumnNames.long_id in res:
+            res.remove(SimpleDBM.ColumnNames.long_id)
+        if SimpleDBM.ColumnNames.uuid in res:
+            res.remove(SimpleDBM.ColumnNames.uuid)
+        if SimpleDBM.ColumnNames.slug in res:
+            res.remove(SimpleDBM.ColumnNames.slug)
+        if SimpleDBM.ColumnNames.creation_dt in res:
+            res.remove(SimpleDBM.ColumnNames.creation_dt)
+        return res
+
+    @classmethod
+    def get_default_column_formatters(cls) -> dict[Any, Any]:
+        return {
+            SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+            SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_for_preview_(m.detail_data),
+            SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
+        }
+
+    @classmethod
+    def get_default_column_formatters_detail(cls) -> dict[Any, Any]:
+        return {
+            SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+            SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_(m.detail_data),
+            SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_(m.extra_data),
+        }
 
     async def export_data(
             self,

@@ -392,14 +392,14 @@ async def collect_graphs_from_env(register: bool = False) -> None:
 
         if (
             config.HTTP_CONFIG
-            and config.HTTP_CONFIG.get("app")
-            and is_js_path(config.HTTP_CONFIG.get("app").split(":")[0])
+            and (js_app := config.HTTP_CONFIG.get("app"))
+            and is_js_path(js_app.split(":")[0])
         ):
             js_bg_tasks.add(
                 asyncio.create_task(
                     run_js_http_process(
                         paths_str,
-                        config.HTTP_CONFIG.get("app"),
+                        config.HTTP_CONFIG or {},
                         watch="--reload" in sys.argv[1:],
                     ),
                 )

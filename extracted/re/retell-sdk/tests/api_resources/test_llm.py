@@ -38,8 +38,12 @@ class TestLlm:
                     "description": "End the call with user.",
                 }
             ],
+            kb_config={
+                "filter_score": 0.6,
+                "top_k": 3,
+            },
             knowledge_base_ids=["string"],
-            model="gpt-4o",
+            model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
@@ -65,6 +69,7 @@ class TestLlm:
                             "transfer_destination": {
                                 "number": "16175551212",
                                 "type": "predefined",
+                                "extension": "123*456#",
                             },
                             "transfer_option": {
                                 "type": "cold_transfer",
@@ -195,8 +200,12 @@ class TestLlm:
                     "description": "End the call with user.",
                 }
             ],
+            kb_config={
+                "filter_score": 0.6,
+                "top_k": 3,
+            },
             knowledge_base_ids=["string"],
-            model="gpt-4o",
+            model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
@@ -222,6 +231,7 @@ class TestLlm:
                             "transfer_destination": {
                                 "number": "16175551212",
                                 "type": "predefined",
+                                "extension": "123*456#",
                             },
                             "transfer_option": {
                                 "type": "cold_transfer",
@@ -391,8 +401,12 @@ class TestAsyncLlm:
                     "description": "End the call with user.",
                 }
             ],
+            kb_config={
+                "filter_score": 0.6,
+                "top_k": 3,
+            },
             knowledge_base_ids=["string"],
-            model="gpt-4o",
+            model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
@@ -418,6 +432,7 @@ class TestAsyncLlm:
                             "transfer_destination": {
                                 "number": "16175551212",
                                 "type": "predefined",
+                                "extension": "123*456#",
                             },
                             "transfer_option": {
                                 "type": "cold_transfer",
@@ -548,8 +563,12 @@ class TestAsyncLlm:
                     "description": "End the call with user.",
                 }
             ],
+            kb_config={
+                "filter_score": 0.6,
+                "top_k": 3,
+            },
             knowledge_base_ids=["string"],
-            model="gpt-4o",
+            model="gpt-4.1",
             model_high_priority=True,
             model_temperature=0,
             s2s_model="gpt-4o-realtime",
@@ -575,6 +594,7 @@ class TestAsyncLlm:
                             "transfer_destination": {
                                 "number": "16175551212",
                                 "type": "predefined",
+                                "extension": "123*456#",
                             },
                             "transfer_option": {
                                 "type": "cold_transfer",

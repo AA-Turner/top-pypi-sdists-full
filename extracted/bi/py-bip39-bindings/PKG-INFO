@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: py-bip39-bindings
-Version: 0.2.0
+Version: 0.3.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -13,11 +12,9 @@ Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
 Summary: Python bindings for tiny-bip39 RUST crate
 Home-Page: https://github.com/polkascan/py-bip39-bindings
-Author: Polkascan Foundation
-Author-email: info@polkascan.org
-Maintainer-email: Polkascan Foundation <info@polkascan.org>
-License: Apache-2.0
-Requires-Python: >=3.8
+Author-email: JAMdot Technologies <devops@jamdot.tech>
+Maintainer-email: JAMdot Technologies <devops@jamdot.tech>
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: homepage, https://github.com/polkascan/py-bip39-bindings
 Project-URL: repository, https://github.com/polkascan/py-bip39-bindings

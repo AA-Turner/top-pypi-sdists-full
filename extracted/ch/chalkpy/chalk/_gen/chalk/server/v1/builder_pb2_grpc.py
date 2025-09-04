@@ -100,6 +100,16 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.FromString,
         )
+        self.CreateEnvironmentCloudResources = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/CreateEnvironmentCloudResources",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesResponse.FromString,
+        )
+        self.DeleteEnvironmentCloudResources = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteEnvironmentCloudResources",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesResponse.FromString,
+        )
         self.MigrateClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/MigrateClusterTimescaleDB",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBRequest.SerializeToString,
@@ -308,6 +318,18 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateEnvironmentCloudResources(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteEnvironmentCloudResources(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def MigrateClusterTimescaleDB(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -509,6 +531,16 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.DeleteClusterTimescaleDB,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.SerializeToString,
+        ),
+        "CreateEnvironmentCloudResources": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateEnvironmentCloudResources,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesResponse.SerializeToString,
+        ),
+        "DeleteEnvironmentCloudResources": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteEnvironmentCloudResources,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesResponse.SerializeToString,
         ),
         "MigrateClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.MigrateClusterTimescaleDB,
@@ -1097,6 +1129,64 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/DeleteClusterTimescaleDB",
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateEnvironmentCloudResources(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/CreateEnvironmentCloudResources",
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateEnvironmentCloudResourcesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteEnvironmentCloudResources(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteEnvironmentCloudResources",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteEnvironmentCloudResourcesResponse.FromString,
             options,
             channel_credentials,
             insecure,

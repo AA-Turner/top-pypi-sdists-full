@@ -18,6 +18,7 @@ bytes = { workspace = true }
 pyo3 = { workspace = true, features = [] }
 
 [features]
+default = []
 multiple-pymethods = ["pyo3/multiple-pymethods"]
 
 [lints]

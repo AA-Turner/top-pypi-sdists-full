@@ -66,8 +66,16 @@ class OfflineQueryInputSharded(_message.Message):
     inputs: _containers.RepeatedCompositeFieldContainer[OfflineQueryInput]
     def __init__(self, inputs: _Optional[_Iterable[_Union[OfflineQueryInput, _Mapping]]] = ...) -> None: ...
 
+class OfflineQueryShardedParquetUploadInput(_message.Message):
+    __slots__ = ("filenames", "version")
+    FILENAMES_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    filenames: _containers.RepeatedScalarFieldContainer[str]
+    version: int
+    def __init__(self, filenames: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ...) -> None: ...
+
 class OfflineQueryInputs(_message.Message):
-    __slots__ = ("feather_inputs", "no_inputs", "single_inputs", "sharded_inputs")
+    __slots__ = ("feather_inputs", "no_inputs", "single_inputs", "sharded_inputs", "sharded_parquet_upload_inputs")
     class NoInputs(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
@@ -76,16 +84,19 @@ class OfflineQueryInputs(_message.Message):
     NO_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SINGLE_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SHARDED_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    SHARDED_PARQUET_UPLOAD_INPUTS_FIELD_NUMBER: _ClassVar[int]
     feather_inputs: bytes
     no_inputs: OfflineQueryInputs.NoInputs
     single_inputs: OfflineQueryInput
     sharded_inputs: OfflineQueryInputSharded
+    sharded_parquet_upload_inputs: OfflineQueryShardedParquetUploadInput
     def __init__(
         self,
         feather_inputs: _Optional[bytes] = ...,
         no_inputs: _Optional[_Union[OfflineQueryInputs.NoInputs, _Mapping]] = ...,
         single_inputs: _Optional[_Union[OfflineQueryInput, _Mapping]] = ...,
         sharded_inputs: _Optional[_Union[OfflineQueryInputSharded, _Mapping]] = ...,
+        sharded_parquet_upload_inputs: _Optional[_Union[OfflineQueryShardedParquetUploadInput, _Mapping]] = ...,
     ) -> None: ...
 
 class OfflineQueryRequest(_message.Message):

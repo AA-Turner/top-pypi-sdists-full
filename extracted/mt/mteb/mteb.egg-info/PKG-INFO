@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.52
+Version: 1.38.53
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -297,6 +297,9 @@ Requires-Dist: volcengine-python-sdk[ark]==3.0.2; extra == "ark"
 Requires-Dist: tiktoken>=0.8.0; extra == "ark"
 Provides-Extra: colpali-engine
 Requires-Dist: colpali_engine>=0.3.12; extra == "colpali-engine"
+Provides-Extra: youtu
+Requires-Dist: tencentcloud-sdk-python-common>=3.0.1454; extra == "youtu"
+Requires-Dist: tencentcloud-sdk-python-lkeap>=3.0.1451; extra == "youtu"
 Dynamic: license-file
 
 <h1 align="center">Massive Text Embedding Benchmark</h1>

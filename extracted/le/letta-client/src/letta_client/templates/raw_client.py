@@ -8,11 +8,13 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.not_found_error import NotFoundError
 from ..types.conflict_error_body import ConflictErrorBody
+from .types.templates_create_template_request import TemplatesCreateTemplateRequest
 from .types.templates_create_template_response import TemplatesCreateTemplateResponse
 from .types.templates_delete_template_response import TemplatesDeleteTemplateResponse
 from .types.templates_fork_template_response import TemplatesForkTemplateResponse
@@ -22,6 +24,7 @@ from .types.templates_list_response import TemplatesListResponse
 from .types.templates_list_template_versions_response import TemplatesListTemplateVersionsResponse
 from .types.templates_rename_template_response import TemplatesRenameTemplateResponse
 from .types.templates_save_template_version_response import TemplatesSaveTemplateVersionResponse
+from .types.templates_update_template_description_response import TemplatesUpdateTemplateDescriptionResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -368,23 +371,18 @@ class RawTemplatesClient:
         self,
         project: str,
         *,
-        agent_id: str,
-        name: typing.Optional[str] = OMIT,
+        request: TemplatesCreateTemplateRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TemplatesCreateTemplateResponse]:
         """
-        Creates a new template from an existing agent
+        Creates a new template from an existing agent or agent file
 
         Parameters
         ----------
         project : str
             The project slug
 
-        agent_id : str
-            The ID of the agent to use as a template, can be from any project
-
-        name : typing.Optional[str]
-            Optional custom name for the template. If not provided, a random name will be generated.
+        request : TemplatesCreateTemplateRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -397,11 +395,9 @@ class RawTemplatesClient:
         _response = self._client_wrapper.httpx_client.request(
             f"v1/templates/{jsonable_encoder(project)}",
             method="POST",
-            json={
-                "agent_id": agent_id,
-                "name": name,
-                "type": "agent",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=TemplatesCreateTemplateRequest, direction="write"
+            ),
             headers={
                 "content-type": "application/json",
             },
@@ -515,6 +511,85 @@ class RawTemplatesClient:
                         ConflictErrorBody,
                         construct_type(
                             type_=ConflictErrorBody,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def updatetemplatedescription(
+        self,
+        project: str,
+        template_name: str,
+        *,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[TemplatesUpdateTemplateDescriptionResponse]:
+        """
+        Updates the description for all versions of a template with the specified name. Versions are automatically stripped from the current template name if accidentally included.
+
+        Parameters
+        ----------
+        project : str
+            The project slug
+
+        template_name : str
+            The template name (version will be automatically stripped if included)
+
+        description : typing.Optional[str]
+            The new description for the template
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[TemplatesUpdateTemplateDescriptionResponse]
+            200
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/templates/{jsonable_encoder(project)}/{jsonable_encoder(template_name)}/description",
+            method="PATCH",
+            json={
+                "description": description,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TemplatesUpdateTemplateDescriptionResponse,
+                    construct_type(
+                        type_=TemplatesUpdateTemplateDescriptionResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        construct_type(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        construct_type(
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -933,23 +1008,18 @@ class AsyncRawTemplatesClient:
         self,
         project: str,
         *,
-        agent_id: str,
-        name: typing.Optional[str] = OMIT,
+        request: TemplatesCreateTemplateRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TemplatesCreateTemplateResponse]:
         """
-        Creates a new template from an existing agent
+        Creates a new template from an existing agent or agent file
 
         Parameters
         ----------
         project : str
             The project slug
 
-        agent_id : str
-            The ID of the agent to use as a template, can be from any project
-
-        name : typing.Optional[str]
-            Optional custom name for the template. If not provided, a random name will be generated.
+        request : TemplatesCreateTemplateRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -962,11 +1032,9 @@ class AsyncRawTemplatesClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"v1/templates/{jsonable_encoder(project)}",
             method="POST",
-            json={
-                "agent_id": agent_id,
-                "name": name,
-                "type": "agent",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=TemplatesCreateTemplateRequest, direction="write"
+            ),
             headers={
                 "content-type": "application/json",
             },
@@ -1080,6 +1148,85 @@ class AsyncRawTemplatesClient:
                         ConflictErrorBody,
                         construct_type(
                             type_=ConflictErrorBody,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def updatetemplatedescription(
+        self,
+        project: str,
+        template_name: str,
+        *,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[TemplatesUpdateTemplateDescriptionResponse]:
+        """
+        Updates the description for all versions of a template with the specified name. Versions are automatically stripped from the current template name if accidentally included.
+
+        Parameters
+        ----------
+        project : str
+            The project slug
+
+        template_name : str
+            The template name (version will be automatically stripped if included)
+
+        description : typing.Optional[str]
+            The new description for the template
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[TemplatesUpdateTemplateDescriptionResponse]
+            200
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/templates/{jsonable_encoder(project)}/{jsonable_encoder(template_name)}/description",
+            method="PATCH",
+            json={
+                "description": description,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TemplatesUpdateTemplateDescriptionResponse,
+                    construct_type(
+                        type_=TemplatesUpdateTemplateDescriptionResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        construct_type(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        construct_type(
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

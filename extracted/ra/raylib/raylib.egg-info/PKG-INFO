@@ -1,12 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: raylib
-Version: 5.5.0.2
+Version: 5.5.0.3
 Summary: Python CFFI bindings for Raylib
 Home-page: https://github.com/electronstudio/raylib-python-cffi
 Author: Electron Studio
 Author-email: github@electronstudio.co.uk
-License: EPL-2.0
-Classifier: License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
@@ -15,6 +13,15 @@ Classifier: Programming Language :: Python :: 3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cffi>=1.17.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # Python Bindings for Raylib 5.5
 ## Libraries: raymath, raygui, rlgl, physac and GLFW
@@ -23,7 +30,7 @@ Requires-Dist: cffi>=1.17.1
 
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/raylib)
 
-Chatroom: [Discord](https://discord.gg/fKDwt85aX6)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/raylib?period=total&units=NONE&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/raylib)
 
 HELP WANTED: [writing examples](https://github.com/electronstudio/raylib-python-cffi/issues/155)
 
@@ -37,12 +44,9 @@ original Raylib.
 * Docstrings and auto-completion.
 * Type checking with Mypy
 
-
-[Full documentation](http://electronstudio.github.io/raylib-python-cffi)
-
 # Quickstart
 
-`pip3 install raylib==5.5.0.0`
+`pip3 install raylib==5.5.0.3 --break-system-packages`
 ```python
 from pyray import *
 init_window(800, 450, "Hello")
@@ -54,16 +58,34 @@ while not window_should_close():
 close_window()
 ```
 
+# Links
+
+* [Tutorial video](https://www.youtube.com/watch?v=UoAsDlUwjy0&lc=UgxCR-tvnQJITZr2IvN4AaABAg)
+* [Full documentation](https://electronstudio.github.io/raylib-python-cffi)
+* [Imgui integration](https://github.com/Scr44gr/raylib-imgui)
+* [Examples](https://github.com/electronstudio/raylib-python-cffi/tree/master/examples)
+* [Blep's examples](https://github.com/blep/pyray_examples)
+* [Raylib Python Discord](https://discord.gg/fKDwt85aX6)
+* [Raylib General Discord](https://discord.com/invite/raylib)
+* [Python video player](https://github.com/anrayliu/pyvidplayer2)
+* [A Vector2 class](https://github.com/electronstudio/raylib-python-cffi/blob/master/examples/extra/vector2_extended.py)
+* [Raylib C FAQ](https://github.com/raysan5/raylib/wiki/Frequently-Asked-Questions/)
+
 # Installation
 
-First make sure you have the latest pip installed:
+If you are on a modern Linux you will probably want to create a venv:
+
+    python3 -m venv venv
+    source venv/bin/activate
+
+Then make sure you have the latest pip installed:
 
     python3 -m pip install --upgrade pip
 
 Then install
 
     python3 -m pip install setuptools
-    python3 -m pip install raylib==5.5.0.0
+    python3 -m pip install raylib==5.5.0.3
 
 On most platforms it should install a binary wheel.  If yours isn't available then pip will attempt to build from
 source, in which case you will need to have Raylib development libs installed, e.g. 
@@ -85,7 +107,7 @@ Older MacOS requires building from source but this is usually simple:
 
     brew install pkg-config
     brew install raylib
-    python3 -m pip install raylib==5.5.0.0
+    python3 -m pip install raylib==5.5.0.3
 
 (I do have binaries for arm64 MacOS 11, 12 and 13 but I have no way of testing they work, so post an issue
 if you want to test them.)
@@ -199,7 +221,7 @@ Point your browser to http://localhost:8000
 Some features may not work, so you can disable them like this:
 
 ```python
-if platform.system() != "Emscripten":  # audio does not work on current version of emscripten
+if platform.system() != "Emscripten":  # audio may not work on current version of emscripten
     init_audio_device()
 ```
 

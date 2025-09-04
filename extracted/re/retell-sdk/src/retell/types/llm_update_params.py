@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 
 __all__ = [
@@ -41,6 +42,7 @@ __all__ = [
     "GeneralToolSendSMSToolSMSContent",
     "GeneralToolSendSMSToolSMSContentSMSContentPredefined",
     "GeneralToolSendSMSToolSMSContentSMSContentInferred",
+    "KBConfig",
     "State",
     "StateEdge",
     "StateEdgeParameters",
@@ -116,7 +118,10 @@ class LlmUpdateParams(TypedDict, total=False):
     - Tools of LLM (no state) = general tools
     """
 
-    knowledge_base_ids: Optional[List[str]]
+    kb_config: Optional[KBConfig]
+    """Knowledge base configuration for RAG retrieval."""
+
+    knowledge_base_ids: Optional[SequenceNotStr[str]]
     """A list of knowledge base ids to use for this resource.
 
     Set to null to remove all knowledge bases.
@@ -124,6 +129,9 @@ class LlmUpdateParams(TypedDict, total=False):
 
     model: Optional[
         Literal[
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
@@ -133,9 +141,11 @@ class LlmUpdateParams(TypedDict, total=False):
             "claude-3.5-haiku",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ]
     ]
-    """Select the underlying text LLM. If not set, would default to gpt-4o."""
+    """Select the underlying text LLM. If not set, would default to gpt-4.1."""
 
     model_high_priority: bool
     """
@@ -152,7 +162,7 @@ class LlmUpdateParams(TypedDict, total=False):
     tool calling, a lower value is recommended.
     """
 
-    s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime"]]
+    s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]]
     """Select the underlying speech to speech model.
 
     Can only set this or model, not both.
@@ -210,6 +220,12 @@ class GeneralToolTransferCallToolTransferDestinationTransferDestinationPredefine
 
     type: Required[Literal["predefined"]]
     """The type of transfer destination."""
+
+    extension: str
+    """Extension digits to dial after the main number connects.
+
+    Sent via DTMF. Allow digits, '\\**', '#'.
+    """
 
 
 class GeneralToolTransferCallToolTransferDestinationTransferDestinationInferred(TypedDict, total=False):
@@ -469,7 +485,7 @@ class GeneralToolCustomToolParameters(TypedDict, total=False):
     type: Required[Literal["object"]]
     """Type must be "object" for a JSON Schema object."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of names of required property when generating this parameter.
 
     LLM will do its best to generate the required properties in its function
@@ -564,12 +580,12 @@ class GeneralToolExtractDynamicVariableToolVariableStringAnalysisData(TypedDict,
     type: Required[Literal["string"]]
     """Type of the variable to extract."""
 
-    examples: List[str]
+    examples: SequenceNotStr[str]
     """Examples of the variable value to teach model the style and syntax."""
 
 
 class GeneralToolExtractDynamicVariableToolVariableEnumAnalysisData(TypedDict, total=False):
-    choices: Required[List[str]]
+    choices: Required[SequenceNotStr[str]]
     """The possible values of the variable, must be non empty array."""
 
     description: Required[str]
@@ -675,11 +691,37 @@ class GeneralToolMcpTool(TypedDict, total=False):
 
     type: Required[Literal["mcp"]]
 
-    input_schema: Dict[str, str]
-    """The input schema of the MCP tool."""
+    execution_message_description: str
+    """The description for the sentence agent say during execution.
+
+    Only applicable when speak_during_execution is true. Can write what to say or
+    even provide examples. The default is "The message you will say to callee when
+    calling this tool. Make sure it fits into the conversation smoothly.".
+    """
 
     mcp_id: str
     """Unique id of the MCP."""
+
+    response_variables: Dict[str, str]
+    """
+    Response variables to add to dynamic variables, key is the variable name, value
+    is the path to the variable in the response
+    """
+
+    speak_after_execution: bool
+    """
+    Determines whether the agent would call LLM another time and speak when the
+    result of function is obtained. Usually this needs to get turned on so user can
+    get update for the function call.
+    """
+
+    speak_during_execution: bool
+    """
+    Determines whether the agent would say sentence like "One moment, let me check
+    that." when executing the function. Recommend to turn on if your function call
+    takes over 1s (including network) to complete, so that your agent remains
+    responsive.
+    """
 
 
 class GeneralToolSendSMSToolSMSContentSMSContentPredefined(TypedDict, total=False):
@@ -738,6 +780,14 @@ GeneralTool: TypeAlias = Union[
 ]
 
 
+class KBConfig(TypedDict, total=False):
+    filter_score: float
+    """Similarity threshold for filtering search results"""
+
+    top_k: int
+    """Max number of knowledge base chunks to retrieve"""
+
+
 class StateEdgeParameters(TypedDict, total=False):
     properties: Required[Dict[str, object]]
     """
@@ -748,7 +798,7 @@ class StateEdgeParameters(TypedDict, total=False):
     type: Required[Literal["object"]]
     """Type must be "object" for a JSON Schema object."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of names of required property when generating this parameter.
 
     LLM will do its best to generate the required properties in its function
@@ -809,6 +859,12 @@ class StateToolTransferCallToolTransferDestinationTransferDestinationPredefined(
 
     type: Required[Literal["predefined"]]
     """The type of transfer destination."""
+
+    extension: str
+    """Extension digits to dial after the main number connects.
+
+    Sent via DTMF. Allow digits, '\\**', '#'.
+    """
 
 
 class StateToolTransferCallToolTransferDestinationTransferDestinationInferred(TypedDict, total=False):
@@ -1068,7 +1124,7 @@ class StateToolCustomToolParameters(TypedDict, total=False):
     type: Required[Literal["object"]]
     """Type must be "object" for a JSON Schema object."""
 
-    required: List[str]
+    required: SequenceNotStr[str]
     """List of names of required property when generating this parameter.
 
     LLM will do its best to generate the required properties in its function
@@ -1163,12 +1219,12 @@ class StateToolExtractDynamicVariableToolVariableStringAnalysisData(TypedDict, t
     type: Required[Literal["string"]]
     """Type of the variable to extract."""
 
-    examples: List[str]
+    examples: SequenceNotStr[str]
     """Examples of the variable value to teach model the style and syntax."""
 
 
 class StateToolExtractDynamicVariableToolVariableEnumAnalysisData(TypedDict, total=False):
-    choices: Required[List[str]]
+    choices: Required[SequenceNotStr[str]]
     """The possible values of the variable, must be non empty array."""
 
     description: Required[str]
@@ -1274,11 +1330,37 @@ class StateToolMcpTool(TypedDict, total=False):
 
     type: Required[Literal["mcp"]]
 
-    input_schema: Dict[str, str]
-    """The input schema of the MCP tool."""
+    execution_message_description: str
+    """The description for the sentence agent say during execution.
+
+    Only applicable when speak_during_execution is true. Can write what to say or
+    even provide examples. The default is "The message you will say to callee when
+    calling this tool. Make sure it fits into the conversation smoothly.".
+    """
 
     mcp_id: str
     """Unique id of the MCP."""
+
+    response_variables: Dict[str, str]
+    """
+    Response variables to add to dynamic variables, key is the variable name, value
+    is the path to the variable in the response
+    """
+
+    speak_after_execution: bool
+    """
+    Determines whether the agent would call LLM another time and speak when the
+    result of function is obtained. Usually this needs to get turned on so user can
+    get update for the function call.
+    """
+
+    speak_during_execution: bool
+    """
+    Determines whether the agent would say sentence like "One moment, let me check
+    that." when executing the function. Recommend to turn on if your function call
+    takes over 1s (including network) to complete, so that your agent remains
+    responsive.
+    """
 
 
 class StateToolSendSMSToolSMSContentSMSContentPredefined(TypedDict, total=False):

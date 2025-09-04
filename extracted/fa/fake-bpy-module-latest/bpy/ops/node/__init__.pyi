@@ -2311,7 +2311,7 @@ def viewer_shortcut_get(
     *,
     viewer_index: int | None = 0,
 ) -> None:
-    """Activate a specific compositor viewer node using 1,2,..,9 keys
+    """Activate a specific viewer node using 1,2,..,9 keys
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -2326,7 +2326,7 @@ def viewer_shortcut_set(
     *,
     viewer_index: int | None = 0,
 ) -> None:
-    """Create a compositor viewer shortcut for the selected node by pressing ctrl+1,2,..9
+    """Create a viewer shortcut for the selected node by pressing ctrl+1,2,..9
 
     :type execution_context: int | str | None
     :type undo: bool | None

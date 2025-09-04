@@ -130,9 +130,18 @@ class OrderedAndRecieved(BASE,Template):
     dairy_fluid_thrown=Column(Boolean,default=False)
     dairy_fluid_dropped=Column(Boolean,default=False)
     dairy_crated_fluids_thrown=Column(Boolean,default=False)
+    dairy_cmt=Column(String,default='')
 
+    was_frozen_assisted=Column(Boolean,default=False)
+    frozne_load_thrown=Column(Boolean,default=False)
+    frozne_load_dropped=Column(Boolean,default=False)
+    frozne_load_broken=Column(Boolean,default=False) 
+    frozen_old_load_broken=Column(Boolean,default=False)
+    frozen_old_load_broken=Column(Boolean,default=False)
+    frozen_old_load_cmt=Column(String,default='')
     sixteen_lb_ice_thrown=Column(Boolean,default=False)
     nine_lb_ice_thrown=Column(Boolean,default=False)
+    frozen_cmt=Column(String,default='')
 
     empty_pallets_exported=Column(Integer,default=0)
     crate_pallets_exported=Column(Integer,default=0)
@@ -166,6 +175,12 @@ class OrderedAndRecieved(BASE,Template):
     DT_to_lunch=Column(DateTime,default=None)
     DT_from_lunch=Column(DateTime,default=None)
     DT_punched_out=Column(DateTime,default=None)
+
+    assisted_deli=Column(Boolean,default=False)
+    assisted_deli_with=Column(String,default='')
+
+
+
 
     comment=Column(String,default='')
     
@@ -214,6 +229,9 @@ class OrderAndRxdUi():
                         pass
                 else:
                     filte.append(getattr(OrderedAndRecieved,k)==src_dict[k])
+        #uncomment these to troubleshoot
+        #print('x3',and_(*filte))
+        #print('x4')
         return and_(*filte)
 
     def OrderedAndRecieved_as(self,_exlcudes=[],as_=None,item=None):
@@ -301,7 +319,7 @@ class OrderAndRxdUi():
 
         if terms is not None:
             with Session(ENGINE) as session:
-                query=session.query(OrderedAndRecieved).filter(*terms)
+                query=session.query(OrderedAndRecieved).filter(terms)
                 query=orderQuery(query,OrderedAndRecieved.dtoe)
                 results=query.all()
                 ct=len(results)

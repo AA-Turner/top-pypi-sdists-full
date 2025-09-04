@@ -6,27 +6,44 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.02 20:00:00                  #
+# Updated Date: 2025.09.02 15:00:00                  #
 # ================================================== #
 
 import datetime
+import os
+import bisect
 from collections import deque
 
-from PySide6.QtCore import Qt, QPoint, QRect, QSize
+from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QSize, QSaveFile, QIODevice, QTimer, Signal
 from PySide6.QtGui import QImage, QPainter, QPen, QAction, QIcon, QColor, QCursor
-from PySide6.QtWidgets import QMenu, QWidget, QFileDialog, QMessageBox, QApplication
+from PySide6.QtWidgets import QMenu, QWidget, QFileDialog, QMessageBox, QApplication, QAbstractScrollArea
 
 from pygpt_net.core.tabs.tab import Tab
 from pygpt_net.utils import trans
 
 
 class PainterWidget(QWidget):
+    # Emitted whenever zoom changes; payload is zoom factor (e.g. 1.0 for 100%)
+    zoomChanged = Signal(float)
+
     def __init__(self, window=None):
         super().__init__(window)
         self.window = window
 
+        # Logical canvas size (in pixels). Rendering buffers follow this, never the display size.
+        w0 = max(1, self.width())
+        h0 = max(1, self.height())
+        self._canvasSize = QSize(w0, h0)
+
+        # Zoom state (pure view transform; does not affect canvas resolution)
+        self.zoom = 1.0
+        self._minZoom = 0.10    # 10%
+        self._maxZoom = 10.0    # 1000%
+        self._zoomSteps = [0.10, 0.25, 0.50, 0.75, 1.00, 1.50, 2.00, 5.00, 10.00]
+        self._zoomResizeInProgress = False  # guard used during display-size updates caused by zoom
+
         # Final composited image (canvas-sized). Kept for API compatibility.
-        self.image = QImage(self.size(), QImage.Format_RGB32)
+        self.image = QImage(self._canvasSize, QImage.Format_RGB32)
 
         # Layered model:
         # - sourceImageOriginal: original background image (full quality, not canvas-sized).
@@ -43,10 +60,10 @@ class PainterWidget(QWidget):
         self.brushSize = 3
         self.brushColor = Qt.black
         self._mode = "brush"  # "brush" or "erase"
-        self.lastPoint = QPoint()
+        self.lastPointCanvas = QPoint()
         self._pen = QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
 
-        # Crop tool state
+        # Crop tool state (selection kept in canvas coordinates)
         self.cropping = False
         self._selecting = False
         self._selectionStart = QPoint()
@@ -61,6 +78,7 @@ class PainterWidget(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
         self.installEventFilter(self)
+
         self.tab = None
 
         self.setAttribute(Qt.WA_OpaquePaintEvent, True)
@@ -69,6 +87,16 @@ class PainterWidget(QWidget):
         # Internal flags
         self._pendingResizeApply = None  # payload used after crop to apply exact pixels on resize
         self._ignoreResizeOnce = False   # guard to prevent recursive work in resize path
+
+        # Auto-scroll while cropping (scroll area integration)
+        self._scrollArea = None
+        self._scrollViewport = None
+        self._autoScrollTimer = QTimer(self)
+        self._autoScrollTimer.setInterval(16)  # ~60 FPS, low overhead
+        self._autoScrollTimer.timeout.connect(self._autoscroll_tick)
+        self._autoScrollMargin = 36            # px from viewport edge to trigger autoscroll
+        self._autoScrollMinSpeed = 2           # px per tick (min)
+        self._autoScrollMaxSpeed = 18          # px per tick (max)
 
         # Actions
         self._act_undo = QAction(QIcon(":/icons/undo.svg"), trans('action.undo'), self)
@@ -99,12 +127,18 @@ class PainterWidget(QWidget):
         self._act_crop = QAction(QIcon(":/icons/crop.svg"), trans('painter.btn.crop') if trans('painter.btn.crop') else "Crop", self)
         self._act_crop.triggered.connect(self.start_crop)
 
+        # Fit action (trims letterbox and resizes canvas to the scaled image area)
+        self._act_fit = QAction(QIcon(":/icons/resize.svg"), trans('painter.btn.fit') if trans('painter.btn.fit') else "Fit", self)
+        self._act_fit.triggered.connect(self.action_fit)
+
         # Context menu
         self._ctx_menu = QMenu(self)
         self._ctx_menu.addAction(self._act_undo)
         self._ctx_menu.addAction(self._act_redo)
         self._ctx_menu.addSeparator()
         self._ctx_menu.addAction(self._act_crop)
+        self._ctx_menu.addAction(self._act_fit)
+        self._ctx_menu.addSeparator()
         self._ctx_menu.addSeparator()
         self._ctx_menu.addAction(self._act_open)
         self._ctx_menu.addAction(self._act_capture)
@@ -112,6 +146,12 @@ class PainterWidget(QWidget):
         self._ctx_menu.addAction(self._act_paste)
         self._ctx_menu.addAction(self._act_save)
         self._ctx_menu.addAction(self._act_clear)
+
+        # Allocate initial buffers
+        self._ensure_layers()
+        self._recompose()
+        # Keep display size in sync with zoom (initially 1.0 => no change)
+        self._update_widget_size_from_zoom()
 
     def set_tab(self, tab: Tab):
         """
@@ -121,11 +161,235 @@ class PainterWidget(QWidget):
         """
         self.tab = tab
 
+    # ---------- Zoom public API ----------
+
+    def on_zoom_combo_changed(self, text: str):
+        """
+        Slot for a zoom ComboBox change. Accepts strings like "100%" or "150 %".
+
+        :param text: Text from the combo box
+        """
+        val = self._parse_percent(text)
+        if val is None:
+            return
+        # Use viewport center as anchor when changed from combobox
+        anchor = self._viewport_center_in_widget_coords()
+        self.set_zoom(val / 100.0, anchor_widget_pos=anchor)
+
+    def set_zoom_percent(self, percent: int):
+        """
+        Set zoom using percent value, e.g. 150 for 150%.
+
+        :param percent: Zoom in percent
+        """
+        anchor = self._viewport_center_in_widget_coords()
+        self.set_zoom(max(1, percent) / 100.0, anchor_widget_pos=anchor)
+
+    def get_zoom_percent(self) -> int:
+        """
+        Return current zoom as integer percent.
+
+        :return: Zoom in percent (e.g. 150 for 150%)
+        """
+        return int(round(self.zoom * 100.0))
+
+    def get_zoom_steps_percent(self) -> list[int]:
+        """
+        Return recommended preset zoom steps in percent for a combo-box.
+
+        :return: List of zoom steps in percent
+        """
+        return [int(round(z * 100)) for z in self._zoomSteps]
+
+    def set_zoom(self, zoom: float, anchor_widget_pos: QPointF | None = None, emit_signal: bool = True):
+        """
+        Set zoom to an absolute factor. View-only; does not touch canvas resolution.
+        anchor_widget_pos: QPointF in widget coordinates; if None, viewport center is used.
+
+        :param zoom: Zoom factor (e.g. 1.0 for 100%)
+        :param anchor_widget_pos: Anchor point in widget coordinates to keep stable during zoom
+        :param emit_signal: Whether to emit zoomChanged signal and sync combobox
+        """
+        new_zoom = max(self._minZoom, min(self._maxZoom, float(zoom)))
+        if abs(new_zoom - self.zoom) < 1e-6:
+            return
+
+        old_zoom = self.zoom
+        self.zoom = new_zoom
+
+        # Sync UI (combobox) and emit signal
+        if emit_signal:
+            self._emit_zoom_changed()
+
+        # Update display size and scroll to keep anchor stable
+        if anchor_widget_pos is None:
+            anchor_widget_pos = self._viewport_center_in_widget_coords()
+        self._update_widget_size_from_zoom()
+        self._adjust_scroll_to_anchor(anchor_widget_pos, old_zoom, self.zoom)
+
+        self.update()
+
+    def zoom_in_step(self):
+        """Increase zoom to next preset step."""
+        idx = self._nearest_zoom_step_index(self.zoom)
+        if idx < len(self._zoomSteps) - 1:
+            self.set_zoom(self._zoomSteps[idx + 1], anchor_widget_pos=self._cursor_pos_in_widget())
+
+    def zoom_out_step(self):
+        """Decrease zoom to previous preset step."""
+        idx = self._nearest_zoom_step_index(self.zoom)
+        if idx > 0:
+            self.set_zoom(self._zoomSteps[idx - 1], anchor_widget_pos=self._cursor_pos_in_widget())
+
+    # ---------- Internal zoom helpers ----------
+
+    def _emit_zoom_changed(self):
+        """Emit signal and try to sync external combobox via controller if available."""
+        self.zoomChanged.emit(self.zoom)
+        try:
+            if self.window and hasattr(self.window, "controller"):
+                common = getattr(self.window.controller.painter, "common", None)
+                if common is not None:
+                    # Preferred method name
+                    if hasattr(common, "sync_zoom_combo_from_widget"):
+                        common.sync_zoom_combo_from_widget(self.get_zoom_percent())
+                    # Fallback method names that may exist in some UIs
+                    elif hasattr(common, "set_zoom_percent"):
+                        common.set_zoom_percent(self.get_zoom_percent())
+                    elif hasattr(common, "set_zoom_value"):
+                        common.set_zoom_value(self.get_zoom_percent())
+        except Exception:
+            pass
+
+    def _nearest_zoom_step_index(self, z: float) -> int:
+        """
+        Find index of the nearest step to z in _zoomSteps.
+
+        :param z: Zoom factor
+        :return: Index of the nearest zoom step
+        """
+        steps = self._zoomSteps
+        pos = bisect.bisect_left(steps, z)
+        if pos == 0:
+            return 0
+        if pos >= len(steps):
+            return len(steps) - 1
+        before = steps[pos - 1]
+        after = steps[pos]
+        return pos if abs(after - z) < abs(z - before) else pos - 1
+
+    def _cursor_pos_in_widget(self) -> QPointF:
+        """
+        Return current cursor position in widget coordinates.
+
+        :return: QPointF in widget coordinates
+        """
+        return QPointF(self.mapFromGlobal(QCursor.pos()))
+
+    def _viewport_center_in_widget_coords(self) -> QPointF:
+        """
+        Return viewport center mapped to widget coordinates; falls back to widget center.
+
+        :return: QPointF in widget coordinates
+        """
+        self._find_scroll_area()
+        if self._scrollViewport is not None:
+            vp = self._scrollViewport
+            center_vp = QPointF(vp.width() / 2.0, vp.height() / 2.0)
+            return QPointF(self.mapFrom(vp, center_vp.toPoint()))
+        return QPointF(self.width() / 2.0, self.height() / 2.0)
+
+    def _adjust_scroll_to_anchor(self, anchor_widget_pos: QPointF, old_zoom: float, new_zoom: float):
+        """
+        Adjust scrollbars to keep the anchor point stable in viewport during zoom.
+
+        :param anchor_widget_pos: Anchor point in widget coordinates
+        :param old_zoom: Previous zoom factor
+        :param new_zoom: New zoom factor
+        """
+        self._find_scroll_area()
+        if self._scrollArea is None or self._scrollViewport is None:
+            return
+        hbar = self._scrollArea.horizontalScrollBar()
+        vbar = self._scrollArea.verticalScrollBar()
+        if hbar is None and vbar is None:
+            return
+        scale = new_zoom / max(1e-6, old_zoom)
+        dx = anchor_widget_pos.x() * (scale - 1.0)
+        dy = anchor_widget_pos.y() * (scale - 1.0)
+        if hbar is not None:
+            hbar.setValue(int(round(hbar.value() + dx)))
+        if vbar is not None:
+            vbar.setValue(int(round(vbar.value() + dy)))
+
+    def _update_widget_size_from_zoom(self):
+        """Resize display widget to reflect current zoom; leaves canvas buffers untouched."""
+        disp_w = max(1, int(round(self._canvasSize.width() * self.zoom)))
+        disp_h = max(1, int(round(self._canvasSize.height() * self.zoom)))
+        new_disp = QSize(disp_w, disp_h)
+        if self.size() == new_disp:
+            return
+        self._zoomResizeInProgress = True
+        try:
+            # setFixedSize is preferred for content widgets inside scroll areas
+            self.setFixedSize(new_disp)
+        finally:
+            self._zoomResizeInProgress = False
+
+    def _to_canvas_point(self, pt) -> QPoint:
+        """
+        Map a widget point (QPoint or QPointF) to canvas coordinates.
+
+        :param pt: QPoint or QPointF in widget coordinates
+        :return: QPoint in canvas coordinates
+        """
+        if isinstance(pt, QPointF):
+            x = int(round(pt.x() / self.zoom))
+            y = int(round(pt.y() / self.zoom))
+        else:
+            x = int(round(pt.x() / self.zoom))
+            y = int(round(pt.y() / self.zoom))
+        x = max(0, min(self._canvasSize.width() - 1, x))
+        y = max(0, min(self._canvasSize.height() - 1, y))
+        return QPoint(x, y)
+
+    def _from_canvas_rect(self, rc: QRect) -> QRect:
+        """
+        Map a canvas rect to widget/display coordinates.
+
+        :param rc: QRect in canvas coordinates
+        :return: QRect in widget coordinates
+        """
+        x = int(round(rc.x() * self.zoom))
+        y = int(round(rc.y() * self.zoom))
+        w = int(round(rc.width() * self.zoom))
+        h = int(round(rc.height() * self.zoom))
+        return QRect(x, y, w, h)
+
+    def _parse_percent(self, text: str) -> int | None:
+        """
+        Parse '150%' -> 150.
+
+        Returns None if parsing fails.
+
+        :param text: Text to parse
+        :return: Integer percent or None
+        """
+        if not text:
+            return None
+        try:
+            s = text.strip().replace('%', '').strip()
+            s = s.replace(',', '.')
+            valf = float(s)
+            return int(round(valf))
+        except Exception:
+            return None
+
     # ---------- Layer & composition helpers ----------
 
     def _ensure_layers(self):
         """Ensure baseCanvas, drawingLayer, and image are allocated to current canvas size."""
-        sz = self.size()
+        sz = self._canvasSize
         if sz.width() <= 0 or sz.height() <= 0:
             return
 
@@ -142,20 +406,16 @@ class PainterWidget(QWidget):
             self.image.fill(Qt.white)
 
     def _rescale_base_from_source(self):
-        """
-        Rebuild baseCanvas from sourceImageOriginal to fit current canvas, preserving aspect ratio.
-        """
+        """Rebuild baseCanvas from sourceImageOriginal to fit current canvas, preserving aspect ratio."""
         self._ensure_layers()
         self.baseCanvas.fill(Qt.white)
         self.baseTargetRect = QRect()
         if self.sourceImageOriginal is None or self.sourceImageOriginal.isNull():
             return
 
-        canvas_size = self.size()
+        canvas_size = self._canvasSize
         src = self.sourceImageOriginal
-        # Compute scaled size that fits within the canvas (max width/height)
         scaled_size = src.size().scaled(canvas_size, Qt.KeepAspectRatio)
-        # Center the image within the canvas
         x = (canvas_size.width() - scaled_size.width()) // 2
         y = (canvas_size.height() - scaled_size.height()) // 2
         self.baseTargetRect = QRect(x, y, scaled_size.width(), scaled_size.height())
@@ -170,9 +430,7 @@ class PainterWidget(QWidget):
         self._ensure_layers()
         self.image.fill(Qt.white)
         p = QPainter(self.image)
-        # draw background
         p.drawImage(QPoint(0, 0), self.baseCanvas)
-        # draw drawing layer
         p.setCompositionMode(QPainter.CompositionMode_SourceOver)
         p.drawImage(QPoint(0, 0), self.drawingLayer)
         p.end()
@@ -185,44 +443,168 @@ class PainterWidget(QWidget):
             'base': QImage(self.baseCanvas) if self.baseCanvas is not None else None,
             'draw': QImage(self.drawingLayer) if self.drawingLayer is not None else None,
             'src': QImage(self.sourceImageOriginal) if self.sourceImageOriginal is not None else None,
-            'size': QSize(self.width(), self.height()),
+            'canvas_size': QSize(self._canvasSize.width(), self._canvasSize.height()),
             'baseRect': QRect(self.baseTargetRect),
         }
         return state
 
     def _apply_state(self, state):
-        """Apply a snapshot (used by undo/redo)."""
+        """
+        Apply a snapshot (used by undo/redo).
+
+        :param state: State dict from _snapshot_state()
+        """
         if not state:
             return
-        self._ignoreResizeOnce = True
-        target_size = state['size']
 
-        # Set canvas size if needed
-        if target_size != self.size():
-            self.setFixedSize(target_size)
+        target_canvas_size = state.get('canvas_size', None)
+        if isinstance(target_canvas_size, QSize) and target_canvas_size.isValid():
+            old_canvas = QSize(self._canvasSize)
+            self._canvasSize = QSize(target_canvas_size)
 
-        # Apply layers and image
-        self.image = QImage(state['image']) if state['image'] is not None else QImage(self.size(), QImage.Format_RGB32)
-        if self.image.size() != self.size():
-            self.image = self.image.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+            self.image = QImage(state['image']) if state['image'] is not None else QImage(self._canvasSize, QImage.Format_RGB32)
+            if self.image.size() != self._canvasSize:
+                self.image = self.image.scaled(self._canvasSize, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
 
-        if state['base'] is not None:
-            self.baseCanvas = QImage(state['base'])
-        else:
-            self.baseCanvas = QImage(self.size(), QImage.Format_RGB32)
-            self.baseCanvas.fill(Qt.white)
+            if state['base'] is not None:
+                self.baseCanvas = QImage(state['base'])
+            else:
+                self.baseCanvas = QImage(self._canvasSize, QImage.Format_RGB32)
+                self.baseCanvas.fill(Qt.white)
 
-        if state['draw'] is not None:
-            self.drawingLayer = QImage(state['draw'])
-        else:
-            self.drawingLayer = QImage(self.size(), QImage.Format_ARGB32_Premultiplied)
-            self.drawingLayer.fill(Qt.transparent)
+            if state['draw'] is not None:
+                self.drawingLayer = QImage(state['draw'])
+            else:
+                self.drawingLayer = QImage(self._canvasSize, QImage.Format_ARGB32_Premultiplied)
+                self.drawingLayer.fill(Qt.transparent)
 
-        self.sourceImageOriginal = QImage(state['src']) if state['src'] is not None else None
-        self.baseTargetRect = QRect(state['baseRect']) if state['baseRect'] is not None else QRect()
+            self.sourceImageOriginal = QImage(state['src']) if state['src'] is not None else None
+            self.baseTargetRect = QRect(state['baseRect']) if state['baseRect'] is not None else QRect()
 
-        self._ignoreResizeOnce = False
+            self._recompose()
+            self._update_widget_size_from_zoom()
+            self.update()
+
+    def _is_fit_available(self) -> bool:
+        """
+        Return True if there are letterbox margins that can be trimmed.
+
+        :return: True if fit action is available
+        """
+        self._recompose()
+
+        if self.baseTargetRect.isValid() and not self.baseTargetRect.isNull():
+            if self.baseTargetRect.width() < self._canvasSize.width() or self.baseTargetRect.height() < self._canvasSize.height():
+                return True
+
+        bounds = self._detect_nonwhite_bounds(self.image)
+        if bounds is not None:
+            return bounds.width() < self._canvasSize.width() or bounds.height() < self._canvasSize.height()
+        return False
+
+    def action_fit(self):
+        """Trim white letterbox margins and resize canvas to the scaled image area. Undo-safe."""
+        if not self._is_fit_available():
+            return
+
+        self.saveForUndo()
+        self._ensure_layers()
+        self._recompose()
+
+        fit_rect = None
+        if self.baseTargetRect.isValid() and not self.baseTargetRect.isNull():
+            canvas_rect = QRect(0, 0, self._canvasSize.width(), self._canvasSize.height())
+            fit_rect = self.baseTargetRect.intersected(canvas_rect)
+
+        if fit_rect is None or fit_rect.isNull() or fit_rect.width() <= 0 or fit_rect.height() <= 0:
+            fit_rect = self._detect_nonwhite_bounds(self.image)
+            if fit_rect is None or fit_rect.isNull() or fit_rect.width() <= 0 or fit_rect.height() <= 0:
+                return
+
+        if fit_rect.width() == self._canvasSize.width() and fit_rect.height() == self._canvasSize.height():
+            return
+
+        new_base = self.baseCanvas.copy(fit_rect)
+        new_draw = self.drawingLayer.copy(fit_rect)
+
+        self._pendingResizeApply = {
+            'base': QImage(new_base),
+            'draw': QImage(new_draw),
+        }
+
+        self.window.controller.painter.common.change_canvas_size(f"{fit_rect.width()}x{fit_rect.height()}")
         self.update()
+
+    def _detect_nonwhite_bounds(self, img: QImage, threshold: int = 250) -> QRect | None:
+        """
+        Detect tight bounding rect of non-white content in a composited image.
+        A pixel is considered background if all channels >= threshold.
+        Returns None if no non-white content is found.
+
+        :param img: Image to analyze
+        :param threshold: Threshold for considering a pixel as background (0-255)
+        :return: QRect of non-white content or None
+        """
+        if img is None or img.isNull():
+            return None
+
+        w, h = img.width(), img.height()
+        if w <= 0 or h <= 0:
+            return None
+
+        def is_bg(px: QColor) -> bool:
+            return px.red() >= threshold and px.green() >= threshold and px.blue() >= threshold
+
+        left = 0
+        found = False
+        for x in range(w):
+            for y in range(h):
+                if not is_bg(img.pixelColor(x, y)):
+                    left = x
+                    found = True
+                    break
+            if found:
+                break
+        if not found:
+            return None  # all white
+
+        right = w - 1
+        found = False
+        for x in range(w - 1, -1, -1):
+            for y in range(h):
+                if not is_bg(img.pixelColor(x, y)):
+                    right = x
+                    found = True
+                    break
+            if found:
+                break
+
+        top = 0
+        found = False
+        for y in range(h):
+            for x in range(left, right + 1):
+                if not is_bg(img.pixelColor(x, y)):
+                    top = y
+                    found = True
+                    break
+            if found:
+                break
+
+        bottom = h - 1
+        found = False
+        for y in range(h - 1, -1, -1):
+            for x in range(left, right + 1):
+                if not is_bg(img.pixelColor(x, y)):
+                    bottom = y
+                    found = True
+                    break
+            if found:
+                break
+
+        if right < left or bottom < top:
+            return None
+
+        return QRect(left, top, right - left + 1, bottom - top + 1)
 
     # ---------- Public API (clipboard, file, actions) ----------
 
@@ -233,12 +615,10 @@ class PainterWidget(QWidget):
         if source.hasImage():
             image = clipboard.image()
             if isinstance(image, QImage):
-                # paste should create custom canvas with image size
                 self.set_image(image, fit_canvas_to_image=True)
 
     def handle_copy(self):
         """Handle clipboard copy"""
-        # ensure composited image is up-to-date
         self._recompose()
         clipboard = QApplication.clipboard()
         clipboard.setImage(self.image)
@@ -251,6 +631,7 @@ class PainterWidget(QWidget):
         """
         self._act_undo.setEnabled(self.has_undo())
         self._act_redo.setEnabled(self.has_redo())
+        self._act_fit.setEnabled(self._is_fit_available())
 
         clipboard = QApplication.clipboard()
         mime_data = clipboard.mimeData()
@@ -276,7 +657,6 @@ class PainterWidget(QWidget):
 
     def action_save(self):
         """Save image to file"""
-        # ensure composited image is up-to-date
         self._recompose()
         name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
         path, _ = QFileDialog.getSaveFileName(
@@ -304,32 +684,31 @@ class PainterWidget(QWidget):
         if img.isNull():
             QMessageBox.information(self, "Image Loader", "Cannot load file.")
             return
-        # Treat opening as loading a new original; resize canvas to image size (custom)
         self.set_image(img, fit_canvas_to_image=True)
 
     def load_flat_image(self, path):
         """
         Load a flat image from file as current source.
         This is used for session restore; it does not enforce canvas resize now.
+
+        :param path: Path to image
         """
         img = QImage(path)
         if img.isNull():
             return
-        # Do not change canvas size here; setup() will follow with change_canvas_size().
         self.sourceImageOriginal = QImage(img)
-        # Rebuild layers for current canvas (if any size already set)
-        if self.width() > 0 and self.height() > 0:
+        if self._canvasSize.width() > 0 and self._canvasSize.height() > 0:
             self._ensure_layers()
             self._rescale_base_from_source()
             self.drawingLayer.fill(Qt.transparent)
             self._recompose()
         else:
-            # defer until resize arrives
             pass
 
     def set_image(self, image, fit_canvas_to_image: bool = False):
         """
         Set image (as new original source)
+
         :param image: Image
         :param fit_canvas_to_image: True = set canvas size to image size (custom)
         """
@@ -338,11 +717,9 @@ class PainterWidget(QWidget):
         self.saveForUndo()
         self.sourceImageOriginal = QImage(image)
         if fit_canvas_to_image:
-            # set custom canvas size to image size
             w, h = image.width(), image.height()
             self.window.controller.painter.common.change_canvas_size(f"{w}x{h}")
         else:
-            # just rebuild within current canvas
             self._ensure_layers()
             self._rescale_base_from_source()
             self.drawingLayer.fill(Qt.transparent)
@@ -352,6 +729,7 @@ class PainterWidget(QWidget):
     def scale_to_fit(self, image):
         """
         Backward-compatibility wrapper. Uses layered model now.
+
         :param image: Image
         """
         self.set_image(image, fit_canvas_to_image=False)
@@ -360,7 +738,6 @@ class PainterWidget(QWidget):
 
     def saveForUndo(self):
         """Save current state for undo"""
-        # Ensure layers up-to-date before snapshot
         self._ensure_layers()
         self._recompose()
         self.undoStack.append(self._snapshot_state())
@@ -373,7 +750,6 @@ class PainterWidget(QWidget):
             self.redoStack.append(current)
             state = self.undoStack.pop()
             self._apply_state(state)
-            # Keep size combo in sync with restored canvas and source (handles sticky custom)
             if self.window and hasattr(self.window, "controller"):
                 self.window.controller.painter.common.sync_canvas_combo_from_widget()
 
@@ -384,28 +760,123 @@ class PainterWidget(QWidget):
             self.undoStack.append(current)
             state = self.redoStack.pop()
             self._apply_state(state)
-            # Keep size combo in sync with restored canvas and source (handles sticky custom)
             if self.window and hasattr(self.window, "controller"):
                 self.window.controller.painter.common.sync_canvas_combo_from_widget()
 
     def has_undo(self) -> bool:
-        """Check if undo is available"""
+        """
+        Check if undo is available
+
+        :return: True if undo is available
+        """
         return bool(self.undoStack)
 
     def has_redo(self) -> bool:
-        """Check if redo is available"""
+        """
+        Check if redo is available
+
+        :return: True if redo is available
+        """
         return bool(self.redoStack)
+
+    def save_base(self, path: str, include_drawing: bool = False) -> bool:
+        """
+        Save high-quality base image:
+        - If an original source is present, saves that (cropped if crop was applied).
+        - If no source exists, falls back to saving the current composited canvas.
+        - When include_drawing=True, composites the stroke layer onto the original at original resolution.
+        Returns True on success.
+
+        :param path: Path to save
+        :param include_drawing: Whether to include drawing layer
+        :return: True on success
+        """
+        if not path:
+            return False
+
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        except Exception:
+            pass
+
+        if self.sourceImageOriginal is not None and not self.sourceImageOriginal.isNull():
+            if not include_drawing:
+                return self._save_image_atomic(self.sourceImageOriginal, path)
+
+            src = QImage(self.sourceImageOriginal)
+            if self.drawingLayer is None or self.drawingLayer.isNull():
+                return self._save_image_atomic(src, path)
+
+            if self.baseTargetRect.isNull() or self.baseTargetRect.width() <= 0 or self.baseTargetRect.height() <= 0:
+                return self._save_image_atomic(src, path)
+
+            overlay_canvas_roi = self.drawingLayer.copy(self.baseTargetRect)
+            overlay_hi = overlay_canvas_roi.scaled(
+                src.size(),
+                Qt.IgnoreAspectRatio,
+                Qt.SmoothTransformation
+            )
+
+            result = QImage(src)
+            p = QPainter(result)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            p.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            p.drawImage(QPoint(0, 0), overlay_hi)
+            p.end()
+
+            return self._save_image_atomic(result, path)
+
+        self._recompose()
+        return self._save_image_atomic(self.image, path)
+
+    def _save_image_atomic(self, img: QImage, path: str, fmt: str = None, quality: int = -1) -> bool:
+        """
+        Save an image atomically using QSaveFile. Returns True on success.
+
+        :param img: Image
+        :param path: Path to save
+        :param fmt: Format (e.g. 'PNG', 'JPEG'); if None, inferred from file extension
+        :param quality: Quality (0-100) or -1 for default
+        :return: True on success
+        """
+        if img is None or img.isNull() or not path:
+            return False
+
+        if fmt is None:
+            ext = os.path.splitext(path)[1].lower()
+            if ext in ('.jpg', '.jpeg'):
+                fmt = 'JPEG'
+            elif ext == '.bmp':
+                fmt = 'BMP'
+            elif ext == '.webp':
+                fmt = 'WEBP'
+            elif ext in ('.tif', '.tiff'):
+                fmt = 'TIFF'
+            else:
+                fmt = 'PNG'
+
+        f = QSaveFile(path)
+        if not f.open(QIODevice.WriteOnly):
+            return False
+
+        ok = img.save(f, fmt, quality)
+        if not ok:
+            f.cancelWriting()
+            return False
+
+        return f.commit()
 
     # ---------- Brush/eraser ----------
 
     def set_mode(self, mode: str):
         """
         Set painting mode: "brush" or "erase"
+
+        :param mode: Mode
         """
         if mode not in ("brush", "erase"):
             return
         self._mode = mode
-        # cursor hint
         if self._mode == "erase":
             self.setCursor(QCursor(Qt.PointingHandCursor))
         else:
@@ -453,35 +924,31 @@ class PainterWidget(QWidget):
         self.cropping = False
         self._selecting = False
         self._selectionRect = QRect()
+        self._stop_autoscroll()
         self.unsetCursor()
         self.update()
 
     def _finalize_crop(self):
         """Finalize crop with current selection rectangle."""
+        self._stop_autoscroll()
         if not self.cropping or self._selectionRect.isNull() or self._selectionRect.width() <= 1 or self._selectionRect.height() <= 1:
             self.cancel_crop()
             return
 
         self._ensure_layers()
         sel = self._selectionRect.normalized()
-        # Keep previous state for undo
-        # saveForUndo called on mousePress at crop start
 
-        # Crop base and drawing layers to selection
         new_base = self.baseCanvas.copy(sel)
         new_draw = self.drawingLayer.copy(sel)
 
-        # Prepare to apply exact cropped pixels after resize event
         self._pendingResizeApply = {
             'base': QImage(new_base),
             'draw': QImage(new_draw),
         }
 
-        # Update original source to cropped region for future high-quality resizes
         if self.sourceImageOriginal is not None and not self.baseTargetRect.isNull():
             inter = sel.intersected(self.baseTargetRect)
             if inter.isValid() and not inter.isNull():
-                # Map intersection rect to original source coordinates
                 sx_ratio = self.sourceImageOriginal.width() / self.baseTargetRect.width()
                 sy_ratio = self.sourceImageOriginal.height() / self.baseTargetRect.height()
 
@@ -492,7 +959,6 @@ class PainterWidget(QWidget):
                 sy = max(0, int(dy * sy_ratio))
                 sw = max(1, int(inter.width() * sx_ratio))
                 sh = max(1, int(inter.height() * sy_ratio))
-                # Clip
                 if sx + sw > self.sourceImageOriginal.width():
                     sw = self.sourceImageOriginal.width() - sx
                 if sy + sh > self.sourceImageOriginal.height():
@@ -502,23 +968,140 @@ class PainterWidget(QWidget):
                 else:
                     self.sourceImageOriginal = None
             else:
-                # Selection outside of image; keep no source
                 self.sourceImageOriginal = None
         else:
-            # No original source, nothing to update
             pass
 
-        # Resize canvas to selection size; resizeEvent will apply _pendingResizeApply
         self.cropping = False
         self._selecting = False
         self._selectionRect = QRect()
         self.unsetCursor()
 
-        # Perform canvas resize (custom)
         self.window.controller.painter.common.change_canvas_size(f"{sel.width()}x{sel.height()}")
         self.update()
 
+    # ---------- Auto-scroll while cropping (for scroll areas) ----------
+
+    def _find_scroll_area(self):
+        """Locate the nearest ancestor QAbstractScrollArea and cache references."""
+        w = self.parentWidget()
+        area = None
+        while w is not None:
+            if isinstance(w, QAbstractScrollArea):
+                area = w
+                break
+            w = w.parentWidget()
+        self._scrollArea = area
+        self._scrollViewport = area.viewport() if area is not None else None
+
+    def _calc_scroll_step(self, dist_to_edge: int, margin: int) -> int:
+        """
+        Compute a smooth step size (px per tick) based on proximity to the edge.
+        Closer to the edge -> faster scroll, clamped to configured limits.
+
+        :param dist_to_edge: Distance to the edge in pixels (0 = at edge)
+        :param margin: Margin in pixels where autoscroll is active
+        :return: Step size in pixels (positive integer)
+        """
+        if dist_to_edge < 0:
+            dist_to_edge = 0
+        if margin <= 0:
+            return self._autoScrollMinSpeed
+        ratio = 1.0 - min(1.0, dist_to_edge / float(margin))
+        step = self._autoScrollMinSpeed + ratio * (self._autoScrollMaxSpeed - self._autoScrollMinSpeed)
+        return max(self._autoScrollMinSpeed, min(self._autoScrollMaxSpeed, int(step)))
+
+    def _start_autoscroll(self):
+        """Start autoscroll timer if inside a scroll area and cropping is active."""
+        self._find_scroll_area()
+        if self._scrollArea is not None and self._scrollViewport is not None:
+            if not self._autoScrollTimer.isActive():
+                self._autoScrollTimer.start()
+
+    def _stop_autoscroll(self):
+        """Stop autoscroll timer and release mouse if grabbed."""
+        if self._autoScrollTimer.isActive():
+            self._autoScrollTimer.stop()
+        self.releaseMouse()
+
+    def _autoscroll_tick(self):
+        """
+        Periodic autoscroll while user drags the crop selection near viewport edges.
+        Uses global cursor position -> viewport coords -> scrollbars.
+        Also updates current selection end in widget coordinates.
+        """
+        if not (self.cropping and self._selecting):
+            self._stop_autoscroll()
+            return
+        if self._scrollArea is None or self._scrollViewport is None:
+            return
+
+        vp = self._scrollViewport
+        area = self._scrollArea
+
+        global_pos = QCursor.pos()
+        pos_vp = vp.mapFromGlobal(global_pos)
+
+        margin = self._autoScrollMargin
+        dx = 0
+        dy = 0
+
+        if pos_vp.x() < margin:
+            dx = -self._calc_scroll_step(pos_vp.x(), margin)
+        elif pos_vp.x() > vp.width() - margin:
+            dist = max(0, vp.width() - pos_vp.x())
+            dx = self._calc_scroll_step(dist, margin)
+
+        if pos_vp.y() < margin:
+            dy = -self._calc_scroll_step(pos_vp.y(), margin)
+        elif pos_vp.y() > vp.height() - margin:
+            dist = max(0, vp.height() - pos_vp.y())
+            dy = self._calc_scroll_step(dist, margin)
+
+        scrolled = False
+        if dx != 0:
+            hbar = area.horizontalScrollBar()
+            if hbar is not None and hbar.maximum() > hbar.minimum():
+                newv = max(hbar.minimum(), min(hbar.maximum(), hbar.value() + dx))
+                if newv != hbar.value():
+                    hbar.setValue(newv)
+                    scrolled = True
+
+        if dy != 0:
+            vbar = area.verticalScrollBar()
+            if vbar is not None and vbar.maximum() > vbar.minimum():
+                newv = max(vbar.minimum(), min(vbar.maximum(), vbar.value() + dy))
+                if newv != vbar.value():
+                    vbar.setValue(newv)
+                    scrolled = True
+
+        if self._selecting:
+            pos_widget = self.mapFromGlobal(global_pos)
+            cx = min(max(0, pos_widget.x()), max(0, self.width() - 1))
+            cy = min(max(0, pos_widget.y()), max(0, self.height() - 1))
+            cpt = self._to_canvas_point(QPoint(cx, cy))
+            self._selectionRect = QRect(self._selectionStart, cpt)
+            if scrolled or dx != 0 or dy != 0:
+                self.update()
+
     # ---------- Events ----------
+
+    def wheelEvent(self, event):
+        """
+        CTRL + wheel => zoom. Regular scrolling falls back to default behavior.
+
+        :param event: Event
+        """
+        mods = event.modifiers()
+        if mods & Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in_step()
+            elif delta < 0:
+                self.zoom_out_step()
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def mousePressEvent(self, event):
         """
@@ -531,15 +1114,16 @@ class PainterWidget(QWidget):
             if self.cropping:
                 self.saveForUndo()
                 self._selecting = True
-                self._selectionStart = event.pos()
+                self._selectionStart = self._to_canvas_point(event.position())
                 self._selectionRect = QRect(self._selectionStart, self._selectionStart)
                 self.update()
+                self.grabMouse()
+                self._start_autoscroll()
                 return
 
-            # painting
             self._ensure_layers()
             self.drawing = True
-            self.lastPoint = event.pos()
+            self.lastPointCanvas = self._to_canvas_point(event.position())
             self.saveForUndo()
 
             p = QPainter(self.drawingLayer)
@@ -551,7 +1135,7 @@ class PainterWidget(QWidget):
             else:
                 p.setCompositionMode(QPainter.CompositionMode_SourceOver)
                 p.setPen(self._pen)
-            p.drawPoint(self.lastPoint)
+            p.drawPoint(self.lastPointCanvas)
             p.end()
             self._recompose()
             self.update()
@@ -563,12 +1147,13 @@ class PainterWidget(QWidget):
         :param event: Event
         """
         if self.cropping and self._selecting and (event.buttons() & Qt.LeftButton):
-            self._selectionRect = QRect(self._selectionStart, event.pos())
+            self._selectionRect = QRect(self._selectionStart, self._to_canvas_point(event.position()))
             self.update()
             return
 
         if (event.buttons() & Qt.LeftButton) and self.drawing:
             self._ensure_layers()
+            cur = self._to_canvas_point(event.position())
             p = QPainter(self.drawingLayer)
             p.setRenderHint(QPainter.Antialiasing, True)
             if self._mode == "erase":
@@ -578,9 +1163,9 @@ class PainterWidget(QWidget):
             else:
                 p.setCompositionMode(QPainter.CompositionMode_SourceOver)
                 p.setPen(self._pen)
-            p.drawLine(self.lastPoint, event.pos())
+            p.drawLine(self.lastPointCanvas, cur)
             p.end()
-            self.lastPoint = event.pos()
+            self.lastPointCanvas = cur
             self._recompose()
             self.update()
 
@@ -607,11 +1192,9 @@ class PainterWidget(QWidget):
         elif event.key() == Qt.Key_V and QApplication.keyboardModifiers() == Qt.ControlModifier:
             self.handle_paste()
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            # finalize crop with Enter
             if self.cropping and self._selecting:
                 self._finalize_crop()
         elif event.key() == Qt.Key_Escape:
-            # cancel crop
             if self.cropping:
                 self.cancel_crop()
 
@@ -621,64 +1204,79 @@ class PainterWidget(QWidget):
 
         :param event: Event
         """
-        # Ensure final composition is valid
-        if self.image.size() != self.size():
+        if self.image.size() != self._canvasSize:
             self._ensure_layers()
             self._rescale_base_from_source()
             self._recompose()
 
         p = QPainter(self)
+        # Draw composited canvas scaled to display rect
         p.drawImage(self.rect(), self.image, self.image.rect())
 
-        # Draw crop overlay if active
+        # Draw crop overlay if active (convert canvas selection to display coords)
         if self.cropping and not self._selectionRect.isNull():
             sel = self._selectionRect.normalized()
+            sel_view = self._from_canvas_rect(sel)
             overlay = QColor(0, 0, 0, 120)
             W, H = self.width(), self.height()
 
-            # left
-            if sel.left() > 0:
-                p.fillRect(0, 0, sel.left(), H, overlay)
-            # right
-            if sel.right() < W - 1:
-                p.fillRect(sel.right() + 1, 0, W - (sel.right() + 1), H, overlay)
-            # top
-            if sel.top() > 0:
-                p.fillRect(sel.left(), 0, sel.width(), sel.top(), overlay)
-            # bottom
-            if sel.bottom() < H - 1:
-                p.fillRect(sel.left(), sel.bottom() + 1, sel.width(), H - (sel.bottom() + 1), overlay)
+            if sel_view.left() > 0:
+                p.fillRect(0, 0, sel_view.left(), H, overlay)
+            if sel_view.right() < W - 1:
+                p.fillRect(sel_view.right() + 1, 0, W - (sel_view.right() + 1), H, overlay)
+            if sel_view.top() > 0:
+                p.fillRect(sel_view.left(), 0, sel_view.width(), sel_view.top(), overlay)
+            if sel_view.bottom() < H - 1:
+                p.fillRect(sel_view.left(), sel_view.bottom() + 1, sel_view.width(), H - (sel_view.bottom() + 1), overlay)
 
-            # selection border
             p.setPen(QPen(QColor(255, 255, 255, 200), 1, Qt.DashLine))
-            p.drawRect(sel.adjusted(0, 0, -1, -1))
+            p.drawRect(sel_view.adjusted(0, 0, -1, -1))
 
         p.end()
         self.originalImage = self.image
 
     def resizeEvent(self, event):
         """
-        Update layers on resize
+        Update layers on canvas size change; ignore display-only resizes from zoom.
 
         :param event: Event
         """
-        if self._ignoreResizeOnce:
-            return super().resizeEvent(event)
+        new_widget_size = event.size()
+        expected_display = QSize(max(1, int(round(self._canvasSize.width() * self.zoom))),
+                                 max(1, int(round(self._canvasSize.height() * self.zoom))))
 
-        old_size = event.oldSize()
-        new_size = event.size()
+        # External canvas resize (e.g. controller.change_canvas_size -> setFixedSize(canvas))
+        if new_widget_size != expected_display and not self._zoomResizeInProgress:
+            old_canvas = QSize(self._canvasSize)
+            # Adopt widget size as the new logical canvas size
+            self._canvasSize = QSize(new_widget_size)
+            self._handle_canvas_resized(old_canvas, self._canvasSize)
+            # After canvas change, enforce current zoom on the display size
+            self._update_widget_size_from_zoom()
+            super().resizeEvent(event)
+            return
 
-        # Allocate new layers and recompose
+        # Display-only resize caused by zoom update: nothing to do with buffers
+        self.update()
+        super().resizeEvent(event)
+
+    def _handle_canvas_resized(self, old_size: QSize, new_size: QSize):
+        """
+        Apply buffer updates when the logical canvas size changes.
+
+        :param old_size: Previous canvas size
+        :param new_size: New canvas size
+        """
         self._ensure_layers()
 
         if self._pendingResizeApply is not None:
-            # Apply exact cropped pixels to new canvas size; center if differs
             new_base = self._pendingResizeApply.get('base')
             new_draw = self._pendingResizeApply.get('draw')
 
-            # Resize canvas already happened; we need to place these images exactly fitting the canvas size.
-            # If sizes match new canvas, copy directly; else center them.
+            # Reset layers to new canvas size
+            self.baseCanvas = QImage(new_size, QImage.Format_RGB32)
             self.baseCanvas.fill(Qt.white)
+            self.drawingLayer = QImage(new_size, QImage.Format_ARGB32_Premultiplied)
             self.drawingLayer.fill(Qt.transparent)
 
             if new_base is not None:
@@ -702,20 +1300,18 @@ class PainterWidget(QWidget):
                     p.end()
 
             self._pendingResizeApply = None
-            # baseTargetRect becomes entire canvas if new_base filled it; otherwise keep unknown
             self.baseTargetRect = QRect(0, 0, self.baseCanvas.width(), self.baseCanvas.height())
         else:
-            # Standard path: rebuild base from original source to avoid quality loss
+            # Rebuild background from original source
             self._rescale_base_from_source()
 
-            # Scale drawing layer content to new size (best effort). This may introduce minor quality loss, acceptable.
+            # Scale drawing content to new canvas size if previous canvas was valid
             if old_size.isValid() and (old_size.width() > 0 and old_size.height() > 0) and \
                     (self.drawingLayer is not None) and (self.drawingLayer.size() != new_size):
                 self.drawingLayer = self.drawingLayer.scaled(new_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
 
         self._recompose()
         self.update()
-        super().resizeEvent(event)
 
     def eventFilter(self, source, event):
         """

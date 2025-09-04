@@ -1,7 +1,7 @@
 r'''
 # `newrelic_group`
 
-Refer to the Terraform Registry for docs: [`newrelic_group`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group).
+Refer to the Terraform Registry for docs: [`newrelic_group`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Group(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.group.Group",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group newrelic_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group newrelic_group}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class Group(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group newrelic_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group newrelic_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication_domain_id: The ID of the authentication domain the group will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
-        :param name: The name of the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#name Group#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#id Group#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_ids: IDs of users to be added to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#user_ids Group#user_ids}
+        :param authentication_domain_id: The ID of the authentication domain the group will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
+        :param name: The name of the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#name Group#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#id Group#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_ids: IDs of users to be added to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#user_ids Group#user_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class Group(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Group to import.
-        :param import_from_id: The id of the existing Group that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Group that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Group to import is found.
         '''
         if __debug__:
@@ -254,10 +254,10 @@ class GroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication_domain_id: The ID of the authentication domain the group will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
-        :param name: The name of the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#name Group#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#id Group#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_ids: IDs of users to be added to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#user_ids Group#user_ids}
+        :param authentication_domain_id: The ID of the authentication domain the group will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
+        :param name: The name of the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#name Group#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#id Group#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_ids: IDs of users to be added to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#user_ids Group#user_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -365,7 +365,7 @@ class GroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication_domain_id(self) -> builtins.str:
         '''The ID of the authentication domain the group will belong to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#authentication_domain_id Group#authentication_domain_id}
         '''
         result = self._values.get("authentication_domain_id")
         assert result is not None, "Required property 'authentication_domain_id' is missing"
@@ -375,7 +375,7 @@ class GroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#name Group#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#name Group#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -383,7 +383,7 @@ class GroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#id Group#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#id Group#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -395,7 +395,7 @@ class GroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''IDs of users to be added to the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/group#user_ids Group#user_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/group#user_ids Group#user_ids}
         '''
         result = self._values.get("user_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

@@ -1,6 +1,6 @@
 import itertools
 import collections
-from typing import List, Union
+from typing import List, Union, Callable
 
 import torch
 
@@ -57,7 +57,10 @@ class Irrep(tuple):
         if p is None:
             if isinstance(l, Irrep):
                 return l
-
+            
+            if isinstance(l, _MulIr):
+                return l.ir.l
+            
             if isinstance(l, str):
                 try:
                     name = l.strip()
@@ -621,6 +624,78 @@ class Irreps(tuple):
         1x0e+2x1e
         """
         return self.sort().irreps.simplify()
+    
+    def filter(
+        self,
+        keep: Union["Irreps", List[Irrep], Callable[[_MulIr], bool]] = None,
+        *,
+        drop: Union["Irreps", List[Irrep], Callable[[_MulIr], bool]] = None,
+        lmax: int = None,
+    ) -> "Irreps":
+        r"""Filter the irreps.
+
+        Args:
+            keep (`Irreps` or list of `Irrep` or function): list of irrep to keep
+            drop (`Irreps` or list of `Irrep` or function): list of irrep to drop
+            lmax (int): maximum :math:`l` value
+
+        Returns:
+            `Irreps`: filtered irreps
+
+        Examples:
+            >>> Irreps("1e + 2e + 0e").filter(keep=["0e", "1e"])
+            1x1e+1x0e
+
+            >>> Irreps("1e + 2e + 0e").filter(keep="2e + 2x1e")
+            1x1e+1x2e
+
+            >>> Irreps("1e + 2e + 0e").filter(drop="2e + 2x1e")
+            1x0e
+
+            >>> Irreps("1e + 2e + 0e").filter(lmax=1)
+            1x1e+1x0e
+        """
+        if keep is None and drop is None and lmax is None:
+            return self
+        if keep is not None and drop is not None:
+            raise ValueError("Cannot specify both keep and drop")
+        if keep is not None and lmax is not None:
+            raise ValueError("Cannot specify both keep and lmax")
+        if drop is not None and lmax is not None:
+            raise ValueError("Cannot specify both drop and lmax")
+
+        if keep is not None:
+            if isinstance(keep, str):
+                keep = Irreps(keep)
+            if isinstance(keep, Irrep):
+                keep = [keep]
+            if isinstance(keep, _MulIr):
+                keep = [keep.ir]
+            if callable(keep):
+                return Irreps([mul_ir for mul_ir in self if keep(mul_ir)])
+            keep = {Irrep(ir) for ir in keep}
+            return Irreps([(mul, ir) for mul, ir in self if ir in keep])
+
+        if drop is not None:
+            if isinstance(drop, str):
+                drop = Irreps(drop)
+            if isinstance(drop, Irrep):
+                drop = [drop]
+            if isinstance(drop, _MulIr):
+                drop = [drop.ir]
+            if callable(drop):
+                return Irreps([mul_ir for mul_ir in self if not drop(mul_ir)])
+            drop = {Irrep(ir) for ir in drop}
+            return Irreps([(mul, ir) for mul, ir in self if ir not in drop])
+
+        if lmax is not None:
+            return Irreps([(mul, ir) for mul, ir in self if ir.l <= lmax])
+
+    @property
+    def slice_by_mul(self):
+        r"""Return the slice with respect to the multiplicities.
+        """
+        return _MulIndexSliceHelper(self)
 
     @property
     def dim(self) -> int:
@@ -720,3 +795,27 @@ class Irreps(tuple):
             tensor of shape :math:`(..., \mathrm{dim}, \mathrm{dim})`
         """
         return self.D_from_angles(*_rotation.axis_angle_to_angles(axis, angle))
+
+class _MulIndexSliceHelper:
+    irreps: Irreps
+
+    def __init__(self, irreps) -> None:
+        self.irreps = irreps
+
+    def __getitem__(self, index: slice) -> Irreps:
+        if not isinstance(index, slice):
+            raise IndexError("Irreps.slice_by_mul only supports slices.")
+
+        start, stop, stride = index.indices(self.irreps.num_irreps)
+        if stride != 1:
+            raise NotImplementedError("Irreps.slice_by_mul does not support strides.")
+
+        out = []
+        i = 0
+        for mul, ir in self.irreps:
+            if start <= i and i + mul <= stop:
+                out.append((mul, ir))
+            elif start < i + mul and i < stop:
+                out.append((min(stop, i + mul) - max(start, i), ir))
+            i += mul
+        return Irreps(out)

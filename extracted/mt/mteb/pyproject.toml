@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mteb"
-version = "1.38.52"
+version = "1.38.53"
 description = "Massive Text Embedding Benchmark"
 readme = "README.md"
 authors = [
@@ -87,6 +87,7 @@ open_clip_torch = ["open_clip_torch==2.31.0"]
 xet = ["huggingface_hub>=0.32.0"]
 ark = ["volcengine-python-sdk[ark]==3.0.2", "tiktoken>=0.8.0"]
 colpali_engine = ["colpali_engine>=0.3.12"]
+youtu = ["tencentcloud-sdk-python-common>=3.0.1454", "tencentcloud-sdk-python-lkeap>=3.0.1451"]
 
 [dependency-groups]
 lint = [
@@ -100,6 +101,7 @@ test = [
     "pytest-coverage>=0.0",
     "pytest-rerunfailures>=15.0,<16.0",
     "iso639>=0.1.4", # used for tests/scripts/test_generate_model_meta.py
+    "GitPython>=3.0.0",
 ]
 dev = [
     {include-group = "lint"},

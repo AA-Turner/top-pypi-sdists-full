@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: retell-sdk
-Version: 4.42.0
+Version: 4.43.0
 Summary: The official Python library for the retell API
 Project-URL: Homepage, https://github.com/RetellAI/retell-python-sdk
 Project-URL: Repository, https://github.com/RetellAI/retell-python-sdk
@@ -166,9 +166,12 @@ agent_response = client.agent.create(
         "type": "retell-llm",
     },
     voice_id="11labs-Adrian",
-    user_dtmf_options={},
+    pii_config={
+        "categories": ["person_name"],
+        "mode": "post_call",
+    },
 )
-print(agent_response.user_dtmf_options)
+print(agent_response.pii_config)
 ```
 
 ## Handling errors

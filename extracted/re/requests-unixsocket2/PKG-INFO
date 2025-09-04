@@ -1,27 +1,21 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: requests-unixsocket2
-Version: 1.0.0
+Version: 1.0.1
 Summary: Use requests to talk HTTP via a UNIX domain socket
+Project-URL: Homepage, https://gitlab.com/thelabnyc/requests-unixsocket2
+Project-URL: Repository, https://gitlab.com/thelabnyc/requests-unixsocket2
+Author-email: thelab <thelabdev@thelab.co>
 License: ISC
-Author: thelab
-Author-email: thelabdev@thelab.co
-Requires-Python: >=3.9,<4.0
+License-File: LICENSE
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved
 Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: requests (>=2.32.3,<3.0.0)
-Requires-Dist: urllib3 (>=2.3.0,<3.0)
-Project-URL: Homepage, https://gitlab.com/thelabnyc/requests-unixsocket2
-Project-URL: Repository, https://gitlab.com/thelabnyc/requests-unixsocket2
+Requires-Python: >=3.9
+Requires-Dist: requests<3,>=2.32.3
+Requires-Dist: urllib3<3.0,>=2.4.0
 Description-Content-Type: text/markdown
 
 # requests-unixsocket2
@@ -103,4 +97,3 @@ For an example program that illustrates this, see `examples/abstract_namespace.p
 
 - https://github.com/msabramo/requests-unixsocket - origin of this project.
 - https://github.com/httpie/httpie-unixsocket - a plugin for `HTTPie <https://httpie.org/>`_ that allows you to interact with UNIX domain sockets.
-

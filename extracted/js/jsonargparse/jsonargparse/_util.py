@@ -282,11 +282,13 @@ current_path_dir: ContextVar[Optional[str]] = ContextVar("current_path_dir", def
 
 
 @contextmanager
-def change_to_path_dir(path: Optional["Path"]) -> Iterator[Optional[str]]:
+def change_to_path_dir(path: Optional[Union["Path", str]]) -> Iterator[Optional[str]]:
     """A context manager for running code in the directory of a path."""
     path_dir = current_path_dir.get()
     chdir: Union[bool, str] = False
     if path is not None:
+        if isinstance(path, str):
+            path = Path(path, mode="d")
         if path._url_data and (path.is_url or path.is_fsspec):
             scheme = path._url_data.scheme
             path_dir = path._url_data.url_path
@@ -390,8 +392,6 @@ def class_from_function(
     if isinstance(func_return, str):
         try:
             func_return = get_type_hints(func)["return"]
-            if isinstance(func_return, __import__("typing").ForwardRef):
-                func_return = func_return._evaluate(func.__globals__, {})
         except Exception as ex:
             func_return = inspect.signature(func).return_annotation
             raise ValueError(f"Unable to dereference {func_return}, the return type of {func}: {ex}") from ex

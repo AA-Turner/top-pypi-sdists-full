@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import datetime as dt
-from typing import Callable
-
-from dataclasses import dataclass, field
 import enum
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from .station import EcoWittStation
+if TYPE_CHECKING:
+    import datetime as dt
+    from collections.abc import Callable
+
+    from .station import EcoWittStation
 
 
 @dataclass
@@ -26,7 +28,7 @@ class EcoWittSensor:
 
     def update_value(
         self,
-        value: None | str | int | float | dt.datetime,
+        value: None | str | float | dt.datetime,
         last_update: float,
         last_update_m: float,
     ) -> None:
@@ -78,6 +80,8 @@ class EcoWittSensorTypes(enum.Enum):
     PERCENTAGE = 29
     SOIL_RAWADC = 30
     RAIN_STATE = 31
+    SOIL_MOISTURE = 32
+    VPD_INHG = 33
 
 
 @dataclass
@@ -93,6 +97,7 @@ SENSOR_MAP: dict[str, EcoWittMapping] = {
     "baromrelhpa": EcoWittMapping("Relative Pressure", EcoWittSensorTypes.PRESSURE_HPA),
     "baromabsin": EcoWittMapping("Absolute Pressure", EcoWittSensorTypes.PRESSURE_INHG),
     "baromrelin": EcoWittMapping("Relative Pressure", EcoWittSensorTypes.PRESSURE_INHG),
+    "vpd": EcoWittMapping("Vapour Pressure Deficit", EcoWittSensorTypes.VPD_INHG),
     "rainratein": EcoWittMapping("Rain Rate", EcoWittSensorTypes.RAIN_RATE_INCHES),
     "eventrainin": EcoWittMapping("Event Rain", EcoWittSensorTypes.RAIN_COUNT_INCHES),
     "hourlyrainin": EcoWittMapping("Hourly Rain", EcoWittSensorTypes.RAIN_COUNT_INCHES),
@@ -191,22 +196,54 @@ SENSOR_MAP: dict[str, EcoWittMapping] = {
     ),
     "solarradiation_lux": EcoWittMapping("Solar Lux", EcoWittSensorTypes.LUX),
     "uv": EcoWittMapping("UV Index", EcoWittSensorTypes.UV_INDEX),
-    "soilmoisture1": EcoWittMapping("Soil Moisture 1", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture2": EcoWittMapping("Soil Moisture 2", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture3": EcoWittMapping("Soil Moisture 3", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture4": EcoWittMapping("Soil Moisture 4", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture5": EcoWittMapping("Soil Moisture 5", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture6": EcoWittMapping("Soil Moisture 6", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture7": EcoWittMapping("Soil Moisture 7", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture8": EcoWittMapping("Soil Moisture 8", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture9": EcoWittMapping("Soil Moisture 9", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture10": EcoWittMapping("Soil Moisture 10", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture11": EcoWittMapping("Soil Moisture 11", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture12": EcoWittMapping("Soil Moisture 12", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture13": EcoWittMapping("Soil Moisture 13", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture14": EcoWittMapping("Soil Moisture 14", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture15": EcoWittMapping("Soil Moisture 15", EcoWittSensorTypes.HUMIDITY),
-    "soilmoisture16": EcoWittMapping("Soil Moisture 16", EcoWittSensorTypes.HUMIDITY),
+    "soilmoisture1": EcoWittMapping(
+        "Soil Moisture 1", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture2": EcoWittMapping(
+        "Soil Moisture 2", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture3": EcoWittMapping(
+        "Soil Moisture 3", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture4": EcoWittMapping(
+        "Soil Moisture 4", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture5": EcoWittMapping(
+        "Soil Moisture 5", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture6": EcoWittMapping(
+        "Soil Moisture 6", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture7": EcoWittMapping(
+        "Soil Moisture 7", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture8": EcoWittMapping(
+        "Soil Moisture 8", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture9": EcoWittMapping(
+        "Soil Moisture 9", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture10": EcoWittMapping(
+        "Soil Moisture 10", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture11": EcoWittMapping(
+        "Soil Moisture 11", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture12": EcoWittMapping(
+        "Soil Moisture 12", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture13": EcoWittMapping(
+        "Soil Moisture 13", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture14": EcoWittMapping(
+        "Soil Moisture 14", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture15": EcoWittMapping(
+        "Soil Moisture 15", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
+    "soilmoisture16": EcoWittMapping(
+        "Soil Moisture 16", EcoWittSensorTypes.SOIL_MOISTURE
+    ),
     "soilad1": EcoWittMapping("Soil AD 1", EcoWittSensorTypes.SOIL_RAWADC),
     "soilad2": EcoWittMapping("Soil AD 2", EcoWittSensorTypes.SOIL_RAWADC),
     "soilad3": EcoWittMapping("Soil AD 3", EcoWittSensorTypes.SOIL_RAWADC),

@@ -48,11 +48,12 @@ class cstruct:
     DEF_CSTYLE = 1
     DEF_LEGACY = 2
 
-    def __init__(self, endian: str = "<", pointer: str | None = None):
+    def __init__(self, load: str = "", *, endian: str = "<", pointer: str | None = None):
         self.endian = endian
 
         self.consts = {}
         self.lookups = {}
+        self.includes = []
         # fmt: off
         self.typedefs = {
             # Internal types
@@ -186,6 +187,9 @@ class cstruct:
         pointer = pointer or ("uint64" if sys.maxsize > 2**32 else "uint32")
         self.pointer: type[BaseType] = self.resolve(pointer)
         self._anonymous_count = 0
+
+        if load:
+            self.load(load)
 
     def __getattr__(self, attr: str) -> Any:
         try:
@@ -368,14 +372,14 @@ class cstruct:
             "null_terminated": null_terminated,
         }
 
-        return cast(type[Array], self._make_type(name, bases, size, alignment=type_.alignment, attrs=attrs))
+        return cast("type[Array]", self._make_type(name, bases, size, alignment=type_.alignment, attrs=attrs))
 
     def _make_int_type(self, name: str, size: int, signed: bool, *, alignment: int | None = None) -> type[Int]:
-        return cast(type[Int], self._make_type(name, (Int,), size, alignment=alignment, attrs={"signed": signed}))
+        return cast("type[Int]", self._make_type(name, (Int,), size, alignment=alignment, attrs={"signed": signed}))
 
     def _make_packed_type(self, name: str, packchar: str, base: type, *, alignment: int | None = None) -> type[Packed]:
         return cast(
-            type[Packed],
+            "type[Packed]",
             self._make_type(
                 name,
                 (base, Packed),

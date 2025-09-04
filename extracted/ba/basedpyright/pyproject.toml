@@ -20,7 +20,7 @@ requires-python = ">=3.8"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.31.3"
+version = "1.31.4"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -63,9 +63,6 @@ requires = [
 
 [tool.pyprojectx]
 lock-python-version = "3.8"
-main = [
-    "uv",
-]
 
 [tool.uv]
 default-groups = [

@@ -6110,6 +6110,22 @@ class LastDay(Func, TimeUnit):
     arg_types = {"this": True, "unit": False}
 
 
+class LaxBool(Func):
+    pass
+
+
+class LaxFloat64(Func):
+    pass
+
+
+class LaxInt64(Func):
+    pass
+
+
+class LaxString(Func):
+    pass
+
+
 class Extract(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -6200,6 +6216,11 @@ class Decode(Func):
 
 class DecodeCase(Func):
     arg_types = {"expressions": True}
+    is_var_len_args = True
+
+
+class DenseRank(AggFunc):
+    arg_types = {"expressions": False}
     is_var_len_args = True
 
 
@@ -6438,8 +6459,18 @@ class FormatJson(Expression):
     pass
 
 
+class Format(Func):
+    arg_types = {"this": True, "expressions": True}
+    is_var_len_args = True
+
+
 class JSONKeyValue(Expression):
     arg_types = {"this": True, "expression": True}
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/json_functions#json_keys
+class JSONKeysAtDepth(Func):
+    arg_types = {"this": True, "expression": False, "mode": False}
 
 
 class JSONObject(Func):
@@ -6502,6 +6533,23 @@ class JSONSchema(Expression):
     arg_types = {"expressions": True}
 
 
+class JSONSet(Func):
+    arg_types = {"this": True, "expressions": True}
+    is_var_len_args = True
+    _sql_names = ["JSON_SET"]
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/json_functions#json_strip_nulls
+class JSONStripNulls(Func):
+    arg_types = {
+        "this": True,
+        "expression": False,
+        "include_arrays": False,
+        "remove_empty": False,
+    }
+    _sql_names = ["JSON_STRIP_NULLS"]
+
+
 # https://dev.mysql.com/doc/refman/8.4/en/json-search-functions.html#function_json-value
 class JSONValue(Expression):
     arg_types = {
@@ -6514,6 +6562,12 @@ class JSONValue(Expression):
 
 class JSONValueArray(Func):
     arg_types = {"this": True, "expression": False}
+
+
+class JSONRemove(Func):
+    arg_types = {"this": True, "expressions": True}
+    is_var_len_args = True
+    _sql_names = ["JSON_REMOVE"]
 
 
 # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/JSON_TABLE.html
@@ -6625,10 +6679,22 @@ class JSONFormat(Func):
     _sql_names = ["JSON_FORMAT"]
 
 
+class JSONArrayAppend(Func):
+    arg_types = {"this": True, "expressions": True}
+    is_var_len_args = True
+    _sql_names = ["JSON_ARRAY_APPEND"]
+
+
 # https://dev.mysql.com/doc/refman/8.0/en/json-search-functions.html#operator_member-of
 class JSONArrayContains(Binary, Predicate, Func):
     arg_types = {"this": True, "expression": True, "json_type": False}
     _sql_names = ["JSON_ARRAY_CONTAINS"]
+
+
+class JSONArrayInsert(Func):
+    arg_types = {"this": True, "expressions": True}
+    is_var_len_args = True
+    _sql_names = ["JSON_ARRAY_INSERT"]
 
 
 class ParseBignumeric(Func):
@@ -6796,6 +6862,10 @@ class Nvl2(Func):
     arg_types = {"this": True, "true": True, "false": False}
 
 
+class Ntile(AggFunc):
+    arg_types = {"this": False}
+
+
 class Normalize(Func):
     arg_types = {"this": True, "form": False, "is_casefold": False}
 
@@ -6844,6 +6914,11 @@ class PercentileDisc(AggFunc):
     arg_types = {"this": True, "expression": False}
 
 
+class PercentRank(AggFunc):
+    arg_types = {"expressions": False}
+    is_var_len_args = True
+
+
 class Quantile(AggFunc):
     arg_types = {"this": True, "quantile": True}
 
@@ -6875,6 +6950,11 @@ class Randn(Func):
 
 class RangeN(Func):
     arg_types = {"this": True, "expressions": True, "each": False}
+
+
+class Rank(AggFunc):
+    arg_types = {"expressions": False}
+    is_var_len_args = True
 
 
 class ReadCSV(Func):
@@ -6926,6 +7006,18 @@ class RegexpLike(Binary, Func):
 
 class RegexpILike(Binary, Func):
     arg_types = {"this": True, "expression": True, "flag": False}
+
+
+class RegexpInstr(Func):
+    arg_types = {
+        "this": True,
+        "expression": True,
+        "position": False,
+        "occurrence": False,
+        "option": False,
+        "parameters": False,
+        "group": False,
+    }
 
 
 # https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.functions.split.html
@@ -7268,6 +7360,12 @@ class Upper(Func):
 
 class Corr(Binary, AggFunc):
     pass
+
+
+# https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/CUME_DIST.html
+class CumeDist(AggFunc):
+    arg_types = {"expressions": False}
+    is_var_len_args = True
 
 
 class Variance(AggFunc):

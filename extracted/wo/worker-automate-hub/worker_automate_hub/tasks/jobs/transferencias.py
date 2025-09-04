@@ -126,7 +126,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         console.print("Preenchendo o campo do cliente com o número da filial...\n")   
         campo = pre_venda.child_window(class_name="TDBIEditNumber", found_index=2)
         campo.set_focus()
-        send_keys(task.configEntrada["filialEmpresaOrigem"])
+        send_keys(task.configEntrada["filialEmpresaDestino"])
         send_keys("{TAB}")
         # cliente_field_position = await find_element_center(
         #     ASSETS_BASE_PATH + "field_cliente.png", (795, 354, 128, 50), 10

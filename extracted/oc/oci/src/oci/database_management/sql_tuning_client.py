@@ -77,10 +77,6 @@ class SqlTuningClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
-
-        :param enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
-            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("database_management"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -118,8 +114,6 @@ class SqlTuningClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
-        if 'enable_strict_url_encoding' in kwargs:
-            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("sql_tuning", config, signer, database_management_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -159,15 +153,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningTaskReturn`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/clone_sql_tuning_task.py.html>`__ to see an example of how to use clone_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/clone_sql_tuning_task.py.html>`__ to see an example of how to use clone_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -179,7 +169,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -226,7 +215,6 @@ class SqlTuningClient(object):
                 body=clone_sql_tuning_task_details,
                 response_type="SqlTuningTaskReturn",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -239,7 +227,6 @@ class SqlTuningClient(object):
                 body=clone_sql_tuning_task_details,
                 response_type="SqlTuningTaskReturn",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -279,15 +266,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSet`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/create_sql_tuning_set.py.html>`__ to see an example of how to use create_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/create_sql_tuning_set.py.html>`__ to see an example of how to use create_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -299,7 +282,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -348,7 +330,6 @@ class SqlTuningClient(object):
                 body=create_sql_tuning_set_details,
                 response_type="SqlTuningSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -361,7 +342,6 @@ class SqlTuningClient(object):
                 body=create_sql_tuning_set_details,
                 response_type="SqlTuningSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -404,15 +384,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetAdminActionStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/drop_sql_tuning_set.py.html>`__ to see an example of how to use drop_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/drop_sql_tuning_set.py.html>`__ to see an example of how to use drop_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -424,7 +400,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -474,7 +449,6 @@ class SqlTuningClient(object):
                 body=drop_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -487,7 +461,6 @@ class SqlTuningClient(object):
                 body=drop_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -527,15 +500,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/drop_sql_tuning_task.py.html>`__ to see an example of how to use drop_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/drop_sql_tuning_task.py.html>`__ to see an example of how to use drop_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -547,7 +516,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -593,7 +561,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 body=drop_sql_tuning_task_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -605,7 +572,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 body=drop_sql_tuning_task_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -649,15 +615,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetAdminActionStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/drop_sqls_in_sql_tuning_set.py.html>`__ to see an example of how to use drop_sqls_in_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/drop_sqls_in_sql_tuning_set.py.html>`__ to see an example of how to use drop_sqls_in_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -669,7 +631,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -719,7 +680,6 @@ class SqlTuningClient(object):
                 body=drop_sqls_in_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -732,7 +692,6 @@ class SqlTuningClient(object):
                 body=drop_sqls_in_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -775,15 +734,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSet`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/fetch_sql_tuning_set.py.html>`__ to see an example of how to use fetch_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/fetch_sql_tuning_set.py.html>`__ to see an example of how to use fetch_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -795,7 +750,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -845,7 +799,6 @@ class SqlTuningClient(object):
                 body=fetch_sql_tuning_set_details,
                 response_type="SqlTuningSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -858,7 +811,6 @@ class SqlTuningClient(object):
                 body=fetch_sql_tuning_set_details,
                 response_type="SqlTuningSet",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -908,15 +860,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ExecutionPlanStatsComparision`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_execution_plan_stats_comparision.py.html>`__ to see an example of how to use get_execution_plan_stats_comparision API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/get_execution_plan_stats_comparision.py.html>`__ to see an example of how to use get_execution_plan_stats_comparision API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'executionId']
@@ -928,7 +876,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_named_credential_id"
@@ -981,7 +928,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="ExecutionPlanStatsComparision",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -994,7 +940,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="ExecutionPlanStatsComparision",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1042,15 +987,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningAdvisorTaskSqlExecutionPlan`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_sql_execution_plan.py.html>`__ to see an example of how to use get_sql_execution_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/get_sql_execution_plan.py.html>`__ to see an example of how to use get_sql_execution_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'attribute']
@@ -1062,7 +1003,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_named_credential_id"
@@ -1121,7 +1061,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskSqlExecutionPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1134,7 +1073,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskSqlExecutionPlan",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1189,15 +1127,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningAdvisorTaskSummaryReport`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_sql_tuning_advisor_task_summary_report.py.html>`__ to see an example of how to use get_sql_tuning_advisor_task_summary_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/get_sql_tuning_advisor_task_summary_report.py.html>`__ to see an example of how to use get_sql_tuning_advisor_task_summary_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId']
@@ -1209,7 +1143,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "search_period",
             "time_greater_than_or_equal_to",
@@ -1277,7 +1210,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskSummaryReport",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1290,7 +1222,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskSummaryReport",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1368,15 +1299,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningAdvisorTaskFindingCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_sql_tuning_advisor_task_findings.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_findings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/list_sql_tuning_advisor_task_findings.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_findings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId']
@@ -1388,7 +1315,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "begin_exec_id",
             "end_exec_id",
@@ -1487,7 +1413,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskFindingCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1500,7 +1425,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskFindingCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1566,15 +1490,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningAdvisorTaskRecommendationCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_sql_tuning_advisor_task_recommendations.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_recommendations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/list_sql_tuning_advisor_task_recommendations.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_recommendations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'executionId']
@@ -1586,7 +1506,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "sort_by",
             "sort_order",
@@ -1661,7 +1580,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskRecommendationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1674,7 +1592,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskRecommendationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1738,15 +1655,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningAdvisorTaskCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_sql_tuning_advisor_tasks.py.html>`__ to see an example of how to use list_sql_tuning_advisor_tasks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/list_sql_tuning_advisor_tasks.py.html>`__ to see an example of how to use list_sql_tuning_advisor_tasks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -1758,7 +1671,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "name",
             "status",
@@ -1845,7 +1757,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1858,7 +1769,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningAdvisorTaskCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1914,15 +1824,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_sql_tuning_sets.py.html>`__ to see an example of how to use list_sql_tuning_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/list_sql_tuning_sets.py.html>`__ to see an example of how to use list_sql_tuning_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -1934,7 +1840,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "owner",
             "name_contains",
@@ -2010,7 +1915,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningSetCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2023,7 +1927,6 @@ class SqlTuningClient(object):
                 header_params=header_params,
                 response_type="SqlTuningSetCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2066,15 +1969,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetAdminActionStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/load_sql_tuning_set.py.html>`__ to see an example of how to use load_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/load_sql_tuning_set.py.html>`__ to see an example of how to use load_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -2086,7 +1985,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -2136,7 +2034,6 @@ class SqlTuningClient(object):
                 body=load_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2149,7 +2046,6 @@ class SqlTuningClient(object):
                 body=load_sql_tuning_set_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2192,15 +2088,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetAdminActionStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/save_sql_tuning_set_as.py.html>`__ to see an example of how to use save_sql_tuning_set_as API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/save_sql_tuning_set_as.py.html>`__ to see an example of how to use save_sql_tuning_set_as API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -2212,7 +2104,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -2262,7 +2153,6 @@ class SqlTuningClient(object):
                 body=save_sql_tuning_set_as_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2275,7 +2165,6 @@ class SqlTuningClient(object):
                 body=save_sql_tuning_set_as_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2315,15 +2204,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningTaskReturn`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/start_sql_tuning_task.py.html>`__ to see an example of how to use start_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/start_sql_tuning_task.py.html>`__ to see an example of how to use start_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -2335,7 +2220,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -2382,7 +2266,6 @@ class SqlTuningClient(object):
                 body=start_sql_tuning_task_details,
                 response_type="SqlTuningTaskReturn",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2395,7 +2278,6 @@ class SqlTuningClient(object):
                 body=start_sql_tuning_task_details,
                 response_type="SqlTuningTaskReturn",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2438,15 +2320,11 @@ class SqlTuningClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
-        :param bool enable_strict_url_encoding: (optional)
-            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
-            By default, strict url encoding for path params is disabled
-
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.SqlTuningSetAdminActionStatus`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/validate_basic_filter.py.html>`__ to see an example of how to use validate_basic_filter API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/databasemanagement/validate_basic_filter.py.html>`__ to see an example of how to use validate_basic_filter API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -2458,7 +2336,6 @@ class SqlTuningClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
-            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "opc_retry_token"
@@ -2508,7 +2385,6 @@ class SqlTuningClient(object):
                 body=validate_basic_filter_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2521,7 +2397,6 @@ class SqlTuningClient(object):
                 body=validate_basic_filter_details,
                 response_type="SqlTuningSetAdminActionStatus",
                 allow_control_chars=kwargs.get('allow_control_chars'),
-                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

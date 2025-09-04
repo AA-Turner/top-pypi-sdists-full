@@ -1,14 +1,14 @@
 Metadata-Version: 2.1
 Name: bidsschematools
-Version: 1.0.14
+Version: 1.1.0
 Summary: Python tools for working with the BIDS schema.
 Author: bids-standard developers
 Maintainer-Email: bids-standard developers <bids.maintenance@gmail.com>
 License: MIT
 Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -20,27 +20,25 @@ Requires-Dist: acres
 Requires-Dist: click
 Requires-Dist: pyyaml
 Provides-Extra: validation
-Requires-Dist: jsonschema; extra == "validation"
-Provides-Extra: doc
-Requires-Dist: sphinx>=1.5.3; extra == "doc"
-Requires-Dist: sphinx_rtd_theme; extra == "doc"
+Requires-Dist: jsonschema[format]; extra == "validation"
 Provides-Extra: dev
 Requires-Dist: bidsschematools[tests]; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Provides-Extra: expressions
+Requires-Dist: pyparsing; extra == "expressions"
 Provides-Extra: render
 Requires-Dist: tabulate; extra == "render"
 Requires-Dist: pandas; extra == "render"
 Requires-Dist: markdown-it-py; extra == "render"
-Provides-Extra: expressions
-Requires-Dist: pyparsing; extra == "expressions"
 Provides-Extra: tests
 Requires-Dist: bidsschematools[expressions,render,validation]; extra == "tests"
+Requires-Dist: check-jsonschema; extra == "tests"
 Requires-Dist: codecov; extra == "tests"
 Requires-Dist: coverage[toml]; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest>6; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Provides-Extra: all
-Requires-Dist: bidsschematools[doc,tests]; extra == "all"
+Requires-Dist: bidsschematools[tests]; extra == "all"
 Description-Content-Type: text/markdown
 
 # BIDS Schema Tools
@@ -61,6 +59,6 @@ Features:
 If you have questions, you can post them in one of several channels where BIDS members are active:
   - the [NeuroStars](https://neurostars.org/tags/bids) discourse forum
   - the [BrainHack Mattermost](https://mattermost.brainhack.org),
-    for instant messaging (see also this [news item](https://bids.neuroimaging.io/2020/06/24/Join-the-BIDS-community-on-the-BrainHack-Mattermost.html))
+    for instant messaging (see also this [news item](https://bids.neuroimaging.io/blog/2020/06/24/Join%20the%20BIDS%20community%20on%20the%20BrainHack%20Mattermost.html))
   - the [Google group](https://groups.google.com/forum/#!forum/bids-discussion),
     for broader discussions surrounding BIDS

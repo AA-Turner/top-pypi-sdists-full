@@ -91,6 +91,7 @@ class KinesisSource(_message.Message):
         "aws_session_token",
         "endpoint_url",
         "consumer_role_arn",
+        "enhanced_fanout_consumer_name",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     STREAM_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -103,6 +104,7 @@ class KinesisSource(_message.Message):
     AWS_SESSION_TOKEN_FIELD_NUMBER: _ClassVar[int]
     ENDPOINT_URL_FIELD_NUMBER: _ClassVar[int]
     CONSUMER_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
+    ENHANCED_FANOUT_CONSUMER_NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     stream_name: str
     stream_arn: str
@@ -114,6 +116,7 @@ class KinesisSource(_message.Message):
     aws_session_token: str
     endpoint_url: str
     consumer_role_arn: str
+    enhanced_fanout_consumer_name: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -127,6 +130,7 @@ class KinesisSource(_message.Message):
         aws_session_token: _Optional[str] = ...,
         endpoint_url: _Optional[str] = ...,
         consumer_role_arn: _Optional[str] = ...,
+        enhanced_fanout_consumer_name: _Optional[str] = ...,
     ) -> None: ...
 
 class KafkaSource(_message.Message):

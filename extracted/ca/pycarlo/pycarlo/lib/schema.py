@@ -5216,6 +5216,7 @@ class UserDefinedMonitorSearchFields(sgqlc.types.Enum):
 class UserDefinedMonitors(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT`: Agent
     * `CATEGORIES`: Dimension - legacy
     * `COMPARISON`: Comparison - legacy
     * `CUSTOM_SQL`: Custom SQL
@@ -5234,6 +5235,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT",
         "CATEGORIES",
         "COMPARISON",
         "CUSTOM_SQL",
@@ -10275,6 +10277,8 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "segment_count",
         "bootstrap",
         "sensitivity",
+        "monitor_sql_blocks",
+        "sampling_config",
     )
     monitor_fields = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="monitorFields")
     """Field/s to monitor"""
@@ -10358,6 +10362,12 @@ class IMetricsMonitor(sgqlc.types.Interface):
 
     sensitivity = sgqlc.types.Field(SensitivityLevels, graphql_name="sensitivity")
     """Sensitivity for automated thresholds"""
+
+    monitor_sql_blocks = sgqlc.types.Field("MonitorSqlBlocks", graphql_name="monitorSqlBlocks")
+    """SQL blocks used on the monitor"""
+
+    sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
+    """Sampling configuration for the monitor"""
 
 
 class IMonitor(sgqlc.types.Interface):
@@ -43176,6 +43186,8 @@ class Query(sgqlc.types.Type):
         "get_table_columns_lineage",
         "get_derived_tables_partial_lineage",
         "get_parsed_query",
+        "get_agent_span_groups",
+        "get_agent_span_sample",
         "get_job_execution_history_logs",
         "get_job_executions",
         "get_table_monitor",
@@ -43191,8 +43203,6 @@ class Query(sgqlc.types.Type):
         "get_monitor_queries",
         "test_monitor_queries",
         "get_notification_audiences_for_table",
-        "get_agent_span_groups",
-        "get_agent_span_sample",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
         "get_custom_rule",
@@ -49202,6 +49212,62 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String`): Source table mcon
     """
 
+    get_agent_span_groups = sgqlc.types.Field(
+        AgentSpanTree,
+        graphql_name="getAgentSpanGroups",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Retrieve agent log groups with observability data
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the table with agent observability
+      traces
+    """
+
+    get_agent_span_sample = sgqlc.types.Field(
+        "SQLResponse",
+        graphql_name="getAgentSpanSample",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput))
+                        ),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Preview traces for a specific span node
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the table with agent observability
+      traces
+    * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
+      agent span fields (agent, workflow, task, span_name)
+    """
+
     get_job_execution_history_logs = sgqlc.types.Field(
         sgqlc.types.list_of(JobExecutionHistoryLog),
         graphql_name="getJobExecutionHistoryLogs",
@@ -51549,59 +51615,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String!`): MCON that specifies a table
-    """
-
-    get_agent_span_groups = sgqlc.types.Field(
-        AgentSpanTree,
-        graphql_name="getAgentSpanGroups",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Retrieve agent log groups with observability data
-
-    Arguments:
-
-    * `mcon` (`String!`): MCON of the table with agent observability
-      traces
-    """
-
-    get_agent_span_sample = sgqlc.types.Field(
-        "SQLResponse",
-        graphql_name="getAgentSpanSample",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "sql_blocks",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(CustomRuleSqlBlocksInput),
-                        graphql_name="sqlBlocks",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Preview traces for a specific span node
-
-    Arguments:
-
-    * `mcon` (`String!`): MCON of the table with agent observability
-      traces
-    * `sql_blocks` (`CustomRuleSqlBlocksInput!`): The SQL blocks
     """
 
     get_all_user_defined_monitors_v2 = sgqlc.types.Field(
@@ -57064,6 +57077,10 @@ class Query(sgqlc.types.Type):
                 ("last_read", sgqlc.types.Arg(DateTime, graphql_name="lastRead", default=None)),
                 ("last_write", sgqlc.types.Arg(DateTime, graphql_name="lastWrite", default=None)),
                 (
+                    "last_volume_change",
+                    sgqlc.types.Arg(DateTime, graphql_name="lastVolumeChange", default=None),
+                ),
+                (
                     "importance_score_is_custom",
                     sgqlc.types.Arg(Boolean, graphql_name="importanceScoreIsCustom", default=None),
                 ),
@@ -57141,6 +57158,7 @@ class Query(sgqlc.types.Type):
     * `last_activity` (`DateTime`)None
     * `last_read` (`DateTime`)None
     * `last_write` (`DateTime`)None
+    * `last_volume_change` (`DateTime`)None
     * `importance_score_is_custom` (`Boolean`)None
     * `is_important_is_custom` (`Boolean`)None
     * `last_observed__gt` (`DateTime`)None
@@ -57390,6 +57408,10 @@ class Query(sgqlc.types.Type):
                 ("last_read", sgqlc.types.Arg(DateTime, graphql_name="lastRead", default=None)),
                 ("last_write", sgqlc.types.Arg(DateTime, graphql_name="lastWrite", default=None)),
                 (
+                    "last_volume_change",
+                    sgqlc.types.Arg(DateTime, graphql_name="lastVolumeChange", default=None),
+                ),
+                (
                     "importance_score_is_custom",
                     sgqlc.types.Arg(Boolean, graphql_name="importanceScoreIsCustom", default=None),
                 ),
@@ -57516,6 +57538,7 @@ class Query(sgqlc.types.Type):
     * `last_activity` (`DateTime`)None
     * `last_read` (`DateTime`)None
     * `last_write` (`DateTime`)None
+    * `last_volume_change` (`DateTime`)None
     * `importance_score_is_custom` (`Boolean`)None
     * `is_important_is_custom` (`Boolean`)None
     * `freshness_anomaly` (`Boolean`)None
@@ -69437,6 +69460,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "severity",
         "priority",
         "comparisons",
+        "is_paused",
         "rule_type",
         "warehouse_uuid",
         "interval_minutes",
@@ -69448,7 +69472,6 @@ class CustomRule(sgqlc.types.Type, Node):
         "prev_execution_time",
         "next_execution_time",
         "last_check_timestamp",
-        "is_paused",
         "snooze_until_time",
         "slack_snooze_user",
         "conditional_snooze",
@@ -69490,6 +69513,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "mc_sql",
         "tags",
         "data_quality_dimension",
+        "notify_rule_run_failure",
         "variables",
         "variable_definitions",
     )
@@ -69550,6 +69574,9 @@ class CustomRule(sgqlc.types.Type, Node):
         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparison)), graphql_name="comparisons"
     )
 
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
+    """True if rule is paused"""
+
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
@@ -69575,9 +69602,6 @@ class CustomRule(sgqlc.types.Type, Node):
     next_execution_time = sgqlc.types.Field(DateTime, graphql_name="nextExecutionTime")
 
     last_check_timestamp = sgqlc.types.Field(DateTime, graphql_name="lastCheckTimestamp")
-
-    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
-    """True if rule is paused"""
 
     snooze_until_time = sgqlc.types.Field(DateTime, graphql_name="snoozeUntilTime")
 
@@ -69772,6 +69796,9 @@ class CustomRule(sgqlc.types.Type, Node):
 
     data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
     """Data Quality Dimension of the monitor."""
+
+    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
+    """DEPRECATED: Replaced by failure audiences"""
 
     variables = sgqlc.types.Field(JSONString, graphql_name="variables")
     """Variables for the query"""
@@ -72793,6 +72820,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "severity",
         "priority",
         "comparisons",
+        "is_paused",
         "type",
         "warehouse_uuid",
         "data_source",
@@ -72809,7 +72837,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "use_partition_clause",
         "schedule",
         "monitor_name",
-        "is_paused",
         "disable_look_back_bootstrap",
         "high_segment_count",
         "segment_count_hint",
@@ -72836,6 +72863,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "agg_select_expression",
         "bootstrap",
         "sensitivity",
+        "notify_rule_run_failure",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -72890,6 +72918,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparison)), graphql_name="comparisons"
     )
 
+    is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
+    """Is this monitor paused?"""
+
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 
     warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
@@ -72939,9 +72970,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     """Name of monitor, must be unique per account, used for rule
     identityresolution for monitors-as-code
     """
-
-    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
-    """Is this monitor paused?"""
 
     disable_look_back_bootstrap = sgqlc.types.Field(
         Boolean, graphql_name="disableLookBackBootstrap"
@@ -73043,6 +73071,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     sensitivity = sgqlc.types.Field(SensitivityLevels, graphql_name="sensitivity")
     """Sensitivity for automated thresholds"""
+
+    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
+    """DEPRECATED: Replaced by failure audiences"""
 
 
 class Monitor(
@@ -73651,9 +73682,9 @@ class TableMonitor(sgqlc.types.Type, Node):
         "is_template_managed",
         "namespace",
         "priority",
+        "is_paused",
         "warehouse_uuid",
         "monitor_name",
-        "is_paused",
         "deleted_by",
         "domain_restrictions",
         "asset_selection",
@@ -73696,15 +73727,15 @@ class TableMonitor(sgqlc.types.Type, Node):
     priority = sgqlc.types.Field(TableMonitorModelPriority, graphql_name="priority")
     """Default priority for alerts involving this monitor"""
 
+    is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
+    """Is this monitor paused?"""
+
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
 
     monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
     """Name of monitor, must be unique per account, used for monitor
     identityresolution for monitors-as-code
     """
-
-    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
-    """Is this monitor paused?"""
 
     deleted_by = sgqlc.types.Field("User", graphql_name="deletedBy")
     """Deleted by"""
@@ -75306,9 +75337,12 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "alert_ids",
         "invalid_rows",
         "domain_restrictions",
+        "monitor_sql_blocks",
+        "sampling_config",
         "entity_mcons",
         "has_custom_rule_name",
         "is_transitioning_data_provider",
+        "notify_rule_run_failure",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -75484,6 +75518,12 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     monitor, if any
     """
 
+    monitor_sql_blocks = sgqlc.types.Field(MonitorSqlBlocks, graphql_name="monitorSqlBlocks")
+    """SQL blocks used on the monitor"""
+
+    sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
+    """Sampling configuration for the monitor"""
+
     entity_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="entityMcons")
     """MCONs for monitored tables/views"""
 
@@ -75492,6 +75532,9 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     is_transitioning_data_provider = sgqlc.types.Field(
         Boolean, graphql_name="isTransitioningDataProvider"
     )
+
+    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
+    """DEPRECATED: Replaced by failure audiences"""
 
 
 class UserInvite(sgqlc.types.Type, Node):
@@ -75610,6 +75653,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "last_activity",
         "last_read",
         "last_write",
+        "last_volume_change",
         "importance_score_is_custom",
         "is_important_is_custom",
         "anomalies",
@@ -75717,6 +75761,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
     last_read = sgqlc.types.Field(DateTime, graphql_name="lastRead")
 
     last_write = sgqlc.types.Field(DateTime, graphql_name="lastWrite")
+
+    last_volume_change = sgqlc.types.Field(DateTime, graphql_name="lastVolumeChange")
 
     importance_score_is_custom = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="importanceScoreIsCustom"
@@ -76175,6 +76221,7 @@ class WarehouseTableHealth(sgqlc.types.Type, Node):
         "last_activity",
         "last_read",
         "last_write",
+        "last_volume_change",
         "importance_score_is_custom",
         "is_important_is_custom",
         "freshness_anomaly",
@@ -76257,6 +76304,8 @@ class WarehouseTableHealth(sgqlc.types.Type, Node):
     last_read = sgqlc.types.Field(DateTime, graphql_name="lastRead")
 
     last_write = sgqlc.types.Field(DateTime, graphql_name="lastWrite")
+
+    last_volume_change = sgqlc.types.Field(DateTime, graphql_name="lastVolumeChange")
 
     importance_score_is_custom = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="importanceScoreIsCustom"

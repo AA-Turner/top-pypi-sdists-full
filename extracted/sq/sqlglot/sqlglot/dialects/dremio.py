@@ -74,6 +74,27 @@ def build_date_delta_with_cast_interval(
     return _builder
 
 
+def datetype_handler(args: t.List[exp.Expression], dialect: DialectType) -> exp.Expression:
+    year, month, day = args
+
+    if all(isinstance(arg, exp.Literal) and arg.is_int for arg in (year, month, day)):
+        date_str = f"{int(year.this):04d}-{int(month.this):02d}-{int(day.this):02d}"
+        return exp.Date(this=exp.Literal.string(date_str))
+
+    return exp.Cast(
+        this=exp.Concat(
+            expressions=[
+                year,
+                exp.Literal.string("-"),
+                month,
+                exp.Literal.string("-"),
+                day,
+            ]
+        ),
+        to=exp.DataType.build("DATE"),
+    )
+
+
 class Dremio(Dialect):
     SUPPORTS_USER_DEFINED_TYPES = False
     CONCAT_COALESCE = True
@@ -145,12 +166,16 @@ class Dremio(Dialect):
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
-            "TO_CHAR": to_char_is_numeric_handler,
-            "DATE_FORMAT": build_formatted_time(exp.TimeToStr, "dremio"),
-            "TO_DATE": build_formatted_time(exp.TsOrDsToDate, "dremio"),
-            "DATE_ADD": build_date_delta_with_cast_interval(exp.DateAdd),
-            "DATE_SUB": build_date_delta_with_cast_interval(exp.DateSub),
             "ARRAY_GENERATE_RANGE": exp.GenerateSeries.from_arg_list,
+            "DATE_ADD": build_date_delta_with_cast_interval(exp.DateAdd),
+            "DATE_FORMAT": build_formatted_time(exp.TimeToStr, "dremio"),
+            "DATE_SUB": build_date_delta_with_cast_interval(exp.DateSub),
+            "REGEXP_MATCHES": exp.RegexpLike.from_arg_list,
+            "REPEATSTR": exp.Repeat.from_arg_list,
+            "TO_CHAR": to_char_is_numeric_handler,
+            "TO_DATE": build_formatted_time(exp.TsOrDsToDate, "dremio"),
+            "DATE_PART": exp.Extract.from_arg_list,
+            "DATETYPE": datetype_handler,
         }
 
         def _parse_current_date_utc(self) -> exp.Cast:

@@ -25,13 +25,15 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import abc
 import logging
 import struct
 import warnings
 from dataclasses import dataclass, field
 from enum import IntEnum, IntFlag, unique
-from typing import Mapping, Optional, Union
+from typing import Mapping
 
 from fido2.hid import CAPABILITY as CTAP_CAPABILITY
 
@@ -77,7 +79,7 @@ class CAPABILITY(IntFlag):
         return f"{name}: {hex(self)}"
 
     @classmethod
-    def _from_fips(cls, fips: int) -> "CAPABILITY":
+    def _from_fips(cls, fips: int) -> CAPABILITY:
         c = CAPABILITY(0)
         if fips & (1 << 0):
             c |= CAPABILITY.FIDO2
@@ -92,7 +94,7 @@ class CAPABILITY(IntFlag):
         return c
 
     @classmethod
-    def _from_aid(cls, aid: AID) -> "CAPABILITY":
+    def _from_aid(cls, aid: AID) -> CAPABILITY:
         # TODO: match on prefix?
         try:
             return getattr(CAPABILITY, aid.name)
@@ -176,7 +178,7 @@ class FORM_FACTOR(IntEnum):
             return "Unknown"
 
     @classmethod
-    def from_code(cls, code: int) -> "FORM_FACTOR":
+    def from_code(cls, code: int) -> FORM_FACTOR:
         if code and not isinstance(code, int):
             raise ValueError(f"Invalid form factor code: {code}")
         code &= 0xF
@@ -237,16 +239,16 @@ class DeviceConfig:
     """Management settings for YubiKey which can be configured by the user."""
 
     enabled_capabilities: dict[TRANSPORT, CAPABILITY] = field(default_factory=dict)
-    auto_eject_timeout: Optional[int] = None
-    challenge_response_timeout: Optional[int] = None
-    device_flags: Optional[DEVICE_FLAG] = None
-    nfc_restricted: Optional[bool] = None
+    auto_eject_timeout: int | None = None
+    challenge_response_timeout: int | None = None
+    device_flags: DEVICE_FLAG | None = None
+    nfc_restricted: bool | None = None
 
     def get_bytes(
         self,
         reboot: bool,
-        cur_lock_code: Optional[bytes] = None,
-        new_lock_code: Optional[bytes] = None,
+        cur_lock_code: bytes | None = None,
+        new_lock_code: bytes | None = None,
     ) -> bytes:
         buf = b""
         if reboot:
@@ -294,20 +296,20 @@ class DeviceInfo:
     """Information about a YubiKey readable using the ManagementSession."""
 
     config: DeviceConfig
-    serial: Optional[int]
+    serial: int | None
     version: Version
     form_factor: FORM_FACTOR
     supported_capabilities: Mapping[TRANSPORT, CAPABILITY]
     is_locked: bool
     is_fips: bool = False
     is_sky: bool = False
-    part_number: Optional[str] = None
+    part_number: str | None = None
     fips_capable: CAPABILITY = CAPABILITY(0)
     fips_approved: CAPABILITY = CAPABILITY(0)
     pin_complexity: bool = False
     reset_blocked: CAPABILITY = CAPABILITY(0)
-    fps_version: Optional[Version] = None
-    stm_version: Optional[Version] = None
+    fps_version: Version | None = None
+    stm_version: Version | None = None
     version_qualifier: VersionQualifier = _DUMMY_VQ
 
     @property
@@ -329,7 +331,7 @@ class DeviceInfo:
         )
 
     @classmethod
-    def parse(cls, encoded: bytes, default_version: Version) -> "DeviceInfo":
+    def parse(cls, encoded: bytes, default_version: Version) -> DeviceInfo:
         if len(encoded) - 1 != encoded[0]:
             raise BadResponseError("Invalid length")
         return cls.parse_tlvs(Tlv.parse_dict(encoded[1:]), default_version)
@@ -337,7 +339,7 @@ class DeviceInfo:
     @classmethod
     def parse_tlvs(
         cls, data: Mapping[int, bytes], default_version: Version
-    ) -> "DeviceInfo":
+    ) -> DeviceInfo:
         locked = data.get(TAG_CONFIG_LOCK) == b"\1"
         serial = bytes2int(data.get(TAG_SERIAL, b"\0")) or None
         ff_value = bytes2int(data.get(TAG_FORM_FACTOR, b"\0"))
@@ -445,7 +447,7 @@ class Mode:
         return "+".join(t.name or str(t) for t in USB_INTERFACE if t in self.interfaces)
 
     @classmethod
-    def from_code(cls, code: int) -> "Mode":
+    def from_code(cls, code: int) -> Mode:
         # Mode is determined from the lowest 3 bits
         try:
             return cls(_MODES[code & 0b00000111])
@@ -572,7 +574,8 @@ class _ManagementCtapBackend(_Backend):
     def __init__(self, fido_connection):
         self.ctap = fido_connection
         version = fido_connection.device_version
-        if version[0] < 4:  # Prior to YK4 this was not firmware version
+        # Prior to YK4 this was not firmware version
+        if version[0] < 4 and version != (0, 0, 1):
             if not (
                 version[0] == 0 and fido_connection.capabilities & CTAP_CAPABILITY.CBOR
             ):
@@ -595,8 +598,8 @@ class _ManagementCtapBackend(_Backend):
 class ManagementSession:
     def __init__(
         self,
-        connection: Union[OtpConnection, SmartCardConnection, FidoConnection],
-        scp_key_params: Optional[ScpKeyParams] = None,
+        connection: OtpConnection | SmartCardConnection | FidoConnection,
+        scp_key_params: ScpKeyParams | None = None,
     ):
         if isinstance(connection, OtpConnection):
             if scp_key_params:
@@ -659,10 +662,10 @@ class ManagementSession:
 
     def write_device_config(
         self,
-        config: Optional[DeviceConfig] = None,
+        config: DeviceConfig | None = None,
         reboot: bool = False,
-        cur_lock_code: Optional[bytes] = None,
-        new_lock_code: Optional[bytes] = None,
+        cur_lock_code: bytes | None = None,
+        new_lock_code: bytes | None = None,
     ) -> None:
         """Write configuration settings for YubiKey.
 
@@ -691,7 +694,7 @@ class ManagementSession:
         self,
         mode: Mode,
         chalresp_timeout: int = 0,
-        auto_eject_timeout: Optional[int] = None,
+        auto_eject_timeout: int | None = None,
     ) -> None:
         """Write connection modes (USB interfaces) for YubiKey.
 

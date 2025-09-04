@@ -26,9 +26,11 @@ from .literals import (
     AudienceModelStatusType,
     AudienceSizeTypeType,
     ColumnTypeType,
+    EntityTypeType,
     InferenceInstanceTypeType,
     InstanceTypeType,
     LogsStatusType,
+    LogTypeType,
     MetricsStatusType,
     MLInputChannelStatusType,
     NoiseLevelTypeType,
@@ -101,6 +103,8 @@ __all__ = (
     "CreateTrainedModelResponseTypeDef",
     "CreateTrainingDatasetRequestTypeDef",
     "CreateTrainingDatasetResponseTypeDef",
+    "CustomEntityConfigOutputTypeDef",
+    "CustomEntityConfigTypeDef",
     "DataSourceTypeDef",
     "DatasetInputConfigOutputTypeDef",
     "DatasetInputConfigTypeDef",
@@ -213,6 +217,8 @@ __all__ = (
     "ListTrainingDatasetsRequestPaginateTypeDef",
     "ListTrainingDatasetsRequestTypeDef",
     "ListTrainingDatasetsResponseTypeDef",
+    "LogRedactionConfigurationOutputTypeDef",
+    "LogRedactionConfigurationTypeDef",
     "LogsConfigurationPolicyOutputTypeDef",
     "LogsConfigurationPolicyTypeDef",
     "MLInputChannelSummaryTypeDef",
@@ -426,6 +432,12 @@ class ResourceConfigTypeDef(TypedDict):
 
 class StoppingConditionTypeDef(TypedDict):
     maxRuntimeInSeconds: NotRequired[int]
+
+class CustomEntityConfigOutputTypeDef(TypedDict):
+    customDataIdentifiers: List[str]
+
+class CustomEntityConfigTypeDef(TypedDict):
+    customDataIdentifiers: Sequence[str]
 
 class GlueDataSourceTypeDef(TypedDict):
     tableName: str
@@ -643,14 +655,6 @@ class TrainingDatasetSummaryTypeDef(TypedDict):
     status: Literal["ACTIVE"]
     description: NotRequired[str]
 
-class LogsConfigurationPolicyOutputTypeDef(TypedDict):
-    allowedAccountIds: List[str]
-    filterPattern: NotRequired[str]
-
-class LogsConfigurationPolicyTypeDef(TypedDict):
-    allowedAccountIds: Sequence[str]
-    filterPattern: NotRequired[str]
-
 class MetricsConfigurationPolicyTypeDef(TypedDict):
     noiseLevel: NoiseLevelTypeType
 
@@ -813,9 +817,6 @@ class GetAudienceModelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetCollaborationMLInputChannelResponseTypeDef(TypedDict):
-    createTime: datetime
-    updateTime: datetime
-    creatorAccountId: str
     membershipIdentifier: str
     collaborationIdentifier: str
     mlInputChannelArn: str
@@ -826,6 +827,9 @@ class GetCollaborationMLInputChannelResponseTypeDef(TypedDict):
     retentionInDays: int
     numberOfRecords: int
     description: str
+    createTime: datetime
+    updateTime: datetime
+    creatorAccountId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetConfiguredAudienceModelPolicyResponseTypeDef(TypedDict):
@@ -954,6 +958,14 @@ class GetTrainedModelResponseTypeDef(TypedDict):
     dataChannels: List[ModelTrainingDataChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class LogRedactionConfigurationOutputTypeDef(TypedDict):
+    entitiesToRedact: List[EntityTypeType]
+    customEntityConfig: NotRequired[CustomEntityConfigOutputTypeDef]
+
+class LogRedactionConfigurationTypeDef(TypedDict):
+    entitiesToRedact: Sequence[EntityTypeType]
+    customEntityConfig: NotRequired[CustomEntityConfigTypeDef]
+
 class DataSourceTypeDef(TypedDict):
     glueDataSource: GlueDataSourceTypeDef
 
@@ -1044,16 +1056,6 @@ class ListTrainingDatasetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class TrainedModelsConfigurationPolicyOutputTypeDef(TypedDict):
-    containerLogs: NotRequired[List[LogsConfigurationPolicyOutputTypeDef]]
-    containerMetrics: NotRequired[MetricsConfigurationPolicyTypeDef]
-    maxArtifactSize: NotRequired[TrainedModelArtifactMaxSizeTypeDef]
-
-class TrainedModelsConfigurationPolicyTypeDef(TypedDict):
-    containerLogs: NotRequired[Sequence[LogsConfigurationPolicyTypeDef]]
-    containerMetrics: NotRequired[MetricsConfigurationPolicyTypeDef]
-    maxArtifactSize: NotRequired[TrainedModelArtifactMaxSizeTypeDef]
-
 class TrainedModelExportOutputConfigurationOutputTypeDef(TypedDict):
     members: List[TrainedModelExportReceiverMemberTypeDef]
 
@@ -1067,14 +1069,6 @@ class TrainedModelExportsConfigurationPolicyOutputTypeDef(TypedDict):
 class TrainedModelExportsConfigurationPolicyTypeDef(TypedDict):
     maxSize: TrainedModelExportsMaxSizeTypeDef
     filesToExport: Sequence[TrainedModelExportFileTypeType]
-
-class TrainedModelInferenceJobsConfigurationPolicyOutputTypeDef(TypedDict):
-    containerLogs: NotRequired[List[LogsConfigurationPolicyOutputTypeDef]]
-    maxOutputSize: NotRequired[TrainedModelInferenceMaxOutputSizeTypeDef]
-
-class TrainedModelInferenceJobsConfigurationPolicyTypeDef(TypedDict):
-    containerLogs: NotRequired[Sequence[LogsConfigurationPolicyTypeDef]]
-    maxOutputSize: NotRequired[TrainedModelInferenceMaxOutputSizeTypeDef]
 
 class ConfiguredAudienceModelOutputConfigTypeDef(TypedDict):
     destination: AudienceDestinationTypeDef
@@ -1144,6 +1138,18 @@ class GetConfiguredModelAlgorithmResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 ContainerConfigUnionTypeDef = Union[ContainerConfigTypeDef, ContainerConfigOutputTypeDef]
+
+class LogsConfigurationPolicyOutputTypeDef(TypedDict):
+    allowedAccountIds: List[str]
+    filterPattern: NotRequired[str]
+    logType: NotRequired[LogTypeType]
+    logRedactionConfiguration: NotRequired[LogRedactionConfigurationOutputTypeDef]
+
+class LogsConfigurationPolicyTypeDef(TypedDict):
+    allowedAccountIds: Sequence[str]
+    filterPattern: NotRequired[str]
+    logType: NotRequired[LogTypeType]
+    logRedactionConfiguration: NotRequired[LogRedactionConfigurationTypeDef]
 
 class DatasetInputConfigOutputTypeDef(TypedDict):
     schema: List[ColumnSchemaOutputTypeDef]
@@ -1237,18 +1243,6 @@ class CollaborationTrainedModelExportJobSummaryTypeDef(TypedDict):
 TrainedModelExportOutputConfigurationUnionTypeDef = Union[
     TrainedModelExportOutputConfigurationTypeDef, TrainedModelExportOutputConfigurationOutputTypeDef
 ]
-
-class PrivacyConfigurationPoliciesOutputTypeDef(TypedDict):
-    trainedModels: NotRequired[TrainedModelsConfigurationPolicyOutputTypeDef]
-    trainedModelExports: NotRequired[TrainedModelExportsConfigurationPolicyOutputTypeDef]
-    trainedModelInferenceJobs: NotRequired[
-        TrainedModelInferenceJobsConfigurationPolicyOutputTypeDef
-    ]
-
-class PrivacyConfigurationPoliciesTypeDef(TypedDict):
-    trainedModels: NotRequired[TrainedModelsConfigurationPolicyTypeDef]
-    trainedModelExports: NotRequired[TrainedModelExportsConfigurationPolicyTypeDef]
-    trainedModelInferenceJobs: NotRequired[TrainedModelInferenceJobsConfigurationPolicyTypeDef]
 
 class ConfiguredAudienceModelSummaryTypeDef(TypedDict):
     createTime: datetime
@@ -1344,6 +1338,24 @@ class CreateConfiguredModelAlgorithmRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
 
+class TrainedModelInferenceJobsConfigurationPolicyOutputTypeDef(TypedDict):
+    containerLogs: NotRequired[List[LogsConfigurationPolicyOutputTypeDef]]
+    maxOutputSize: NotRequired[TrainedModelInferenceMaxOutputSizeTypeDef]
+
+class TrainedModelsConfigurationPolicyOutputTypeDef(TypedDict):
+    containerLogs: NotRequired[List[LogsConfigurationPolicyOutputTypeDef]]
+    containerMetrics: NotRequired[MetricsConfigurationPolicyTypeDef]
+    maxArtifactSize: NotRequired[TrainedModelArtifactMaxSizeTypeDef]
+
+class TrainedModelInferenceJobsConfigurationPolicyTypeDef(TypedDict):
+    containerLogs: NotRequired[Sequence[LogsConfigurationPolicyTypeDef]]
+    maxOutputSize: NotRequired[TrainedModelInferenceMaxOutputSizeTypeDef]
+
+class TrainedModelsConfigurationPolicyTypeDef(TypedDict):
+    containerLogs: NotRequired[Sequence[LogsConfigurationPolicyTypeDef]]
+    containerMetrics: NotRequired[MetricsConfigurationPolicyTypeDef]
+    maxArtifactSize: NotRequired[TrainedModelArtifactMaxSizeTypeDef]
+
 DatasetOutputTypeDef = TypedDict(
     "DatasetOutputTypeDef",
     {
@@ -1393,12 +1405,6 @@ class StartTrainedModelExportJobRequestTypeDef(TypedDict):
     trainedModelVersionIdentifier: NotRequired[str]
     description: NotRequired[str]
 
-class PrivacyConfigurationOutputTypeDef(TypedDict):
-    policies: PrivacyConfigurationPoliciesOutputTypeDef
-
-class PrivacyConfigurationTypeDef(TypedDict):
-    policies: PrivacyConfigurationPoliciesTypeDef
-
 class ListConfiguredAudienceModelsResponseTypeDef(TypedDict):
     configuredAudienceModels: List[ConfiguredAudienceModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1421,6 +1427,18 @@ class InputChannelTypeDef(TypedDict):
     dataSource: InputChannelDataSourceTypeDef
     roleArn: str
 
+class PrivacyConfigurationPoliciesOutputTypeDef(TypedDict):
+    trainedModels: NotRequired[TrainedModelsConfigurationPolicyOutputTypeDef]
+    trainedModelExports: NotRequired[TrainedModelExportsConfigurationPolicyOutputTypeDef]
+    trainedModelInferenceJobs: NotRequired[
+        TrainedModelInferenceJobsConfigurationPolicyOutputTypeDef
+    ]
+
+class PrivacyConfigurationPoliciesTypeDef(TypedDict):
+    trainedModels: NotRequired[TrainedModelsConfigurationPolicyTypeDef]
+    trainedModelExports: NotRequired[TrainedModelExportsConfigurationPolicyTypeDef]
+    trainedModelInferenceJobs: NotRequired[TrainedModelInferenceJobsConfigurationPolicyTypeDef]
+
 class GetTrainingDatasetResponseTypeDef(TypedDict):
     createTime: datetime
     updateTime: datetime
@@ -1440,6 +1458,47 @@ DatasetTypeDef = TypedDict(
         "inputConfig": DatasetInputConfigUnionTypeDef,
     },
 )
+
+class GetMLInputChannelResponseTypeDef(TypedDict):
+    membershipIdentifier: str
+    collaborationIdentifier: str
+    mlInputChannelArn: str
+    name: str
+    configuredModelAlgorithmAssociations: List[str]
+    status: MLInputChannelStatusType
+    statusDetails: StatusDetailsTypeDef
+    retentionInDays: int
+    numberOfRecords: int
+    description: str
+    createTime: datetime
+    updateTime: datetime
+    inputChannel: InputChannelOutputTypeDef
+    protectedQueryIdentifier: str
+    numberOfFiles: float
+    sizeInGb: float
+    kmsKeyArn: str
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+InputChannelUnionTypeDef = Union[InputChannelTypeDef, InputChannelOutputTypeDef]
+
+class PrivacyConfigurationOutputTypeDef(TypedDict):
+    policies: PrivacyConfigurationPoliciesOutputTypeDef
+
+class PrivacyConfigurationTypeDef(TypedDict):
+    policies: PrivacyConfigurationPoliciesTypeDef
+
+DatasetUnionTypeDef = Union[DatasetTypeDef, DatasetOutputTypeDef]
+
+class CreateMLInputChannelRequestTypeDef(TypedDict):
+    membershipIdentifier: str
+    configuredModelAlgorithmAssociations: Sequence[str]
+    inputChannel: InputChannelUnionTypeDef
+    name: str
+    retentionInDays: int
+    description: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class GetCollaborationConfiguredModelAlgorithmAssociationResponseTypeDef(TypedDict):
     createTime: datetime
@@ -1471,29 +1530,12 @@ PrivacyConfigurationUnionTypeDef = Union[
     PrivacyConfigurationTypeDef, PrivacyConfigurationOutputTypeDef
 ]
 
-class GetMLInputChannelResponseTypeDef(TypedDict):
-    createTime: datetime
-    updateTime: datetime
-    membershipIdentifier: str
-    collaborationIdentifier: str
-    inputChannel: InputChannelOutputTypeDef
-    protectedQueryIdentifier: str
-    mlInputChannelArn: str
+class CreateTrainingDatasetRequestTypeDef(TypedDict):
     name: str
-    configuredModelAlgorithmAssociations: List[str]
-    status: MLInputChannelStatusType
-    statusDetails: StatusDetailsTypeDef
-    retentionInDays: int
-    numberOfRecords: int
-    numberOfFiles: float
-    sizeInGb: float
-    description: str
-    kmsKeyArn: str
-    tags: Dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-InputChannelUnionTypeDef = Union[InputChannelTypeDef, InputChannelOutputTypeDef]
-DatasetUnionTypeDef = Union[DatasetTypeDef, DatasetOutputTypeDef]
+    roleArn: str
+    trainingData: Sequence[DatasetUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    description: NotRequired[str]
 
 class CreateConfiguredModelAlgorithmAssociationRequestTypeDef(TypedDict):
     membershipIdentifier: str
@@ -1502,20 +1544,3 @@ class CreateConfiguredModelAlgorithmAssociationRequestTypeDef(TypedDict):
     description: NotRequired[str]
     privacyConfiguration: NotRequired[PrivacyConfigurationUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
-
-class CreateMLInputChannelRequestTypeDef(TypedDict):
-    membershipIdentifier: str
-    configuredModelAlgorithmAssociations: Sequence[str]
-    inputChannel: InputChannelUnionTypeDef
-    name: str
-    retentionInDays: int
-    description: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-class CreateTrainingDatasetRequestTypeDef(TypedDict):
-    name: str
-    roleArn: str
-    trainingData: Sequence[DatasetUnionTypeDef]
-    tags: NotRequired[Mapping[str, str]]
-    description: NotRequired[str]

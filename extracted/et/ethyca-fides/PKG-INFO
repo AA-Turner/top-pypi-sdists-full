@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethyca_fides
-Version: 2.68.0
+Version: 2.69.1
 Summary: Open-source ecosystem for data privacy as code.
 Home-page: https://github.com/ethyca/fides
 Author: Ethyca, Inc.
@@ -75,6 +75,7 @@ Requires-Dist: rich-click==1.6.1
 Requires-Dist: sendgrid==6.9.7
 Requires-Dist: scylla-driver==3.26.8
 Requires-Dist: slowapi==0.1.9
+Requires-Dist: smart-open[gcs,s3]==7.3.0.post1
 Requires-Dist: snowflake-sqlalchemy==1.5.1
 Requires-Dist: sqlalchemy[asyncio]==1.4.27
 Requires-Dist: sqlalchemy-citext==1.8.0
@@ -83,12 +84,13 @@ Requires-Dist: sqlalchemy-redshift==0.8.11
 Requires-Dist: sqlalchemy-stubs==0.4
 Requires-Dist: SQLAlchemy-Utils==0.38.3
 Requires-Dist: sshtunnel==0.4.0
+Requires-Dist: stream-zip==0.0.83
 Requires-Dist: tinycss2==1.2.1
 Requires-Dist: toml==0.10.2
 Requires-Dist: twilio==7.15.0
 Requires-Dist: typing-extensions==4.12.2
 Requires-Dist: versioneer==0.19
-Requires-Dist: fideslang==3.1.1
+Requires-Dist: fideslang==3.1.2
 Provides-Extra: mssql
 Requires-Dist: pymssql==2.3.4; extra == "mssql"
 Provides-Extra: all

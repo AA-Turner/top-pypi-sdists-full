@@ -1,3 +1,15 @@
+#
+# Copyright (c) 2024-2025 Semgrep Inc.
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public License
+# version 2.1 as published by the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the file
+# LICENSE for more details.
+#
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -77,11 +89,12 @@ def validate(fp: out.Fpath) -> Optional[out.CoreError]:
 def resolve_dependencies(
     dependency_sources: List[out.DependencySource],
     download_dependency_source_code: bool,
+    allow_local_builds: bool,
 ) -> Optional[List[Tuple[out.DependencySource, out.ResolutionResult]]]:
     call = out.FunctionCall(
         out.CallResolveDependencies(
             out.ResolveDependenciesParams(
-                dependency_sources, download_dependency_source_code
+                dependency_sources, download_dependency_source_code, allow_local_builds
             )
         )
     )

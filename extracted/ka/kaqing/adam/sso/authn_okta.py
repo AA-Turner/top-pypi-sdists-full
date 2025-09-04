@@ -79,34 +79,6 @@ class OktaAuthenticator(Authenticator):
                 log2(f'{username} is not a member of {group}.')
 
                 raise OktaException("You are not part of admin group.")
-            # print(parsed)
-            # {
-            #   'sub': '00u1fii2azgmh46dE1d8',
-            #   'name': 'Sean Ahn',
-            #   'locale': 'US',
-            #   'email': 'sean.ahn@c3iot.com',
-            #   'ver': 1,
-            #   'iss': 'https://c3energy.okta.com',
-            #   'aud': 'azops88.c3.ai',
-            #   'iat': 1756136559,
-            #   'exp': 1756140159,
-            #   'jti': 'ID.fIjNa_A-uYo-mKMqpN_CLPqgQUnDIHeBV4WGa-Q_Qx8',
-            #   'amr': [
-            #     'pwd'
-            #   ],
-            #   'idp': '00onsxj5mmBGYLRURHTH',
-            #   'nonce': 'kRpFTGiyUGg6uWfdCUkS3tGI4wrroCz3MTaeI_wTILE',
-            #   'preferred_username': 'sean.ahn@c3iot.com',
-            #   'given_name': 'Seung',
-            #   'family_name': 'Ahn',
-            #   'zoneinfo': 'America/Los_Angeles',
-            #   'updated_at': 1755201182,
-            #   'email_verified': False,
-            #   'auth_time': 1756136558,
-            #   'groups': [
-            #     'azops88.c3.ai/C3.ClusterAdmin'
-            #   ]
-            # }
 
         return IdpLogin(redirect_url, id_token, state_token, username, idp_uri=idp_uri, id_token_obj=parsed, session=session)
 
@@ -118,8 +90,7 @@ class OktaAuthenticator(Authenticator):
 
             return None
 
-        okta_auth_server = f"https://{idp_host}/oauth2"
-        jwks_url = f"{okta_auth_server}/v1/keys"
+        jwks_url = Config().get('idps.okta.jwks-uri', 'https://c3energy.okta.com/oauth2/v1/keys')
         try:
             jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=360)
             signing_key = jwks_client.get_signing_key_from_jwt(id_token)
